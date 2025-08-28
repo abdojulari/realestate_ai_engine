@@ -1,0 +1,13 @@
+# Property Images Placeholder
+
+This directory contains property images referenced in the seed data.
+The seed script references images like:
+- property1.jpg through property12.jpg
+- property1-2.jpg through property12-2.jpg  
+- property1-3.jpg through property12-3.jpg
+
+You can replace these with actual property images or use placeholder services like:
+- https://picsum.photos/800/600 for random images
+- https://via.placeholder.com/800x600 for solid color placeholders
+
+For now, the application will gracefully handle missing images with fallback styling.

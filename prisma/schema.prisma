@@ -1,0 +1,137 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  Int       @id @default(autoincrement())
+  email               String    @unique
+  password            String?
+  firstName           String
+  lastName            String
+  phone               String?
+  preferredContactTime String?
+  role                String    @default("user")
+  provider            String?   // "google", "facebook", "email"
+  providerId          String?   // ID from the provider
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  properties          Property[]
+  savedSearches       SavedSearch[]
+  viewingRequests     ViewingRequest[]
+  inquiries           PropertyInquiry[]
+  savedProperties     SavedProperty[]
+  propertyViews       PropertyView[]
+}
+
+model Property {
+  id            Int       @id @default(autoincrement())
+  title         String
+  description   String    @db.Text
+  price         Float
+  beds          Int
+  baths         Float
+  sqft          Float
+  type          String    // house, condo, townhouse
+  status        String    // for_sale, for_rent, sold
+  address       String
+  city          String
+  province      String
+  postalCode    String
+  latitude      Float
+  longitude     Float
+  features      Json?
+  images        Json      // Array of image URLs
+  views         Int       @default(0)
+  userId        Int       // Agent/Owner
+  user          User      @relation(fields: [userId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  viewingRequests ViewingRequest[]
+  inquiries     PropertyInquiry[]
+  savedBy       SavedProperty[]
+  propertyViews PropertyView[]
+}
+
+model ContentBlock {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  title     String
+  content   String   @db.Text
+  type      String   // text, html, image, testimonial
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SavedSearch {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  filters   Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ViewingRequest {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  propertyId  Int
+  user        User     @relation(fields: [userId], references: [id])
+  property    Property @relation(fields: [propertyId], references: [id])
+  dateTime    DateTime
+  status      String   // pending, approved, rejected, completed
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PropertyInquiry {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  propertyId  Int
+  user        User     @relation(fields: [userId], references: [id])
+  property    Property @relation(fields: [propertyId], references: [id])
+  message     String   @db.Text
+  status      String   // pending, responded, closed
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SavedProperty {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  propertyId  Int
+  user        User     @relation(fields: [userId], references: [id])
+  property    Property @relation(fields: [propertyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([userId, propertyId])
+}
+
+model PropertyView {
+  id          Int      @id @default(autoincrement())
+  userId      Int?
+  propertyId  Int
+  user        User?    @relation(fields: [userId], references: [id])
+  property    Property @relation(fields: [propertyId], references: [id])
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+}

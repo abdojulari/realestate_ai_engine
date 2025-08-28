@@ -1,0 +1,96 @@
+import { defineNuxtPlugin } from 'nuxt/app'
+import { useAuthStore } from '~/stores/auth'
+import type { AuthResponse } from '~/types'
+
+export default defineNuxtPlugin(async (nuxtApp) => {
+  const authStore = useAuthStore()
+
+  const checkAuth = async () => {
+    if (!process.client) return
+    const token = localStorage.getItem('token')
+    if (!token) return
+    try {
+      const res = await $fetch<AuthResponse>('/api/auth/check')
+      if (res?.user) {
+        authStore.setUser(res.user)
+        authStore.setToken(token)
+      } else {
+        localStorage.removeItem('token')
+        authStore.logout()
+      }
+    } catch (error) {
+      console.error('Auth check error:', error)
+      localStorage.removeItem('token')
+      authStore.logout()
+    }
+  }
+
+  const login = async (email: string, password: string) => {
+    try {
+      const res = await $fetch<AuthResponse>('/api/auth/login', {
+        method: 'POST',
+        body: { email, password }
+      })
+      if (res?.token) {
+        if (process.client) {
+          localStorage.setItem('token', res.token)
+        }
+        authStore.setToken(res.token)
+        authStore.setUser(res.user)
+        const redirect = process.client ? localStorage.getItem('redirectAfterLogin') : null
+        if (redirect) {
+          localStorage.removeItem('redirectAfterLogin')
+          return redirect
+        }
+        return '/'
+      }
+      throw new Error('Login failed')
+    } catch (error) {
+      // Let the UI handle error display, just re-throw
+      throw error
+    }
+  }
+
+  const register = async (data: any) => {
+    try {
+      const res = await $fetch<AuthResponse>('/api/auth/register', {
+        method: 'POST',
+        body: data
+      })
+      if (res?.token) {
+        if (process.client) {
+          localStorage.setItem('token', res.token)
+        }
+        authStore.setToken(res.token)
+        authStore.setUser(res.user)
+        return '/'
+      }
+      throw new Error('Registration failed')
+    } catch (error) {
+      // Let the UI handle error display, just re-throw
+      throw error
+    }
+  }
+
+  const logout = () => {
+    if (process.client) {
+      localStorage.removeItem('token')
+    }
+    authStore.logout()
+    return navigateTo('/auth/login')
+  }
+
+  // Check auth on plugin initialization
+  await checkAuth()
+
+  return {
+    provide: {
+      auth: {
+        login,
+        register,
+        logout,
+        checkAuth
+      }
+    }
+  }
+})
