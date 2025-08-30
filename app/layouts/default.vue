@@ -19,7 +19,7 @@
 
     <v-app-bar
       color="white"
-      elevation="1"
+      flat
     >
       <template v-slot:prepend>
         <v-app-bar-nav-icon
@@ -103,7 +103,9 @@
     </v-main>
 
     <v-footer
-      class="bg-grey-lighten-1"
+      class="d-flex flex-column"
+      style="background-color: white !important;"
+      color="white"
     >
       <v-container>
         <v-row>
@@ -111,7 +113,7 @@
             <h3 class="text-h6 mb-4">Contact Us</h3>
             <div class="mb-2">
               <v-icon size="small" class="mr-2">mdi-phone</v-icon>
-              +1 (780) 788-0008
+              +1 (780) 234 2333
             </div>
             <div class="mb-2">
               <v-icon size="small" class="mr-2">mdi-email</v-icon>
@@ -148,7 +150,8 @@
         </v-row>
         <v-divider class="my-4" />
         <div class="text-center">
-          © {{ new Date().getFullYear() }} Real Estate Portal. All rights reserved.
+          © {{ new Date().getFullYear() }} Real Estate Portal. All rights reserved. Powered by
+          <a href="https://www.realtor.ca/en" target="_blank">REALTOR.ca</a> and Developed by Abdul Ojulari
         </div>
       </v-container>
     </v-footer>
@@ -203,5 +206,33 @@ const handleNav = (to: string) => {
 <style scoped>
 .v-list-item--density-compact {
   min-height: 32px;
+}
+.v-list-item:hover > .v-list-item__overlay {
+      opacity: 0 !important; 
+    }
+</style>
+
+<style>
+/* Force white background on footer and all its children */
+.v-footer,
+.v-footer *,
+.v-footer .v-container,
+.v-footer .v-row,
+.v-footer .v-col,
+.v-footer .v-list {
+  background-color: white !important;
+  background: white !important;
+}
+
+/* Override any Vuetify background classes */
+.v-footer.bg-grey-lighten-1 {
+  background-color: white !important;
+  background: white !important;
+}
+
+/* More specific overrides */
+.v-footer .v-list-item {
+  background-color: transparent !important;
+  background: transparent !important;
 }
 </style>

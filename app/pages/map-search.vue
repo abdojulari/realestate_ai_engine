@@ -187,16 +187,22 @@ const totalPages = computed(() => {
 
 const handleSearch = async (searchParams: PropertyFilter) => {
   loading.value = true
+  console.log('🔍 Map search called with params:', searchParams) // Debug log
+  
   try {
     const data = await propertyService.search(searchParams)
+    console.log('✅ Search completed, found:', data.length, 'properties') // Debug log
+    
     // Ensure agent/isSaved shape as expected by view
     properties.value = data.map((p: any) => ({
       ...p,
       isSaved: Boolean(p.isSaved),
       agent: p.agent || p.user
     }))
+    
+    console.log('📍 Properties with coordinates:', properties.value.filter(p => p.latitude && p.longitude).length) // Debug log
   } catch (error) {
-    console.error('Search error:', error)
+    console.error('❌ Search error:', error)
   } finally {
     loading.value = false
   }

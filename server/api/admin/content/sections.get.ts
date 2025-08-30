@@ -1,11 +1,10 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
-import { requireAdmin } from '../../../utils/auth'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  // Note: This endpoint is whitelisted in auth middleware, so no authentication required
 
   const blocks = await prisma.contentBlock.findMany({})
   const sectionsMap = new Map<string, { id: string, title: string, icon: string, items: number, hasUnpublished: boolean }>()

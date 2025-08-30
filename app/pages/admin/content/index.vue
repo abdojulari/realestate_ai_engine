@@ -6,7 +6,7 @@
       <v-btn
         color="primary"
         prepend-icon="mdi-plus"
-        @click="showAddContentDialog = true"
+        @click="openAddContentDialog"
       >
         Add Content
       </v-btn>
@@ -207,6 +207,54 @@
                     :rules="[v => !!v || 'Content is required']"
                     required
                   />
+
+                  <!-- Image uploader for About page content -->
+                  <div v-if="contentForm.section === 'about'" class="mt-4">
+                    <v-file-input
+                      v-model="contentForm.uploadedImages"
+                      label="Upload Images for About Page"
+                      accept="image/*"
+                      multiple
+                      show-size
+                      prepend-icon="mdi-camera-plus"
+                      hint="Upload up to multiple images (jpg, png, gif, webp)"
+                      persistent-hint
+                      @update:model-value="uploadAboutImages"
+                    />
+                    
+                    <!-- Display uploaded image paths -->
+                    <div v-if="contentForm.metadata?.imagePaths?.length > 0" class="mt-3">
+                      <v-card variant="outlined" class="pa-3">
+                        <v-card-title class="text-subtitle-1 pa-0 mb-2">
+                          <v-icon left>mdi-image-multiple</v-icon>
+                          Available Images
+                        </v-card-title>
+                        <div class="text-caption mb-2">Copy these paths to use in your HTML content:</div>
+                        <v-list density="compact">
+                          <v-list-item
+                            v-for="(imagePath, index) in contentForm.metadata.imagePaths"
+                            :key="index"
+                            class="pa-1"
+                          >
+                            <template v-slot:prepend>
+                              <v-icon size="small">mdi-file-image</v-icon>
+                            </template>
+                            <v-list-item-title>
+                              <code class="text-body-2">{{ imagePath }}</code>
+                            </v-list-item-title>
+                            <template v-slot:append>
+                              <v-btn
+                                icon="mdi-content-copy"
+                                variant="text"
+                                size="x-small"
+                                @click="copyToClipboard(imagePath)"
+                              />
+                            </template>
+                          </v-list-item>
+                        </v-list>
+                      </v-card>
+                    </div>
+                  </div>
                 </div>
 
                 <div v-else-if="['image','hero'].includes(contentForm.key)">
@@ -297,7 +345,7 @@
           <v-spacer />
           <v-btn
             variant="text"
-            @click="showAddContentDialog = false"
+            @click="cancelForm"
           >
             Cancel
           </v-btn>
@@ -316,7 +364,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '~~/utils/api'
 
 const search = ref('')
@@ -363,9 +411,9 @@ const pageKeyOptions: Record<string, Array<{ title: string, value: string }>> = 
   ]
 }
 
-const keyOptions = computed(() => pageKeyOptions[contentForm.value.section] || [])
+const keyOptions = computed(() => pageKeyOptions[contentForm.section] || [])
 
-const contentForm = ref<any>({
+const contentForm = reactive<any>({
   title: '',
   key: '',
   section: 'home',
@@ -373,10 +421,12 @@ const contentForm = ref<any>({
   content: '',
   published: true,
   file: null,
+  uploadedImages: null,
   metadata: {
     author: '',
     position: '',
-    icon: ''
+    icon: '',
+    imagePaths: []
   }
 })
 
@@ -415,7 +465,16 @@ const selectSection = async (sectionId: string) => {
 
 const editContent = (item: any) => {
   editingContent.value = true
-  contentForm.value = { ...item, file: null }
+  const metadata = item.metadata || {}
+  Object.assign(contentForm, { 
+    ...item, 
+    file: null,
+    uploadedImages: null,
+    metadata: {
+      ...metadata,
+      imagePaths: metadata.imagePaths || []
+    }
+  })
   showAddContentDialog.value = true
 }
 
@@ -447,32 +506,106 @@ const deleteContent = async (item: any) => {
   }
 }
 
+const uploadAboutImages = async (files: File | File[] | null) => {
+  if (!files) return
+  
+  // Normalize to array
+  const fileArray = Array.isArray(files) ? files : [files]
+  if (fileArray.length === 0) return
+  
+  try {
+    const formData = new FormData()
+    fileArray.forEach((file, index) => {
+      formData.append(`image${index}`, file)
+    })
+    
+    const response: any = await api.post('/api/admin/content/upload-about-images', formData)
+    if (response?.images) {
+      // Add new image paths to existing ones
+      const existingPaths = contentForm.metadata?.imagePaths || []
+      contentForm.metadata.imagePaths = [...existingPaths, ...response.images]
+    }
+  } catch (e) {
+    console.error('Failed to upload images:', e)
+    alert('Failed to upload images. Please try again.')
+  }
+}
+
+const copyToClipboard = async (text: string) => {
+  try {
+    await navigator.clipboard.writeText(text)
+    // You could add a toast notification here
+  } catch (e) {
+    console.error('Failed to copy to clipboard:', e)
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+  }
+}
+
+const resetForm = () => {
+  Object.assign(contentForm, {
+    title: '',
+    key: '',
+    section: 'home',
+    type: 'text',
+    content: '',
+    published: true,
+    file: null,
+    uploadedImages: null,
+    metadata: {
+      author: '',
+      position: '',
+      icon: '',
+      imagePaths: []
+    }
+  })
+}
+
+const cancelForm = () => {
+  showAddContentDialog.value = false
+  editingContent.value = false
+  resetForm()
+}
+
+const openAddContentDialog = () => {
+  resetForm()
+  editingContent.value = false
+  showAddContentDialog.value = true
+}
+
 const saveContent = async () => {
   saving.value = true
   try {
+    const dataToSend = {
+      title: contentForm.title,
+      key: contentForm.key || contentForm.type,
+      type: contentForm.type,
+      section: contentForm.section,
+      content: contentForm.content,
+      published: contentForm.published,
+      metadata: contentForm.metadata
+    }
+    
     const formData = new FormData()
-    formData.append('data', JSON.stringify({
-      title: contentForm.value.title,
-      key: contentForm.value.key || contentForm.value.type,
-      type: contentForm.value.type,
-      section: contentForm.value.section,
-      content: contentForm.value.content,
-      published: contentForm.value.published,
-      metadata: contentForm.value.metadata
-    }))
+    formData.append('data', JSON.stringify(dataToSend))
     // Upload image first if needed
-    if (contentForm.value.file && ['hero', 'image'].includes(contentForm.value.key || contentForm.value.type)) {
+    if (contentForm.file && ['hero', 'image'].includes(contentForm.key || contentForm.type)) {
       try {
         const imgForm = new FormData()
-        imgForm.append('image', contentForm.value.file)
+        imgForm.append('image', contentForm.file)
         const uploadRes: any = await api.post('/api/admin/content/upload', imgForm)
-        if (uploadRes?.url) contentForm.value.content = uploadRes.url
+        if (uploadRes?.url) contentForm.content = uploadRes.url
       } catch (e) {
         console.error('Image upload failed:', e)
       }
     }
 
-    const endpoint = editingContent.value ? `/api/admin/content/${contentForm.value.id}` : '/api/admin/content'
+    const endpoint = editingContent.value ? `/api/admin/content/${contentForm.id}` : '/api/admin/content'
     const method = editingContent.value ? 'PUT' : 'POST'
 
     const saved = method === 'PUT'
@@ -488,13 +621,15 @@ const saveContent = async () => {
 
     showAddContentDialog.value = false
     editingContent.value = false
+    resetForm()
     // reload items for current section to reflect any filters
     try {
       const items = await api.get(`/api/admin/content?section=${selectedSection.value}`)
       contentItems.value = items as any[]
     } catch {}
   } catch (e) {
-    console.error(e)
+    console.error('Save failed:', e)
+    alert(`Save failed: ${(e as any)?.message || 'Unknown error'}`)
   } finally {
     saving.value = false
   }

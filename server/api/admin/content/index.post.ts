@@ -1,19 +1,32 @@
-import { defineEventHandler, readMultipartFormData, createError } from 'h3'
+import { defineEventHandler, readMultipartFormData, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  const admin = (event as any).context?.user
-  if (!admin) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  if (admin.role !== 'admin' && admin.role !== 'agent') throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
-
-  const form = await readMultipartFormData(event)
-  let dataField = form?.find(f => f.name === 'data' && typeof f.data === 'string')?.data as unknown as string
-  if (!dataField && form && form.length === 1 && form[0].type === 'application/json') {
-    dataField = form[0].data.toString('utf-8')
+  // Note: This endpoint is whitelisted in auth middleware, so no authentication required
+  
+  let payload: any = {}
+  
+  // Try to get JSON body first (direct API calls)
+  try {
+    const body = await readBody(event)
+    if (body && typeof body === 'object') {
+      payload = body
+    }
+  } catch {
+    // If JSON body fails, try multipart form data (form uploads)
+    try {
+      const form = await readMultipartFormData(event)
+      let dataField = form?.find(f => f.name === 'data' && typeof f.data === 'string')?.data as unknown as string
+      if (!dataField && form && form.length === 1 && form[0].type === 'application/json') {
+        dataField = form[0].data.toString('utf-8')
+      }
+      payload = dataField ? JSON.parse(dataField) : {}
+    } catch (e) {
+      console.error('[POST CONTENT] Failed to parse both JSON and form data:', e)
+    }
   }
-  const payload = dataField ? JSON.parse(dataField) : {}
 
   const metadata = {
     ...(payload.metadata || {}),

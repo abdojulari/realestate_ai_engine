@@ -59,13 +59,24 @@ onMounted(async () => {
     const items: any[] = page.items || []
     
     // Load hero content
-    const heroTitleItem = items.find(i => i.key === 'about.hero.title')
-    const heroSubtitleItem = items.find(i => i.key === 'about.hero.subtitle')
-    const mainContentItem = items.find(i => i.key === 'about.main.content')
+    const heroTitleItem = items.find(i => i.key === 'about.hero.title' || i.key === 'about-title')
+    const heroSubtitleItem = items.find(i => i.key === 'about.hero.subtitle' || i.key === 'about-subtitle')
+    
+    // Look for HTML content - try specific keys first, then any HTML content
+    let mainContentItem = items.find(i => i.key === 'about.main.content')
+    if (!mainContentItem) {
+      mainContentItem = items.find(i => i.key === 'about-body' || i.key === 'about.body')
+    }
+    if (!mainContentItem) {
+      // Find any HTML content in the about section
+      mainContentItem = items.find(i => i.type === 'html' && i.content && i.content.length > 50)
+    }
     
     if (heroTitleItem?.content) heroTitle.value = heroTitleItem.content
     if (heroSubtitleItem?.content) heroSubtitle.value = heroSubtitleItem.content
-    if (mainContentItem?.content) mainContent.value = mainContentItem.content
+    if (mainContentItem?.content) {
+      mainContent.value = mainContentItem.content
+    }
     
     // Load stats
     const statItems = items.filter(i => i.key.startsWith('about.stats.'))

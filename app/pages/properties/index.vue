@@ -47,7 +47,32 @@ const q = ref('')
 onMounted(async () => {
   loading.value = true
   try {
-    items.value = await $fetch('/api/properties')
+    // Get search parameters from URL query
+    const route = useRoute()
+    const queryParams = route.query
+    
+    console.log('🔍 Properties page URL query params:', queryParams) // Debug log
+    
+    // Build API URL with query parameters if they exist
+    let apiUrl = '/api/properties'
+    if (Object.keys(queryParams).length > 0) {
+      const searchParams = new URLSearchParams()
+      
+      // Add all non-empty query parameters
+      Object.entries(queryParams).forEach(([key, value]) => {
+        if (value && value !== 'undefined' && value !== 'null') {
+          searchParams.append(key, String(value))
+        }
+      })
+      
+      if (searchParams.toString()) {
+        apiUrl += `?${searchParams.toString()}`
+      }
+    }
+    
+    console.log('🔍 Fetching from API URL:', apiUrl) // Debug log
+    items.value = await $fetch(apiUrl)
+    console.log('✅ Found properties:', items.value.length) // Debug log
   } finally {
     loading.value = false
   }

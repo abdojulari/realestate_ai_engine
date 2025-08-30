@@ -20,18 +20,33 @@ export const propertyService = {
   async search(filters: PropertyFilter): Promise<Property[]> {
     const params = new URLSearchParams()
     
+    // Handle all possible filter fields
     if (filters.minPrice) params.append('minPrice', filters.minPrice.toString())
     if (filters.maxPrice) params.append('maxPrice', filters.maxPrice.toString())
     if (filters.beds) params.append('beds', filters.beds.toString())
     if (filters.baths) params.append('baths', filters.baths.toString())
-    if (filters.type) params.append('type', filters.type)
+    if (filters.type || filters.propertyType) params.append('type', (filters.type || filters.propertyType)!)
     if (filters.status) params.append('status', filters.status)
     if (filters.city) params.append('city', filters.city)
+    if (filters.location) {
+      // Extract city from location if no city is provided
+      if (!filters.city) {
+        const city = filters.location.includes(',') ? filters.location.split(',')[0].trim() : filters.location
+        if (city) params.append('city', city)
+      }
+      params.append('location', filters.location)
+    }
     if (filters.province) params.append('province', filters.province)
+    if (filters.minSqft) params.append('minSqft', filters.minSqft.toString())
+    if (filters.maxSqft) params.append('maxSqft', filters.maxSqft.toString())
+    if (filters.features && filters.features.length > 0) {
+      filters.features.forEach(feature => params.append('features', feature))
+    }
     
     const queryString = params.toString()
     const url = queryString ? `/api/properties?${queryString}` : '/api/properties'
     
+    console.log('Property search URL:', url) // Debug log
     return await authedFetch(url)
   },
 

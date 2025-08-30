@@ -334,7 +334,11 @@ const clearFilters = () => {
 }
 
 const search = () => {
-  emit('search', transformSearchFilters(filters.value))
+  console.log('🔍 SearchFilters: search button clicked') // Debug log
+  console.log('📋 Raw filters:', filters.value) // Debug log
+  const transformed = transformSearchFilters(filters.value)
+  console.log('🔄 Transformed filters:', transformed) // Debug log
+  emit('search', transformed)
 }
 
 // Watch for filter changes

@@ -191,3 +191,27 @@ body {
     display: none;
   }
 }
+
+/* Footer Background Override - Force white background */
+.v-footer,
+.v-footer *,
+.v-footer .v-container,
+.v-footer .v-row,
+.v-footer .v-col,
+.v-footer .v-list {
+  background-color: white !important;
+  background: white !important;
+}
+
+/* Override any Vuetify background classes on footer */
+.v-footer.bg-grey-lighten-1,
+.v-footer .bg-grey-lighten-1 {
+  background-color: white !important;
+  background: white !important;
+}
+
+/* Ensure list items in footer are transparent */
+.v-footer .v-list-item {
+  background-color: transparent !important;
+  background: transparent !important;
+}

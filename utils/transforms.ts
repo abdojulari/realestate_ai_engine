@@ -1,24 +1,36 @@
 interface SearchFilters {
   location?: string
   propertyType?: string
-  priceMin?: number
-  priceMax?: number
+  minPrice?: number
+  maxPrice?: number
   beds?: number
   baths?: number
-  sqftMin?: number
-  sqftMax?: number
+  minSqft?: number
+  maxSqft?: number
+  features?: string[]
+  status?: string
+  city?: string
+  type?: string
 }
 
 export const transformSearchFilters = (filters: any): SearchFilters => {
+  // Handle location parsing for city extraction
+  const location = filters.location || ''
+  const city = location.includes(',') ? location.split(',')[0].trim() : location
+  
   return {
-    location: filters.location || '',
-    propertyType: filters.propertyType || 'all',
-    priceMin: filters.priceMin ? Number(filters.priceMin) : undefined,
-    priceMax: filters.priceMax ? Number(filters.priceMax) : undefined,
+    location: location,
+    city: city,
+    type: filters.propertyType || undefined,
+    propertyType: filters.propertyType || undefined,
+    minPrice: filters.minPrice ? Number(filters.minPrice) : undefined,
+    maxPrice: filters.maxPrice ? Number(filters.maxPrice) : undefined,
     beds: filters.beds ? Number(filters.beds) : undefined,
     baths: filters.baths ? Number(filters.baths) : undefined,
-    sqftMin: filters.sqftMin ? Number(filters.sqftMin) : undefined,
-    sqftMax: filters.sqftMax ? Number(filters.sqftMax) : undefined
+    minSqft: filters.minSqft ? Number(filters.minSqft) : undefined,
+    maxSqft: filters.maxSqft ? Number(filters.maxSqft) : undefined,
+    features: filters.features || [],
+    status: filters.status || undefined
   }
 }
 

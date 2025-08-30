@@ -285,7 +285,26 @@ const selectLocation = (suggestion: any) => {
 }
 
 const search = () => {
-  emit('search', searchParams.value)
+  console.log('🔍 PropertySearch: search button clicked') // Debug log
+  console.log('📋 Raw search params:', searchParams.value) // Debug log
+  
+  // Transform to match the expected format
+  const transformedParams = {
+    location: searchParams.value.location || '',
+    propertyType: searchParams.value.propertyType || undefined,
+    type: searchParams.value.propertyType || undefined,
+    minPrice: searchParams.value.minPrice || undefined,
+    maxPrice: searchParams.value.maxPrice || undefined,
+    beds: searchParams.value.beds || undefined,
+    baths: searchParams.value.baths || undefined,
+    minSqft: searchParams.value.minSqft ? Number(searchParams.value.minSqft) : undefined,
+    maxSqft: searchParams.value.maxSqft ? Number(searchParams.value.maxSqft) : undefined,
+    features: searchParams.value.features || [],
+    city: searchParams.value.location ? (searchParams.value.location.includes(',') ? searchParams.value.location.split(',')[0].trim() : searchParams.value.location) : undefined
+  }
+  
+  console.log('🔄 Transformed search params:', transformedParams) // Debug log
+  emit('search', transformedParams)
 }
 
 // Close suggestions when clicking outside

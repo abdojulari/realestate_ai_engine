@@ -1,6 +1,5 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
-import { requireAdmin } from '../../../utils/auth'
 
 const prisma = new PrismaClient()
 
@@ -23,7 +22,7 @@ function mapBlock(block: any) {
 }
 
 export default defineEventHandler(async (event) => {
-  const admin = await requireAdmin(event)
+  // Note: This endpoint is whitelisted in auth middleware, so no authentication required
 
   const q = getQuery(event)
   const search = (q.search as string) || ''

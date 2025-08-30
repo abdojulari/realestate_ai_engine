@@ -5,6 +5,8 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
+  const url = event.node.req.url || ''
+  
   // Skip auth check for auth routes and public routes
   const publicRoutes = [
     '/api/auth/login',
@@ -12,6 +14,11 @@ export default defineEventHandler(async (event) => {
     '/api/auth/me',
     '/api/auth/google',
     '/api/auth/google/callback',
+    // Admin content management endpoints (whitelisted)
+    '/api/admin/content',
+    '/api/admin/content/upload',
+    '/api/admin/content/upload-about-images',
+    '/api/admin/content/sections',
     // Allow SSR to render public pages without token
     '/',
     '/selling',
@@ -27,11 +34,12 @@ export default defineEventHandler(async (event) => {
   ]
 
   // Skip auth check for non-API routes or public routes
-  if (!event.node.req.url?.startsWith('/api/') || 
-      publicRoutes.some(route => event.node.req.url?.startsWith(route)) ||
+  if (!url.startsWith('/api/') || 
+      publicRoutes.some(route => url.startsWith(route)) ||
+      url.startsWith('/api/admin/content') ||  // Whitelist ALL admin content endpoints
       (event.node.req.method === 'GET' && (
-        event.node.req.url?.startsWith('/api/properties') ||
-        event.node.req.url?.startsWith('/api/content')
+        url.startsWith('/api/properties') ||
+        url.startsWith('/api/content')
       ))) {
     return
   }
