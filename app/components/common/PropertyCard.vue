@@ -1,5 +1,5 @@
 <template>
-  <v-card class="property-card h-100">
+  <v-card class="property-card h-100" flat color="grey-lighten-5">
     <v-img
       :src="imageSrc"
       :lazy-src="'/images/property-placeholder.svg'"
@@ -15,9 +15,35 @@
         </v-row>
       </template>
 
-      <!-- Status Badge -->
+      <!-- Source and Status Badges -->
       <div class="status-overlay">
+        <!-- MLS Badge -->
         <v-chip
+          v-if="property.isMLS || property.source === 'crea'"
+          color="primary"
+          size="small"
+          class="mb-1"
+          variant="flat"
+        >
+          <v-icon start icon="mdi-home-search"></v-icon>
+          MLS
+        </v-chip>
+        
+        <!-- Builder Badge -->
+        <v-chip
+          v-if="property?.isBuilder || property.source === 'manual'"
+          color="green"
+          size="small"
+          class="mb-1"
+          variant="flat"
+        >
+          <v-icon start icon="mdi-hammer-wrench"></v-icon>
+          PRE-CONSTRUCTION
+        </v-chip>
+        
+        <!-- Status Badge -->
+        <v-chip
+          v-if="property.status !== 'for_sale'"
           :color="getStatusColor(property.status)"
           size="small"
         >
@@ -54,8 +80,8 @@
       <div class="text-subtitle-1 font-weight-bold mb-1">{{ property.title }}</div>
 
       <!-- Address -->
-      <div class="text-body-2 text-grey mb-3">{{ property.address }}</div>
-
+      <div class="text-body-2 text-grey mb-3">{{ property.address }}, {{ property.city }}, {{ property.province }}, {{ property.postalCode }}</div>
+      
       <!-- Features -->
       <div class="d-flex align-center text-body-2 text-grey">
         <v-icon size="small" class="mr-1">mdi-bed</v-icon>

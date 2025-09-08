@@ -297,7 +297,8 @@ const loadData = async () => {
       []
     ])
 
-    savedProperties.value = properties
+    const { filterResidentialProperties } = await import('../../../utils/propertyFilters')
+    savedProperties.value = filterResidentialProperties(properties)
     viewingRequests.value = requests
     savedSearches.value = searches
   } catch (error) {

@@ -1,12 +1,13 @@
 <template>
   <v-container>
     <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">Property Management</h1>
+      <h1 class="text-h4">Properties Management</h1>
       <v-spacer />
       <v-btn
         color="primary"
         prepend-icon="mdi-home-plus"
         to="/seller/list-property"
+        variant="flat"
       >
         Add Property
       </v-btn>
@@ -16,50 +17,88 @@
     <v-card class="mb-6">
       <v-card-text>
         <v-row>
-          <v-col cols="12" sm="6" md="3">
+          <v-col cols="12" sm="5" md="2">
             <v-text-field
               v-model="filters.search"
               label="Search Properties"
               prepend-inner-icon="mdi-magnify"
               clearable
-              @update:model-value="applyFilters"
+              @keyup.enter="applyFilters"
+              @click:clear="applyFilters"
+              variant="outlined"
+              density="compact"
             />
           </v-col>
-
+          
           <v-col cols="12" sm="6" md="3">
             <v-select
               v-model="filters.type"
               :items="propertyTypes"
               label="Property Type"
               clearable
-              @update:model-value="applyFilters"
+              variant="outlined"
+              density="compact"
             />
           </v-col>
 
-          <v-col cols="12" sm="6" md="3">
+          <v-col cols="12" sm="6" md="2">
             <v-select
               v-model="filters.status"
               :items="propertyStatuses"
               label="Status"
               clearable
-              @update:model-value="applyFilters"
+              variant="outlined"
+              density="compact"
             />
           </v-col>
 
-          <v-col cols="12" sm="6" md="3">
+          <v-col cols="12" sm="6" md="2">
             <v-select
               v-model="filters.sortBy"
               :items="sortOptions"
               label="Sort By"
-              @update:model-value="applyFilters"
+              variant="outlined"
+              density="compact"
             />
           </v-col>
+          <v-col cols="12" sm="6" md="3" >
+            <v-btn
+              color="primary"
+              @click="applyFilters"
+              :loading="loading"
+              variant="flat"
+              prepend-icon="mdi-magnify"
+              rounded="lg"
+            >
+              Search
+            </v-btn>
+          </v-col>
+          
         </v-row>
       </v-card-text>
     </v-card>
 
+    <!-- Loading State -->
+    <div v-if="loading" class="text-center py-12">
+      <v-progress-circular
+        indeterminate
+        color="primary"
+        size="64"
+      />
+      <div class="mt-4 text-h6">Loading properties...</div>
+    </div>
+
+    <!-- Empty State -->
+    <v-card v-else-if="properties.length === 0" class="text-center py-12">
+      <v-card-text>
+        <v-icon size="64" color="grey-lighten-2" class="mb-4">mdi-home-search</v-icon>
+        <div class="text-h6 mb-2">No properties found</div>
+        <div class="text-body-1 text-grey">Try adjusting your filters or add a new property</div>
+      </v-card-text>
+    </v-card>
+
     <!-- Properties Grid -->
-    <v-row>
+    <v-row v-else>
       <v-col
         v-for="property in properties"
         :key="property.id"
@@ -70,7 +109,7 @@
       >
         <v-card>
           <v-img
-            :src="property.images[0]"
+            :src="property.images?.[0] || '/images/placeholder-property.jpg'"
             height="200"
             cover
             class="property-image"
@@ -197,13 +236,23 @@
     </v-row>
 
     <!-- Pagination -->
-    <div class="text-center mt-6">
-      <v-pagination
-        v-model="currentPage"
-        :length="totalPages"
-        :total-visible="7"
-        @update:model-value="applyFilters"
-      />
+    <div v-if="!loading && properties.length > 0" class="mt-6">
+      <!-- Pagination Info -->
+      <div v-if="totalProperties > 0" class="text-center mb-4">
+        <v-chip variant="outlined" color="primary">
+          Showing {{ ((currentPage - 1) * 12) + 1 }}-{{ Math.min(currentPage * 12, totalProperties) }} of {{ totalProperties }} properties
+        </v-chip>
+      </div>
+      
+      <!-- Pagination Controls -->
+      <div v-if="totalPages > 1" class="text-center">
+        <v-pagination
+          v-model="currentPage"
+          :length="totalPages"
+          :total-visible="7"
+          @update:model-value="loadPage"
+        />
+      </div>
     </div>
 
     <!-- Analytics Dialog -->
@@ -266,13 +315,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 
 const loading = ref(false)
 const currentPage = ref(1)
 const totalPages = ref(1)
+const totalProperties = ref(0)
 const showAnalyticsDialog = ref(false)
-const selectedProperty = ref(null)
+const selectedProperty = ref<any>(null)
 
 const filters = ref({
   search: '',
@@ -283,16 +333,16 @@ const filters = ref({
 
 const propertyTypes = [
   'House',
-  'Condo',
-  'Townhouse',
-  'Land'
+  'Condo', 
+  'Duplex',
+  'Townhouse'
 ]
 
 const propertyStatuses = [
-  'Active',
-  'Pending',
+  'For sale',
+  'For rent',
   'Sold',
-  'Off Market'
+  'Pending'
 ]
 
 const sortOptions = [
@@ -315,10 +365,10 @@ const propertyActivity = ref([
 
 const getStatusColor = (status: string) => {
   const colors = {
-    'Active': 'success',
-    'Pending': 'warning',
+    'For sale': 'success',
+    'For rent': 'info',
     'Sold': 'error',
-    'Off Market': 'grey'
+    'Pending': 'warning'
   }
   return colors[status as keyof typeof colors] || 'grey'
 }
@@ -327,8 +377,8 @@ const getTypeColor = (type: string) => {
   const colors = {
     'House': 'primary',
     'Condo': 'secondary',
-    'Townhouse': 'info',
-    'Land': 'success'
+    'Duplex': 'info',
+    'Townhouse': 'success'
   }
   return colors[type as keyof typeof colors] || 'grey'
 }
@@ -341,20 +391,145 @@ const formatDateTime = (date: Date) => {
   return new Date(date).toLocaleString()
 }
 
+
 const applyFilters = async () => {
+  if (loading.value) return
+  
+  console.log('🚀 applyFilters called')
+  
   loading.value = true
+  currentPage.value = 1
+  
   try {
     const params = new URLSearchParams()
-    if (filters.value.search) params.append('search', filters.value.search)
-    if (filters.value.type) params.append('type', filters.value.type)
-    if (filters.value.status) params.append('status', filters.value.status)
-    if (filters.value.sortBy) params.append('sortBy', filters.value.sortBy)
-    const url = params.toString() ? `/api/admin/properties?${params.toString()}` : '/api/admin/properties'
-    properties.value = await $fetch(url, {
-      headers: (() => { try { const t = localStorage.getItem('token'); return t ? { Authorization: `Bearer ${t}` } : {} } catch { return {} } })()
+    if (filters.value.search && filters.value.search.trim()) {
+      params.append('search', filters.value.search.trim())
+    }
+    if (filters.value.type && filters.value.type !== null && filters.value.type !== '') {
+      params.append('type', filters.value.type)
+    }
+    if (filters.value.status && filters.value.status !== null && filters.value.status !== '') {
+      params.append('status', filters.value.status)
+    }
+    params.append('sortBy', filters.value.sortBy || 'newest')
+    params.append('page', '1')
+    params.append('exclude_crea', 'true')
+    
+    const url = `/api/admin/properties?${params.toString()}`
+    
+    const response = await $fetch(url, {
+      headers: (() => { 
+        try { 
+          const t = localStorage.getItem('token')
+          return t ? { Authorization: `Bearer ${t}` } : undefined
+        } catch { 
+          return undefined
+        } 
+      })()
+    }) as any
+    
+    // Handle new paginated response format
+    console.log('🔍 API Response:', { 
+      hasData: !!response.data, 
+      hasPagination: !!response.pagination,
+      dataLength: response.data?.length,
+      isArray: Array.isArray(response)
     })
+    
+    if (response.data && response.pagination) {
+      properties.value = response.data
+      totalPages.value = response.pagination.totalPages
+      totalProperties.value = response.pagination.total
+      currentPage.value = response.pagination.page
+      console.log('✅ Using new format:', { 
+        propertiesCount: properties.value.length,
+        totalPages: totalPages.value,
+        totalProperties: totalProperties.value 
+      })
+    } else {
+      // Fallback for old format
+      properties.value = Array.isArray(response) ? response : (response.data || [])
+      totalPages.value = response.totalPages || 1
+      totalProperties.value = properties.value.length
+      console.log('⚠️ Using fallback format:', { 
+        propertiesCount: properties.value.length,
+        totalPages: totalPages.value 
+      })
+    }
   } catch (error) {
     console.error('Error applying filters:', error)
+    properties.value = []
+    totalPages.value = 1
+    totalProperties.value = 0
+  } finally {
+    loading.value = false
+  }
+}
+
+const loadPage = async (page: number) => {
+  if (loading.value) return
+  
+  loading.value = true
+  currentPage.value = page
+  
+  try {
+    const params = new URLSearchParams()
+    if (filters.value.search && filters.value.search.trim()) {
+      params.append('search', filters.value.search.trim())
+    }
+    if (filters.value.type && filters.value.type !== null && filters.value.type !== '') {
+      params.append('type', filters.value.type)
+    }
+    if (filters.value.status && filters.value.status !== null && filters.value.status !== '') {
+      params.append('status', filters.value.status)
+    }
+    params.append('sortBy', filters.value.sortBy || 'newest')
+    params.append('page', page.toString())
+    params.append('exclude_crea', 'true')
+    
+    const response = await $fetch(`/api/admin/properties?${params.toString()}`, {
+      headers: (() => { 
+        try { 
+          const t = localStorage.getItem('token')
+          return t ? { Authorization: `Bearer ${t}` } : undefined
+        } catch { 
+          return undefined
+        } 
+      })()
+    }) as any
+    
+    // Handle new paginated response format
+    console.log('🔍 API Response:', { 
+      hasData: !!response.data, 
+      hasPagination: !!response.pagination,
+      dataLength: response.data?.length,
+      isArray: Array.isArray(response)
+    })
+    
+    if (response.data && response.pagination) {
+      properties.value = response.data
+      totalPages.value = response.pagination.totalPages
+      totalProperties.value = response.pagination.total
+      currentPage.value = response.pagination.page
+      console.log('✅ Using new format:', { 
+        propertiesCount: properties.value.length,
+        totalPages: totalPages.value,
+        totalProperties: totalProperties.value 
+      })
+    } else {
+      // Fallback for old format
+      properties.value = Array.isArray(response) ? response : (response.data || [])
+      totalPages.value = response.totalPages || 1
+      totalProperties.value = properties.value.length
+      console.log('⚠️ Using fallback format:', { 
+        propertiesCount: properties.value.length,
+        totalPages: totalPages.value 
+      })
+    }
+  } catch (error) {
+    console.error('Error loading page:', error)
+    properties.value = []
+    totalPages.value = 1
   } finally {
     loading.value = false
   }
@@ -362,35 +537,44 @@ const applyFilters = async () => {
 
 const toggleFeatured = async (property: any) => {
   try {
-    const res = await $fetch(`/api/admin/properties/${property.id}/featured`, {
+    await $fetch(`/api/admin/properties/${property.id}/featured`, {
       method: 'POST',
       body: { featured: !property.isFeatured },
-      headers: (() => { try { const t = localStorage.getItem('token'); return t ? { Authorization: `Bearer ${t}` } : {} } catch { return {} } })()
+      headers: (() => { 
+        try { 
+          const t = localStorage.getItem('token')
+          return t ? { Authorization: `Bearer ${t}` } : undefined
+        } catch { 
+          return undefined
+        } 
+      })()
     })
-    property.isFeatured = !!(res as any)?.featured
+    property.isFeatured = !property.isFeatured
   } catch (error) {
     console.error('Error toggling featured status:', error)
   }
 }
 
-const showAnalytics = async (property: any) => {
+const showAnalytics = (property: any) => {
   selectedProperty.value = property
   showAnalyticsDialog.value = true
-
-  try {
-    // Could load analytics here in the future
-  } catch (error) {
-    console.error('Error loading property activity:', error)
-  }
 }
 
 const duplicateProperty = async (property: any) => {
   try {
-    const newProperty = await $fetch(`/api/admin/properties/${property.id}/duplicate`, {
+    await $fetch(`/api/admin/properties/${property.id}/duplicate`, {
       method: 'POST',
-      headers: (() => { try { const t = localStorage.getItem('token'); return t ? { Authorization: `Bearer ${t}` } : {} } catch { return {} } })()
+      headers: (() => { 
+        try { 
+          const t = localStorage.getItem('token')
+          return t ? { Authorization: `Bearer ${t}` } : undefined
+        } catch { 
+          return undefined
+        } 
+      })()
     })
-    properties.value.unshift(newProperty as any)
+    // Simple local update instead of full refresh
+    console.log('Property duplicated successfully')
   } catch (error) {
     console.error('Error duplicating property:', error)
   }
@@ -402,15 +586,24 @@ const deleteProperty = async (property: any) => {
   try {
     await $fetch(`/api/admin/properties/${property.id}`, {
       method: 'DELETE',
-      headers: (() => { try { const t = localStorage.getItem('token'); return t ? { Authorization: `Bearer ${t}` } : {} } catch { return {} } })()
+      headers: (() => { 
+        try { 
+          const t = localStorage.getItem('token')
+          return t ? { Authorization: `Bearer ${t}` } : undefined
+        } catch { 
+          return undefined
+        } 
+      })()
     })
-    properties.value = properties.value.filter(p => (p as any).id !== (property as any).id)
+    // Remove from local array instead of full refresh
+    properties.value = properties.value.filter(p => p.id !== property.id)
   } catch (error) {
     console.error('Error deleting property:', error)
   }
 }
 
 onMounted(() => {
+  console.log('🏠 Admin Properties page mounted')
   applyFilters()
 })
 

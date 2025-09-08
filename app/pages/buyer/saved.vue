@@ -127,7 +127,7 @@
       v-model="showRemoveDialog"
       max-width="400"
     >
-      <v-card>
+      <v-card flat color="white">
         <v-card-title>Remove Property</v-card-title>
         <v-card-text>
           Are you sure you want to remove this property from your saved list?
@@ -240,7 +240,8 @@ const loadProperties = async () => {
   loading.value = true
   try {
     const response = await propertyService.getSavedProperties()
-    properties.value = response
+    const { filterResidentialProperties } = await import('../../../utils/propertyFilters')
+    properties.value = filterResidentialProperties(response)
   } catch (error) {
     console.error('Error loading saved properties:', error)
     // Show error message

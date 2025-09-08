@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
       const filePath = path.join(uploadDir, filename)
       
       await fs.writeFile(filePath, filePart.data as Buffer)
-      uploadedImages.push(`/images/about/${filename}`)
+      uploadedImages.push(`../../images/about/${filename}`)
     }
   }
 

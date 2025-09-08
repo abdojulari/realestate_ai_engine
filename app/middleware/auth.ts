@@ -1,4 +1,4 @@
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   const auth = useAuthStore()
 
   const publicPrefixes = [
@@ -9,19 +9,34 @@ export default defineNuxtRouteMiddleware((to) => {
     '/seller',
     '/contact',
     '/map-search',
+    '/ai-search',
     '/properties',
     '/about',
     '/terms',
     '/privacy',
     '/auth/login',
-    '/auth/register'
+    '/auth/register',
+    '/auth/forgot-password'
   ]
-  // if (publicPrefixes.some(p => to.path === p || to.path.startsWith(p + '/'))) {
-  //   return
-  // }
-  // Match all paths that start with public routes
+  
   // Allow all public paths (and their subpaths)
   if (publicPrefixes.some(p => to.path === p || to.path.startsWith(p + '/'))) return
+
+  // On client-side, try to restore auth state if not already loaded
+  if (process.client && !auth.user && !auth.token) {
+    const token = localStorage.getItem('token')
+    if (token) {
+      console.log('[AUTH MIDDLEWARE] Found token, restoring auth state...')
+      auth.setToken(token)
+      try {
+        await auth.checkAuth()
+        console.log('[AUTH MIDDLEWARE] Auth restored, user:', auth.user?.email)
+      } catch (error) {
+        console.error('[AUTH MIDDLEWARE] Auth restoration failed:', error)
+        auth.clearAuth()
+      }
+    }
+  }
 
   if (to.path.startsWith('/property/') && !auth.isAuthenticated) {
     if (process.client) localStorage.setItem('redirectAfterLogin', to.fullPath)

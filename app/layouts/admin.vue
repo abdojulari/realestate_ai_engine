@@ -236,10 +236,12 @@ const notifications = ref<any[]>([])
 const userBadge = ref<number | undefined>(undefined)
 const menuItems = computed(() => [
   { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/admin' },
+  { title: 'Site', icon: 'mdi-home', to: '/' },
   { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', badge: userBadge.value ? String(userBadge.value) : undefined },
   { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties' },
   { title: 'Content', icon: 'mdi-file-document', to: '/admin/content' },
-  { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports' }
+  { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports' },
+ 
 ])
 
 // Computed

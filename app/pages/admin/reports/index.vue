@@ -527,9 +527,14 @@ const typesPieOption = computed(() => {
 const exportReport = async (format: string) => {
   exporting.value = format
   try {
-    // Replace with actual API call
+    // Call export API with proper headers
+    const token = localStorage.getItem('token')
     const response = await fetch('/api/admin/reports/export', {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': token ? `Bearer ${token}` : ''
+      },
       body: JSON.stringify({
         format,
         dateRange: dateRange.value,
@@ -538,14 +543,26 @@ const exportReport = async (format: string) => {
       })
     })
     
+    if (!response.ok) {
+      throw new Error(`Export failed: ${response.statusText}`)
+    }
+    
     const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `report.${format}`
+    
+    // Set correct file extension
+    const extension = format === 'excel' ? 'csv' : 'html'
+    const fileName = `property-report-${dateRange.value}-${new Date().toISOString().split('T')[0]}.${extension}`
+    a.download = fileName
+    
     document.body.appendChild(a)
     a.click()
+    document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
+    
+    console.log(`✅ ${format} report downloaded: ${fileName}`)
   } catch (error) {
     console.error('Error exporting report:', error)
   } finally {

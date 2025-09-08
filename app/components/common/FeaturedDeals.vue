@@ -1,7 +1,7 @@
 <template>
   <div class="featured-deals">
     <div class="d-flex align-center mb-4">
-      <h2 class="text-h5">Featured Deals</h2>
+      <h2 class="text-h5">Featured Homes</h2>
       <v-spacer />
       <div>
         <v-btn icon="mdi-chevron-left" variant="text" @click="prev" />

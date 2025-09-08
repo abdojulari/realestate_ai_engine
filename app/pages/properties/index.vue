@@ -9,6 +9,7 @@
         placeholder="Search address or city"
         hide-details
         density="compact"
+        variant="outlined"
         style="max-width: 360px"
       />
     </div>
@@ -22,15 +23,38 @@
         md="4"
       >
         <PropertyCard :property="property" @click="open(property)" />
-        <div class="text-right mt-1">
-          <v-btn variant="text" color="primary" @click="open(property)">View Details</v-btn>
-        </div>
+       
       </v-col>
     </v-row>
 
     <EmptyState v-if="!loading && filtered.length === 0" title="No properties found" />
 
     <LoadingState v-if="loading" message="Loading properties..." />
+
+    <!-- Pagination -->
+    <div v-if="!loading && items.length > 0" class="d-flex justify-center align-center mt-8">
+      <v-btn
+        :disabled="currentPage <= 1"
+        variant="outlined"
+        @click="goToPage(currentPage - 1)"
+        class="me-4"
+      >
+        Previous
+      </v-btn>
+      
+      <span class="mx-4 text-body-1">
+        Page {{ currentPage }} of {{ totalPages }}
+      </span>
+      
+      <v-btn
+        :disabled="currentPage >= totalPages"
+        variant="outlined"
+        @click="goToPage(currentPage + 1)"
+        class="ms-4"
+      >
+        Next
+      </v-btn>
+    </div>
   </v-container>
   
 </template>
@@ -43,8 +67,15 @@ import LoadingState from '~/components/common/LoadingState.vue'
 const loading = ref(false)
 const items = ref<any[]>([])
 const q = ref('')
+const currentPage = ref(1)
+const totalPages = ref(1)
+const totalProperties = ref(0)
+const limit = 10
 
-onMounted(async () => {
+// Use property service composable for service worker integration
+const { searchProperties, loading: serviceLoading } = usePropertyService()
+
+const loadProperties = async (page = 1) => {
   loading.value = true
   try {
     // Get search parameters from URL query
@@ -53,30 +84,77 @@ onMounted(async () => {
     
     console.log('🔍 Properties page URL query params:', queryParams) // Debug log
     
-    // Build API URL with query parameters if they exist
-    let apiUrl = '/api/properties'
-    if (Object.keys(queryParams).length > 0) {
-      const searchParams = new URLSearchParams()
-      
-      // Add all non-empty query parameters
-      Object.entries(queryParams).forEach(([key, value]) => {
-        if (value && value !== 'undefined' && value !== 'null') {
-          searchParams.append(key, String(value))
-        }
-      })
-      
-      if (searchParams.toString()) {
-        apiUrl += `?${searchParams.toString()}`
+    // Try service worker first for better performance
+    try {
+      const searchFilters = {
+        ...queryParams,
+        limit,
+        page
       }
+      
+      console.log('🔄 Loading properties via service worker...') 
+      const serviceWorkerResult = await searchProperties(searchFilters)
+      
+      if (serviceWorkerResult && serviceWorkerResult.length > 0) {
+        const { filterResidentialProperties } = await import('../../../utils/propertyFilters')
+        items.value = filterResidentialProperties(serviceWorkerResult)
+        currentPage.value = page
+        console.log('✅ Loaded from service worker:', items.value.length, 'residential properties')
+        return
+      }
+    } catch (swError) {
+      console.warn('⚠️ Service worker failed, falling back to API:', swError)
     }
     
+    // Fallback to direct API call
+    const searchParams = new URLSearchParams()
+    searchParams.append('limit', limit.toString())
+    searchParams.append('page', page.toString())
+    
+    // Add all non-empty query parameters
+    Object.entries(queryParams).forEach(([key, value]) => {
+      if (value && value !== 'undefined' && value !== 'null' && key !== 'limit' && key !== 'page') {
+        searchParams.append(key, String(value))
+      }
+    })
+    
+    const apiUrl = `/api/properties?${searchParams.toString()}`
     console.log('🔍 Fetching from API URL:', apiUrl) // Debug log
-    items.value = await $fetch(apiUrl)
-    console.log('✅ Found properties:', items.value.length) // Debug log
+    
+    const response = await $fetch(apiUrl)
+    const { filterResidentialProperties } = await import('../../../utils/propertyFilters')
+    
+    // Handle both old array format and new paginated format
+    if (Array.isArray(response)) {
+      // Old format - just an array
+      items.value = filterResidentialProperties(response)
+      currentPage.value = page
+      totalPages.value = 1
+      totalProperties.value = response.length
+    } else {
+      // New paginated format
+      const allProperties = response.properties || []
+      items.value = filterResidentialProperties(allProperties)
+      currentPage.value = response.pagination?.page || page
+      totalPages.value = response.pagination?.totalPages || 1
+      totalProperties.value = response.pagination?.total || 0
+    }
+    
+    console.log('✅ Found properties:', items.value.length, 'residential of', totalProperties.value, 'total') // Debug log
   } finally {
     loading.value = false
   }
+}
+
+onMounted(async () => {
+  await loadProperties(1)
 })
+
+const goToPage = async (page: number) => {
+  if (page >= 1 && page <= totalPages.value) {
+    await loadProperties(page)
+  }
+}
 
 const filtered = computed(() => {
   const term = q.value.trim().toLowerCase()

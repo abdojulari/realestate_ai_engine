@@ -55,6 +55,11 @@ export interface Property {
   userId: number
   createdAt: string
   updatedAt: string
+  // CREA Integration fields
+  source: string // "manual" or "crea"
+  externalId?: string | null // CREA ListingKey for MLS properties
+  mlsNumber?: string | null // MLS listing number
+  lastSyncAt?: string | null // Last time synced from CREA
   // UI-specific flags
   isSaved?: boolean
   user: {

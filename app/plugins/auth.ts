@@ -8,20 +8,35 @@ export default defineNuxtPlugin(async (nuxtApp) => {
   const checkAuth = async () => {
     if (!process.client) return
     const token = localStorage.getItem('token')
-    if (!token) return
+    console.log('[AUTH PLUGIN] Checking auth, token exists:', !!token)
+    
+    if (!token) {
+      console.log('[AUTH PLUGIN] No token found in localStorage')
+      return
+    }
+    
     try {
-      const res = await $fetch<AuthResponse>('/api/auth/check')
-      if (res?.user) {
-        authStore.setUser(res.user)
-        authStore.setToken(token)
+      // Set token first so it's available for the API call
+      authStore.setToken(token)
+      console.log('[AUTH PLUGIN] Token set in store, calling /api/auth/me')
+      
+      // Use the existing /api/auth/me endpoint
+      const user = await $fetch('/api/auth/me', {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      
+      if (user) {
+        console.log('[AUTH PLUGIN] ✅ User authenticated:', user.email)
+        authStore.setUser(user)
       } else {
+        console.log('[AUTH PLUGIN] ❌ No user returned from API')
         localStorage.removeItem('token')
-        authStore.logout()
+        authStore.clearAuth()
       }
     } catch (error) {
-      console.error('Auth check error:', error)
+      console.error('[AUTH PLUGIN] ❌ Auth check failed:', error)
       localStorage.removeItem('token')
-      authStore.logout()
+      authStore.clearAuth()
     }
   }
 
@@ -80,8 +95,10 @@ export default defineNuxtPlugin(async (nuxtApp) => {
     return navigateTo('/auth/login')
   }
 
-  // Check auth on plugin initialization
-  await checkAuth()
+  // Check auth on plugin initialization (only on client)
+  if (process.client) {
+    await checkAuth()
+  }
 
   return {
     provide: {

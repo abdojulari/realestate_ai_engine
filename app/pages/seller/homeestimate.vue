@@ -1,20 +1,19 @@
 <template>
   <div class="home-estimate">
-    <v-container>
-      <!-- Page Header -->
-      <v-row class="mb-6">
-        <v-col cols="12" md="8" class="mx-auto text-center">
-          <h1 class="text-h3 mb-4">What's Your Home Worth?</h1>
-          <p class="text-subtitle-1">
-            Get a free, instant estimate of your home's value based on recent sales in your neighborhood.
-          </p>
-        </v-col>
-      </v-row>
+    <!-- Hero -->
+    <v-img class="mb-8" height="280" cover src="https://www.needtosellmyhouse.com/assets/library/house-value-calculator-800x534.jpg" gradient="to bottom, rgba(0,0,0,.15), rgba(0,0,0,.55)" referrerpolicy="no-referrer">
+      <div class="d-flex flex-column align-center justify-center text-center h-100 px-4">
+        <h1 class="text-h4 text-white mb-2">What's Your Home Worth?</h1>
+        <p class="text-body-2 text-white" style="max-width: 900px;">Get a quick estimate informed by recent nearby sales. A local expert can fine-tune it for accuracy.</p>
+      </div>
+    </v-img>
 
-      <!-- Estimate Form -->
+    <!-- Estimate Form -->
+    <v-container>
       <v-row>
-        <v-col cols="12" md="8" class="mx-auto">
-          <v-card>
+        <v-col cols="12" md="8">
+          <v-card flat>
+            <v-progress-linear :model-value="progress" height="6" color="primary" />
             <v-stepper v-model="currentStep">
               <!-- Stepper Header -->
               <v-stepper-header>
@@ -45,6 +44,8 @@
                             v-model="forms.propertyDetails.address"
                             label="Property Address"
                             :rules="[v => !!v || 'Address is required']"
+                            variant="outlined"
+                            density="compact"
                             required
                           />
                         </v-col>
@@ -54,6 +55,8 @@
                             v-model="forms.propertyDetails.postalCode"
                             label="Postal Code"
                             :rules="[v => !!v || 'Postal code is required']"
+                            variant="outlined"
+                            density="compact"
                             required
                           />
                         </v-col>
@@ -64,6 +67,8 @@
                             :items="propertyTypes"
                             label="Property Type"
                             :rules="[v => !!v || 'Property type is required']"
+                            variant="outlined"
+                            density="compact"
                             required
                           />
                         </v-col>
@@ -75,6 +80,8 @@
                             label="Bedrooms"
                             min="0"
                             :rules="[v => v >= 0 || 'Must be 0 or greater']"
+                            variant="outlined"
+                            density="compact"
                             required
                           />
                         </v-col>
@@ -87,6 +94,8 @@
                             min="0"
                             step="0.5"
                             :rules="[v => v >= 0 || 'Must be 0 or greater']"
+                            variant="outlined"
+                            density="compact"
                             required
                           />
                         </v-col>
@@ -98,6 +107,8 @@
                             label="Square Feet"
                             min="0"
                             :rules="[v => v > 0 || 'Must be greater than 0']"
+                            variant="outlined"
+                            density="compact"
                             required
                           />
                         </v-col>
@@ -112,6 +123,8 @@
                               v => v > 1800 || 'Invalid year',
                               v => v <= new Date().getFullYear() || 'Year cannot be in the future'
                             ]"
+                            variant="outlined"
+                            density="compact"
                             required
                           />
                         </v-col>
@@ -122,6 +135,8 @@
                             :items="lotSizes"
                             label="Lot Size"
                             :rules="[v => !!v || 'Lot size is required']"
+                            variant="outlined"
+                            density="compact"
                             required
                           />
                         </v-col>
@@ -133,6 +148,7 @@
                     <v-spacer />
                     <v-btn
                       color="primary"
+                      variant="outlined"
                       @click="nextStep"
                       :disabled="!forms.propertyDetails.valid"
                     >
@@ -152,6 +168,8 @@
                             :items="propertyConditions"
                             label="Property Condition"
                             :rules="[v => !!v || 'Condition is required']"
+                            variant="outlined"
+                            density="compact"
                             required
                           />
                         </v-col>
@@ -163,6 +181,8 @@
                             label="Property Features"
                             multiple
                             chips
+                            variant="outlined"
+                            density="compact"
                           />
                         </v-col>
 
@@ -173,7 +193,9 @@
                             label="Recent Renovations"
                             multiple
                             chips
-                          />
+                            variant="outlined"
+                            density="compact"
+                            />
                         </v-col>
 
                         <v-col cols="12">
@@ -181,7 +203,9 @@
                             v-model="forms.features.additionalInfo"
                             label="Additional Information"
                             hint="Please provide any other details that might affect your home's value"
-                            rows="3"
+                            rows="4"
+                            variant="outlined"
+                            density="compact"
                           />
                         </v-col>
                       </v-row>
@@ -217,6 +241,8 @@
                             label="First Name"
                             :rules="[v => !!v || 'First name is required']"
                             required
+                            variant="outlined"
+                            density="compact"
                           />
                         </v-col>
 
@@ -248,6 +274,8 @@
                             label="Phone"
                             :rules="[v => !!v || 'Phone is required']"
                             required
+                            variant="outlined"
+                            density="compact"
                           />
                         </v-col>
 
@@ -258,6 +286,8 @@
                             label="When are you planning to sell?"
                             :rules="[v => !!v || 'Timeframe is required']"
                             required
+                            variant="outlined"
+                            density="compact"
                           />
                         </v-col>
 
@@ -265,6 +295,8 @@
                           <v-checkbox
                             v-model="forms.contact.contactPreference"
                             label="I prefer to be contacted by email"
+                            variant="outlined"
+                            density="compact"
                           />
                         </v-col>
                       </v-row>
@@ -293,6 +325,23 @@
             </v-stepper>
           </v-card>
         </v-col>
+        <v-col cols="12" md="4">
+          <v-card elevation="1" class="mb-4" flat>
+            <v-card-title>Tips</v-card-title>
+            <v-divider />
+            <v-list density="comfortable">
+              <v-list-item prepend-icon="mdi-image-filter-center-focus" title="Great photos sell faster" subtitle="Tidy spaces, good lighting, and wide angles help." />
+              <v-list-item prepend-icon="mdi-currency-usd" title="Price with the market" subtitle="Use recent local sales as your anchor." />
+              <v-list-item prepend-icon="mdi-clock-outline" title="Timing matters" subtitle="List mid-week for weekend momentum." />
+            </v-list>
+          </v-card>
+          <v-card elevation="1" flat>
+            <v-img height="160" cover src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=1200&auto=format&fit=crop" referrerpolicy="no-referrer" />
+            <v-card-text>
+              Work with a trusted pro to validate your estimate and craft a winning listing plan.
+            </v-card-text>
+          </v-card>
+        </v-col>
       </v-row>
     </v-container>
 
@@ -301,7 +350,7 @@
       v-model="showSuccessDialog"
       max-width="500"
     >
-      <v-card>
+      <v-card flat>
         <v-card-title class="text-h5">Thank You!</v-card-title>
         <v-card-text>
           <p class="mb-4">
@@ -347,6 +396,12 @@ import { ref, reactive } from 'vue'
 
 // Form state
 const currentStep = ref('1')
+const progress = computed(() => {
+  const n = parseInt(currentStep.value)
+  if (n <= 1) return 33
+  if (n === 2) return 66
+  return 100
+})
 const submitting = ref(false)
 const showSuccessDialog = ref(false)
 

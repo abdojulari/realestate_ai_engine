@@ -2,33 +2,8 @@
   <v-card class="search-filters">
     <v-card-text>
       <v-row dense>
-        <!-- Location Search -->
-        <v-col cols="12" :md="expanded ? 12 : 6">
-          <v-text-field
-            v-model="filters.location"
-            label="Location"
-            placeholder="City, Address, or Postal Code"
-            variant="outlined"
-            density="compact"
-            prepend-inner-icon="mdi-map-marker"
-            clearable
-            @update:model-value="handleLocationInput"
-          />
-          <!-- Location suggestions -->
-          <v-list
-            v-if="locationSuggestions.length && showSuggestions"
-            class="location-suggestions"
-            density="compact"
-          >
-            <v-list-item
-              v-for="suggestion in locationSuggestions"
-              :key="suggestion?.id"
-              :title="suggestion?.description"
-              @click="selectLocation(suggestion)"
-            />
-          </v-list>
-        </v-col>
-
+        <!-- City Selection (Primary) -->
+       
         <!-- Property Type -->
         <v-col cols="12" sm="6" :md="expanded ? 12 : 6">
           <v-select
@@ -232,13 +207,9 @@ const filters = ref({
   ...props.initialFilters
 })
 
-const propertyTypes = [
-  { title: 'Any Type', value: null },
-  { title: 'House', value: 'house' },
-  { title: 'Condo', value: 'condo' },
-  { title: 'Townhouse', value: 'townhouse' },
-  { title: 'Land', value: 'land' }
-]
+// Import property types from utility
+import { getResidentialPropertyTypes } from '../../../utils/propertyFilters'
+const propertyTypes = getResidentialPropertyTypes()
 
 const priceRanges = [
   { title: 'No Min', value: null },

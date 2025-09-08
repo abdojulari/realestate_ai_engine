@@ -423,8 +423,9 @@ const loadData = async () => {
       propertyService.getMyListings(),
       propertyService.getMyInquiries()
     ])
-
-    properties.value = propertiesData
+    
+    const { filterResidentialProperties } = await import('../../../utils/propertyFilters')
+    properties.value = filterResidentialProperties(propertiesData)
     recentInquiries.value = inquiriesData
 
     // Update stats

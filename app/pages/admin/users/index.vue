@@ -120,6 +120,13 @@
             :color="(item as any).status === 'active' ? 'error' : 'success'"
             @click="toggleUserStatus(item as any)"
           />
+          <v-btn
+            icon="mdi-delete"
+            variant="text"
+            size="small"
+            color="error"
+            @click="confirmDeleteUser(item as any)"
+          />
         </template>
       </v-data-table>
     </v-card>
@@ -253,6 +260,36 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Delete User Dialog -->
+    <v-dialog
+      v-model="showDeleteDialog"
+      max-width="400"
+    >
+      <v-card>
+        <v-card-title class="text-error">Delete User</v-card-title>
+        <v-card-text>
+          <p class="mb-4">Are you sure you want to permanently delete {{ selectedUser?.firstName }} {{ selectedUser?.lastName }}?</p>
+          <p class="text-caption text-error">This action cannot be undone.</p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            variant="text"
+            @click="showDeleteDialog = false"
+          >
+            Cancel
+          </v-btn>
+          <v-btn
+            color="error"
+            :loading="deleting"
+            @click="deleteUser"
+          >
+            Delete User
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -262,8 +299,10 @@ import { ref, computed } from 'vue'
 const loading = ref(false)
 const saving = ref(false)
 const resetting = ref(false)
+const deleting = ref(false)
 const showAddUserDialog = ref(false)
 const showResetDialog = ref(false)
+const showDeleteDialog = ref(false)
 const isUserFormValid = ref(false)
 const editingUser = ref(false)
 const selectedUser = ref(null)
@@ -368,7 +407,16 @@ const applyFilters = async () => {
 
 const editUser = (user: any) => {
   editingUser.value = true
-  userForm.value = { ...user }
+  userForm.value = { 
+    id: user.id,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    email: user.email,
+    role: user.role,
+    status: user.status,
+    phone: user.phone || '',
+    password: '' // Don't populate password for security
+  }
   showAddUserDialog.value = true
 }
 
@@ -379,36 +427,79 @@ const resetPassword = (user: any) => {
 
 const toggleUserStatus = async (user: any) => {
   try {
-    // Replace with actual API call
-    await fetch(`/api/admin/users/${user.id}/toggle-status`, {
-      method: 'POST'
+    const token = localStorage.getItem('token')
+    if (!token) {
+      throw new Error('No authentication token found')
+    }
+
+    const response = await fetch(`/api/admin/users/${user.id}/toggle-status`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
     })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
     user.status = user.status === 'active' ? 'inactive' : 'active'
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error toggling user status:', error)
+    alert(`Failed to toggle user status: ${error.message}`)
   }
 }
 
 const saveUser = async () => {
   saving.value = true
   try {
-    // Replace with actual API call
     const endpoint = editingUser.value
       ? `/api/admin/users/${userForm.value.id}`
       : '/api/admin/users'
     
     const method = editingUser.value ? 'PUT' : 'POST'
     
-    await fetch(endpoint, {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      throw new Error('No authentication token found')
+    }
+
+    const response = await fetch(endpoint, {
       method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify(userForm.value)
     })
 
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.statusMessage || `HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const savedUser = await response.json()
+    console.log('User saved successfully:', savedUser)
+
+    // Reset form
+    userForm.value = {
+      firstName: '',
+      lastName: '',
+      email: '',
+      role: '',
+      status: 'active',
+      phone: '',
+      password: ''
+    }
+    editingUser.value = false
     showAddUserDialog.value = false
+    
     // Refresh users list
-    applyFilters()
-  } catch (error) {
+    await applyFilters()
+  } catch (error: any) {
     console.error('Error saving user:', error)
+    alert(`Failed to save user: ${error.message}`)
   } finally {
     saving.value = false
   }
@@ -419,15 +510,81 @@ const confirmResetPassword = async () => {
 
   resetting.value = true
   try {
-    // Replace with actual API call
-    await fetch(`/api/admin/users/${selectedUser.value.id}/reset-password`, {
-      method: 'POST'
+    const token = localStorage.getItem('token')
+    if (!token) {
+      throw new Error('No authentication token found')
+    }
+
+    const response = await fetch(`/api/admin/users/${selectedUser.value.id}/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
     })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    
     showResetDialog.value = false
-  } catch (error) {
+    
+    // Show the temporary password (remove this in production when email service is implemented)
+    if (result.temporaryPassword) {
+      alert(`Password reset successful!\n\nTemporary password: ${result.temporaryPassword}\n\nIn production, this would be sent via email instead.`)
+    } else {
+      alert('Password reset successful! Temporary password has been sent to the user\'s email.')
+    }
+  } catch (error: any) {
     console.error('Error resetting password:', error)
+    alert(`Failed to reset password: ${error.message}`)
   } finally {
     resetting.value = false
+  }
+}
+
+const confirmDeleteUser = (user: any) => {
+  selectedUser.value = user
+  showDeleteDialog.value = true
+}
+
+const deleteUser = async () => {
+  if (!selectedUser.value) return
+
+  deleting.value = true
+  try {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      throw new Error('No authentication token found')
+    }
+
+    const response = await fetch(`/api/admin/users/${selectedUser.value.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.statusMessage || `HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    showDeleteDialog.value = false
+    selectedUser.value = null
+    
+    // Refresh users list
+    await applyFilters()
+    
+    alert('User deleted successfully!')
+  } catch (error: any) {
+    console.error('Error deleting user:', error)
+    alert(`Failed to delete user: ${error.message}`)
+  } finally {
+    deleting.value = false
   }
 }
 

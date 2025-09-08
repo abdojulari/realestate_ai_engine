@@ -199,14 +199,16 @@
                 </div>
 
                 <div v-else-if="contentForm.type === 'html'">
-                  <!-- Add rich text editor component here -->
-                  <v-textarea
-                    v-model="contentForm.content"
-                    label="HTML Content"
-                    rows="10"
-                    :rules="[v => !!v || 'Content is required']"
-                    required
-                  />
+                  <!-- Monaco Code Editor for HTML -->
+                  <div class="mb-4">
+                    <label class="text-subtitle-2 mb-2 d-block">HTML Content</label>
+                    <CodeEditor
+                      v-model="contentForm.content"
+                      language="html"
+                      height="400px"
+                      placeholder="Enter your HTML content here..."
+                    />
+                  </div>
 
                   <!-- Image uploader for About page content -->
                   <div v-if="contentForm.section === 'about'" class="mt-4">

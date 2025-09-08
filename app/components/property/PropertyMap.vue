@@ -1,29 +1,58 @@
 <template>
-  <v-card>
+  <v-card flat color="white">
     <v-card-title class="d-flex align-center">
       {{ title }}
       <v-spacer />
-      <v-btn-group v-if="showControls">
-        <v-btn
-          icon="mdi-plus"
-          size="small"
-          @click="adjustZoom(1)"
-        />
-        <v-btn
-          icon="mdi-minus"
-          size="small"
-          @click="adjustZoom(-1)"
-        />
-      </v-btn-group>
+      <div v-if="showControls" class="d-flex flex-column flex-sm-row gap-2">
+        <!-- Zoom Controls -->
+        <v-btn-group>
+          <v-btn
+            icon="mdi-plus"
+            size="small"
+            @click="adjustZoom(1)"
+          />
+          <v-btn
+            icon="mdi-minus"
+            size="small"
+            @click="adjustZoom(-1)"
+          />
+        </v-btn-group>
+        
+        <!-- Map Type Controls -->
+        <v-btn-group mandatory>
+          <v-btn
+            size="small"
+            :variant="mapType === 'map' ? 'flat' : 'outlined'"
+            :color="mapType === 'map' ? 'primary' : undefined"
+            @click="setMapType('map')"
+            class="text-xs sm:text-sm"
+          >
+            Map
+          </v-btn>
+          <v-btn
+            size="small"
+            :variant="mapType === 'satellite' ? 'flat' : 'outlined'"
+            :color="mapType === 'satellite' ? 'primary' : undefined"
+            @click="setMapType('satellite')"
+            class="text-xs sm:text-sm"
+          >
+            Satellite
+          </v-btn>
+          <v-btn
+            size="small"
+            :variant="mapType === 'terrain' ? 'flat' : 'outlined'"
+            :color="mapType === 'terrain' ? 'primary' : undefined"
+            @click="setMapType('terrain')"
+            class="text-xs sm:text-sm"
+          >
+            Terrain
+          </v-btn>
+        </v-btn-group>
+      </div>
     </v-card-title>
 
     <v-card-text>
-      <!-- Property Address -->
-      <div v-if="showAddress" class="d-flex align-center mb-4">
-        <v-icon icon="mdi-map-marker" color="primary" class="mr-2" />
-        <span>{{ address }}</span>
-      </div>
-
+    
       <!-- Map Container -->
       <div :style="{ height: `${height}px` }" class="map-container">
         <client-only>
@@ -35,38 +64,51 @@
             @ready="onMapReady"
             @moveend="onMoveEnd"
           >
+            <!-- Map Tile Layers -->
             <l-tile-layer
+              v-if="mapType === 'map'"
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               layer-type="base"
               name="OpenStreetMap"
+              attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
+            />
+            
+            <l-tile-layer
+              v-if="mapType === 'satellite'"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              layer-type="base"
+              name="Satellite"
+              attribution="Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"
+            />
+            
+            <l-tile-layer
+              v-if="mapType === 'terrain'"
+              url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+              layer-type="base"
+              name="Terrain"
+              attribution="Map data: &copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors, <a href='http://viewfinderpanoramas.org'>SRTM</a> | Map style: &copy; <a href='https://opentopomap.org'>OpenTopoMap</a> (<a href='https://creativecommons.org/licenses/by-sa/3.0/'>CC-BY-SA</a>)"
             />
 
             <!-- Markers -->
             <template v-if="properties && properties.length">
-              <l-marker
-                v-for="p in properties"
-                :key="p.id"
-                v-if="isValidLatLng(getLatLng(p))"
-                :lat-lng="getLatLng(p)"
-                :options="markerOptions"
-                @click="emit('marker-click', p)"
-              >
-                <l-icon
-                  :icon-url="getPricePin(p.price)"
-                  :icon-size="[54, 34]"
-                  :icon-anchor="[27, 34]"
-                />
-                <l-popup v-if="showPopup">
-                  <div class="property-popup">
-                    <div class="text-subtitle-2 font-weight-medium">{{ p.title }}</div>
-                    <div class="text-caption">{{ p.address }}</div>
-                  </div>
-                </l-popup>
-              </l-marker>
+              <template v-for="property in properties" :key="property.id">
+                <l-marker
+                  v-if="isValidLatLng(getLatLng(property))"
+                  :lat-lng="getLatLng(property)"
+                  :options="markerOptions"
+                  @click="emit('marker-click', property)"
+                >
+                  <l-icon
+                    :icon-url="getPricePin(property.price)"
+                    :icon-size="[44, 34]"
+                    :icon-anchor="[25, 34]"
+                  />
+                </l-marker>
+              </template>
             </template>
             <template v-else>
               <l-marker v-if="isValidLatLng(safeCenter)" :lat-lng="safeCenter" :options="markerOptions">
-                <l-icon :icon-url="getPricePin(0)" :icon-size="[54, 34]" :icon-anchor="[27, 34]" />
+                <l-icon :icon-url="getPricePin(0)" :icon-size="[44, 34]" :icon-anchor="[25, 34]" />
                 <l-popup v-if="showPopup">
                   <div class="property-popup">
                     <div class="text-subtitle-1 font-weight-medium">{{ title }}</div>
@@ -97,46 +139,12 @@
               </l-marker>
             </template>
 
-            <!-- Circle for radius -->
-            <l-circle
-              v-if="showRadius"
-              :lat-lng="center"
-              :radius="radius"
-              :options="circleOptions"
-            />
+         
           </l-map>
         </client-only>
       </div>
 
-      <!-- Nearby Places List -->
-      <template v-if="showNearbyPlaces && nearbyPlaces.length">
-        <v-divider class="my-4" />
-        
-        <div class="text-subtitle-1 mb-2">Nearby Places</div>
-        
-        <v-chip-group>
-          <v-chip
-            v-for="type in placeTypes"
-            :key="type"
-            :prepend-icon="getPlaceTypeIcon(type)"
-            :color="selectedPlaceType === type ? 'primary' : undefined"
-            :variant="selectedPlaceType === type ? 'flat' : 'outlined'"
-            @click="togglePlaceType(type)"
-          >
-            {{ formatPlaceType(type) }}
-          </v-chip>
-        </v-chip-group>
-
-        <v-list density="compact" class="mt-2">
-          <v-list-item
-            v-for="place in filteredPlaces"
-            :key="place.id"
-            :title="place.name"
-            :subtitle="`${place.distance} km • ${place.address}`"
-            :prepend-icon="getPlaceTypeIcon(place.type)"
-          />
-        </v-list>
-      </template>
+     
     </v-card-text>
   </v-card>
 </template>
@@ -164,7 +172,7 @@ const props = defineProps({
   },
   height: {
     type: Number,
-    default: 400
+    default: 560
   },
   showControls: {
     type: Boolean,
@@ -203,6 +211,7 @@ const props = defineProps({
 const map = ref<Map | null>(null)
 const mapRef = ref<any>(null)
 const zoom = ref(12)
+const mapType = ref<'map' | 'satellite' | 'terrain'>('map')
 const defaultCenter: [number, number] = [56.7268, -111.3800] // Fort McMurray
 const center = computed<[number, number]>(() => {
   if (typeof props.latitude === 'number' && typeof props.longitude === 'number') {
@@ -243,8 +252,8 @@ const nearbyPlaces = ref([
     id: 1,
     name: 'Central Park',
     type: 'park',
-    latitude: props.latitude + 0.002,
-    longitude: props.longitude + 0.002,
+    latitude: (props.latitude || 56.7268) + 0.002,
+    longitude: (props.longitude || -111.3800) + 0.002,
     distance: 0.3,
     address: '123 Park Ave'
   },
@@ -252,8 +261,8 @@ const nearbyPlaces = ref([
     id: 2,
     name: 'City Mall',
     type: 'shopping',
-    latitude: props.latitude - 0.002,
-    longitude: props.longitude - 0.002,
+    latitude: (props.latitude || 56.7268) - 0.002,
+    longitude: (props.longitude || -111.3800) - 0.002,
     distance: 0.5,
     address: '456 Mall St'
   }
@@ -263,13 +272,14 @@ const nearbyPlaces = ref([
 const placeTypes = ['school', 'shopping', 'restaurant', 'park', 'transit', 'hospital']
 
 const filteredPlaces = computed(() => {
-  if (!selectedPlaceType) return nearbyPlaces.value
-  return nearbyPlaces.value.filter(place => place.type === selectedPlaceType)
+  if (!selectedPlaceType.value) return nearbyPlaces.value
+  return nearbyPlaces.value.filter(place => place.type === selectedPlaceType.value)
 })
 
 // Red price pin similar to portals; rendered as SVG with rounded label
 function formatPriceLabel(value: number): string {
-  if (!value || value < 1000) return `${value}`
+  if (!value || value === 0) return 'Call'
+  if (value < 1000) return `${value}`
   const k = Math.round(value / 1000)
   return `${k}K`
 }
@@ -329,6 +339,10 @@ const onMapReady = (mapInstance: any) => {
 
 const adjustZoom = (delta: number) => {
   zoom.value = Math.max(1, Math.min(18, zoom.value + delta))
+}
+
+const setMapType = (type: 'map' | 'satellite' | 'terrain') => {
+  mapType.value = type
 }
 
 const emit = defineEmits(['bounds-updated', 'marker-click'])

@@ -47,7 +47,20 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async checkAuth(): Promise<void> {
-      if (!this.token) return
+      if (!this.token) {
+        // Try to restore token from localStorage on client
+        if (process.client) {
+          const token = localStorage.getItem('token')
+          if (token) {
+            this.setToken(token)
+          } else {
+            return
+          }
+        } else {
+          return
+        }
+      }
+      
       try {
         const user = await $fetch<User>('/api/auth/me', {
           headers: { Authorization: `Bearer ${this.token}` }

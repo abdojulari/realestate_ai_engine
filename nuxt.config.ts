@@ -4,7 +4,7 @@ import { defineNuxtConfig } from 'nuxt/config'
 export default defineNuxtConfig({
   devtools: { enabled: true },
   srcDir: 'app',
-  css: ['leaflet/dist/leaflet.css'],
+  css: ['leaflet/dist/leaflet.css', '@mdi/font/css/materialdesignicons.css'],
   build: {
     transpile: ['leaflet', '@vue-leaflet/vue-leaflet', 'vuetify', 'vue-echarts', 'echarts']
   },
@@ -30,15 +30,30 @@ export default defineNuxtConfig({
     'vuetify-nuxt-module',
     '@pinia/nuxt',
   ],
-  // @ts-ignore - module augments config
-  vuetify: ({
+  vuetify: {
     moduleOptions: {
       /* module specific options */
     },
     vuetifyOptions: {
-      /* vuetify options */
+      ssr: true,
+      theme: {
+        defaultTheme: 'light',
+        themes: {
+          light: {
+            colors: {
+              primary: '#1976D2',
+              secondary: '#424242',
+              accent: '#82B1FF',
+              error: '#FF5252',
+              info: '#2196F3',
+              success: '#4CAF50',
+              warning: '#FB8C00',
+            },
+          },
+        },
+      },
     },
-  } as any),
+  },
   app: {
     head: {
       title: 'Real Estate',

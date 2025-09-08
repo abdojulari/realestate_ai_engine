@@ -21,10 +21,17 @@ model User {
   role                String    @default("user")
   provider            String?   // "google", "facebook", "email"
   providerId          String?   // ID from the provider
+  
+  // Marketing consent tracking
+  marketingConsent    Boolean   @default(false)
+  consentDate         DateTime?
+  consentIpAddress    String?
+  
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
   properties          Property[]
   savedSearches       SavedSearch[]
+  propertyAlerts      PropertyAlert[]
   viewingRequests     ViewingRequest[]
   inquiries           PropertyInquiry[]
   savedProperties     SavedProperty[]
@@ -52,12 +59,21 @@ model Property {
   views         Int       @default(0)
   userId        Int       // Agent/Owner
   user          User      @relation(fields: [userId], references: [id])
+  
+  // CREA Integration fields
+  source        String    @default("manual")  // "manual" or "crea"
+  externalId    String?   // CREA ListingKey for MLS properties
+  mlsNumber     String?   // MLS listing number
+  lastSyncAt    DateTime? // Last time synced from CREA
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   viewingRequests ViewingRequest[]
   inquiries     PropertyInquiry[]
   savedBy       SavedProperty[]
   propertyViews PropertyView[]
+
+  @@unique([source, externalId])
 }
 
 model ContentBlock {
@@ -78,6 +94,38 @@ model SavedSearch {
   filters   Json
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model PropertyAlert {
+  id              Int       @id @default(autoincrement())
+  userId          Int
+  user            User      @relation(fields: [userId], references: [id])
+  
+  // AI search details
+  naturalQuery    String    // "4 bedroom house with garage in Edmonton"
+  parsedFilters   Json      // AI-extracted filters
+  city            String?   // User's preferred city
+  
+  // Scheduling
+  frequency       String    // "2h", "4h", "12h", "24h", "7d", "14d", "30d"
+  isActive        Boolean   @default(true)
+  lastRun         DateTime?
+  nextRun         DateTime?
+  
+  // Notification preferences  
+  emailEnabled    Boolean   @default(true)
+  pushEnabled     Boolean   @default(false)
+  
+  // Privacy and tracking
+  marketingConsent Boolean  @default(false)
+  consentDate     DateTime?
+  
+  // Results tracking
+  lastResults     Json?     // Store property IDs from last run
+  totalSent       Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model ViewingRequest {

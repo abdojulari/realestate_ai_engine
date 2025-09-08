@@ -34,10 +34,11 @@
     <section class="content-section py-12">
       <v-container>
         <v-row justify="center">
-          <v-col cols="12" md="10" lg="8">
+          <v-col cols="12">
             <div v-if="mainContent" v-html="mainContent" class="about-content"></div>
             <div v-else class="text-body-1">
               <h2 class="text-h4 mb-4">Our Story</h2>
+              
               <p>We help buyers and sellers in Alberta with data-driven insights and local expertise. Our team is dedicated to making your real estate journey as smooth and successful as possible.</p>
             </div>
           </v-col>
@@ -55,8 +56,8 @@ const stats = ref<any[]>([])
 
 onMounted(async () => {
   try {
-    const page = await $fetch('/api/content/page/about')
-    const items: any[] = page.items || []
+    const pageData = await $fetch('/api/content/page/about')
+    const items: any[] = pageData?.items || []
     
     // Load hero content
     const heroTitleItem = items.find(i => i.key === 'about.hero.title' || i.key === 'about-title')
@@ -90,6 +91,7 @@ onMounted(async () => {
     console.error('Error loading about content:', error)
   }
 })
+
 
 // SEO
 useHead({

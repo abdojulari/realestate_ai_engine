@@ -17,7 +17,11 @@ async function authedFetch<T>(url: string, opts: any = {}): Promise<T> {
 }
 
 export const propertyService = {
-  async search(filters: PropertyFilter): Promise<Property[]> {
+  async search(filters: PropertyFilter & { 
+    includeCrea?: boolean
+    includeManual?: boolean
+    source?: 'crea' | 'manual' 
+  } = {}): Promise<Property[]> {
     const params = new URLSearchParams()
     
     // Handle all possible filter fields
@@ -43,10 +47,49 @@ export const propertyService = {
       filters.features.forEach(feature => params.append('features', feature))
     }
     
+    // Pagination controls (allow map to request all properties)
+    if ((filters as any).limit) params.append('limit', String((filters as any).limit))
+    if ((filters as any).page) params.append('page', String((filters as any).page))
+    
+    // Source filtering
+    if (filters.source) params.append('source', filters.source)
+    if (filters.includeCrea !== undefined) params.append('includeCrea', filters.includeCrea.toString())
+    if (filters.includeManual !== undefined) params.append('includeManual', filters.includeManual.toString())
+    
     const queryString = params.toString()
     const url = queryString ? `/api/properties?${queryString}` : '/api/properties'
     
     console.log('Property search URL:', url) // Debug log
+    const response = await authedFetch(url)
+    
+    // Handle both old array format and new paginated format
+    if (Array.isArray(response)) {
+      // Old format - just return the array
+      return response
+    } else if (response && response.properties) {
+      // New paginated format - extract the properties array
+      console.log(`📊 Search results: ${response.properties.length} properties (${response.pagination?.total || 'unknown'} total)`) 
+      return response.properties
+    } else {
+      // Fallback - return empty array
+      console.warn('⚠️ Unexpected API response format:', response)
+      return []
+    }
+  },
+
+  async getFeaturedProperties(options: {
+    includeCrea?: boolean
+    includeManual?: boolean
+    limit?: number
+  } = {}): Promise<Property[]> {
+    const params = new URLSearchParams()
+    if (options.includeCrea !== undefined) params.append('includeCrea', options.includeCrea.toString())
+    if (options.includeManual !== undefined) params.append('includeManual', options.includeManual.toString())
+    if (options.limit) params.append('limit', options.limit.toString())
+    
+    const queryString = params.toString()
+    const url = queryString ? `/api/properties/featured?${queryString}` : '/api/properties/featured'
+    
     return await authedFetch(url)
   },
 
