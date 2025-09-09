@@ -458,6 +458,16 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Reusable Alert Dialog -->
+    <AlertDialog
+      v-model="showDialog"
+      :type="alertType"
+      :title="alertTitle"
+      :message="alertMessage"
+      :confirm-text="alertConfirmText"
+      @confirm="closeAlert"
+    />
   </div>
 </template>
 
@@ -486,6 +496,9 @@ const marketingConsent = ref(false)
 // Authentication
 const authStore = useAuthStore()
 const isAuthenticated = computed(() => authStore.isAuthenticated)
+
+// Alert system
+const { showDialog, alertType, alertTitle, alertMessage, alertConfirmText, showSuccess, showError, closeAlert } = useAlert()
 
 // Step-by-step guide animation
 const step1Text = ref('')
@@ -617,7 +630,8 @@ const searchWithAI = async (pageNum = 1) => {
         totalPages.value = response.pagination.totalPages
         currentPage.value = response.pagination.page
       } else {
-        // Fallback if no pagination data
+        // This should never happen - pagination should always be present
+        console.error('❌ No pagination data in response!')
         totalProperties.value = response.properties.length
         totalPages.value = 1
         currentPage.value = 1
@@ -776,13 +790,16 @@ const createPropertyAlert = async () => {
     console.log('✅ Property alert created:', response)
     
     // Show success message
-    alert(`Property alert created! You'll receive notifications ${frequencyOptions.find(f => f.value === alertFrequency.value)?.label.toLowerCase()} when new properties match your search.`)
+    showSuccess(
+      `You'll receive notifications ${frequencyOptions.find(f => f.value === alertFrequency.value)?.label.toLowerCase()} when new properties match your search.`,
+      'Property Alert Created!'
+    )
     
     closeAlertDialog()
     
   } catch (error: any) {
     console.error('❌ Failed to create alert:', error)
-    alert(`Failed to create alert: ${error.data?.statusMessage || error.message}`)
+    showError(error.data?.statusMessage || error.message, 'Failed to Create Alert')
   } finally {
     creatingAlert.value = false
   }

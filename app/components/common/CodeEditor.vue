@@ -8,7 +8,6 @@
         variant="text"
         prepend-icon="mdi-format-align-left"
         @click="formatCode"
-        :disabled="!canFormat"
       >
         Format
       </v-btn>
@@ -18,41 +17,24 @@
         prepend-icon="mdi-fullscreen"
         @click="toggleFullscreen"
       >
-        Fullscreen
+        {{ isFullscreen ? 'Exit Fullscreen' : 'Fullscreen' }}
       </v-btn>
     </div>
     
     <div 
       ref="editorContainer" 
-      class="monaco-editor-container"
+      class="codemirror-editor"
       :class="{ 'fullscreen': isFullscreen }"
       :style="{ height: editorHeight }"
     />
-    
-    <!-- Fullscreen overlay -->
-    <div v-if="isFullscreen" class="fullscreen-overlay">
-      <div class="fullscreen-header d-flex align-center pa-4">
-        <h3 class="text-h6">Code Editor - {{ language.toUpperCase() }}</h3>
-        <v-spacer />
-        <v-btn
-          icon="mdi-close"
-          variant="text"
-          @click="toggleFullscreen"
-        />
-      </div>
-      <div ref="fullscreenEditor" class="fullscreen-editor" />
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import * as monaco from 'monaco-editor'
-
 interface Props {
   modelValue: string
   language?: string
   height?: string
-  theme?: string
   readonly?: boolean
   placeholder?: string
 }
@@ -60,7 +42,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   language: 'html',
   height: '300px',
-  theme: 'vs',
   readonly: false,
   placeholder: 'Enter your code here...'
 })
@@ -68,136 +49,158 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   'change': [value: string]
-  'focus': []
-  'blur': []
 }>()
 
 const editorContainer = ref<HTMLElement>()
-const fullscreenEditor = ref<HTMLElement>()
 const isFullscreen = ref(false)
-let editor: monaco.editor.IStandaloneCodeEditor | null = null
-let fullscreenEditorInstance: monaco.editor.IStandaloneCodeEditor | null = null
+let editorView: any = null
 
-const editorHeight = computed(() => props.height)
-const canFormat = computed(() => ['html', 'css', 'javascript', 'json'].includes(props.language))
+const editorHeight = computed(() => isFullscreen.value ? '80vh' : props.height)
 
-const initializeEditor = () => {
-  if (!editorContainer.value) return
+const initializeEditor = async () => {
+  if (!editorContainer.value || !process.client) return
 
-  // Configure Monaco Editor
-  monaco.languages.html.htmlDefaults.setOptions({
-    format: {
-      tabSize: 2,
-      insertSpaces: true,
-      wrapLineLength: 120,
-      unformatted: 'default"',
-      contentUnformatted: 'pre,code,textarea',
-      indentInnerHtml: false,
-      preserveNewLines: true,
-      maxPreserveNewLines: 2,
-      indentHandlebars: false,
-      endWithNewline: false,
-      extraLiners: 'head,body,/html',
-      wrapAttributes: 'auto'
+  try {
+    // Dynamic imports for client-side only
+    const { EditorView, basicSetup } = await import('@codemirror/view')
+    const { EditorState } = await import('@codemirror/state')
+    const { html } = await import('@codemirror/lang-html')
+    const { css } = await import('@codemirror/lang-css')
+    const { oneDark } = await import('@codemirror/theme-one-dark')
+
+    // Choose language extension
+    let languageExtension
+    switch (props.language) {
+      case 'css':
+        languageExtension = css()
+        break
+      case 'html':
+      default:
+        languageExtension = html()
+        break
     }
-  })
 
-  // Create editor instance
-  editor = monaco.editor.create(editorContainer.value, {
-    value: props.modelValue,
-    language: props.language,
-    theme: props.theme,
-    readOnly: props.readonly,
-    automaticLayout: true,
-    minimap: { enabled: false },
-    scrollBeyondLastLine: false,
-    fontSize: 14,
-    lineNumbers: 'on',
-    roundedSelection: false,
-    scrollbar: {
-      vertical: 'auto',
-      horizontal: 'auto'
-    },
-    wordWrap: 'on',
-    formatOnPaste: true,
-    formatOnType: true
-  })
+    // Create editor state
+    const state = EditorState.create({
+      doc: props.modelValue,
+      extensions: [
+        basicSetup,
+        languageExtension,
+        EditorView.theme({
+          '&': {
+            fontSize: '14px',
+            border: '1px solid #e0e0e0',
+            borderRadius: '4px'
+          },
+          '.cm-content': {
+            padding: '12px',
+            minHeight: props.height
+          },
+          '.cm-focused': {
+            outline: '2px solid #1976d2',
+            outlineOffset: '-2px'
+          }
+        }),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) {
+            const value = update.state.doc.toString()
+            emit('update:modelValue', value)
+            emit('change', value)
+          }
+        })
+      ]
+    })
 
-  // Listen for changes
-  editor.onDidChangeModelContent(() => {
-    if (editor) {
-      const value = editor.getValue()
-      emit('update:modelValue', value)
-      emit('change', value)
-    }
-  })
+    // Create editor view
+    editorView = new EditorView({
+      state,
+      parent: editorContainer.value
+    })
 
-  // Focus/blur events
-  editor.onDidFocusEditorText(() => emit('focus'))
-  editor.onDidBlurEditorText(() => emit('blur'))
+    console.log('✅ CodeMirror editor initialized')
+  } catch (error) {
+    console.error('❌ Failed to initialize CodeMirror:', error)
+  }
 }
 
-const formatCode = async () => {
-  if (!editor) return
+const formatCode = () => {
+  if (!editorView) return
   
+  // Basic formatting for HTML/CSS
   try {
-    await editor.getAction('editor.action.formatDocument')?.run()
+    const doc = editorView.state.doc.toString()
+    let formatted = doc
+    
+    if (props.language === 'html') {
+      // Basic HTML formatting
+      formatted = doc
+        .replace(/></g, '>\n<')
+        .replace(/^\s+|\s+$/gm, '')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .join('\n')
+    }
+    
+    if (props.language === 'css') {
+      // Basic CSS formatting
+      formatted = doc
+        .replace(/\{/g, ' {\n  ')
+        .replace(/\}/g, '\n}\n')
+        .replace(/;/g, ';\n  ')
+        .replace(/^\s+|\s+$/gm, '')
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0)
+        .join('\n')
+    }
+    
+    // Update editor content
+    editorView.dispatch({
+      changes: {
+        from: 0,
+        to: editorView.state.doc.length,
+        insert: formatted
+      }
+    })
   } catch (error) {
-    console.warn('Format not available for this language')
+    console.warn('Formatting failed:', error)
   }
 }
 
 const toggleFullscreen = () => {
   isFullscreen.value = !isFullscreen.value
   
-  if (isFullscreen.value) {
-    nextTick(() => {
-      if (fullscreenEditor.value) {
-        fullscreenEditorInstance = monaco.editor.create(fullscreenEditor.value, {
-          value: editor?.getValue() || props.modelValue,
-          language: props.language,
-          theme: 'vs-dark',
-          automaticLayout: true,
-          minimap: { enabled: true },
-          scrollBeyondLastLine: false,
-          fontSize: 16
-        })
-
-        fullscreenEditorInstance.onDidChangeModelContent(() => {
-          if (fullscreenEditorInstance && editor) {
-            const value = fullscreenEditorInstance.getValue()
-            editor.setValue(value)
-            emit('update:modelValue', value)
-            emit('change', value)
-          }
-        })
-      }
-    })
-  } else {
-    if (fullscreenEditorInstance) {
-      fullscreenEditorInstance.dispose()
-      fullscreenEditorInstance = null
+  // Trigger editor resize
+  nextTick(() => {
+    if (editorView) {
+      editorView.requestMeasure()
     }
-  }
+  })
 }
 
 // Watch for external changes
 watch(() => props.modelValue, (newValue) => {
-  if (editor && editor.getValue() !== newValue) {
-    editor.setValue(newValue)
+  if (editorView && editorView.state.doc.toString() !== newValue) {
+    editorView.dispatch({
+      changes: {
+        from: 0,
+        to: editorView.state.doc.length,
+        insert: newValue
+      }
+    })
   }
 })
 
 onMounted(() => {
-  initializeEditor()
+  if (process.client) {
+    initializeEditor()
+  }
 })
 
 onBeforeUnmount(() => {
-  if (editor) {
-    editor.dispose()
-  }
-  if (fullscreenEditorInstance) {
-    fullscreenEditorInstance.dispose()
+  if (editorView) {
+    editorView.destroy()
   }
 })
 </script>
@@ -215,33 +218,32 @@ onBeforeUnmount(() => {
   border-bottom: 1px solid #e0e0e0;
 }
 
-.monaco-editor-container {
+.codemirror-editor {
   width: 100%;
+  transition: all 0.3s ease;
 }
 
-.fullscreen-overlay {
+.codemirror-editor.fullscreen {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: white;
   z-index: 9999;
-  display: flex;
-  flex-direction: column;
+  background: white;
+  border-radius: 0;
 }
 
-.fullscreen-header {
-  background: #f5f5f5;
-  border-bottom: 1px solid #e0e0e0;
+/* CodeMirror styling */
+:deep(.cm-editor) {
+  border: none !important;
 }
 
-.fullscreen-editor {
-  flex: 1;
+:deep(.cm-content) {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace !important;
 }
 
-/* Monaco editor dark theme in fullscreen */
-.fullscreen-overlay .monaco-editor {
-  background: #1e1e1e !important;
+:deep(.cm-line) {
+  line-height: 1.5;
 }
 </style>

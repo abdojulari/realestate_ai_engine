@@ -199,16 +199,20 @@
                 </div>
 
                 <div v-else-if="contentForm.type === 'html'">
-                  <!-- Monaco Code Editor for HTML -->
-                  <div class="mb-4">
-                    <label class="text-subtitle-2 mb-2 d-block">HTML Content</label>
-                    <CodeEditor
-                      v-model="contentForm.content"
-                      language="html"
-                      height="400px"
-                      placeholder="Enter your HTML content here..."
-                    />
-                  </div>
+                  <!-- Simple HTML Editor -->
+                  <v-textarea
+                    v-model="contentForm.content"
+                    label="HTML Content"
+                    rows="12"
+                    variant="outlined"
+                    :rules="[v => !!v || 'Content is required']"
+                    required
+                    class="html-code-editor"
+                    spellcheck="false"
+                    auto-grow
+                    hint="Enter your HTML content. Use Tab for indentation."
+                    persistent-hint
+                  />
 
                   <!-- Image uploader for About page content -->
                   <div v-if="contentForm.section === 'about'" class="mt-4">
@@ -362,12 +366,25 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Reusable Alert Dialog -->
+    <AlertDialog
+      v-model="showDialog"
+      :type="alertType"
+      :title="alertTitle"
+      :message="alertMessage"
+      :confirm-text="alertConfirmText"
+      @confirm="closeAlert"
+    />
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { api } from '~~/utils/api'
+
+// Alert system
+const { showDialog, alertType, alertTitle, alertMessage, alertConfirmText, showSuccess, showError, closeAlert } = useAlert()
 
 const search = ref('')
 const selectedSection = ref<string | null>(null)
@@ -529,7 +546,7 @@ const uploadAboutImages = async (files: File | File[] | null) => {
     }
   } catch (e) {
     console.error('Failed to upload images:', e)
-    alert('Failed to upload images. Please try again.')
+    showError('Please check your internet connection and try again.', 'Failed to Upload Images')
   }
 }
 
@@ -548,6 +565,7 @@ const copyToClipboard = async (text: string) => {
     document.body.removeChild(textArea)
   }
 }
+
 
 const resetForm = () => {
   Object.assign(contentForm, {
@@ -631,7 +649,7 @@ const saveContent = async () => {
     } catch {}
   } catch (e) {
     console.error('Save failed:', e)
-    alert(`Save failed: ${(e as any)?.message || 'Unknown error'}`)
+    showError((e as any)?.message || 'Unknown error occurred', 'Save Failed')
   } finally {
     saving.value = false
   }
@@ -672,5 +690,12 @@ definePageMeta({ layout: 'admin', middleware: ['auth', 'admin'] })
 <style scoped>
 .max-width-200 {
   max-width: 200px;
+}
+
+.html-code-editor :deep(.v-field__input) {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace !important;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #fafafa !important;
 }
 </style>

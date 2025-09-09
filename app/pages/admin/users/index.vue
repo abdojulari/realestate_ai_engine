@@ -290,11 +290,24 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Reusable Alert Dialog -->
+    <AlertDialog
+      v-model="showDialog"
+      :type="alertType"
+      :title="alertTitle"
+      :message="alertMessage"
+      :confirm-text="alertConfirmText"
+      @confirm="closeAlert"
+    />
   </v-container>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+
+// Alert system
+const { showDialog, alertType, alertTitle, alertMessage, alertConfirmText, showSuccess, showError, closeAlert } = useAlert()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -447,7 +460,7 @@ const toggleUserStatus = async (user: any) => {
     user.status = user.status === 'active' ? 'inactive' : 'active'
   } catch (error: any) {
     console.error('Error toggling user status:', error)
-    alert(`Failed to toggle user status: ${error.message}`)
+    showError(error.message, 'Failed to Toggle User Status')
   }
 }
 
@@ -499,7 +512,7 @@ const saveUser = async () => {
     await applyFilters()
   } catch (error: any) {
     console.error('Error saving user:', error)
-    alert(`Failed to save user: ${error.message}`)
+    showError(error.message, 'Failed to Save User')
   } finally {
     saving.value = false
   }
@@ -533,13 +546,16 @@ const confirmResetPassword = async () => {
     
     // Show the temporary password (remove this in production when email service is implemented)
     if (result.temporaryPassword) {
-      alert(`Password reset successful!\n\nTemporary password: ${result.temporaryPassword}\n\nIn production, this would be sent via email instead.`)
+      showSuccess(
+        `Temporary password: ${result.temporaryPassword}\n\nIn production, this would be sent via email instead.`,
+        'Password Reset Successful'
+      )
     } else {
-      alert('Password reset successful! Temporary password has been sent to the user\'s email.')
+      showSuccess('Temporary password has been sent to the user\'s email.', 'Password Reset Successful')
     }
   } catch (error: any) {
     console.error('Error resetting password:', error)
-    alert(`Failed to reset password: ${error.message}`)
+    showError(error.message, 'Failed to Reset Password')
   } finally {
     resetting.value = false
   }
@@ -579,10 +595,10 @@ const deleteUser = async () => {
     // Refresh users list
     await applyFilters()
     
-    alert('User deleted successfully!')
+    showSuccess('User has been permanently deleted from the system.', 'User Deleted Successfully')
   } catch (error: any) {
     console.error('Error deleting user:', error)
-    alert(`Failed to delete user: ${error.message}`)
+    showError(error.message, 'Failed to Delete User')
   } finally {
     deleting.value = false
   }

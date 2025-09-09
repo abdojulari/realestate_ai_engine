@@ -1,4 +1,4 @@
-#!/usr/bin/env node
+A
 
 /**
  * Quick script to sync some CREA data for testing

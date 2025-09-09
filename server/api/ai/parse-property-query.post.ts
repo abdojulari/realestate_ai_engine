@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     
     // Calculate confidence score based on how many features we extracted
     const extractedCount = Object.keys(filters).length
-    const confidence = Math.min(extractedCount * 0.2, 1.0) // Max confidence of 1.0
+    const confidence = Math.min(extractedCount * 0.25 + 0.1, 0.95) // Better scoring, max 0.95
     
     console.log('[AI PARSER] Extracted filters:', filters)
     console.log('[AI PARSER] Confidence:', confidence)
@@ -43,11 +43,13 @@ export default defineEventHandler(async (event) => {
 function parseWithRules(query: string): Record<string, any> {
   const filters: Record<string, any> = {}
   
-  // 1. BEDROOMS - "4 bedroom", "four bed", "4-bed", "4 br"
+  // 1. BEDROOMS - "4 bedroom", "four bed", "4-bed", "4 br", "3+ bedrooms"
   const bedroomPatterns = [
-    /(\d+)\s*(?:bed|bedroom|br)s?/,
+    /(\d+)\+?\s*(?:bed|bedroom|br)s?/,
+    /(\d+)\s*(?:or\s*more|plus|\+)\s*(?:bed|bedroom|br)s?/,
     /(one|two|three|four|five|six|seven|eight)\s*(?:bed|bedroom|br)s?/,
-    /(\d+)[\s-]*(?:bed|bedroom|br)/
+    /(\d+)[\s-]*(?:bed|bedroom|br)/,
+    /(\d+)\s*\+\s*(?:bed|bedroom|br)s?/
   ]
   
   for (const pattern of bedroomPatterns) {

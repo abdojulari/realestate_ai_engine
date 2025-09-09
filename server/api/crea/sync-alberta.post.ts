@@ -68,7 +68,20 @@ function transformCreaaProperty(creaProperty: any, systemUserId: number) {
     features: {
       // Boolean features for filtering
       garage: !!(creaProperty.GarageSpaces > 0 || creaProperty.CarportSpaces > 0 || 
-                 (creaProperty.Appliances && creaProperty.Appliances.some(a => a.toLowerCase().includes('garage')))),
+                 creaProperty.ParkingTotal > 0 ||
+                 (creaProperty.Appliances && creaProperty.Appliances.some(a => 
+                   a.toLowerCase().includes('garage'))) ||
+                 // GARAGE DOOR OPENER = GARAGE EXISTS (basic logic!)
+                 (creaProperty.Appliances && creaProperty.Appliances.some(a => 
+                   a.toLowerCase().includes('garage door opener') || 
+                   a.toLowerCase().includes('garage door remote') ||
+                   a.toLowerCase().includes('opener'))) ||
+                 // Check description for garage mentions
+                 (creaProperty.PublicRemarks && (
+                   creaProperty.PublicRemarks.toLowerCase().includes('garage') ||
+                   creaProperty.PublicRemarks.toLowerCase().includes('parking') ||
+                   creaProperty.PublicRemarks.toLowerCase().includes('attached') ||
+                   creaProperty.PublicRemarks.toLowerCase().includes('detached')))),
       pool: !!(creaProperty.PoolFeatures && creaProperty.PoolFeatures.length > 0),
       waterfront: !!(creaProperty.WaterBodyName || 
                      (creaProperty.ExteriorFeatures && creaProperty.ExteriorFeatures.some(f => 
