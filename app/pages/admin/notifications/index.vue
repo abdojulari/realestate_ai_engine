@@ -72,7 +72,7 @@ async function clearDismissed() {
 
 onMounted(load)
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'admin'] })
+definePageMeta({ layout: 'admin', middleware: ['admin'] })
 </script>
 
 

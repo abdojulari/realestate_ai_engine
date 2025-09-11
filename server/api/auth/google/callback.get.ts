@@ -75,7 +75,7 @@ export default defineEventHandler(async (event) => {
     }
   })
 
-  const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || 'fallback-secret', { expiresIn: '7d' })
+  const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || 'fallback-secret', { expiresIn: '1h' })
 
   // Set token cookie for convenience, and redirect to app home with token in hash
   setCookie(event, 'token', token, { path: '/', httpOnly: false, sameSite: 'lax' })

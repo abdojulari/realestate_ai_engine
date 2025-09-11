@@ -6,8 +6,6 @@ const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
-    console.log('🔔 Checking for due property alerts...')
-    
     // Find all alerts that are due to run
     const dueAlerts = await prisma.propertyAlert.findMany({
       where: {
@@ -29,7 +27,9 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    console.log(`📊 Found ${dueAlerts.length} due alerts`)
+    if (dueAlerts.length > 0) {
+      console.log(`🔔 Processing ${dueAlerts.length} due alerts`)
+    }
 
     if (dueAlerts.length === 0) {
       return { success: true, message: 'No alerts due', processed: 0 }
@@ -41,8 +41,6 @@ export default defineEventHandler(async (event) => {
     // Process each due alert
     for (const alert of dueAlerts) {
       try {
-        console.log(`🔍 Processing alert for ${alert.user.email}: "${alert.naturalQuery}"`)
-        
         // Skip if user hasn't consented to marketing
         if (!alert.user.marketingConsent) {
           console.log(`⚠️ Skipping alert - user ${alert.user.email} has not consented to marketing`)
@@ -58,14 +56,10 @@ export default defineEventHandler(async (event) => {
         const newPropertyIds = currentResultIds.filter((id: number) => !lastResultIds.includes(id))
         const newProperties = searchResults.filter((p: any) => newPropertyIds.includes(p.id))
 
-        console.log(`📊 Alert results: ${searchResults.length} total, ${newProperties.length} new properties`)
-
         // Only send email if there are new properties
         if (newProperties.length > 0) {
           await sendAlertEmail(alert.user, alert, newProperties)
           console.log(`✅ Sent alert email to ${alert.user.email} with ${newProperties.length} new properties`)
-        } else {
-          console.log(`ℹ️ No new properties for ${alert.user.email}, skipping email`)
         }
 
         // Update alert with next run time and last results
@@ -86,8 +80,6 @@ export default defineEventHandler(async (event) => {
         errors++
       }
     }
-
-    console.log(`✅ Alert processing completed: ${processed} processed, ${errors} errors`)
 
     return {
       success: true,
@@ -146,7 +138,7 @@ async function runPropertySearch(filters: any, city?: string) {
 
 // Send alert email to user
 async function sendAlertEmail(user: any, alert: any, properties: any[]) {
-  const transporter = nodemailer.createTransporter({
+  const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOSTNAME,
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: false,
@@ -206,7 +198,7 @@ async function sendAlertEmail(user: any, alert: any, properties: any[]) {
   `
 
   const mailOptions = {
-    from: process.env.SMTP_SENDER,
+    from: process.env.SMTP_SENDER || process.env.SMTP_USERNAME,
     to: user.email,
     subject: `New Properties: ${alert.naturalQuery}`,
     html: emailHtml

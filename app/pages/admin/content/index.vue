@@ -684,7 +684,7 @@ onMounted(async () => {
   }
 })
 
-definePageMeta({ layout: 'admin', middleware: ['auth', 'admin'] })
+definePageMeta({ layout: 'admin', middleware: ['admin'] })
 </script>
 
 <style scoped>

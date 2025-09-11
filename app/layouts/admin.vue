@@ -214,6 +214,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { formatTime } from '../../utils/formatters'
 import { useRouter, useRoute } from 'vue-router'
+// @ts-ignore
 import { api } from '~~/utils/api'
 
 const auth = useAuthStore()
@@ -289,13 +290,10 @@ async function loadHeaderData() {
   }
 }
 
-// Check authentication and populate header
+// Load header data - middleware should have already handled auth
 onMounted(async () => {
-  await auth.checkAuth()
-  if (!auth.isAuthenticated) {
-    router.push('/auth/login')
-    return
-  }
+  // Trust that middleware has handled authentication
+  // If we're here, the user should be authenticated and admin
   await loadHeaderData()
 })
 </script>

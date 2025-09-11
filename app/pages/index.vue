@@ -1,43 +1,94 @@
 <template>
-  <div>
+  <div class="home-page">
     <!-- Hero Section -->
     <section class="hero-section">
-      <v-img
-        :src="heroImage || '/images/hero-bg.jpg'"
-        height="600"
-        cover
-        class="hero-image"
-      >
-        <v-overlay
-          color="black"
-          opacity="0.4"
-          scrim
-        />
-        
-        <v-container class="fill-height">
-          <v-row align="center" justify="center" class=" bg-white py-10">
-            <v-col cols="12" md="10" lg="8" class="text-center">
-              <h1 class="text-h2 text-gray-darken-1 font-weight-bold mb-4">
-                {{ heroTitle || 'Find Your Dream Home' }}
+      <v-container class="hero-container pr-0 mr-0">
+        <v-row align="center" class="min-height-screen ma-0">
+          <v-col cols="12" md="6" class="hero-content ">
+            <div class="hero-text">
+              <h1 class="hero-title">
+                Find A House<br>
+                <span class="hero-title-accent">That Suits you</span>
               </h1>
-              <p class="text-h6 text-gray-darken-1 mb-8">
-                {{ heroSubtitle || 'Search properties for sale and to rent in your area' }}
+              <p class="hero-subtitle">
+                Want to find a home? We are ready to help you find<br>
+                one that suits your Lifestyle and needs
               </p>
-              
-              <PropertySearch elevation="3" @search="handleSearch"/>
-            </v-col>
-          </v-row>
-        </v-container>
-      </v-img>
+              <v-btn 
+                color="grey-darken-4" 
+                size="large" 
+                class="hero-cta-btn text-none font-weight-medium"
+                to="/properties"
+              >
+                Get Started
+              </v-btn>
+            </div>
+
+            <!-- Stats -->
+            <div class="hero-stats mb-5">
+              <div class="stat-item">
+                <div class="stat-number">{{ totalProperties }}</div>
+                <div class="stat-label">Listed Properties</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">4500+</div>
+                <div class="stat-label">Happy Customers</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-number">100+</div>
+                <div class="stat-label">Awards</div>
+              </div>
+            </div>
+          </v-col>
+          <v-col cols="12" md="6" class="hero-image-col pa-0"> 
+              <v-img
+                :src="heroImage || 'https://www.newhomeco.com/_next/image?url=https%3A%2F%2F48078207.fs1.hubspotusercontent-na1.net%2Fhub%2F48078207%2Fhubfs%2FApproved%2520Division%2520Assets%2FColorado%2FThe%2520Cottages%2520Collection%2520at%2520Ridgeline%2520Vista%2F07%2520-%2520Model%2520Photography%2FRidgeline-Vista-Plan-3502-Web-7.jpg&w=3840&q=75'"
+                alt="Modern House"
+                class="hero-house"
+                cover
+              />
+          </v-col>
+        </v-row>
+      </v-container>
     </section>
 
-    <!-- Featured Properties -->
-    <section class="py-12 bg-surface">
+    <!-- Floating Search Section -->
+    <div class="floating-search-section">
       <v-container>
-        <h2 class="text-h4 text-center mb-8">Featured Properties</h2>
-        <FeaturedDeals :items="featuredProperties" @select="onSelectProperty" />
-        <div class="text-center mt-8">
-          <v-btn color="primary" variant="outlined" size="large" to="/properties">View All Properties</v-btn>
+        <v-row justify="center">
+          <v-col cols="12" lg="10" xl="8">
+            <div class="floating-search-container">
+              <h3 class="floating-search-title">Search for available properties</h3>
+              <PropertySearch 
+                elevation="3" 
+                @search="handleSearch"
+                class="floating-search"
+              />
+            </div>
+          </v-col>
+        </v-row>
+      </v-container>
+    </div>
+
+    <!-- Featured Properties -->
+    <section class="featured-section">
+      <v-container>
+        <div class="section-header">
+          <div class="section-label">POPULAR</div>
+          <h2 class="section-title">Our Popular Homes</h2>
+          <v-btn 
+            variant="text" 
+            color="grey-darken-3" 
+            class="explore-btn text-none"
+            to="/properties"
+          >
+            Explore All
+            <v-icon end>mdi-arrow-right</v-icon>
+          </v-btn>
+        </div>
+        
+        <div class="properties-carousel">
+          <FeaturedDeals :items="featuredProperties" @select="onSelectProperty" />
         </div>
       </v-container>
     </section>
@@ -45,68 +96,72 @@
     <!-- Why Choose Us -->
     <WhyChooseUs />
 
+    <!-- Resources-->
+    <ResourcesSection />
+
     <!-- Testimonials -->
-    <section class="py-12 bg-white">
+    <section class="testimonials-section">
       <v-container>
         <h2 class="text-h4 text-center mb-8">What Our Clients Say</h2>
-        <v-row justify="center">
-          <v-col cols="12" md="10">
-            <v-slide-group
-              show-arrows
-              class="pa-4"
+        <div class="d-flex justify-center">
+          <v-slide-group
+            show-arrows
+            class="pa-4"
+            center-active
+          >
+            <v-slide-group-item
+              v-for="testimonial in testimonials"
+              :key="testimonial.id"
             >
-              <v-slide-group-item
-                v-for="testimonial in testimonials"
-                :key="testimonial.id"
+              <v-card
+                class="mx-2"
+                width="300"
+                flat
               >
-                <v-card
-                  class="mx-2"
-                  width="300"
-                  flat
-                >
-                  <v-card-text class="text-center">
-                    <v-avatar
-                      :image="testimonial.avatar"
-                      size="80"
-                      class="mb-4"
-                    />
-                    <blockquote class="text-body-1 mb-4">
-                      "{{ testimonial.content }}"
-                    </blockquote>
-                    <div class="text-h6">{{ testimonial.name }}</div>
-                    <div class="text-caption text-grey">{{ testimonial.location }}</div>
-                  </v-card-text>
-                </v-card>
-              </v-slide-group-item>
-            </v-slide-group>
-          </v-col>
-        </v-row>
+                <v-card-text class="text-center">
+                  <v-avatar
+                    :image="testimonial.avatar"
+                    size="80"
+                    class="mb-4"
+                  />
+                  <blockquote class="text-body-1 mb-4">
+                    "{{ testimonial.content }}"
+                  </blockquote>
+                  <div class="text-h6">{{ testimonial.name }}</div>
+                  <div class="text-caption text-grey">{{ testimonial.location }}</div>
+                </v-card-text>
+              </v-card>
+            </v-slide-group-item>
+          </v-slide-group>
+        </div>
       </v-container>
     </section>
 
     <!-- CTA Section -->
-    <section class="py-12 bg-primary">
+    <section class="cta-section">
       <v-container>
         <v-row align="center" justify="center">
           <v-col cols="12" md="8" class="text-center">
-            <h2 class="text-h4 text-white mb-4">
+            <h2 class="cta-title">
               Ready to Find Your Dream Home?
             </h2>
-            <p class="text-h6 text-white-darken-1 mb-8">
+            <p class="cta-subtitle">
               Let us help you find the perfect property that matches your needs
             </p>
             <v-btn
               size="x-large"
-              color="white"
+              color="grey-darken-4"
               to="/contact"
-              class="px-8"
+              class=" text-none font-weight-medium"
             >
               Contact Us Today
             </v-btn>
           </v-col>
+          
         </v-row>
       </v-container>
     </section>
+
   </div>
 </template>
 
@@ -118,6 +173,10 @@ const heroImage = ref<string>('')
 const heroTitle = ref<string>('')
 const heroSubtitle = ref<string>('')
 const whyTitle = ref<string>('')
+
+const totalProperties = computed(() => {
+  return featuredProperties.value.length > 0 ? `${featuredProperties.value.length}+` : '1200+'
+})
 onMounted(async () => {
   console.log('🏡 Starting featured homes loading process...')
   try {
@@ -299,6 +358,7 @@ const features = reactive<any[]>([])
 
 const testimonials = ref<any[]>([])
 
+
 const handleSearch = (params: any) => {
   console.log('Search params:', params)
   // Navigate to search results page with params
@@ -319,26 +379,350 @@ function onSelectProperty(p: any) {
   navigateTo(`/property/${p.id}`)
 }
 
-const formatPrice = (price: number) => {
-  return price.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+
+const scrollToSearch = () => {
+  const element = document.getElementById('search-section')
+  if (element) {
+    element.scrollIntoView({ behavior: 'smooth' })
+  }
 }
 </script>
 
 <style scoped>
+.home-page {
+  background: #f8f9fa;
+}
+
+/* Hero Section */
 .hero-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  min-height: 60vh;
+  padding: 2rem 0 0 0;
   position: relative;
+  overflow: hidden;
 }
 
-.hero-image {
-  position: relative;
-}
-
-.feature-card {
+.hero-container {
   height: 100%;
-  transition: transform 0.2s;
+  max-width: none !important;
+  padding-right: 0 !important;
+  padding-bottom: 0 !important;
+  margin-right: 0 !important;
+  margin-bottom: 0 !important;
 }
 
-.feature-card:hover {
-  transform: translateY(-4px);
+.hero-container .v-row {
+  margin-bottom: 0 !important;
+}
+
+.hero-container .v-col {
+  padding-bottom: 0 !important;
+}
+
+.min-height-screen {
+  min-height: 60vh;
+}
+
+.hero-content {
+  padding: 1rem 4rem;
+}
+
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+}
+
+.hero-title-accent {
+  color: #6c757d;
+  font-weight: 400;
+}
+
+.hero-subtitle {
+  font-size: 1.1rem;
+  color: #6c757d;
+  line-height: 1.6;
+  margin-bottom: 2.5rem;
+}
+
+/* .hero-cta-btn {
+  padding: 1rem 2.5rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+} */
+
+/* Hero Stats */
+.hero-stats {
+  display: flex;
+  gap: 3rem;
+  margin-top: 1rem;
+}
+
+.stat-item {
+  text-align: left;
+}
+
+.stat-number {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 0.5rem;
+}
+
+.stat-label {
+  font-size: 0.9rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* Hero Image */
+.hero-image-col {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding-right: 0 !important;
+  padding-bottom: 0 !important;
+  margin-right: 0 !important;
+  margin-bottom: 0 !important;
+  position: relative;
+  height: 100%;
+}
+
+.hero-house {
+  width: calc(100% + 3rem);
+  height: 730px;
+  border-radius: 20px 0 0 0;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+  margin-right: -3rem;
+  margin-bottom: 0;
+  object-fit: cover;
+}
+
+/* Floating Search Section */
+.floating-search-section {
+  position: absolute;
+  top: 95vh;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  pointer-events: none;
+}
+
+.floating-search-container {
+  background: white;
+  padding: 2.5rem;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+  pointer-events: all;
+}
+
+.floating-search-title {
+  font-size: 1.8rem;
+  font-weight: 600;
+  color: #2c3e50;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+/* Featured Properties Section */
+.featured-section {
+  background: white;
+  padding: 6rem 0 4rem 0;
+  margin-top: -2rem;
+  position: relative;
+  z-index: 10;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  margin-top: 4rem;
+}
+
+.section-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.section-title {
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin: 0.5rem 0;
+}
+
+.explore-btn {
+  color: #6c757d;
+  font-weight: 500;
+}
+
+/* Property Cards */
+.properties-carousel {
+  margin-top: 2rem;
+  background-color: white;
+}
+
+
+/* Testimonials Section */
+.testimonials-section {
+  background: #2c3e50;
+  padding: 6rem 0;
+  color: white;
+}
+
+.testimonial-content {
+  display: flex;
+  align-items: center;
+  gap: 4rem;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.testimonial-text {
+  flex: 1;
+}
+
+.testimonial-author {
+  margin-bottom: 2rem;
+}
+
+.author-name {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.author-title {
+  color: #adb5bd;
+  font-size: 1rem;
+}
+
+.testimonial-quote {
+  font-size: 1.1rem;
+  line-height: 1.8;
+  font-style: italic;
+  color: #e9ecef;
+}
+
+.testimonial-image {
+  flex: 0 0 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.quote-mark {
+  font-size: 8rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.1);
+  line-height: 1;
+}
+
+/* CTA Section */
+.cta-section {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  padding: 6rem 0;
+}
+
+.cta-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #2c3e50;
+  margin-bottom: 1rem;
+}
+
+.cta-subtitle {
+  font-size: 1.1rem;
+  color: #6c757d;
+  margin-bottom: 2.5rem;
+}
+
+.cta-btn {
+  padding: 1.2rem 3rem;
+  border-radius: 10px;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 2.5rem;
+  }
+  
+  .hero-stats {
+    justify-content: space-between;
+    gap: 1rem;
+  }
+  
+  .stat-number {
+    font-size: 1.5rem;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .floating-search-section {
+    top: 50vh;
+  }
+  
+  .hero-section {
+    min-height: 50vh;
+    padding: 1rem 0 0 0;
+  }
+  
+  .min-height-screen {
+    min-height: 50vh;
+  }
+  
+  .floating-search-container {
+    padding: 1.5rem;
+    margin: 0 1rem;
+  }
+  
+  .floating-search-title {
+    font-size: 1.4rem;
+  }
+  
+  .testimonial-content {
+    flex-direction: column;
+    text-align: center;
+    gap: 2rem;
+  }
+  
+  .hero-image-col {
+    padding-right: 1rem !important;
+    padding-left: 1rem !important;
+  }
+  
+  .hero-house {
+    width: 100%;
+    height: 300px;
+    border-radius: 20px;
+    margin-top: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+  
+  .cta-title {
+    font-size: 2rem;
+  }
+  
+  .hero-stats {
+    flex-direction: column;
+    gap: 1.5rem;
+    text-align: center;
+  }
 }
 </style>

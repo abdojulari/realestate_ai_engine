@@ -22,39 +22,47 @@ export default defineNuxtRouteMiddleware(async (to) => {
   // Allow all public paths (and their subpaths)
   if (publicPrefixes.some(p => to.path === p || to.path.startsWith(p + '/'))) return
 
-  // On client-side, try to restore auth state if not already loaded
-  if (process.client && !auth.user && !auth.token) {
-    const token = localStorage.getItem('token')
-    if (token) {
-      console.log('[AUTH MIDDLEWARE] Found token, restoring auth state...')
-      auth.setToken(token)
+  // On client-side, ensure auth state is restored before checking authentication
+  if (process.client) {
+    // If no token in store but one exists in localStorage, restore it first
+    if (!auth.token) {
+      const token = localStorage.getItem('token')
+      if (token) {
+        auth.setToken(token)
+      }
+    }
+    
+    // If we have a token but no user, try to restore user info
+    if (auth.token && !auth.user) {
       try {
         await auth.checkAuth()
-        console.log('[AUTH MIDDLEWARE] Auth restored, user:', auth.user?.email)
       } catch (error) {
-        console.error('[AUTH MIDDLEWARE] Auth restoration failed:', error)
+        // If auth check fails, clear everything and redirect
         auth.clearAuth()
+        if (process.client) localStorage.setItem('redirectAfterLogin', to.fullPath)
+        return navigateTo('/auth/login')
       }
     }
   }
 
-  if (to.path.startsWith('/property/') && !auth.isAuthenticated) {
-    if (process.client) localStorage.setItem('redirectAfterLogin', to.fullPath)
-    return navigateTo('/auth/login')
-  }
-
-  // Only enforce auth for clearly private sections when not already handled by page meta
+  // Define protected routes that require authentication
   const protectedPrefixes = ['/admin', '/buyer', '/profile', '/seller/dashboard', '/seller/list-property']
-  if ((to.path.startsWith('/property/') || protectedPrefixes.some(p => to.path.startsWith(p))) && !auth.isAuthenticated) {
+  const isProtectedRoute = to.path.startsWith('/property/') || protectedPrefixes.some(p => to.path.startsWith(p))
+
+  // Check authentication for protected routes
+  if (isProtectedRoute && !auth.isAuthenticated) {
     if (process.client) localStorage.setItem('redirectAfterLogin', to.fullPath)
     return navigateTo('/auth/login')
   }
 
+  // Check admin access
   if (to.meta.requiresAdmin && !auth.isAdmin) {
     return navigateTo('/')
   }
 
+  // Redirect authenticated users away from guest-only pages
   if (to.meta.guestOnly && auth.isAuthenticated) {
-    return navigateTo('/')
+    const redirectTo = (to.query.redirect as string) || '/'
+    return navigateTo(redirectTo)
   }
 })

@@ -279,7 +279,7 @@ onMounted(async () => {
 // Define page meta
 definePageMeta({
   layout: 'admin',
-  middleware: ['auth', 'admin']
+  middleware: ['admin']
 })
 
 const userTrendOption = computed(() => ({

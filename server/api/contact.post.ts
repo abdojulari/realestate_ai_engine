@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     }
   })
 
-  const from = process.env.SMTP_SENDER || 'info@domain.com'
+  const from = process.env.SMTP_SENDER || process.env.SMTP_USERNAME
 
   await transporter.sendMail({
     from,

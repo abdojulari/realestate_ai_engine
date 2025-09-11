@@ -50,6 +50,11 @@ export const propertyService = {
     // Pagination controls (allow map to request all properties)
     if ((filters as any).limit) params.append('limit', String((filters as any).limit))
     if ((filters as any).page) params.append('page', String((filters as any).page))
+    if ((filters as any).offset !== undefined) {
+      // Convert offset to page number for API
+      const pageFromOffset = Math.floor((filters as any).offset / ((filters as any).limit || 100)) + 1
+      params.append('page', String(pageFromOffset))
+    }
     
     // Source filtering
     if (filters.source) params.append('source', filters.source)
@@ -67,13 +72,93 @@ export const propertyService = {
       // Old format - just return the array
       return response
     } else if (response && response.properties) {
-      // New paginated format - extract the properties array
+      // New paginated format - extract the properties array for backward compatibility
       console.log(`📊 Search results: ${response.properties.length} properties (${response.pagination?.total || 'unknown'} total)`) 
       return response.properties
     } else {
       // Fallback - return empty array
       console.warn('⚠️ Unexpected API response format:', response)
       return []
+    }
+  },
+
+  async searchWithPagination(filters: PropertyFilter & { 
+    includeCrea?: boolean
+    includeManual?: boolean
+    source?: 'crea' | 'manual' 
+  } = {}): Promise<{ properties: Property[], pagination: { total: number, page: number, limit: number } }> {
+    const params = new URLSearchParams()
+    
+    // Handle all possible filter fields (same as search method)
+    if (filters.minPrice) params.append('minPrice', filters.minPrice.toString())
+    if (filters.maxPrice) params.append('maxPrice', filters.maxPrice.toString())
+    if (filters.beds) params.append('beds', filters.beds.toString())
+    if (filters.baths) params.append('baths', filters.baths.toString())
+    if (filters.type || filters.propertyType) params.append('type', (filters.type || filters.propertyType)!)
+    if (filters.status) params.append('status', filters.status)
+    if (filters.city) params.append('city', filters.city)
+    if (filters.location) {
+      // Extract city from location if no city is provided
+      if (!filters.city) {
+        const city = filters.location.includes(',') ? filters.location.split(',')[0].trim() : filters.location
+        if (city) params.append('city', city)
+      }
+      params.append('location', filters.location)
+    }
+    if (filters.province) params.append('province', filters.province)
+    if (filters.minSqft) params.append('minSqft', filters.minSqft.toString())
+    if (filters.maxSqft) params.append('maxSqft', filters.maxSqft.toString())
+    if (filters.features && filters.features.length > 0) {
+      filters.features.forEach(feature => params.append('features', feature))
+    }
+    
+    // Pagination controls
+    if ((filters as any).limit) params.append('limit', String((filters as any).limit))
+    if ((filters as any).page) params.append('page', String((filters as any).page))
+    if ((filters as any).offset !== undefined) {
+      // Convert offset to page number for API
+      const pageFromOffset = Math.floor((filters as any).offset / ((filters as any).limit || 100)) + 1
+      params.append('page', String(pageFromOffset))
+    }
+    
+    // Source filtering
+    if (filters.source) params.append('source', filters.source)
+    if (filters.includeCrea !== undefined) params.append('includeCrea', filters.includeCrea.toString())
+    if (filters.includeManual !== undefined) params.append('includeManual', filters.includeManual.toString())
+    
+    const queryString = params.toString()
+    const url = queryString ? `/api/properties?${queryString}` : '/api/properties'
+    
+    console.log('Property search with pagination URL:', url) // Debug log
+    const response = await authedFetch(url)
+    
+    // Handle both old array format and new paginated format
+    if (Array.isArray(response)) {
+      // Old format - return as paginated format with estimated pagination
+      const limit = (filters as any).limit || 100
+      const page = (filters as any).page || 1
+      return {
+        properties: response,
+        pagination: { 
+          total: response.length === limit ? (page * limit + 1) : ((page - 1) * limit + response.length),
+          page: page,
+          limit: limit
+        }
+      }
+    } else if (response && response.properties) {
+      // New paginated format - return the full response with pagination info
+      console.log(`📊 Paginated search results: ${response.properties.length} properties (${response.pagination?.total || 'unknown'} total)`) 
+      return {
+        properties: response.properties,
+        pagination: response.pagination || { total: response.properties.length, page: 1, limit: response.properties.length }
+      }
+    } else {
+      // Fallback - return empty paginated response
+      console.warn('⚠️ Unexpected API response format:', response)
+      return {
+        properties: [],
+        pagination: { total: 0, page: 1, limit: 100 }
+      }
     }
   },
 

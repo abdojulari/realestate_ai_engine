@@ -487,10 +487,15 @@ const updateReports = async () => {
       params.append('end', customRange.value.end)
     }
     const [s, listings, users, inquiries, viewings] = await Promise.all([
+      //@ts-ignore
       $fetch(`/api/admin/reports/stats?${params.toString()}`, { headers }),
+      //@ts-ignore
       $fetch('/api/admin/reports/listings', { headers }),
+      //@ts-ignore
       $fetch('/api/admin/reports/users', { headers }),
+      //@ts-ignore
       $fetch('/api/admin/reports/inquiries', { headers }),
+      //@ts-ignore
       $fetch('/api/admin/reports/viewings', { headers })
     ])
     stats.value = s as any
@@ -582,6 +587,6 @@ watch([dateRange, customRange], () => {
 
 definePageMeta({
   layout: 'admin',
-  middleware: ['auth', 'admin']
+  middleware: ['admin']
 })
 </script>

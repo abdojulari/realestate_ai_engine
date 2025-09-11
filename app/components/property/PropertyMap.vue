@@ -54,7 +54,7 @@
     <v-card-text>
     
       <!-- Map Container -->
-      <div :style="{ height: `${height}px` }" class="map-container">
+      <div class="map-container hidden lg:block lg:h-[90vh] xl:h-[81.5vh]">
         <client-only>
           <l-map
             ref="mapRef"
@@ -116,30 +116,7 @@
                   </div>
                 </l-popup>
               </l-marker>
-            </template>
-
-            <!-- Nearby Places -->
-            <template v-if="showNearbyPlaces">
-              <l-marker
-                v-for="place in nearbyPlaces"
-                :key="place.id"
-                :lat-lng="[place.latitude, place.longitude]"
-              >
-                <l-icon
-                  :icon-url="getPlaceIcon(place.type)"
-                  :icon-size="[24, 24]"
-                  :icon-anchor="[12, 24]"
-                />
-                <l-popup>
-                  <div class="place-popup">
-                    <div class="text-subtitle-2">{{ place.name }}</div>
-                    <div class="text-caption">{{ place.distance }} km away</div>
-                  </div>
-                </l-popup>
-              </l-marker>
-            </template>
-
-         
+            </template> 
           </l-map>
         </client-only>
       </div>
@@ -169,10 +146,6 @@ const props = defineProps({
   longitude: {
     type: Number,
     default: undefined
-  },
-  height: {
-    type: Number,
-    default: 560
   },
   showControls: {
     type: Boolean,
@@ -240,11 +213,7 @@ const markerOptions = {
   autoPan: true
 }
 
-const circleOptions = {
-  color: '#1976D2',
-  fillColor: '#1976D2',
-  fillOpacity: 0.1
-}
+
 
 // Mock nearby places data
 const nearbyPlaces = ref([
@@ -269,12 +238,12 @@ const nearbyPlaces = ref([
   // Add more places...
 ])
 
-const placeTypes = ['school', 'shopping', 'restaurant', 'park', 'transit', 'hospital']
+// const placeTypes = ['school', 'shopping', 'restaurant', 'park', 'transit', 'hospital']
 
-const filteredPlaces = computed(() => {
-  if (!selectedPlaceType.value) return nearbyPlaces.value
-  return nearbyPlaces.value.filter(place => place.type === selectedPlaceType.value)
-})
+// const filteredPlaces = computed(() => {
+//   if (!selectedPlaceType.value) return nearbyPlaces.value
+//   return nearbyPlaces.value.filter(place => place.type === selectedPlaceType.value)
+// })
 
 // Red price pin similar to portals; rendered as SVG with rounded label
 function formatPriceLabel(value: number): string {
@@ -308,25 +277,25 @@ function getPricePin(price: number): string {
 
 const getPlaceIcon = (type: string) => getPricePin(0)
 
-const getPlaceTypeIcon = (type: string) => {
-  const icons: Record<string, string> = {
-    school: 'mdi-school',
-    shopping: 'mdi-shopping',
-    restaurant: 'mdi-food',
-    park: 'mdi-tree',
-    transit: 'mdi-bus',
-    hospital: 'mdi-hospital'
-  }
-  return icons[type] || 'mdi-map-marker'
-}
+// const getPlaceTypeIcon = (type: string) => {
+//   const icons: Record<string, string> = {
+//     school: 'mdi-school',
+//     shopping: 'mdi-shopping',
+//     restaurant: 'mdi-food',
+//     park: 'mdi-tree',
+//     transit: 'mdi-bus',
+//     hospital: 'mdi-hospital'
+//   }
+//   return icons[type] || 'mdi-map-marker'
+// }
 
-const formatPlaceType = (type: string) => {
-  return type.charAt(0).toUpperCase() + type.slice(1)
-}
+// const formatPlaceType = (type: string) => {
+//   return type.charAt(0).toUpperCase() + type.slice(1)
+// }
 
-const togglePlaceType = (type: string) => {
-  selectedPlaceType.value = selectedPlaceType.value === type ? '' : type
-}
+// const togglePlaceType = (type: string) => {
+//   selectedPlaceType.value = selectedPlaceType.value === type ? '' : type
+// }
 
 const onMapReady = (mapInstance: any) => {
   // vue-leaflet may pass the Leaflet Map directly or via component ref
@@ -389,21 +358,21 @@ onMounted(() => { if (typeof window !== 'undefined') window.addEventListener('re
 onUnmounted(() => { if (typeof window !== 'undefined') window.removeEventListener('resize', onResize) })
 
 // Load nearby places
-const loadNearbyPlaces = async () => {
-  try {
-    // Replace with actual API call
-    // const response = await fetch(`/api/places/nearby?lat=${props.latitude}&lng=${props.longitude}&radius=${props.radius}`)
-    // const data = await response.json()
-    // nearbyPlaces.value = data
-  } catch (error) {
-    console.error('Error loading nearby places:', error)
-  }
-}
+// const loadNearbyPlaces = async () => {
+//   try {
+//     // Replace with actual API call
+//     // const response = await fetch(`/api/places/nearby?lat=${props.latitude}&lng=${props.longitude}&radius=${props.radius}`)
+//     // const data = await response.json()
+//     // nearbyPlaces.value = data
+//   } catch (error) {
+//     console.error('Error loading nearby places:', error)
+//   }
+// }
 
 onMounted(() => {
-  if (props.showNearbyPlaces) {
-    loadNearbyPlaces()
-  }
+  // if (props.showNearbyPlaces) {
+  //   loadNearbyPlaces()
+  // }
 })
 </script>
 

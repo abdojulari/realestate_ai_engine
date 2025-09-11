@@ -17,6 +17,51 @@
       <!-- Desktop Navigation -->
       <nav class="desktop-nav">
         <ul class="nav-list">
+          <!-- Power Search Dropdown -->
+          <li class="dropdown-item">
+            <v-menu>
+              <template v-slot:activator="{ props }">
+                <button class="nav-link dropdown-trigger" v-bind="props">
+                  Power Search
+                  <v-icon size="small" class="dropdown-icon">mdi-chevron-down</v-icon>
+                </button>
+              </template>
+              <v-list class="dropdown-menu">
+                <v-list-item
+                  v-for="item in powerSearchItems"
+                  :key="item.title"
+                  :to="item.to"
+                  :prepend-icon="item.icon"
+                  :title="item.title"
+                  class="dropdown-list-item"
+                />
+              </v-list>
+            </v-menu>
+          </li>
+
+          <!-- Client Service Centre Dropdown -->
+          <li class="dropdown-item">
+            <v-menu>
+              <template v-slot:activator="{ props }">
+                <button class="nav-link dropdown-trigger" v-bind="props">
+                  Client Service Centre
+                  <v-icon size="small" class="dropdown-icon">mdi-chevron-down</v-icon>
+                </button>
+              </template>
+              <v-list class="dropdown-menu">
+                <v-list-item
+                  v-for="item in clientServiceItems"
+                  :key="item.title"
+                  :to="item.to"
+                  :prepend-icon="item.icon"
+                  :title="item.title"
+                  class="dropdown-list-item"
+                />
+              </v-list>
+            </v-menu>
+          </li>
+          
+          <!-- Regular Menu Items -->
           <li v-for="item in menuItems" :key="item.title">
             <NuxtLink :to="item.to" class="nav-link">
               {{ item.title }}
@@ -131,13 +176,19 @@ const auth = useAuthStore()
 const isAuthenticated = computed(() => auth.isAuthenticated)
 const isAdmin = computed(() => auth.isAdmin)
 
-const menuItems = [
-  { title: 'Home', to: '/', icon: 'mdi-home' },
+const powerSearchItems = [
   { title: 'Map Search', to: '/map-search', icon: 'mdi-map-search' },
-  { title: 'AI Search', to: '/ai-search', icon: 'mdi-brain' },
+  { title: 'AI Search', to: '/ai-search', icon: 'mdi-brain' }
+]
+
+const clientServiceItems = [
   { title: 'Buy', to: '/buying', icon: 'mdi-home-search' },
   { title: 'Sell', to: '/selling', icon: 'mdi-home-export-outline' },
-  { title: "Home Estimate", to: '/seller/homeestimate', icon: 'mdi-calculator' },
+  { title: "Home Estimate", to: '/seller/homeestimate', icon: 'mdi-calculator' }
+]
+
+const menuItems = [
+  { title: 'News', to: '/news', icon: 'mdi-newspaper' },
   { title: 'Get to know Abdul', to: '/about', icon: 'mdi-information' },
   { title: 'Contact', to: '/contact', icon: 'mdi-email' }
 ]
@@ -414,6 +465,50 @@ const handleLogout = () => {
 
 .mobile-auth-link.register:hover {
   background: #1565c0;
+}
+
+/* Power Search Dropdown */
+.dropdown-item {
+  position: relative;
+}
+
+.dropdown-trigger {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: inherit;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.dropdown-trigger:hover {
+  color: #1976d2;
+}
+
+.dropdown-icon {
+  transition: transform 0.2s ease;
+}
+
+.dropdown-trigger:hover .dropdown-icon {
+  transform: rotate(180deg);
+}
+
+.dropdown-menu {
+  min-width: 200px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dropdown-list-item {
+  transition: background 0.2s ease;
+}
+
+.dropdown-list-item:hover {
+  background: #f5f5f5;
 }
 
 /* Global stability rules */

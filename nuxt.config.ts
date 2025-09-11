@@ -36,6 +36,18 @@ export default defineNuxtConfig({
     },
     vuetifyOptions: {
       ssr: true,
+      defaults: {
+        global: {
+          ripple: false,
+        },
+        VBtn: {
+          color: 'primary',
+          variant: 'flat',
+        },
+        VCard: {
+          flat: true,
+        },
+      },
       theme: {
         defaultTheme: 'light',
         themes: {

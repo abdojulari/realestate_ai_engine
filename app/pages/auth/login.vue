@@ -149,7 +149,17 @@ const handleSubmit = async () => {
   
   try {
     await auth.login({ email: email.value, password: password.value })
-    router.push('/')
+    
+    // Check for redirect parameter or stored redirect path
+    const route = useRoute()
+    const redirectTo = route.query.redirect as string || localStorage.getItem('redirectAfterLogin') || '/'
+    
+    // Clear stored redirect
+    if (localStorage.getItem('redirectAfterLogin')) {
+      localStorage.removeItem('redirectAfterLogin')
+    }
+    
+    router.push(redirectTo)
   } catch (error: any) {
     console.error('Login error:', error)
     
@@ -211,9 +221,23 @@ const loginWithApple = async () => {
   }
 }
 
+// Define page meta to redirect authenticated users
+definePageMeta({
+  layout: 'default',
+  guestOnly: true
+})
+
 // Auto-consume token from Google callback: /auth/login#token=...
 onMounted(async () => {
   if (process.client && typeof window !== 'undefined') {
+    // First check if user is already authenticated
+    if (authStore.isAuthenticated) {
+      const route = useRoute()
+      const redirectTo = route.query.redirect as string || '/'
+      router.push(redirectTo)
+      return
+    }
+    
     const hash = window.location.hash || ''
     const m = hash.match(/token=([^&]+)/)
     if (m && m[1]) {

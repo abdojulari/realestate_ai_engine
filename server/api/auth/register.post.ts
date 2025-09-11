@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET || 'fallback-secret',
-      { expiresIn: '7d' }
+      { expiresIn: '1h' }
     )
 
     const { password: _, ...userWithoutPassword } = user

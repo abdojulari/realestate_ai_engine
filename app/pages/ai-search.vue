@@ -513,7 +513,7 @@ const step3Completed = ref(false)
 const step4Completed = ref(false)
 const step5Completed = ref(false)
 
-const stepTexts = [
+const stepTexts: string[] = [
   "Enter your search prompt in natural language (e.g., '4 bedroom house with garage')",
   "Select your preferred city from the dropdown menu",
   "Click 'Search Properties' to find matching listings",
@@ -553,14 +553,11 @@ const searchWithAI = async (pageNum = 1) => {
   }
   
   try {
-    console.log('🧠 AI Search starting for:', searchQuery.value, 'Page:', page)
-    
     let parseResult
     
     // For pagination (page > 1), reuse the last search filters
     if (page > 1 && lastSearchFilters.value) {
       parseResult = lastSearchFilters.value
-      console.log('🔄 Reusing filters for pagination:', parseResult.filters)
     } else {
       // Step 1: Parse the natural language query (only for new searches)
       parseResult = await $fetch('/api/ai/parse-property-query', {
@@ -572,8 +569,7 @@ const searchWithAI = async (pageNum = 1) => {
       lastSearchFilters.value = parseResult
     }
     
-    console.log('✅ AI Extracted filters:', parseResult.filters)
-    console.log('🎯 Parsing confidence:', parseResult.confidence)
+    // AI parsing completed
     
     // Step 2: Convert extracted filters to API query parameters
     const queryParams = new URLSearchParams()
@@ -616,7 +612,7 @@ const searchWithAI = async (pageNum = 1) => {
     queryParams.append('limit', itemsPerPage.toString())
     queryParams.append('page', page.toString())
     
-    console.log('🔍 API Query:', queryParams.toString())
+    // API query prepared
     
     // Step 3: Search properties using existing API
     const response = await $fetch(`/api/properties?${queryParams.toString()}`)
@@ -637,8 +633,7 @@ const searchWithAI = async (pageNum = 1) => {
         currentPage.value = 1
       }
       
-      console.log('✅ Found', response.properties.length, 'properties on page', currentPage.value)
-      console.log('📊 Total:', totalProperties.value, 'properties across', totalPages.value, 'pages')
+      // Search completed successfully
     } else {
       console.error('❌ API returned unexpected format:', response)
       searchResults.value = []
@@ -821,31 +816,31 @@ const startStepAnimation = async () => {
   await new Promise(resolve => setTimeout(resolve, 1000))
   
   // Step 1
-  await typewriterEffect(stepTexts[0], step1Text, 30)
+  await typewriterEffect(stepTexts[0] || '', step1Text, 30)
   await new Promise(resolve => setTimeout(resolve, 500))
   step1Completed.value = true
   
   // Step 2
   await new Promise(resolve => setTimeout(resolve, 800))
-  await typewriterEffect(stepTexts[1], step2Text, 30)
+  await typewriterEffect(stepTexts[1] || '', step2Text, 30)
   await new Promise(resolve => setTimeout(resolve, 500))
   step2Completed.value = true
   
   // Step 3
   await new Promise(resolve => setTimeout(resolve, 800))
-  await typewriterEffect(stepTexts[2], step3Text, 30)
+  await typewriterEffect(stepTexts[2] || '', step3Text, 30)
   await new Promise(resolve => setTimeout(resolve, 500))
   step3Completed.value = true
   
   // Step 4
   await new Promise(resolve => setTimeout(resolve, 800))
-  await typewriterEffect(stepTexts[3], step4Text, 30)
+  await typewriterEffect(stepTexts[3] || '', step4Text, 30)
   await new Promise(resolve => setTimeout(resolve, 500))
   step4Completed.value = true
   
   // Step 5
   await new Promise(resolve => setTimeout(resolve, 800))
-  await typewriterEffect(stepTexts[4], step5Text, 30)
+  await typewriterEffect(stepTexts[4] || '', step5Text, 30)
   await new Promise(resolve => setTimeout(resolve, 500))
   step5Completed.value = true
 }

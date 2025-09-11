@@ -56,11 +56,11 @@
         <div class="search-results">
           <div class="d-flex align-center mb-4">
             <div class="text-body-1">
-              <strong>{{ sortedProperties.length }}</strong> properties found
+              <strong>{{ totalProperties }}</strong> properties found
               <span v-if="selectedCity" class="text-medium-emphasis">in {{ selectedCity }}</span>
               <br>
               <span class="text-caption text-medium-emphasis">
-                Page {{ currentPage }} of {{ totalPages }} • Showing {{ paginatedProperties.length }} per page
+                Page {{ currentPage }} of {{ totalPagesComputed }} • Showing {{ paginatedProperties.length }} per page
               </span>
             </div>
             <v-spacer />
@@ -72,6 +72,7 @@
               hide-details
               class="sort-select"
               variant="outlined"
+              @update:model-value="handleSortChange"
             />
           </div>
 
@@ -100,7 +101,7 @@
           </div>
 
           <!-- Clean Pagination Controls -->
-          <div v-if="totalPages > 1" class="d-flex align-center justify-center gap-2 mt-6">
+          <div v-if="totalPagesComputed > 1" class="d-flex align-center justify-center gap-2 mt-6">
             <!-- Previous Button -->
             <v-btn
               :disabled="currentPage === 1"
@@ -130,13 +131,13 @@
                 size="small"
                 class="px-3"
               >
-                {{ totalPages }}
+                {{ totalPagesComputed }}
               </v-chip>
             </div>
 
             <!-- Next Button -->
             <v-btn
-              :disabled="currentPage === totalPages"
+              :disabled="currentPage === totalPagesComputed"
               variant="outlined"
               size="small"
               @click="goToPage(currentPage + 1)"
@@ -154,7 +155,7 @@
                 size="small"
               >
                 <v-icon start size="small">mdi-information</v-icon>
-                {{ ((currentPage - 1) * itemsPerPage) + 1 }}-{{ Math.min(currentPage * itemsPerPage, sortedProperties.length) }} of {{ sortedProperties.length }} properties
+                {{ ((currentPage - 1) * itemsPerPage) + 1 }}-{{ Math.min(currentPage * itemsPerPage, totalProperties) }} of {{ totalProperties }} properties
               </v-chip>
             </div>
 
@@ -180,7 +181,7 @@
       </div>
 
     <!-- Map -->
-    <div class="map-container">
+    <div class="map-container hidden lg:block">
       <PropertyMap
         :properties="properties"
         :selected-property="selectedProperty"
@@ -268,10 +269,11 @@ const selectedProperty = ref<Property | null>(null)
 const showContactDialog = ref(false)
 const contactProperty = ref<Property | null>(null)
 const currentPage = ref(1)
-const itemsPerPage = 10  // Show 10 properties per page
+const itemsPerPage = 100  // Show 100 properties per page (increased from 10)
 const loadMoreEnabled = ref(false)  // Use traditional pagination instead of "Load More"
 const selectedCity = ref('')
 const totalProperties = ref(0)
+const totalPages = ref(0)  // Track total pages from API
 let boundsUpdateTimeout: NodeJS.Timeout | null = null
 
 // Service worker integration
@@ -302,60 +304,91 @@ const sortOptions = [
 // Properties come from API (no mocks)
 const properties = ref<Property[]>([])
 
-const sortedProperties = computed(() => {
-  let sorted = [...properties.value]
-  switch (sortBy.value) {
+// Helper function to convert sort value to API format
+const getSortOrder = (sortValue: string) => {
+  switch (sortValue) {
     case 'price_asc':
-      sorted.sort((a, b) => a.price - b.price)
-      break
+      return { field: 'price', direction: 'asc' }
     case 'price_desc':
-      sorted.sort((a, b) => b.price - a.price)
-      break
+      return { field: 'price', direction: 'desc' }
     case 'popular':
-      sorted.sort((a, b) => (b.views || 0) - (a.views || 0))
-      break
+      return { field: 'views', direction: 'desc' }
+    case 'newest':
     default:
-      // newest first
-      sorted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      return { field: 'createdAt', direction: 'desc' }
   }
-  return sorted
+}
+
+const sortedProperties = computed(() => {
+  // Since we're getting sorted data from API, just return the properties
+  // The API handles sorting based on the sortBy parameter we send
+  return properties.value
 })
 
-// Paginated properties for display
+// Since we're getting paginated data from API, paginatedProperties is just the sorted current page
 const paginatedProperties = computed(() => {
-  // Traditional pagination - show only current page
-  const start = (currentPage.value - 1) * itemsPerPage
-  const end = start + itemsPerPage
-  return sortedProperties.value.slice(start, end)
+  return sortedProperties.value
 })
 
-const totalPages = computed(() => {
-  return Math.ceil(sortedProperties.value.length / itemsPerPage)
+// Use the totalPages from API response instead of calculating from local data
+const totalPagesComputed = computed(() => {
+  return totalPages.value || Math.ceil(totalProperties.value / itemsPerPage)
 })
 
-const handleSearch = async (searchParams: PropertyFilter, showLoadingState: boolean = true) => {
+const handleSearch = async (searchParams: PropertyFilter, showLoadingState: boolean = true, page: number = currentPage.value) => {
   if (showLoadingState) {
     loading.value = true
   }
-  console.log('🔍 Map search called with params:', searchParams)
+  console.log('🔍 Map search called with params:', searchParams, 'page:', page)
   
   try {
     let data: any[] = []
+    let totalCount = 0
     
-    // Map needs ALL properties, not paginated results
-    // Add a high limit to get all properties for map display
-    // Filter out commercial and industrial properties - only show residential
-    const mapSearchParams = {
+    // Use pagination with limit of 100 per page and include sort parameters
+    const paginatedSearchParams = {
       ...searchParams,
-      limit: 10000 // High limit to get all properties for map
+      limit: itemsPerPage,
+      offset: (page - 1) * itemsPerPage,
+      sortBy: sortBy.value,
+      sortOrder: getSortOrder(sortBy.value)
     }
     
-    data = await propertyService.search(mapSearchParams)
+    const response = await propertyService.searchWithPagination(paginatedSearchParams)
+    
+    console.log('🔍 API Response structure:', response)
+    
+    // Extract data and pagination info from the structured response
+    data = response.properties || []
+    totalCount = response.pagination?.total || data.length
+    
+    console.log('📊 Got paginated response:', {
+      propertiesCount: data.length,
+      totalCount: totalCount,
+      currentPage: response.pagination?.page || page,
+      limit: response.pagination?.limit || itemsPerPage
+    })
     
     // Filter out commercial and industrial properties - only show residential
     data = filterResidentialProperties(data)
     
-    totalProperties.value = data.length
+    // Important: After filtering, we need to adjust the total count if we filtered out properties
+    // However, we can't accurately know the total filtered count without querying the API differently
+    // For now, we'll use the original total count but this might show more pages than actually exist
+    totalProperties.value = totalCount
+    totalPages.value = Math.ceil(totalCount / itemsPerPage)
+    
+    // If we filtered out all properties on this page but there are more pages, 
+    // the pagination will still show correctly, user just needs to navigate to find properties
+    
+    console.log('🔍 Pagination Debug:', {
+      currentPage: page,
+      itemsPerPage: itemsPerPage,
+      rawDataLength: data.length,
+      totalCount: totalCount,
+      calculatedTotalPages: totalPages.value,
+      totalProperties: totalProperties.value
+    })
     
     console.log('🔍 Applied filters:', {
       city: searchParams.city,
@@ -363,10 +396,12 @@ const handleSearch = async (searchParams: PropertyFilter, showLoadingState: bool
       minPrice: searchParams.minPrice,
       maxPrice: searchParams.maxPrice,
       beds: searchParams.beds,
-      baths: searchParams.baths
+      baths: searchParams.baths,
+      page: page,
+      limit: itemsPerPage
     })
     
-    console.log('✅ Search completed, found:', data.length, 'residential properties (filtered out commercial/industrial)')
+    console.log('✅ Search completed, found:', data.length, 'residential properties on page', page, 'of', totalPages.value)
     
     // Ensure agent/isSaved shape as expected by view
     properties.value = data.map((p: any) => ({
@@ -380,16 +415,23 @@ const handleSearch = async (searchParams: PropertyFilter, showLoadingState: bool
     console.error('❌ Search error:', error)
     // Fallback to regular search on error
     try {
-      let data = await propertyService.search(searchParams)
-      // Apply residential filter to fallback data as well
-      data = filterResidentialProperties(data)
+      const fallbackParams = {
+        ...searchParams,
+        limit: itemsPerPage,
+        offset: (page - 1) * itemsPerPage
+      }
+      const fallbackResponse = await propertyService.searchWithPagination(fallbackParams)
       
-      properties.value = data.map((p: any) => ({
+      // Apply residential filter to fallback data as well
+      let fallbackData = filterResidentialProperties(fallbackResponse.properties || [])
+      
+      properties.value = fallbackData.map((p: any) => ({
         ...p,
         isSaved: Boolean(p.isSaved),
         agent: p.agent || p.user
       }))
-      totalProperties.value = data.length
+      totalProperties.value = fallbackResponse.pagination?.total || fallbackData.length
+      totalPages.value = Math.ceil((fallbackResponse.pagination?.total || fallbackData.length) / itemsPerPage)
     } catch (fallbackError) {
       console.error('❌ Fallback search also failed:', fallbackError)
     }
@@ -405,6 +447,12 @@ const updateFilters = (newFilters: PropertyFilter) => {
   filters.value = newFilters
   currentPage.value = 1 // Reset to first page when filters change
   handleSearch(newFilters)
+}
+
+const handleSortChange = async () => {
+  // Reset to first page when sort changes and trigger new search
+  currentPage.value = 1
+  await handleSearch(filters.value, true, 1)
 }
 
 interface MapBounds {
@@ -509,10 +557,12 @@ const clearCitySelection = () => {
   handleSearch(filters.value)
 }
 
-const goToPage = (page: number) => {
-  if (page >= 1 && page <= totalPages.value) {
+const goToPage = async (page: number) => {
+  if (page >= 1 && page <= totalPagesComputed.value) {
     currentPage.value = page
     scrollToTop()
+    // Trigger new search for the selected page
+    await handleSearch(filters.value, true, page)
   }
 }
 
@@ -598,18 +648,16 @@ onMounted(async () => {
   width: 200px;
 }
 
-@media (max-width: 960px) {
-  .search-panel {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 0;
-    z-index: 2;
-    transform: translateX(-100%);
+@media (max-width: 1023px) {
+  .map-search {
+    flex-direction: column;
   }
-
-  .search-panel.panel-expanded {
-    transform: translateX(0);
+  
+  .search-panel {
+    width: 100%;
+    height: 100vh;
+    border-right: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   }
 
   .selected-property-card {
