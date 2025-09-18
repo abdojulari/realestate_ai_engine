@@ -8,7 +8,10 @@
     "generate": "nuxt generate",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
-    "test": "ts-node tests/test.ts"
+    "test": "ts-node tests/test.ts",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "netlify dev:exec drizzle-kit migrate",
+    "db:studio": "netlify dev:exec drizzle-kit studio"
   },
   "dependencies": {
     "@codemirror/commands": "^6.8.1",
@@ -53,6 +56,7 @@
     "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "dotenv": "^17.2.2",
+    "drizzle-orm": "^0.44.5",
     "echarts": "^5.6.0",
     "eslint": "^8.57.1",
     "express-session": "^1.18.2",
@@ -93,6 +97,7 @@
     "@types/passport-local": "^1.0.38",
     "@types/vue": "^1.0.31",
     "@vue/tsconfig": "^0.8.1",
+    "drizzle-kit": "^0.31.4",
     "prisma": "^6.14.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2",

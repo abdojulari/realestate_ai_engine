@@ -6,6 +6,7 @@ export default defineNuxtConfig({
   nitro: {
     preset: 'netlify',
   },
+  ssr: false, // Try static generation instead
   srcDir: 'app',
   css: ['leaflet/dist/leaflet.css', '@mdi/font/css/materialdesignicons.css'],
   build: {
