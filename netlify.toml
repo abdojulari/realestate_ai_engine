@@ -4,6 +4,8 @@
 
 [build.environment]
   NODE_VERSION = "18"
+  NUXT_PUBLIC_API_BASE = "https://tourmaline-lebkuchen-48d345.netlify.app/api"
+  NUXT_PUBLIC_SITE_URL = "https://tourmaline-lebkuchen-48d345.netlify.app"
 
 [[redirects]]
   from = "/api/*"
