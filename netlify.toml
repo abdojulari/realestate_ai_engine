@@ -2,6 +2,9 @@
   command = "npm run build"
   publish = ".output/public"
 
+[functions]
+  directory = ".netlify/functions-internal"
+
 [build.environment]
   NODE_VERSION = "18"
   NUXT_PUBLIC_API_BASE = "https://homesbyabdulojulari.netlify.app/api"
@@ -9,10 +12,7 @@
   DATABASE_URL = "${NETLIFY_DATABASE_URL}"
   JWT_SECRET = "your-jwt-secret-change-in-production"
 
-[[redirects]]
-  from = "/*"
-  to = "/.netlify/functions-internal/server"
-  status = 200
+# Let Netlify handle the functions automatically
 
 [[headers]]
   for = "/*"
