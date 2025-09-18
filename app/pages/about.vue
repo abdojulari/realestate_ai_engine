@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Hero Section -->
-    <section class="hero-section bg-primary text-white py-16">
+    <section class="text-white py-16" style="background-image: url('https://images.unsplash.com/photo-1504202302068-15fc2055f7f9?q=80&w=1694&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'); background-size: cover; background-position: center;">
       <v-container>
         <v-row align="center" justify="center" class="text-center">
           <v-col cols="12" md="8">
@@ -13,7 +13,7 @@
     </section>
 
     <!-- Stats Section -->
-    <section class="stats-section py-12 bg-grey-lighten-4">
+    <section class="stats-section py-12 bg-blue-grey-lighten-5">
       <v-container>
         <v-row>
           <v-col 
@@ -57,6 +57,7 @@ const stats = ref<any[]>([])
 onMounted(async () => {
   try {
     const pageData = await $fetch('/api/content/page/about')
+    // @ts-ignore
     const items: any[] = pageData?.items || []
     
     // Load hero content
@@ -103,9 +104,6 @@ useHead({
 </script>
 
 <style scoped>
-.hero-section {
-  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
-}
 
 .about-content :deep(h2) {
   color: #1976d2;

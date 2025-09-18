@@ -99,6 +99,9 @@ export interface PropertyFilter {
   maxSqft?: number
   features?: any
   bounds?: any
+  // neighborhood filtering
+  neighborhood?: string
+  neighborhoodId?: number | null
 }
 
 // Viewing Request types
@@ -118,9 +121,9 @@ export interface ViewingRequest {
 // Property Inquiry types
 export interface PropertyInquiry {
   id: number
-  userId: number
+  userId?: number | null
   propertyId: number
-  user: User
+  user?: User | null
   property: Property
   message: string
   status: string // pending, responded, closed

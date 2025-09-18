@@ -2,7 +2,7 @@
  * Utility functions for filtering properties
  */
 
-export interface Property {
+export interface PropertyFilterType {
   id: string | number
   type?: string
   [key: string]: any
@@ -12,7 +12,7 @@ export interface Property {
  * Filter properties to show only residential properties that people can live in
  * Excludes commercial and industrial properties
  */
-export function filterResidentialProperties<T extends Property>(properties: T[]): T[] {
+export function filterResidentialProperties<T extends PropertyFilterType>(properties: T[]): T[] {
   const residentialTypes = ['house', 'condo', 'townhouse', 'multi-family', 'land', 'other']
   
   return properties.filter(property => {
@@ -24,7 +24,7 @@ export function filterResidentialProperties<T extends Property>(properties: T[])
 /**
  * Check if a single property is residential
  */
-export function isResidentialProperty(property: Property): boolean {
+export function isResidentialProperty(property: PropertyFilterType): boolean {
   const residentialTypes = ['house', 'condo', 'townhouse', 'multi-family', 'land', 'other']
   const propertyType = property.type?.toLowerCase() || 'house'
   return residentialTypes.includes(propertyType)

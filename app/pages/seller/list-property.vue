@@ -202,7 +202,7 @@
                               >
                                 <v-progress-circular
                                   indeterminate
-                                  color="grey-lighten-5"
+                                  color="blue-grey-lighten-5"
                                 />
                               </v-row>
                             </template>

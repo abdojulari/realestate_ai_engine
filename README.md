@@ -23,7 +23,7 @@ A modern real estate portal built with Nuxt 4, Vuetify 3, and MySQL.
 1. Clone the repository:
 ```bash
 git clone <repository-url>
-cd suhani
+cd abdul
 ```
 
 2. Install dependencies:

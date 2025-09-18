@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { api } from '~~/utils/api'
+import { api } from '~/utils/api'
 import { formatTime } from '~~/utils/formatters'
 
 const notifications = ref<any[]>([])

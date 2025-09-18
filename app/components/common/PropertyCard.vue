@@ -1,17 +1,18 @@
 <template>
-  <v-card class="property-card h-100" flat color="grey-lighten-5">
+  <v-card class="property-card h-100" flat color="" elevation="12">
     <v-img
       :src="imageSrc"
       :lazy-src="'/images/property-placeholder.svg'"
       :alt="property.title"
       height="250"
+      width="100%"
       cover
-      class="property-image"
+      class="property-image "
       @error="onImgError"
     >
       <template v-slot:placeholder>
         <v-row class="fill-height ma-0" align="center" justify="center">
-          <v-progress-circular indeterminate color="grey-lighten-5" />
+          <v-progress-circular indeterminate color="blue-grey-lighten-5" />
         </v-row>
       </template>
 
@@ -61,6 +62,12 @@
         class="save-button"
         @click.stop="toggleSave"
       />
+       <!-- Address -->
+      <div class="bg-black opacity-75 rounded-lg text-body-2 text-white mb-3 absolute bottom-2 left-5 pa-2">
+        <v-icon size="small" class="mr-2">mdi-map-marker</v-icon>
+        {{ property.address }}, {{ property.city }}, {{ property.province }}, {{ property.postalCode }}
+      </div>
+      
     </v-img>
 
     <v-card-text>
@@ -78,10 +85,6 @@
 
       <!-- Title -->
       <div class="text-subtitle-1 font-weight-bold mb-1">{{ property.title }}</div>
-
-      <!-- Address -->
-      <div class="text-body-2 text-grey mb-3">{{ property.address }}, {{ property.city }}, {{ property.province }}, {{ property.postalCode }}</div>
-      
       <!-- Features -->
       <div class="d-flex align-center text-body-2 text-grey">
         <v-icon size="small" class="mr-1">mdi-bed</v-icon>
@@ -99,18 +102,18 @@
 
     <v-card-actions>
       <v-btn
-        variant="text"
+        variant="outlined"
         :to="`/property/${property.id}`"
-        class="text-none"
+        class="text-none text-black"
       >
         View Details
       </v-btn>
       <v-spacer />
       <v-btn
         v-if="showContactButton"
-        variant="text"
+        variant="outlined"
         prepend-icon="mdi-phone"
-        class="text-none"
+        class="text-none text-black"
         @click="contact"
       >
         Contact Agent

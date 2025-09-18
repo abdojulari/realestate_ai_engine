@@ -4,7 +4,7 @@
       <h2 class="text-h4 text-center mb-8">Resources for Homebuyers & Owners</h2>
       <v-row>
         <v-col cols="12" md="6" lg="3" v-for="resource in resources" :key="resource.title">
-          <v-card class="bg-grey-lighten-4 pa-4" >
+          <v-card class="pa-4 hover:shadow-lg transition-shadow border border-gray-200" >
             <v-card-title>{{ resource.title }}</v-card-title>
             <v-card-subtitle>{{ resource.subtitle }}</v-card-subtitle>
             <v-card-text>

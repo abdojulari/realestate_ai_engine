@@ -1,39 +1,62 @@
 <template>
-  <div class="map-search">
-    <!-- Search Panel -->
-    <div class="search-panel" :class="{ 'panel-expanded': showPanel }">
-      <div class="panel-header">
-        <v-btn
-          icon="mdi-menu"
-          variant="text"
-          @click="showPanel = !showPanel"
-          class="d-md-none"
-        />
-        <h1 class="text-h5">Property Search</h1>
-      </div>
+  <v-container fluid class="pa-0 map-search">
+    <v-row no-gutters class="map-search-row">
+      <!-- Search Panel -->
+      <v-col 
+        cols="12" 
+        lg="4" 
+        class="search-panel-col"
+        :class="{ 'panel-expanded': showPanel }"
+      >
+        <div class="search-panel">
+          <div class="panel-header">
+            <v-btn
+              icon="mdi-menu"
+              variant="text"
+              @click="showPanel = !showPanel"
+              class="d-lg-none"
+            />
+            <h1 class="text-h5">Property Search</h1>
+          </div>
 
-      <div class="panel-content">
-        <!-- City Selection -->
+          <div class="panel-content">
+        <!-- Location Selection -->
         <div class="mb-4">
           <CitySelector
             v-model="selectedCity"
             @city-selected="handleCitySelected"
           />
           
+          <!-- Neighborhood Selection -->
+          <div class="mt-3">
+            <NeighborhoodDropdown
+              v-model="selectedNeighborhoodId"
+              label="Filter by Neighborhood"
+              placeholder="Select neighborhood..."
+              :city-filter="selectedCity"
+              @neighborhood-selected="handleNeighborhoodSelected"
+            />
+          </div>
+          
           <v-alert 
-            v-if="selectedCity"
+            v-if="selectedCity || selectedNeighborhoodId"
             type="info"
             variant="tonal"
             density="compact"
             class="mt-2"
             prepend-icon="mdi-information"
           >
-            Showing properties in <strong>{{ selectedCity }}</strong>
+            <span v-if="selectedNeighborhoodInfo">
+              Showing properties in <strong>{{ selectedNeighborhoodInfo.name }}, {{ selectedNeighborhoodInfo.city }}</strong>
+            </span>
+            <span v-else-if="selectedCity">
+              Showing properties in <strong>{{ selectedCity }}</strong>
+            </span>
             <template v-slot:append>
               <v-btn
                 size="small"
                 variant="text"
-                @click="clearCitySelection"
+                @click="clearLocationSelection"
               >
                 Show All
               </v-btn>
@@ -178,35 +201,43 @@
             </div>
           </div>
         </div>
-      </div>
-
-    <!-- Map -->
-    <div class="map-container hidden lg:block">
-      <PropertyMap
-        :properties="properties"
-        :selected-property="selectedProperty"
-        @bounds-updated="handleBoundsUpdate"
-        @marker-click="selectProperty"
-      />
-
-      <!-- Selected Property Card -->
-      <v-slide-y-transition>
-        <div v-if="selectedProperty" class="selected-property-card">
-          <PropertyCard
-            :property="selectedProperty"
-            :show-contact-button="true"
-            @save="toggleSave(selectedProperty)"
-            @contact="contactAgent(selectedProperty)"
-          />
-          <v-btn
-            icon="mdi-close"
-            variant="text"
-            class="close-btn"
-            @click="selectedProperty = null"
-          />
         </div>
-      </v-slide-y-transition>
-    </div>
+      </v-col>
+
+      <!-- Map -->
+      <v-col 
+        cols="8" 
+        class="d-none d-lg-block map-container-col"
+      >
+        <div class="map-container">
+          <PropertyMap
+            :properties="properties"
+            :selected-property="selectedProperty"
+            @bounds-updated="handleBoundsUpdate"
+            @marker-click="selectProperty"
+          />
+
+          <!-- Selected Property Card -->
+          <v-slide-y-transition>
+            <div v-if="selectedProperty" class="selected-property-card elevation-24">
+              <PropertyCard
+                :property="selectedProperty"
+                :show-contact-button="true"
+                @save="toggleSave(selectedProperty)"
+                @contact="contactAgent(selectedProperty)"
+              />
+              <v-btn
+                icon="mdi-close-circle"
+                variant="text"
+                color="white"
+                class="close-btn"
+                @click="selectedProperty = null"
+              />
+            </div>
+          </v-slide-y-transition>
+        </div>
+      </v-col>
+    </v-row>
 
     <!-- Contact Dialog -->
     <v-dialog
@@ -229,7 +260,7 @@
       message="Loading properties..."
       overlay
     />
-  </div>
+  </v-container>
 </template>
 
 <script setup lang="ts">
@@ -272,6 +303,8 @@ const currentPage = ref(1)
 const itemsPerPage = 100  // Show 100 properties per page (increased from 10)
 const loadMoreEnabled = ref(false)  // Use traditional pagination instead of "Load More"
 const selectedCity = ref('')
+const selectedNeighborhoodId = ref<number | null>(null)
+const selectedNeighborhoodInfo = ref<any>(null)
 const totalProperties = ref(0)
 const totalPages = ref(0)  // Track total pages from API
 let boundsUpdateTimeout: NodeJS.Timeout | null = null
@@ -550,6 +583,28 @@ const handleCitySelected = (city: City | null) => {
   }
 }
 
+const handleNeighborhoodSelected = (neighborhood: any) => {
+  selectedNeighborhoodInfo.value = neighborhood
+  if (neighborhood) {
+    // Clear city filter since neighborhood is more specific
+    selectedCity.value = ''
+    filters.value.city = ''
+    filters.value.neighborhoodId = neighborhood.id
+  }
+  currentPage.value = 1
+  handleSearch(filters.value)
+}
+
+const clearLocationSelection = () => {
+  selectedCity.value = ''
+  selectedNeighborhoodId.value = null
+  selectedNeighborhoodInfo.value = null
+  filters.value.city = ''
+  filters.value.neighborhoodId = null
+  currentPage.value = 1
+  handleSearch(filters.value)
+}
+
 const clearCitySelection = () => {
   selectedCity.value = ''
   filters.value.city = ''
@@ -596,12 +651,19 @@ onMounted(async () => {
 
 <style scoped>
 .map-search {
-  display: flex;
   height: calc(100vh - 64px); /* Adjust based on header height */
 }
 
+.map-search-row {
+  height: 100%;
+}
+
+.search-panel-col {
+  height: 100%;
+}
+
 .search-panel {
-  width: 400px;
+  height: 100%;
   background: white;
   border-right: 1px solid rgba(0, 0, 0, 0.12);
   display: flex;
@@ -623,8 +685,12 @@ onMounted(async () => {
   padding: 16px;
 }
 
+.map-container-col {
+  height: 100%;
+}
+
 .map-container {
-  flex: 1;
+  height: 100%;
   position: relative;
 }
 
@@ -634,6 +700,7 @@ onMounted(async () => {
   left: 24px;
   right: 24px;
   max-width: 400px;
+  
   margin: auto;
   z-index: 1;
 }
@@ -648,15 +715,23 @@ onMounted(async () => {
   width: 200px;
 }
 
-@media (max-width: 1023px) {
-  .map-search {
-    flex-direction: column;
+/* Mobile responsive styles are now handled by Vuetify grid system */
+/* On mobile (< lg), search panel uses cols="12" (full width) and map is hidden with d-none d-lg-block */
+
+.search-panel {
+  border-right: none;
+}
+
+/* Only add border-right on large screens */
+@media (min-width: 1264px) {
+  .search-panel {
+    border-right: 1px solid rgba(0, 0, 0, 0.12);
   }
-  
+}
+
+@media (max-width: 1263px) {
   .search-panel {
     width: 100%;
-    height: 100vh;
-    border-right: none;
     border-bottom: 1px solid rgba(0, 0, 0, 0.12);
   }
 

@@ -42,7 +42,7 @@
               />
               <v-btn
                 v-if="Array.isArray(property.images) && property.images.length > 5"
-                color="primary"
+                color="grey-darken-3"
                 class="more-photos"
                 @click="openGallery(0)"
               >
@@ -125,7 +125,7 @@
             <v-card class="mb-6" flat>
               <v-card-text>
                 <div class="text-h6 mb-4">Description</div>
-                <div class="text-body-1">{{ property.description }}</div>
+                <div class="text-body-2">{{ property.description }}</div>
               </v-card-text>
             </v-card>
             <v-card class="mb-6" v-if="hasFeatures" flat>
@@ -310,10 +310,43 @@
             <v-card-text>
               <div class="text-h6 mb-4">Contact Agent</div>
               <v-form v-model="isFormValid" @submit.prevent="handleSubmit">
-                <v-text-field v-model="contactForm.name" label="Your Name" :rules="nameRules" required variant="outlined" density="compact" />
-                <v-text-field v-model="contactForm.email" label="Email" type="email" :rules="emailRules" required variant="outlined" density="compact" />
-                <v-text-field v-model="contactForm.phone" label="Phone" :rules="phoneRules" variant="outlined" density="compact" />
-                <v-textarea v-model="contactForm.message" label="Message" :rules="messageRules" required variant="outlined" density="compact" rows="3" />
+                <v-text-field 
+                  v-model="contactForm.name" 
+                  label="Your Name" 
+                  :rules="nameRules" 
+                  required 
+                  variant="outlined" 
+                  density="compact"
+                  id="property-contact-name"
+                />
+                <v-text-field 
+                  v-model="contactForm.email" 
+                  label="Email" 
+                  type="email" 
+                  :rules="emailRules" 
+                  required 
+                  variant="outlined" 
+                  density="compact"
+                  id="property-contact-email"
+                />
+                <v-text-field 
+                  v-model="contactForm.phone" 
+                  label="Phone" 
+                  :rules="phoneRules" 
+                  variant="outlined" 
+                  density="compact"
+                  id="property-contact-phone"
+                />
+                <v-textarea 
+                  v-model="contactForm.message" 
+                  label="Message" 
+                  :rules="messageRules" 
+                  required 
+                  variant="outlined" 
+                  density="compact" 
+                  rows="3"
+                  id="property-contact-message"
+                />
                 <v-btn type="submit" color="primary" block :loading="loading" :disabled="!isFormValid">Contact Agent</v-btn>
               </v-form>
               <v-divider class="my-4" />
@@ -336,9 +369,10 @@
       transition="dialog-bottom-transition"
     >
       <v-card flat>
-        <v-toolbar dark color="black">
+        <v-toolbar dark color="black" class="px-4 z-10">
           <v-btn
-            icon="mdi-close"
+            icon="mdi-close-circle"
+            color="white"
             @click="showGallery = false"
           />
           <v-toolbar-title>Gallery</v-toolbar-title>
@@ -351,8 +385,10 @@
         <v-carousel
           v-model="currentImageIndex"
           height="100vh"
-          hide-delimiter-background
+          hide-delimiters
           show-arrows="hover"
+          color="white"
+          class="mt-n10"
         >
           <v-carousel-item
             v-for="(image, index) in property.images"

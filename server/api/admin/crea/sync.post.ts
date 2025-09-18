@@ -15,13 +15,13 @@ export default defineEventHandler(async (event) => {
   try {
     // Get system user for CREA listings (create if doesn't exist)
     let systemUser = await prisma.user.findFirst({
-      where: { email: 'system@suhani.com' }
+      where: { email: 'system@abdul.com' }
     })
 
     if (!systemUser) {
       systemUser = await prisma.user.create({
         data: {
-          email: 'system@suhani.com',
+          email: 'system@abdul.com',
           firstName: 'System',
           lastName: 'MLS',
           role: 'agent',
@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
     // Process each CREA property
     for (const creaProp of creProperties) {
       try {
-        const transformedProperty = creaService.transformToSuhaniProperty(creaProp, systemUser.id)
+        const transformedProperty = creaService.transformToLocalProperty(creaProp, systemUser.id)
         
         // Check if property already exists
         const existingProperty = await prisma.property.findFirst({

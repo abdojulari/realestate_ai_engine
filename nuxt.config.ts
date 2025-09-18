@@ -3,6 +3,9 @@ import { defineNuxtConfig } from 'nuxt/config'
 
 export default defineNuxtConfig({
   devtools: { enabled: true },
+  nitro: {
+    preset: 'netlify',
+  },
   srcDir: 'app',
   css: ['leaflet/dist/leaflet.css', '@mdi/font/css/materialdesignicons.css'],
   build: {
@@ -65,7 +68,7 @@ export default defineNuxtConfig({
         },
       },
     },
-  },
+  } as any,
   app: {
     head: {
       title: 'Real Estate',
@@ -84,6 +87,8 @@ export default defineNuxtConfig({
     smtpHostname: process.env.SMTP_HOSTNAME,
     smtpPort: process.env.SMTP_PORT,
     smtpSender: process.env.SMTP_SENDER,
+    agentEmail: process.env.AGENT_EMAIL || 'real4ojulari@gmail.com',
+    opencageApiKey: process.env.OPENCAGE_API_KEY,
   },
   alias: {
     '~': '/Users/abdul.ojulari/Frontends/suhani/app',

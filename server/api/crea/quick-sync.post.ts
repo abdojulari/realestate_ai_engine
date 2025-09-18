@@ -16,13 +16,13 @@ export default defineEventHandler(async (event) => {
 
   // Get or create system user for CREA properties
   let systemUser = await prisma.user.findFirst({
-    where: { email: 'system@suhani.com' }
+    where: { email: 'system@abdul.com' }
   })
 
   if (!systemUser) {
     systemUser = await prisma.user.create({
       data: {
-        email: 'system@suhani.com',
+        email: 'system@abdul.com',
         firstName: 'MLS',
         lastName: 'System',
         role: 'agent',

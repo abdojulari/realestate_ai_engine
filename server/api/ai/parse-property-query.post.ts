@@ -178,8 +178,9 @@ function parseWithRules(query: string): Record<string, any> {
     filters.near = nearItems
   }
   
-  // 8. FEATURES - "pool", "fireplace", "waterfront", "central air"
+  // 8. ENHANCED FEATURES - Now supporting CREA residential fields
   const featurePatterns = [
+    // Basic features
     { pattern: /pool/, feature: 'pool', value: true },
     { pattern: /fireplace/, feature: 'fireplace', value: true },
     { pattern: /waterfront|water\s*front/, feature: 'waterfront', value: true },
@@ -187,7 +188,47 @@ function parseWithRules(query: string): Record<string, any> {
     { pattern: /smart\s*home/, feature: 'smartHome', value: true },
     { pattern: /solar\s*panels?/, feature: 'solarPanels', value: true },
     { pattern: /large\s*(?:yard|backyard|garden)/, feature: 'largeYard', value: true },
-    { pattern: /fenced\s*(?:yard|backyard)/, feature: 'fencedYard', value: true }
+    { pattern: /fenced\s*(?:yard|backyard)/, feature: 'fencedYard', value: true },
+    
+    // NEW: Views & Location Features
+    { pattern: /ocean\s*view|sea\s*view/, feature: 'oceanView', value: true },
+    { pattern: /mountain\s*view|mountains?\s*view/, feature: 'mountainView', value: true },
+    { pattern: /lake\s*view|water\s*view/, feature: 'lakeView', value: true },
+    { pattern: /city\s*view|downtown\s*view/, feature: 'cityView', value: true },
+    { pattern: /golf\s*(?:course\s*)?view/, feature: 'golfView', value: true },
+    
+    // NEW: Utilities & Infrastructure
+    { pattern: /well\s*water|private\s*well/, feature: 'wellWater', value: true },
+    { pattern: /municipal\s*water|city\s*water/, feature: 'municipalWater', value: true },
+    { pattern: /septic\s*(?:system|tank)?/, feature: 'septic', value: true },
+    { pattern: /municipal\s*sewer|city\s*sewer/, feature: 'municipalSewer', value: true },
+    { pattern: /irrigation\s*system/, feature: 'irrigation', value: true },
+    
+    // NEW: Building Characteristics
+    { pattern: /new\s*(?:construction|build|home)/, feature: 'newConstruction', value: true },
+    { pattern: /renovated|updated|upgraded/, feature: 'renovated', value: true },
+    { pattern: /move[\s-]*in\s*ready/, feature: 'moveInReady', value: true },
+    { pattern: /custom\s*(?:built|home)/, feature: 'customBuilt', value: true },
+    
+    // NEW: Architectural Styles
+    { pattern: /ranch\s*(?:style)?/, feature: 'ranchStyle', value: true },
+    { pattern: /colonial\s*(?:style)?/, feature: 'colonialStyle', value: true },
+    { pattern: /bungalow/, feature: 'bungalowStyle', value: true },
+    { pattern: /modern\s*(?:style)?/, feature: 'modernStyle', value: true },
+    { pattern: /traditional\s*(?:style)?/, feature: 'traditionalStyle', value: true },
+    
+    // NEW: Rural/Acreage Features
+    { pattern: /acreage|acres?/, feature: 'acreage', value: true },
+    { pattern: /large\s*lot|big\s*lot/, feature: 'largeLot', value: true },
+    { pattern: /private\s*(?:lot|property)/, feature: 'private', value: true },
+    { pattern: /rural|country\s*(?:setting|living)?/, feature: 'rural', value: true },
+    { pattern: /horse\s*(?:property|facilities)/, feature: 'horseProperty', value: true },
+    { pattern: /barn|outbuilding/, feature: 'barn', value: true },
+    
+    // NEW: Accessibility & Universal Design
+    { pattern: /wheelchair\s*accessible/, feature: 'wheelchairAccessible', value: true },
+    { pattern: /main\s*floor\s*(?:living|bedroom)/, feature: 'mainFloorLiving', value: true },
+    { pattern: /single\s*(?:level|story)/, feature: 'singleLevel', value: true }
   ]
   
   for (const { pattern, feature, value } of featurePatterns) {
@@ -218,7 +259,143 @@ function parseWithRules(query: string): Record<string, any> {
     }
   }
   
-  // 10. LOCATION - "downtown", "suburbs", specific cities
+  // 10. LOT SIZE & ACREAGE - "2 acres", "large lot", "half acre"
+  const lotSizePatterns = [
+    /(\d+(?:\.\d+)?)\s*acres?/,
+    /(half|quarter|\d+\/\d+)\s*acres?/,
+    /(\d+)\s*(?:sq\s*ft|square\s*feet)\s*lot/,
+    /(large|big|huge)\s*lot/,
+    /(small|compact)\s*lot/
+  ]
+  
+  for (const pattern of lotSizePatterns) {
+    const match = query.match(pattern)
+    if (match) {
+      if (match[1] && /\d+/.test(match[1])) {
+        const size = parseFloat(match[1])
+        if (match[0].includes('acre')) {
+          filters.lotSizeAcres = size
+        } else if (match[0].includes('sq')) {
+          filters.lotSizeSqFt = size
+        }
+      } else if (match[1] === 'half') {
+        filters.lotSizeAcres = 0.5
+      } else if (match[1] === 'quarter') {
+        filters.lotSizeAcres = 0.25
+      } else if (['large', 'big', 'huge'].includes(match[1])) {
+        filters.largeLot = true
+      } else if (['small', 'compact'].includes(match[1])) {
+        filters.smallLot = true
+      }
+      break
+    }
+  }
+  
+  // 11. BUILDING STORIES - "2 story", "single level", "multi-level"
+  const storyPatterns = [
+    /(\d+)\s*(?:story|stories|level|levels)/,
+    /(single|one)\s*(?:story|level)/,
+    /(two|three|four)\s*(?:story|stories|level|levels)/,
+    /multi[\s-]*(?:level|story)/,
+    /split[\s-]*level/
+  ]
+  
+  for (const pattern of storyPatterns) {
+    const match = query.match(pattern)
+    if (match) {
+      if (match[1] && /\d+/.test(match[1])) {
+        filters.stories = parseInt(match[1])
+      } else if (match[1] === 'single' || match[1] === 'one') {
+        filters.stories = 1
+      } else if (match[1] === 'two') {
+        filters.stories = 2
+      } else if (match[1] === 'three') {
+        filters.stories = 3
+      } else if (match[1] === 'four') {
+        filters.stories = 4
+      } else if (match[0].includes('multi')) {
+        filters.multiLevel = true
+      } else if (match[0].includes('split')) {
+        filters.splitLevel = true
+      }
+      break
+    }
+  }
+  
+  // 12. YEAR BUILT / AGE - "new home", "built after 2000", "newer than 2010"
+  const agePatterns = [
+    /built\s*(?:after|since)\s*(\d{4})/,
+    /newer\s*than\s*(\d{4})/,
+    /(?:from\s*)?(\d{4})\s*or\s*newer/,
+    /new\s*(?:construction|build|home)/,
+    /recently\s*built/
+  ]
+  
+  for (const pattern of agePatterns) {
+    const match = query.match(pattern)
+    if (match) {
+      if (match[1] && /\d{4}/.test(match[1])) {
+        filters.minYearBuilt = parseInt(match[1])
+      } else if (match[0].includes('new') || match[0].includes('recent')) {
+        filters.minYearBuilt = new Date().getFullYear() - 5 // Within 5 years
+      }
+      break
+    }
+  }
+  
+  // 13. PROPERTY CONDITION - "move-in ready", "needs work", "renovated"
+  const conditionPatterns = [
+    /move[\s-]*in\s*ready/,
+    /excellent\s*condition/,
+    /good\s*condition/,
+    /needs?\s*work|fixer[\s-]*upper/,
+    /renovated|updated|upgraded/,
+    /original\s*condition/
+  ]
+  
+  for (const pattern of conditionPatterns) {
+    const match = query.match(pattern)
+    if (match) {
+      if (match[0].includes('move-in') || match[0].includes('excellent')) {
+        filters.condition = 'excellent'
+      } else if (match[0].includes('good')) {
+        filters.condition = 'good'
+      } else if (match[0].includes('needs') || match[0].includes('fixer')) {
+        filters.condition = 'needs_work'
+      } else if (match[0].includes('renovated') || match[0].includes('updated')) {
+        filters.condition = 'renovated'
+      } else if (match[0].includes('original')) {
+        filters.condition = 'original'
+      }
+      break
+    }
+  }
+  
+  // 14. ZONING - "residential", "rural residential", "agricultural"
+  const zoningPatterns = [
+    /residential\s*zoning/,
+    /rural\s*residential/,
+    /agricultural\s*zoning/,
+    /mixed\s*use/
+  ]
+  
+  for (const pattern of zoningPatterns) {
+    const match = query.match(pattern)
+    if (match) {
+      if (match[0].includes('rural')) {
+        filters.zoning = 'rural_residential'
+      } else if (match[0].includes('agricultural')) {
+        filters.zoning = 'agricultural'
+      } else if (match[0].includes('mixed')) {
+        filters.zoning = 'mixed_use'
+      } else {
+        filters.zoning = 'residential'
+      }
+      break
+    }
+  }
+  
+  // 15. LOCATION - "downtown", "suburbs", specific cities
   const locationPatterns = [
     /(?:in|at)\s*(downtown|uptown|suburbs?|city\s*center)/,
     /(?:in|at)\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)/

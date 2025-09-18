@@ -1,0 +1,20 @@
+{
+  "backupFile": "database-backup-2025-09-17T22-59-25-555Z.json",
+  "timestamp": "2025-09-17T22:59:25.557Z",
+  "fileSize": 47416968,
+  "fileSizeFormatted": "45.22 MB",
+  "options": {
+    "format": "json"
+  },
+  "tables": [
+    "property",
+    "neighborhood",
+    "propertyNeighborhood",
+    "user",
+    "setting",
+    "emailTemplate",
+    "propertyInquiry"
+  ],
+  "totalRecords": 9324,
+  "checksum": "47416968-1758149966591"
+}

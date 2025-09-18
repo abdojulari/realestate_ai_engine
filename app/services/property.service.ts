@@ -250,7 +250,7 @@ export const propertyService = {
   },
 
   async createInquiry(propertyId: number, data: Partial<PropertyInquiry>): Promise<PropertyInquiry> {
-    return await authedFetch(`/api/properties/${propertyId}/inquiries`, {
+    return await authedFetch(`/api/properties/inquiry?propertyId=${propertyId}`, {
       method: 'POST',
       body: data
     })

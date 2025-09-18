@@ -388,6 +388,28 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Error Dialog -->
+    <v-dialog
+      v-model="showErrorDialog"
+      max-width="500"
+    >
+      <v-card flat>
+        <v-card-title class="text-h5 text-error">Error</v-card-title>
+        <v-card-text>
+          <p>{{ errorMessage }}</p>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn
+            color="primary"
+            @click="showErrorDialog = false"
+          >
+            Close
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -404,6 +426,8 @@ const progress = computed(() => {
 })
 const submitting = ref(false)
 const showSuccessDialog = ref(false)
+const showErrorDialog = ref(false)
+const errorMessage = ref('')
 
 const forms = reactive({
   propertyDetails: {
@@ -513,7 +537,18 @@ const submitEstimate = async () => {
     }
 
     // Submit to API
-    // await api.post('/estimates', formData)
+    const response = await fetch('/api/estimates', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    })
+
+    if (!response.ok) {
+      const error = await response.json()
+      throw new Error(error.statusMessage || 'Failed to submit estimate')
+    }
 
     // Show success dialog
     showSuccessDialog.value = true
@@ -547,9 +582,10 @@ const submitEstimate = async () => {
       contactPreference: false
     }
     currentStep.value = '1'
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error submitting estimate:', error)
-    // Show error message
+    errorMessage.value = error.message || 'Failed to submit your request. Please try again.'
+    showErrorDialog.value = true
   } finally {
     submitting.value = false
   }

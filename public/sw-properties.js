@@ -1,5 +1,5 @@
 // Service Worker for Property Management
-const CACHE_NAME = 'suhani-properties-v1'
+const CACHE_NAME = 'abdul-properties-v1'
 const API_BASE = self.location.origin
 
 // Property cache storage

@@ -215,7 +215,8 @@ import { useAuthStore } from '~/stores/auth'
 import { formatTime } from '../../utils/formatters'
 import { useRouter, useRoute } from 'vue-router'
 // @ts-ignore
-import { api } from '~~/utils/api'
+//import { api } from '~~/utils/api'
+import { api } from '~/utils/api'
 
 const auth = useAuthStore()
 const router = useRouter()

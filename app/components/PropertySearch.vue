@@ -33,6 +33,16 @@
         </v-col>
 
         <v-col cols="12" sm="6" md="3">
+          <CityNeighborhoodDropdown
+            v-model="searchParams.location"
+            label="City/Neighborhood"
+            placeholder="Search cities or neighborhoods..."
+            input-class="location-search"
+            @location-selected="onLocationSelected"
+          />
+        </v-col>
+
+        <v-col cols="12" sm="6" md="3">
           <v-select
             v-model="searchParams.propertyType"
             :items="propertyTypes"
@@ -194,6 +204,7 @@ const locationSuggestions = ref<Array<{id: string, description: string}>>([])
 
 const searchParams = ref({
   location: '',
+  selectedLocation: null,
   propertyType: null,
   minPrice: null,
   maxPrice: null,
@@ -287,12 +298,36 @@ const selectLocation = (suggestion: any) => {
   showSuggestions.value = false
 }
 
+const onLocationSelected = (location: any) => {
+  console.log('Location selected:', location)
+  searchParams.value.selectedLocation = location
+}
+
 const search = () => {
   // Search initiated
   
   // Transform to match the expected format
+  // Handle location selection (city or neighborhood)
+  let locationParams = {}
+  if (searchParams.value.selectedLocation) {
+    if (searchParams.value.selectedLocation.type === 'city') {
+      locationParams = {
+        city: searchParams.value.selectedLocation.name
+      }
+    } else if (searchParams.value.selectedLocation.type === 'neighborhood') {
+      locationParams = {
+        neighborhoodId: searchParams.value.selectedLocation.id
+      }
+    }
+  } else if (searchParams.value.location) {
+    // Fallback to manual location input
+    locationParams = {
+      city: searchParams.value.location.includes(',') ? searchParams.value.location.split(',')[0].trim() : searchParams.value.location
+    }
+  }
+
   const transformedParams = {
-    location: searchParams.value.location || '',
+    ...locationParams,
     propertyType: searchParams.value.propertyType || undefined,
     type: searchParams.value.propertyType || undefined,
     minPrice: searchParams.value.minPrice || undefined,
@@ -301,9 +336,7 @@ const search = () => {
     baths: searchParams.value.baths || undefined,
     minSqft: searchParams.value.minSqft ? Number(searchParams.value.minSqft) : undefined,
     maxSqft: searchParams.value.maxSqft ? Number(searchParams.value.maxSqft) : undefined,
-    features: searchParams.value.features || [],
-    // @ts-ignore
-    city: searchParams.value.location ? (searchParams.value.location.includes(',') ? searchParams.value.location.split(',')[0].trim() : searchParams.value.location) : undefined
+    features: searchParams.value.features || []
   }
   
   // Parameters transformed for API

@@ -1,7 +1,7 @@
 <template>
-  <footer class="site-footer">
+  <footer class="site-footer" >
     <div class="footer-container">
-      <div class="footer-grid">
+      <div v-if="!isMapSearchPage" class="footer-grid">
         <!-- Contact Section -->
         <div class="footer-section">
           <h3 class="footer-title">Contact Us</h3>
@@ -71,6 +71,18 @@
 </template>
 
 <script setup lang="ts">
+const route = useRoute()
+
+// Check if current page is map-search
+const isMapSearchPage = computed(() => {
+  return route.name === 'map-search'
+})
+
+// Check if current page is home/index
+const isHomePage = computed(() => {
+  return route.name === 'index'
+})
+
 const footerLinks = [
   { title: 'About Us', to: '/about' },
   { title: 'Terms of Service', to: '/terms' },
@@ -91,6 +103,10 @@ const socialLinks = [
   background: white;
   border-top: 1px solid #e5e7eb;
   margin-top: auto;
+}
+
+.site-footer.no-border {
+  border-top: none;
 }
 
 .footer-container {

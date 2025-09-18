@@ -25,13 +25,13 @@
             </div>
 
             <!-- Stats -->
-            <div class="hero-stats mb-5">
+            <div class="hero-stats ">
               <div class="stat-item">
                 <div class="stat-number">{{ totalProperties }}</div>
                 <div class="stat-label">Listed Properties</div>
               </div>
               <div class="stat-item">
-                <div class="stat-number">4500+</div>
+                <div class="stat-number">{{ totalUsers > 0 ? `${totalUsers}+` : '500+' }}</div>
                 <div class="stat-label">Happy Customers</div>
               </div>
               <div class="stat-item">
@@ -42,7 +42,7 @@
           </v-col>
           <v-col cols="12" md="6" class="hero-image-col pa-0"> 
               <v-img
-                :src="heroImage || 'https://www.newhomeco.com/_next/image?url=https%3A%2F%2F48078207.fs1.hubspotusercontent-na1.net%2Fhub%2F48078207%2Fhubfs%2FApproved%2520Division%2520Assets%2FColorado%2FThe%2520Cottages%2520Collection%2520at%2520Ridgeline%2520Vista%2F07%2520-%2520Model%2520Photography%2FRidgeline-Vista-Plan-3502-Web-7.jpg&w=3840&q=75'"
+                :src="heroImage || 'https://images.unsplash.com/photo-1678575326996-a1bf09b86158?q=80&w=1932&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'"
                 alt="Modern House"
                 class="hero-house"
                 cover
@@ -53,11 +53,11 @@
     </section>
 
     <!-- Floating Search Section -->
-    <div class="floating-search-section">
+    <div class="floating-search-section bg-white ">
       <v-container>
         <v-row justify="center">
           <v-col cols="12" lg="10" xl="8">
-            <div class="floating-search-container">
+            <div class="floating-search-container mt-n16">
               <h3 class="floating-search-title">Search for available properties</h3>
               <PropertySearch 
                 elevation="3" 
@@ -100,66 +100,32 @@
     <ResourcesSection />
 
     <!-- Testimonials -->
-    <section class="testimonials-section">
-      <v-container>
-        <h2 class="text-h4 text-center mb-8">What Our Clients Say</h2>
-        <div class="d-flex justify-center">
-          <v-slide-group
-            show-arrows
-            class="pa-4"
-            center-active
-          >
-            <v-slide-group-item
-              v-for="testimonial in testimonials"
-              :key="testimonial.id"
-            >
-              <v-card
-                class="mx-2"
-                width="300"
-                flat
-              >
-                <v-card-text class="text-center">
-                  <v-avatar
-                    :image="testimonial.avatar"
-                    size="80"
-                    class="mb-4"
-                  />
-                  <blockquote class="text-body-1 mb-4">
-                    "{{ testimonial.content }}"
-                  </blockquote>
-                  <div class="text-h6">{{ testimonial.name }}</div>
-                  <div class="text-caption text-grey">{{ testimonial.location }}</div>
-                </v-card-text>
-              </v-card>
-            </v-slide-group-item>
-          </v-slide-group>
-        </div>
-      </v-container>
-    </section>
+    <TestimonialSlider :testimonials="featuredTestimonials" />
 
     <!-- CTA Section -->
-    <section class="cta-section">
-      <v-container>
-        <v-row align="center" justify="center">
-          <v-col cols="12" md="8" class="text-center">
-            <h2 class="cta-title">
-              Ready to Find Your Dream Home?
-            </h2>
-            <p class="cta-subtitle">
-              Let us help you find the perfect property that matches your needs
-            </p>
-            <v-btn
-              size="x-large"
-              color="grey-darken-4"
-              to="/contact"
-              class=" text-none font-weight-medium"
-            >
-              Contact Us Today
-            </v-btn>
-          </v-col>
-          
-        </v-row>
-      </v-container>
+    <section class="contact-cta-section">
+      <div class="contact-cta-overlay">
+        <v-container>
+          <v-row align="center" justify="center">
+            <v-col cols="12" md="8" class="text-center">
+              <h2 class="contact-cta-title">
+                Ready to Find Your Dream Home?
+              </h2>
+              <p class="contact-cta-subtitle">
+                Let us help you find the perfect property that matches your needs
+              </p>
+              <v-btn
+                size="x-large"
+                color="orange-darken-2"
+                to="/contact"
+                class="contact-cta-btn text-none font-weight-medium"
+              >
+                Contact Me Today
+              </v-btn>
+            </v-col>
+          </v-row>
+        </v-container>
+      </div>
     </section>
 
   </div>
@@ -173,12 +139,24 @@ const heroImage = ref<string>('')
 const heroTitle = ref<string>('')
 const heroSubtitle = ref<string>('')
 const whyTitle = ref<string>('')
+const totalUsers = ref<number>(0)
 
 const totalProperties = computed(() => {
   return featuredProperties.value.length > 0 ? `${featuredProperties.value.length}+` : '1200+'
 })
 onMounted(async () => {
   console.log('🏡 Starting featured homes loading process...')
+  
+  // Load public stats (total users, etc.)
+  try {
+    const stats = await $fetch('/api/stats')
+    if (stats?.totalUsers) {
+      totalUsers.value = stats.totalUsers
+    }
+  } catch (error) {
+    console.log('📊 Could not load stats:', error)
+  }
+  
   try {
     // Detect user's city using geolocation
     let userCity = ''
@@ -339,24 +317,18 @@ onMounted(async () => {
       features.splice(0, features.length, ...whyItems.map(i => ({ icon: i.metadata?.icon || 'mdi-check', title: i.title, description: i.content })))
     }
   } catch {}
+  // Load featured testimonials
   try {
-    const tpage: any = await $fetch('/api/content/page/testimonials')
-    const titems: any[] = tpage.items || []
-    testimonials.value = titems
-      .filter(i => i.type === 'testimonial')
-      .map(i => ({
-        id: i.id,
-        name: i.metadata?.author || 'Client',
-        location: i.metadata?.position || '',
-        content: i.content,
-        avatar: i.metadata?.avatar || '/favicon.ico'
-      }))
-  } catch {}
+    const testimonials = await $fetch('/api/testimonials?featured=true&limit=10')
+    featuredTestimonials.value = testimonials || []
+  } catch (error) {
+    console.log('Failed to load testimonials:', error)
+  }
 })
 
 const features = reactive<any[]>([])
 
-const testimonials = ref<any[]>([])
+const featuredTestimonials = ref<any[]>([])
 
 
 const handleSearch = (params: any) => {
@@ -389,14 +361,14 @@ const scrollToSearch = () => {
 </script>
 
 <style scoped>
-.home-page {
+/* .home-page {
   background: #f8f9fa;
-}
+} */
 
 /* Hero Section */
 .hero-section {
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  min-height: 60vh;
+  min-height: 85vh;
   padding: 2rem 0 0 0;
   position: relative;
   overflow: hidden;
@@ -419,9 +391,9 @@ const scrollToSearch = () => {
   padding-bottom: 0 !important;
 }
 
-.min-height-screen {
-  min-height: 60vh;
-}
+/* .min-height-screen {
+  min-height: 85vh;
+} */
 
 .hero-content {
   padding: 1rem 4rem;
@@ -492,7 +464,7 @@ const scrollToSearch = () => {
 
 .hero-house {
   width: calc(100% + 3rem);
-  height: 730px;
+  height: 630px;
   border-radius: 20px 0 0 0;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
   margin-right: -3rem;
@@ -502,10 +474,9 @@ const scrollToSearch = () => {
 
 /* Floating Search Section */
 .floating-search-section {
-  position: absolute;
-  top: 95vh;
-  left: 0;
-  right: 0;
+  position: relative;
+  margin-top: 0;
+  margin-bottom: 50px;
   z-index: 50;
   pointer-events: none;
 }
@@ -529,7 +500,7 @@ const scrollToSearch = () => {
 .featured-section {
   background: white;
   padding: 6rem 0 4rem 0;
-  margin-top: -2rem;
+  margin-top: -10rem;
   position: relative;
   z-index: 10;
 }
@@ -617,35 +588,60 @@ const scrollToSearch = () => {
   justify-content: center;
 }
 
-.quote-mark {
-  font-size: 8rem;
+
+/* Contact CTA Section */
+.contact-cta-section {
+  position: relative;
+  min-height: 60vh;
+  background-image: url('https://images.unsplash.com/photo-1448630360428-65456885c650?q=80&w=2067&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.contact-cta-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 0;
+}
+
+.contact-cta-title {
+  font-size: 3rem;
   font-weight: 700;
-  color: rgba(255, 255, 255, 0.1);
-  line-height: 1;
+  color: white;
+  margin-bottom: 1.5rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-/* CTA Section */
-.cta-section {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  padding: 6rem 0;
+.contact-cta-subtitle {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 3rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+  line-height: 1.6;
 }
 
-.cta-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #2c3e50;
-  margin-bottom: 1rem;
-}
-
-.cta-subtitle {
-  font-size: 1.1rem;
-  color: #6c757d;
-  margin-bottom: 2.5rem;
-}
-
-.cta-btn {
+.contact-cta-btn {
   padding: 1.2rem 3rem;
-  border-radius: 10px;
+  border-radius: 8px;
+  font-size: 1.1rem;
+  box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.contact-cta-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 152, 0, 0.4);
 }
 
 /* Mobile Responsiveness */
@@ -670,7 +666,7 @@ const scrollToSearch = () => {
   }
   
   .floating-search-section {
-    top: 50vh;
+    top: 5vh;
   }
   
   .hero-section {
@@ -715,8 +711,21 @@ const scrollToSearch = () => {
     font-size: 2rem;
   }
   
-  .cta-title {
+  .contact-cta-title {
     font-size: 2rem;
+  }
+  
+  .contact-cta-subtitle {
+    font-size: 1.1rem;
+  }
+  
+  .contact-cta-section {
+    background-attachment: scroll;
+    min-height: 50vh;
+  }
+  
+  .contact-cta-overlay {
+    padding: 3rem 0;
   }
   
   .hero-stats {

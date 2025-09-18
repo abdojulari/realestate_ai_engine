@@ -82,6 +82,7 @@
               variant="outlined"
               density="compact"
               :disabled="loading"
+              id="inquiry-form-first-name"
             />
           </v-col>
 
@@ -94,6 +95,7 @@
               variant="outlined"
               density="compact"
               :disabled="loading"
+              id="inquiry-form-last-name"
             />
           </v-col>
 
@@ -108,6 +110,7 @@
               variant="outlined"
               density="compact"
               :disabled="loading"
+              id="inquiry-form-email"
             />
           </v-col>
 
@@ -119,6 +122,7 @@
               variant="outlined"
               density="compact"
               :disabled="loading"
+              id="inquiry-form-phone"
             />
           </v-col>
 
@@ -131,6 +135,7 @@
               variant="outlined"
               density="compact"
               :disabled="loading"
+              id="inquiry-form-contact-method"
             />
           </v-col>
 
@@ -145,6 +150,7 @@
               :rows="4"
               :disabled="loading"
               :auto-grow="true"
+              id="inquiry-form-message"
             />
           </v-col>
 

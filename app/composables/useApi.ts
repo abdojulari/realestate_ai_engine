@@ -24,21 +24,35 @@ export function useApi() {
   }
 
   const post = async <T = any>(url: string, data: any, opts: RequestInit = {}) => {
+    const headers = buildHeaders()
+    
+    // If data is FormData, don't set Content-Type header
+    if (data instanceof FormData) {
+      delete headers['Content-Type']
+    }
+    
     return await $fetch<T>(url as unknown as NitroFetchRequest, {
       baseURL,
       method: 'post',
       body: data,
-      headers: { ...buildHeaders(), ...(opts.headers || {}) },
+      headers: { ...headers, ...(opts.headers || {}) },
       ...opts
     })
   }
 
   const put = async <T = any>(url: string, data: any, opts: RequestInit = {}) => {
+    const headers = buildHeaders()
+    
+    // If data is FormData, don't set Content-Type header
+    if (data instanceof FormData) {
+      delete headers['Content-Type']
+    }
+    
     return await $fetch<T>(url as unknown as NitroFetchRequest, {
       baseURL,
       method: 'put',
       body: data,
-      headers: { ...buildHeaders(), ...(opts.headers || {}) },
+      headers: { ...headers, ...(opts.headers || {}) },
       ...opts
     })
   }

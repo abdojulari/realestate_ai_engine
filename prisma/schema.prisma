@@ -36,6 +36,7 @@ model User {
   inquiries           PropertyInquiry[]
   savedProperties     SavedProperty[]
   propertyViews       PropertyView[]
+  homeEstimates       HomeEstimate[]
 }
 
 model Property {
@@ -66,14 +67,93 @@ model Property {
   mlsNumber     String?   // MLS listing number
   lastSyncAt    DateTime? // Last time synced from CREA
   
+  // Enhanced Residential Fields from CREA
+  // Lot & Land Details (Critical for acreage properties)
+  lotSizeArea   Float?    // Lot size in numeric format
+  lotSizeDimensions String? // e.g., "60 X 262"
+  lotSizeUnits  String?   // Acres, Square Feet, etc.
+  
+  // Building Characteristics (Commonly filtered)
+  stories       Int?      // Number of stories
+  yearBuilt     Int?      // Year property was built
+  propertyCondition String? // New, Excellent, Good, etc.
+  
+  // Location Features (High value for search)
+  cityRegion    String?   // Neighborhood/area within city
+  waterBodyName String?   // For waterfront properties
+  
+  // Legal/Property Information (Important for buyers)
+  zoning        String?   // Zoning classification
+  zoningDescription String? // Detailed zoning description
+  taxAnnualAmount Float?  // Annual property taxes
+  taxYear       Int?      // Tax assessment year
+  parcelNumber  String?   // Legal parcel identifier
+  
+  // Enhanced Address Components
+  streetName    String?   // Street name portion
+  streetNumber  String?   // Street number portion
+  unitNumber    String?   // Unit/suite number
+  
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   viewingRequests ViewingRequest[]
   inquiries     PropertyInquiry[]
   savedBy       SavedProperty[]
   propertyViews PropertyView[]
+  neighborhood  PropertyNeighborhood?
 
   @@unique([source, externalId])
+}
+
+model Neighborhood {
+  id                  Int       @id @default(autoincrement())
+  name                String    // Neighborhood/Community name
+  city                String    // City name
+  province            String    // Province/State
+  country             String    @default("Canada")
+  
+  // Location boundaries (optional - for more precise matching)
+  centerLatitude      Float?    // Center point latitude
+  centerLongitude     Float?    // Center point longitude
+  boundingBox         Json?     // Polygon coordinates for neighborhood boundaries
+  
+  // Metadata from OpenCage API
+  formattedAddress    String?   // Full formatted address from geocoding
+  confidence          Int?      // OpenCage confidence score (1-10)
+  components          Json?     // Raw components from OpenCage
+  
+  // Statistics (can be calculated)
+  propertyCount       Int       @default(0)
+  averagePrice        Float?
+  
+  // Timestamps
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+  
+  // Relations
+  properties          PropertyNeighborhood[]
+  
+  @@unique([name, city, province])
+  @@index([city, province])
+}
+
+model PropertyNeighborhood {
+  id              Int       @id @default(autoincrement())
+  propertyId      Int       @unique
+  neighborhoodId  Int
+  
+  // Relations
+  property        Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  neighborhood    Neighborhood  @relation(fields: [neighborhoodId], references: [id])
+  
+  // Geocoding metadata
+  confidence      Int?      // Confidence of the geocoding match
+  lastLookup      DateTime  @default(now())
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([neighborhoodId])
 }
 
 model ContentBlock {
@@ -151,9 +231,9 @@ model Setting {
 
 model PropertyInquiry {
   id          Int      @id @default(autoincrement())
-  userId      Int
+  userId      Int?
   propertyId  Int
-  user        User     @relation(fields: [userId], references: [id])
+  user        User?    @relation(fields: [userId], references: [id])
   property    Property @relation(fields: [propertyId], references: [id])
   message     String   @db.Text
   status      String   // pending, responded, closed
@@ -182,4 +262,86 @@ model PropertyView {
   ipAddress   String?
   userAgent   String?
   createdAt   DateTime @default(now())
+}
+
+model EmailTemplate {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  subject     String
+  content     String   @db.Text
+  variables   Json?    // Available template variables
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model HomeEstimate {
+  id              Int      @id @default(autoincrement())
+  userId          Int?     // Optional - can be guest submission
+  user            User?    @relation(fields: [userId], references: [id])
+  
+  // Property Details
+  address         String
+  postalCode      String
+  propertyType    String   // single_family, townhouse, condo, etc.
+  beds            Int
+  baths           Float
+  sqft            Float
+  yearBuilt       Int
+  lotSize         String
+  
+  // Features
+  condition       String   // excellent, good, fair, etc.
+  features        Json?    // Array of selected features
+  renovations     Json?    // Array of recent renovations
+  additionalInfo  String?  @db.Text
+  
+  // Contact Information
+  firstName       String
+  lastName        String
+  email           String
+  phone           String
+  timeframe       String   // immediate, 3_months, etc.
+  contactPreference Boolean @default(false) // prefer email
+  
+  // Status and Management
+  status          String   @default("pending") // pending, contacted, completed
+  estimatedValue  Float?   // Agent can add estimated value
+  agentNotes      String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Testimonial {
+  id              Int      @id @default(autoincrement())
+  
+  // Client Information
+  name            String
+  email           String
+  phone           String?
+  location        String   // City, Province or just "Edmonton, AB"
+  
+  // Testimonial Content
+  content         String   @db.Text
+  rating          Int      @default(5) // 1-5 star rating
+  propertyType    String?  // "Buyer", "Seller", "Rental", etc.
+  
+  // Media
+  avatar          String?  // Profile picture URL
+  
+  // Admin Management
+  approved        Boolean  @default(false) // Admin approval
+  featured        Boolean  @default(false) // Show on homepage
+  displayOrder    Int?     // Order on homepage (lower = first)
+  
+  // Metadata
+  ipAddress       String?  // For spam prevention
+  userAgent       String?  // For spam prevention
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([approved, featured, displayOrder])
+  @@index([createdAt])
 }

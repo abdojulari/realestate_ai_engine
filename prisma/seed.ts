@@ -67,7 +67,7 @@ async function main() {
         latitude: 53.5444,
         longitude: -113.4909,
         features: ['Concierge', 'Gym', 'Pool', 'Parking', 'Balcony'],
-        images: ['/images/property1.jpg', '/images/property1-2.jpg', '/images/property1-3.jpg'],
+        images: ['/images/properties/property1.jpg', '/images/properties/property1-2.jpg', '/images/properties/property1-3.jpg'],
         userId: agent.id
       }
     }),
@@ -90,7 +90,7 @@ async function main() {
         latitude: 53.5394,
         longitude: -113.5089,
         features: ['Parking', 'Gym', 'In-suite Laundry'],
-        images: ['/images/property2.jpg', '/images/property2-2.jpg', '/images/property2-3.jpg'],
+        images: ['/images/properties/property2.jpg', '/images/properties/property2-2.jpg', '/images/properties/property2-3.jpg'],
         userId: agent.id
       }
     }),
@@ -113,7 +113,7 @@ async function main() {
         latitude: 53.4203,
         longitude: -113.6089,
         features: ['Triple Garage', 'Lake Access', 'Gourmet Kitchen', 'Wine Cellar', 'Home Theater'],
-        images: ['/images/property3.jpg', '/images/property3-2.jpg', '/images/property3-3.jpg'],
+        images: ['/images/properties/property3.jpg', '/images/properties/property3-2.jpg', '/images/properties/property3-3.jpg'],
         userId: agent.id
       }
     }),
@@ -136,7 +136,7 @@ async function main() {
         latitude: 53.4567,
         longitude: -113.3456,
         features: ['Double Garage', 'Finished Basement', 'Large Backyard', 'Fireplace'],
-        images: ['/images/property4.jpg', '/images/property4-2.jpg', '/images/property4-3.jpg'],
+        images: ['/images/properties/property4.jpg', '/images/properties/property4-2.jpg', '/images/properties/property4-3.jpg'],
         userId: agent.id
       }
     }),
@@ -159,7 +159,7 @@ async function main() {
         latitude: 53.5167,
         longitude: -113.5089,
         features: ['Original Hardwood', 'Heritage Details', 'Updated Kitchen', 'Garden'],
-        images: ['/images/property5.jpg', '/images/property5-2.jpg', '/images/property5-3.jpg'],
+        images: ['/images/properties/property5.jpg', '/images/properties/property5-2.jpg', '/images/properties/property5-3.jpg'],
         userId: agent.id
       }
     }),
@@ -182,7 +182,7 @@ async function main() {
         latitude: 53.5456,
         longitude: -113.5234,
         features: ['River Valley Views', 'Chef Kitchen', 'Wine Cellar', 'Pool', 'Guest Suite'],
-        images: ['/images/property6.jpg', '/images/property6-2.jpg', '/images/property6-3.jpg'],
+        images: ['/images/properties/property6.jpg', '/images/properties/property6-2.jpg', '/images/properties/property6-3.jpg'],
         userId: agent.id
       }
     }),
@@ -205,7 +205,7 @@ async function main() {
         latitude: 53.5167,
         longitude: -113.3089,
         features: ['Attached Garage', 'Finished Basement', 'Deck', 'Close to Schools'],
-        images: ['/images/property7.jpg', '/images/property7-2.jpg', '/images/property7-3.jpg'],
+        images: ['/images/properties/property7.jpg', '/images/properties/property7-2.jpg', '/images/properties/property7-3.jpg'],
         userId: agent.id
       }
     }),
@@ -228,7 +228,7 @@ async function main() {
         latitude: 53.4789,
         longitude: -113.4567,
         features: ['River Access', 'Attached Garage', 'Patio', 'Modern Finishes'],
-        images: ['/images/property8.jpg', '/images/property8-2.jpg', '/images/property8-3.jpg'],
+        images: ['/images/properties/property8.jpg', '/images/properties/property8-2.jpg', '/images/properties/property8-3.jpg'],
         userId: agent.id
       }
     }),
@@ -251,7 +251,7 @@ async function main() {
         latitude: 53.4234,
         longitude: -113.5678,
         features: ['New Construction', 'Triple Garage', 'Open Concept', 'Smart Home Features'],
-        images: ['/images/property9.jpg', '/images/property9-2.jpg', '/images/property9-3.jpg'],
+        images: ['/images/properties/property9.jpg', '/images/properties/property9-2.jpg', '/images/properties/property9-3.jpg'],
         userId: agent.id
       }
     }),
@@ -274,7 +274,7 @@ async function main() {
         latitude: 53.5234,
         longitude: -113.4234,
         features: ['Hardwood Floors', 'Updated Kitchen', 'Fenced Yard', 'Close to Transit'],
-        images: ['/images/property10.jpg', '/images/property10-2.jpg', '/images/property10-3.jpg'],
+        images: ['/images/properties/property10.jpg', '/images/properties/property10-2.jpg', '/images/properties/property10-3.jpg'],
         userId: agent.id
       }
     }),
@@ -297,7 +297,7 @@ async function main() {
         latitude: 53.5678,
         longitude: -113.4789,
         features: ['Investment Property', 'Separate Entrances', 'Parking', 'River Valley Access'],
-        images: ['/images/property11.jpg', '/images/property11-2.jpg', '/images/property11-3.jpg'],
+        images: ['/images/properties/property11.jpg', '/images/properties/property11-2.jpg', '/images/properties/property11-3.jpg'],
         userId: agent.id
       }
     }),
@@ -320,7 +320,7 @@ async function main() {
         latitude: 53.5189,
         longitude: -113.5234,
         features: ['Near University', 'Rental Income', 'Updated Electrical', 'Parking'],
-        images: ['/images/property12.jpg', '/images/property12-2.jpg', '/images/property12-3.jpg'],
+        images: ['/images/properties/property12.jpg', '/images/properties/property12-2.jpg', '/images/properties/property12-3.jpg'],
         userId: agent.id
       }
     })

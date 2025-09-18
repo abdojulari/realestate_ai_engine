@@ -84,6 +84,7 @@
               :rows="4"
               :disabled="loading"
               :auto-grow="true"
+              id="contact-form-message"
             />
           </v-col>
 

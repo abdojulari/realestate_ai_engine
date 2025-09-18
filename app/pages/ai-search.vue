@@ -20,27 +20,38 @@
           <v-col cols="12" md="8">
             <v-card flat>
               <v-card-text class="pa-8">
-                <!-- City Selection -->
-                <div class="mb-4">
-                  <v-select
-                    v-model="selectedCity"
-                    :items="cities"
-                    item-title="name"
-                    item-value="name"
-                    label="Search in City"
-                    variant="outlined"
-                    prepend-inner-icon="mdi-map-marker"
-                    :loading="loadingCities"
-                    clearable
-                  >
-                    <template v-slot:selection="{ item }">
-                      <span>{{ item.raw.name }} ({{ item.raw.count }} properties)</span>
-                    </template>
-                    <template v-slot:item="{ item, props }">
-                      <v-list-item v-bind="props" :title="`${item.raw.name} (${item.raw.count} properties)`" />
-                    </template>
-                  </v-select>
-                </div>
+                <!-- Location Filters -->
+                <v-row class="mb-4">
+                  <v-col cols="12" md="6">
+                    <v-select
+                      v-model="selectedCity"
+                      :items="cities"
+                      item-title="name"
+                      item-value="name"
+                      label="Search in City"
+                      variant="outlined"
+                      prepend-inner-icon="mdi-map-marker"
+                      :loading="loadingCities"
+                      clearable
+                    >
+                      <template v-slot:selection="{ item }">
+                        <span>{{ item.raw.name }} ({{ item.raw.count }} properties)</span>
+                      </template>
+                      <template v-slot:item="{ item, props }">
+                        <v-list-item v-bind="props" :title="`${item.raw.name} (${item.raw.count} properties)`" />
+                      </template>
+                    </v-select>
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <NeighborhoodDropdown
+                      v-model="selectedNeighborhoodId"
+                      label="Or by Neighborhood"
+                      placeholder="Select specific neighborhood..."
+                      :city-filter="selectedCity"
+                      @neighborhood-selected="onNeighborhoodSelected"
+                    />
+                  </v-col>
+                </v-row>
 
                 <!-- Natural Language Input -->
                 <div class="mb-6">
@@ -53,6 +64,7 @@
                     variant="outlined"
                     class="search-input"
                     :loading="searching"
+                    id="ai-search-query"
                   />
                   
                   <!-- Example Queries -->
@@ -298,7 +310,7 @@
     </section>
 
     <!-- How It Works Section -->
-    <section class="how-it-works py-12 bg-grey-lighten-5">
+    <section class="how-it-works py-12 bg-blue-grey-lighten-5">
       <v-container>
         <v-row justify="center">
           <v-col cols="12" md="10">
@@ -483,6 +495,7 @@ const itemsPerPage = 9
 
 // City detection and selection
 const selectedCity = ref<string>('')
+const selectedNeighborhoodId = ref<number | null>(null)
 const cities = ref<any[]>([])
 const loadingCities = ref(false)
 const userLocation = ref<{lat: number, lng: number} | null>(null)
@@ -525,7 +538,16 @@ const exampleQueries = [
   "4 bedroom house with finished basement and garage",
   "Luxury condo downtown with parking and pool",
   "Modern townhouse under 500k with garage",
-  "Waterfront property with 3+ bedrooms"
+  "Waterfront property with 3+ bedrooms",
+  // NEW: Enhanced examples with residential features
+  "Acreage property with well water and septic",
+  "New construction ranch style home with mountain view",
+  "Single story bungalow move-in ready with large lot",
+  "2 acre rural property with barn and outbuildings",
+  "Renovated colonial home with municipal utilities",
+  "Custom built house with ocean view and fireplace",
+  "Horse property with irrigation and fencing",
+  "Recently built home with central air and double garage"
 ]
 
 const frequencyOptions = [
@@ -575,7 +597,7 @@ const searchWithAI = async (pageNum = 1) => {
     const queryParams = new URLSearchParams()
     Object.entries(parseResult.filters).forEach(([key, value]) => {
       if (value !== null && value !== undefined && value !== '') {
-        // Handle mappings for the existing API
+        // Handle mappings for the enhanced API
         if (key === 'beds') {
           // Use exact match for bedrooms, not gte
           queryParams.append('bedsExact', String(value))
@@ -589,12 +611,31 @@ const searchWithAI = async (pageNum = 1) => {
           // Map garage boolean to garage feature
           queryParams.append('features', 'garage')
         } else if (key === 'features' && typeof value === 'object') {
-          // Handle features object
+          // Handle features object - now with enhanced features
           Object.entries(value).forEach(([featureKey, featureValue]) => {
             if (featureValue) {
               queryParams.append('features', featureKey)
             }
           })
+        // NEW: Direct mapping for enhanced residential fields
+        } else if (key === 'lotSizeAcres') {
+          queryParams.append('lotSizeAcres', String(value))
+        } else if (key === 'lotSizeSqFt') {
+          queryParams.append('lotSizeSqFt', String(value))
+        } else if (key === 'stories') {
+          queryParams.append('stories', String(value))
+        } else if (key === 'minYearBuilt') {
+          queryParams.append('minYearBuilt', String(value))
+        } else if (key === 'condition') {
+          queryParams.append('condition', String(value))
+        } else if (key === 'zoning') {
+          queryParams.append('zoning', String(value))
+        } else if (key === 'multiLevel' || key === 'splitLevel') {
+          // Handle multi-level properties as features
+          queryParams.append('features', key)
+        } else if (key === 'largeLot' || key === 'smallLot') {
+          // Handle lot size descriptors as features
+          queryParams.append('features', key)
         } else if (Array.isArray(value)) {
           queryParams.append(key, value.join(','))
         } else {
@@ -606,6 +647,11 @@ const searchWithAI = async (pageNum = 1) => {
     // Add city filter if selected
     if (selectedCity.value) {
       queryParams.append('city', selectedCity.value)
+    }
+    
+    // Add neighborhood filter if selected
+    if (selectedNeighborhoodId.value) {
+      queryParams.append('neighborhoodId', selectedNeighborhoodId.value.toString())
     }
     
     // Add pagination parameters

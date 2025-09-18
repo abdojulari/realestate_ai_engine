@@ -1,5 +1,3 @@
-A
-
 /**
  * Quick script to sync some CREA data for testing
  * This bypasses the admin auth requirement for demo purposes
@@ -109,7 +107,7 @@ async function main() {
     const creaProperties = await getCreaProperties(token, 5)
     console.log(`✅ Found ${creaProperties.length} CREA properties`)
 
-    console.log('💾 Adding CREA properties to Suhani database...')
+    console.log('💾 Adding CREA properties to abdul database...')
     await insertCreaProperies(creaProperties)
 
     console.log('🎉 Sync complete! Check your map for CREA properties.')

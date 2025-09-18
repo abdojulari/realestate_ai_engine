@@ -381,7 +381,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { api } from '~~/utils/api'
+import { api } from '~/utils/api'
 
 // Alert system
 const { showDialog, alertType, alertTitle, alertMessage, alertConfirmText, showSuccess, showError, closeAlert } = useAlert()

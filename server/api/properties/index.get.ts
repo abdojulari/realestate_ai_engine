@@ -23,7 +23,26 @@ export default defineEventHandler(async (event) => {
     includeCrea = 'true', // Include CREA data by default
     includeManual = 'true', // Include manual data by default
     limit = '10', // Default to 10 properties per page
-    page = '1' // Default to page 1
+    page = '1', // Default to page 1
+    
+    // NEW: Enhanced residential search fields
+    lotSizeAcres,
+    lotSizeSqFt,
+    stories,
+    minYearBuilt,
+    maxYearBuilt,
+    condition,
+    zoning,
+    cityRegion,
+    waterBodyName,
+    minTaxAmount,
+    maxTaxAmount,
+    streetName,
+    unitNumber,
+    
+    // Neighborhood filtering
+    neighborhood,
+    neighborhoodId
   } = query
 
   const where: any = {}
@@ -77,6 +96,80 @@ export default defineEventHandler(async (event) => {
     ]
   }
 
+  // NEW: Enhanced residential field filters
+  
+  // Lot size filters
+  if (lotSizeAcres) {
+    where.lotSizeArea = { gte: parseFloat(lotSizeAcres as string) }
+  }
+  if (lotSizeSqFt) {
+    // Convert sq ft to acres if needed or filter by dimensions
+    where.lotSizeDimensions = { contains: lotSizeSqFt as string }
+  }
+  
+  // Building characteristics
+  if (stories) {
+    where.stories = parseInt(stories as string)
+  }
+  
+  // Year built range
+  if (minYearBuilt || maxYearBuilt) {
+    where.yearBuilt = {
+      gte: minYearBuilt ? parseInt(minYearBuilt as string) : undefined,
+      lte: maxYearBuilt ? parseInt(maxYearBuilt as string) : undefined,
+    }
+  }
+  
+  // Property condition
+  if (condition) {
+    where.propertyCondition = { contains: condition as string, mode: 'insensitive' }
+  }
+  
+  // Zoning
+  if (zoning) {
+    where.zoning = { contains: zoning as string, mode: 'insensitive' }
+  }
+  
+  // Location details
+  if (cityRegion) {
+    where.cityRegion = { contains: cityRegion as string, mode: 'insensitive' }
+  }
+  
+  if (waterBodyName) {
+    where.waterBodyName = { contains: waterBodyName as string, mode: 'insensitive' }
+  }
+  
+  // Tax amount range
+  if (minTaxAmount || maxTaxAmount) {
+    where.taxAnnualAmount = {
+      gte: minTaxAmount ? parseFloat(minTaxAmount as string) : undefined,
+      lte: maxTaxAmount ? parseFloat(maxTaxAmount as string) : undefined,
+    }
+  }
+  
+  // Address components
+  if (streetName) {
+    where.streetName = { contains: streetName as string, mode: 'insensitive' }
+  }
+  
+  if (unitNumber) {
+    where.unitNumber = { contains: unitNumber as string, mode: 'insensitive' }
+  }
+  
+  // Neighborhood filtering
+  if (neighborhoodId) {
+    where.neighborhood = {
+      neighborhoodId: parseInt(neighborhoodId as string)
+    }
+  } else if (neighborhood) {
+    // Search by neighborhood name
+    where.neighborhood = {
+      neighborhood: {
+        name: { contains: neighborhood as string, mode: 'insensitive' }
+      }
+    }
+  }
+
   // Features filter - store feature requirements for post-processing
   let requiredFeatures: string[] = []
   if (features) {
@@ -107,6 +200,20 @@ export default defineEventHandler(async (event) => {
           email: true,
           phone: true,
         },
+      },
+      neighborhood: {
+        include: {
+          neighborhood: {
+            select: {
+              id: true,
+              name: true,
+              city: true,
+              province: true,
+              propertyCount: true,
+              averagePrice: true,
+            }
+          }
+        }
       },
     },
     orderBy: [
@@ -178,9 +285,118 @@ export default defineEventHandler(async (event) => {
           )
           
           return hasStructuredBasement || hasBasementInDescription
+          
+        // NEW: Enhanced feature detection using CREA fields
+        } else if (feature === 'pool') {
+          return features.poolFeatures && features.poolFeatures.length > 0
+          
+        } else if (feature === 'fireplace') {
+          return features.fireplacesTotal > 0 || features.fireplaceYN === true ||
+                 (features.fireplaceFeatures && features.fireplaceFeatures.length > 0)
+                 
+        } else if (feature === 'waterfront') {
+          return features.waterfrontFeatures && features.waterfrontFeatures.length > 0 ||
+                 features.waterBodyName
+                 
+        } else if (feature === 'centralac' || feature === 'centralair') {
+          return features.cooling && features.cooling.some((c: string) => 
+            c.toLowerCase().includes('central') || c.toLowerCase().includes('air conditioning'))
+            
+        // NEW: Views
+        } else if (feature === 'oceanview') {
+          return features.view && features.view.some((v: string) => 
+            v.toLowerCase().includes('ocean') || v.toLowerCase().includes('sea'))
+            
+        } else if (feature === 'mountainview') {
+          return features.view && features.view.some((v: string) => 
+            v.toLowerCase().includes('mountain'))
+            
+        } else if (feature === 'lakeview' || feature === 'waterview') {
+          return features.view && features.view.some((v: string) => 
+            v.toLowerCase().includes('lake') || v.toLowerCase().includes('water'))
+            
+        } else if (feature === 'cityview') {
+          return features.view && features.view.some((v: string) => 
+            v.toLowerCase().includes('city') || v.toLowerCase().includes('downtown'))
+            
+        // NEW: Utilities
+        } else if (feature === 'wellwater') {
+          return features.waterSource && features.waterSource.some((w: string) => 
+            w.toLowerCase().includes('well'))
+            
+        } else if (feature === 'municipalwater') {
+          return features.waterSource && features.waterSource.some((w: string) => 
+            w.toLowerCase().includes('municipal'))
+            
+        } else if (feature === 'septic') {
+          return features.sewer && features.sewer.some((s: string) => 
+            s.toLowerCase().includes('septic'))
+            
+        } else if (feature === 'municipalsewer') {
+          return features.sewer && features.sewer.some((s: string) => 
+            s.toLowerCase().includes('municipal'))
+            
+        // NEW: Building characteristics
+        } else if (feature === 'newconstruction') {
+          return features.propertyCondition && features.propertyCondition.some((c: string) => 
+            c.toLowerCase().includes('new'))
+            
+        } else if (feature === 'renovated') {
+          return features.propertyCondition && features.propertyCondition.some((c: string) => 
+            c.toLowerCase().includes('renovated') || c.toLowerCase().includes('updated'))
+            
+        // NEW: Architectural styles
+        } else if (feature === 'ranchstyle') {
+          return features.architecturalStyle && features.architecturalStyle.some((a: string) => 
+            a.toLowerCase().includes('ranch'))
+            
+        } else if (feature === 'bungalowstyle') {
+          return features.architecturalStyle && features.architecturalStyle.some((a: string) => 
+            a.toLowerCase().includes('bungalow'))
+            
+        // NEW: Rural/Acreage features
+        } else if (feature === 'acreage') {
+          return features.lotSizeUnits && features.lotSizeUnits.toLowerCase().includes('acre') ||
+                 features.lotFeatures && features.lotFeatures.some((l: string) => 
+                   l.toLowerCase().includes('acreage'))
+                   
+        } else if (feature === 'largelot') {
+          return features.lotSizeArea > 0.5 || // More than half acre
+                 features.lotFeatures && features.lotFeatures.some((l: string) => 
+                   l.toLowerCase().includes('large'))
+                   
+        } else if (feature === 'rural') {
+          return features.roadSurfaceType && features.roadSurfaceType.some((r: string) => 
+            r.toLowerCase().includes('gravel') || r.toLowerCase().includes('unpaved')) ||
+                 features.zoning && features.zoning.toLowerCase().includes('rural')
+                 
+        // NEW: Accessibility
+        } else if (feature === 'wheelchairaccessible') {
+          return features.accessibilityFeatures && features.accessibilityFeatures.length > 0
+          
+        } else if (feature === 'singlelevel') {
+          return features.stories === 1
         }
         
-        return true // For other features, pass through for now
+        // Default: check if feature exists in any feature array
+        if (features[feature] === true) return true
+        
+        // Check in various feature arrays
+        const featureArrays = [
+          'heating', 'cooling', 'appliances', 'building', 'exterior', 
+          'interior', 'lot', 'utilities', 'view', 'architecturalStyle'
+        ]
+        
+        for (const arrayName of featureArrays) {
+          if (features[arrayName] && Array.isArray(features[arrayName])) {
+            if (features[arrayName].some((item: string) => 
+              item.toLowerCase().includes(feature.toLowerCase()))) {
+              return true
+            }
+          }
+        }
+        
+        return false
       })
     })
     
@@ -204,7 +420,8 @@ export default defineEventHandler(async (event) => {
       features: typeof property.features === 'string' ? JSON.parse(property.features) : property.features,
       agent: property.user,
       isMLS: property.source === 'crea',
-      isBuilder: property.source === 'manual'
+      isBuilder: property.source === 'manual',
+      neighborhood: property.neighborhood?.neighborhood || null
     }))
     
     // Apply same filtering logic to get true total

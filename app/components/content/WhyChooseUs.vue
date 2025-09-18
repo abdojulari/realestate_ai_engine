@@ -1,5 +1,5 @@
 <template>
-  <section class="py-12 bg-grey-lighten-4">
+  <section class="py-12 bg-blue-grey-lighten-5">
     <v-container>
       <h2 class="text-h4 text-center mb-8">{{ sectionTitle }}</h2>
 

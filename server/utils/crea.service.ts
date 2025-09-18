@@ -43,6 +43,60 @@ interface CreaProperty {
   ExteriorFeatures: string[]
   InteriorFeatures: string[]
   LotFeatures: string[]
+  
+  // Residential-specific fields from CREA
+  view?: string[]
+  lotSizeArea?: number | null
+  lotSizeDimensions?: string | null
+  LotSizeUnits?: string | null
+  poolFeatures?: string[]
+  waterfrontFeatures?: string[]
+  frontageLengthNumeric?: number | null
+  FrontageLengthNumericUnits?: string | null
+  fencing?: string[]
+  buildingAreaTotal?: number | null
+  BuildingAreaUnits?: string | null
+  aboveGradeFinishedArea?: number | null
+  AboveGradeFinishedAreaUnits?: string | null
+  AboveGradeFinishedAreaSource?: string | null
+  belowGradeFinishedArea?: number | null
+  BelowGradeFinishedAreaUnits?: string | null
+  BelowGradeFinishedAreaSource?: string | null
+  fireplacesTotal?: number | null
+  fireplaceYN?: boolean | null
+  fireplaceFeatures?: string[]
+  architecturalStyle?: string[]
+  foundationDetails?: string[]
+  basement?: string[]
+  propertyCondition?: string[]
+  roof?: string[]
+  constructionMaterials?: string[]
+  stories?: number | null
+  propertyAttachedYN?: boolean | null
+  accessibilityFeatures?: string[]
+  bedroomsAboveGrade?: number | null
+  bedroomsBelowGrade?: number | null
+  cityRegion?: string | null
+  directions?: string | null
+  roadSurfaceType?: string[]
+  utilities?: string[]
+  waterSource?: string[]
+  sewer?: string[]
+  electric?: string[]
+  irrigationSource?: string[]
+  zoning?: string | null
+  zoningDescription?: string | null
+  taxAnnualAmount?: number | null
+  taxYear?: number | null
+  parcelNumber?: string | null
+  StreetDirPrefix?: string | null
+  StreetDirSuffix?: string | null
+  streetName?: string | null
+  streetNumber?: string | null
+  StreetSuffix?: string | null
+  unitNumber?: string | null
+  Country?: string | null
+  waterBodyName?: string | null
 }
 
 interface CreaApiResponse {
@@ -151,9 +205,9 @@ class CreaService {
   }
 
   /**
-   * Transform CREA property to Suhani Property format
+   * Transform CREA property to Local Property format
    */
-  transformToSuhaniProperty(creaProp: CreaProperty, systemUserId: number): Omit<Property, 'id' | 'createdAt' | 'updatedAt'> {
+  transformToLocalProperty(creaProp: CreaProperty, systemUserId: number): Omit<Property, 'id' | 'createdAt' | 'updatedAt'> {
     // Extract property type from PropertySubType
     let type = 'house' // default
     const subType = creaProp.PropertySubType?.toLowerCase() || ''
@@ -179,6 +233,7 @@ class CreaService {
 
     // Build features object
     const features = {
+      // Existing features
       heating: creaProp.Heating || [],
       cooling: creaProp.Cooling || [],
       appliances: creaProp.Appliances || [],
@@ -190,6 +245,75 @@ class CreaService {
       yearBuilt: creaProp.YearBuilt,
       parking: creaProp.ParkingTotal,
       listingUrl: creaProp.ListingURL,
+      
+      // Lot & Land Details (Priority 1)
+      lotSizeArea: creaProp.lotSizeArea,
+      lotSizeDimensions: creaProp.lotSizeDimensions,
+      lotSizeUnits: creaProp.LotSizeUnits,
+      roadSurfaceType: creaProp.roadSurfaceType || [],
+      
+      // Building Characteristics (Priority 2)
+      stories: creaProp.stories,
+      architecturalStyle: creaProp.architecturalStyle || [],
+      propertyCondition: creaProp.propertyCondition || [],
+      basement: creaProp.basement || [],
+      foundationDetails: creaProp.foundationDetails || [],
+      fireplacesTotal: creaProp.fireplacesTotal,
+      fireplaceYN: creaProp.fireplaceYN,
+      fireplaceFeatures: creaProp.fireplaceFeatures || [],
+      roof: creaProp.roof || [],
+      constructionMaterials: creaProp.constructionMaterials || [],
+      propertyAttachedYN: creaProp.propertyAttachedYN,
+      
+      // Utilities & Infrastructure (Priority 3)
+      utilities: creaProp.utilities || [],
+      waterSource: creaProp.waterSource || [],
+      sewer: creaProp.sewer || [],
+      electric: creaProp.electric || [],
+      irrigationSource: creaProp.irrigationSource || [],
+      
+      // Enhanced Location Features (Priority 4)
+      view: creaProp.view || [],
+      waterfrontFeatures: creaProp.waterfrontFeatures || [],
+      waterBodyName: creaProp.waterBodyName,
+      cityRegion: creaProp.cityRegion,
+      directions: creaProp.directions,
+      
+      // Detailed Measurements (Priority 5)
+      buildingAreaTotal: creaProp.buildingAreaTotal,
+      buildingAreaUnits: creaProp.BuildingAreaUnits,
+      aboveGradeFinishedArea: creaProp.aboveGradeFinishedArea,
+      aboveGradeFinishedAreaUnits: creaProp.AboveGradeFinishedAreaUnits,
+      aboveGradeFinishedAreaSource: creaProp.AboveGradeFinishedAreaSource,
+      belowGradeFinishedArea: creaProp.belowGradeFinishedArea,
+      belowGradeFinishedAreaUnits: creaProp.BelowGradeFinishedAreaUnits,
+      belowGradeFinishedAreaSource: creaProp.BelowGradeFinishedAreaSource,
+      livingAreaUnits: creaProp.LivingAreaUnits,
+      
+      // Additional Features
+      poolFeatures: creaProp.poolFeatures || [],
+      fencing: creaProp.fencing || [],
+      frontageLengthNumeric: creaProp.frontageLengthNumeric,
+      frontageLengthNumericUnits: creaProp.FrontageLengthNumericUnits,
+      accessibilityFeatures: creaProp.accessibilityFeatures || [],
+      bedroomsAboveGrade: creaProp.bedroomsAboveGrade,
+      bedroomsBelowGrade: creaProp.bedroomsBelowGrade,
+      
+      // Legal/Property Information
+      zoning: creaProp.zoning,
+      zoningDescription: creaProp.zoningDescription,
+      taxAnnualAmount: creaProp.taxAnnualAmount,
+      taxYear: creaProp.taxYear,
+      parcelNumber: creaProp.parcelNumber,
+      
+      // Enhanced Address Components
+      streetDirPrefix: creaProp.StreetDirPrefix,
+      streetDirSuffix: creaProp.StreetDirSuffix,
+      streetName: creaProp.streetName,
+      streetNumber: creaProp.streetNumber,
+      streetSuffix: creaProp.StreetSuffix,
+      unitNumber: creaProp.unitNumber,
+      country: creaProp.Country,
     }
 
     return {
@@ -215,19 +339,38 @@ class CreaService {
       externalId: creaProp.ListingKey,
       mlsNumber: creaProp.ListingId,
       lastSyncAt: new Date(),
+      
+      // Enhanced Residential Fields (now in schema)
+      lotSizeArea: creaProp.lotSizeArea,
+      lotSizeDimensions: creaProp.lotSizeDimensions,
+      lotSizeUnits: creaProp.LotSizeUnits,
+      stories: creaProp.stories,
+      yearBuilt: creaProp.YearBuilt,
+      propertyCondition: creaProp.propertyCondition?.[0] || null, // Take first condition
+      cityRegion: creaProp.cityRegion,
+      waterBodyName: creaProp.waterBodyName,
+      zoning: creaProp.zoning,
+      zoningDescription: creaProp.zoningDescription,
+      taxAnnualAmount: creaProp.taxAnnualAmount,
+      taxYear: creaProp.taxYear,
+      parcelNumber: creaProp.parcelNumber,
+      streetName: creaProp.streetName,
+      streetNumber: creaProp.streetNumber,
+      unitNumber: creaProp.unitNumber,
+      
       // User/Agent info
       user: {
         id: systemUserId,
         firstName: 'MLS',
         lastName: 'Listing',
-        email: 'mls@suhani.com',
+        email: 'mls@abdul.com',
         phone: null,
       },
       agent: {
         id: systemUserId,
         firstName: 'MLS',
         lastName: 'Listing',
-        email: 'mls@suhani.com',
+        email: 'mls@abdul.com',
         phone: null,
         name: 'MLS Listing',
         agency: 'CREA DDF',

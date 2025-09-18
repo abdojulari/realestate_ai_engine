@@ -12,7 +12,7 @@
       <!-- Stats Cards -->
       <v-row class="mb-6">
         <v-col cols="12" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text class="text-center">
               <div class="text-h3 mb-2">{{ stats.totalUsers }}</div>
               <div class="text-subtitle-1">Total Users</div>
@@ -25,7 +25,7 @@
         </v-col>
 
         <v-col cols="12" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text class="text-center">
               <div class="text-h3 mb-2">{{ stats.activeListings }}</div>
               <div class="text-subtitle-1">Active Listings</div>
@@ -37,7 +37,7 @@
         </v-col>
 
         <v-col cols="12" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text class="text-center">
               <div class="text-h3 mb-2">{{ stats.inquiriesThisMonth }}</div>
               <div class="text-subtitle-1">Inquiries This Month</div>
@@ -49,7 +49,7 @@
         </v-col>
 
         <v-col cols="12" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text class="text-center">
               <div class="text-h3 mb-2">{{ stats.viewingsToday }}</div>
               <div class="text-subtitle-1">Viewings Today</div>
@@ -64,7 +64,7 @@
       <!-- Quick Actions -->
       <v-row class="mb-6">
         <v-col cols="12">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-title>Quick Actions</v-card-title>
             <v-card-text>
               <v-row>
@@ -232,8 +232,8 @@ const stats = ref<any>({
 })
 
 const quickActions = [
-  { title: 'Add User', icon: 'mdi-account-plus', color: 'primary', to: '/admin/users/new' },
-  { title: 'Add Property', icon: 'mdi-home-plus', color: 'success', to: '/admin/properties/new' },
+  { title: 'Add User', icon: 'mdi-account-plus', color: 'primary', to: '/admin/users' },
+  { title: 'Add Property', icon: 'mdi-home-plus', color: 'success', to: '/admin/properties' },
   { title: 'Export Data', icon: 'mdi-download', color: 'info', to: '/admin/reports' },
   { title: 'Settings', icon: 'mdi-cog', color: 'warning', to: '/admin/settings' }
 ]
