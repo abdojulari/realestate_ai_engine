@@ -1,7 +1,6 @@
 [build]
   command = "npm run build"
   publish = ".output/public"
-  functions = ".netlify/functions-internal"
 
 [build.environment]
   NODE_VERSION = "18"
@@ -11,13 +10,8 @@
   JWT_SECRET = "your-jwt-secret-change-in-production"
 
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/server/:splat"
-  status = 200
-
-[[redirects]]
   from = "/*"
-  to = "/.netlify/functions/server"
+  to = "/.netlify/functions-internal/server"
   status = 200
 
 [[headers]]
