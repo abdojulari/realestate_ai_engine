@@ -3,10 +3,7 @@ import { defineNuxtConfig } from 'nuxt/config'
 
 export default defineNuxtConfig({
   devtools: { enabled: true },
-  nitro: {
-    preset: 'netlify',
-  },
-  ssr: false, // Try static generation instead
+  // Server-side rendering for VPS deployment
   srcDir: 'app',
   css: ['leaflet/dist/leaflet.css', '@mdi/font/css/materialdesignicons.css'],
   build: {
