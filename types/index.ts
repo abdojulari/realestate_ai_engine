@@ -47,12 +47,12 @@ export interface Property {
   city: string
   province: string
   postalCode: string
-  latitude: number
-  longitude: number
+  latitude: number | null
+  longitude: number | null
   features: Record<string, any>
   images: string[]
   views: number
-  userId: number
+  userId: number | null
   createdAt: string
   updatedAt: string
   // CREA Integration fields
@@ -60,16 +60,39 @@ export interface Property {
   externalId?: string | null // CREA ListingKey for MLS properties
   mlsNumber?: string | null // MLS listing number
   lastSyncAt?: string | null // Last time synced from CREA
+  
+  // Enhanced Residential Fields (from schema)
+  lotSizeArea?: number | null
+  lotSizeDimensions?: string | null
+  lotSizeUnits?: string | null
+  stories?: number | null
+  yearBuilt?: number | null
+  propertyCondition?: string | null
+  cityRegion?: string | null
+  waterBodyName?: string | null
+  zoning?: string | null
+  zoningDescription?: string | null
+  taxAnnualAmount?: number | null
+  taxYear?: number | null
+  parcelNumber?: string | null
+  streetName?: string | null
+  streetNumber?: string | null
+  unitNumber?: string | null
+  
+  // Simple agent/office fields for display
+  listingAgent?: string | null // Agent name for display
+  listingOffice?: string | null // Office name for display
+  
   // UI-specific flags
   isSaved?: boolean
-  user: {
+  user?: {
     id: number
     firstName: string
     lastName: string
     email: string
     phone?: string | null
   }
-  agent: {
+  agent?: {
     id: number
     firstName: string
     lastName: string
@@ -79,6 +102,65 @@ export interface Property {
     agency?: string
     role?: string
   }
+  
+  // Enhanced CREA Agent and Office Data
+  listingAgentData?: {
+    memberKey: string
+    mlsId: string
+    fullName: string
+    firstName: string
+    lastName: string
+    email?: string
+    directPhone?: string
+    mobilePhone?: string
+    officePhone?: string
+    license?: string
+    designations?: string[]
+    photoURL?: string
+  } | null
+  
+  listingOfficeData?: {
+    officeKey: string
+    officeId: string
+    name: string
+    phone?: string
+    email?: string
+    address?: string
+    city?: string
+    province?: string
+    postalCode?: string
+    country?: string
+    website?: string
+  } | null
+  
+  coListingAgentsData?: Array<{
+    memberKey: string
+    mlsId: string
+    fullName: string
+    firstName: string
+    lastName: string
+    email?: string
+    directPhone?: string
+    mobilePhone?: string
+    officePhone?: string
+    license?: string
+    designations?: string[]
+    photoURL?: string
+  }>
+  
+  coListingOfficesData?: Array<{
+    officeKey: string
+    officeId: string
+    name: string
+    phone?: string
+    email?: string
+    address?: string
+    city?: string
+    province?: string
+    postalCode?: string
+    country?: string
+    website?: string
+  }>
 }
 
 export interface PropertyFilter {

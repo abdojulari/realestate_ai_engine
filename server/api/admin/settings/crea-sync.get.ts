@@ -1,11 +1,11 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
-import { requireAdmin } from '../../../utils/auth'
 
 const prisma = new PrismaClient()
 
+// GET is public for service worker scheduler - no auth required
+// POST endpoint still requires admin auth
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
 
   try {
     // Get auto-sync settings

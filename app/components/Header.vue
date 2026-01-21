@@ -34,7 +34,7 @@
                 </v-btn>
             
               </template>
-              <v-list class="dropdown-menu" density="compact" :ripple="false">
+              <v-list class="dropdown-menu glass-menu" density="compact" :ripple="false">
                 <v-list-item
                   v-for="item in powerSearchItems"
                   :key="item.title"
@@ -61,11 +61,11 @@
                   variant="tonal"
                   color="white"
                 >
-                  <span class="text-black">Client Resources</span>
+                  <span class="text-black">Client Services</span>
                   <v-icon size="small" class="dropdown-icon text-black">mdi-chevron-down</v-icon>
                 </v-btn>
               </template>
-              <v-list class="dropdown-menu" density="compact" :ripple="false">
+              <v-list class="dropdown-menu glass-menu" density="compact" :ripple="false">
                 <v-list-item
                   v-for="item in clientServiceItems"
                   :key="item.title"
@@ -89,48 +89,57 @@
 
       <!-- Auth Section -->
       <div class="auth-section">
-        <template v-if="!isAuthenticated">
-          <NuxtLink to="/auth/login" class="auth-link border rounded-xl">
-            Login
-          </NuxtLink>
-        </template>
-        <template v-else>
-          <v-menu 
-            location="bottom"
-            transition="slide-y-transition"
-            :close-on-content-click="true"
-          >
-            <template v-slot:activator="{ props }">
-              <v-btn 
-                class="profile-btn" 
-                v-bind="props"
-                variant="text"
-                :ripple="false"
-                icon
-              >
-                <v-icon>mdi-account-circle</v-icon>
-              </v-btn>
-            </template>
-            <v-list density="compact" >
-              <v-list-item
-                to="/profile"
-                prepend-icon="mdi-account"
-                title="Profile"
-              />
-              <v-list-item
-                v-if="isAdmin"
-                to="/admin"
-                prepend-icon="mdi-shield-account"
-                title="Admin"
-              />
-              <v-list-item
-                @click="handleLogout"
-                prepend-icon="mdi-logout"
-                title="Logout"
-              />
-            </v-list>
-          </v-menu>
-        </template>
+        <ClientOnly>
+          <template v-if="!isAuthenticated">
+            <NuxtLink to="/auth/login" class="auth-link-premium">
+              <span class="auth-text">LOGIN</span>
+              <div class="auth-line"></div>
+            </NuxtLink>
+          </template>
+          <template v-else>
+            <v-menu 
+              location="bottom"
+              transition="slide-y-transition"
+              :close-on-content-click="true"
+            >
+              <template v-slot:activator="{ props }">
+                <v-btn 
+                  class="profile-btn" 
+                  v-bind="props"
+                  variant="text"
+                  :ripple="false"
+                  icon
+                >
+                  <v-icon>mdi-account-circle</v-icon>
+                </v-btn>
+              </template>
+              <v-list density="compact" >
+                <v-list-item
+                  to="/profile"
+                  prepend-icon="mdi-account"
+                  title="Profile"
+                />
+                <v-list-item
+                  v-if="isAdmin"
+                  to="/admin"
+                  prepend-icon="mdi-shield-account"
+                  title="Admin Dashboard"
+                />
+                <v-list-item
+                  @click="handleLogout"
+                  prepend-icon="mdi-logout"
+                  title="Logout"
+                />
+              </v-list>
+            </v-menu>
+          </template>
+          <template #fallback>
+            <NuxtLink to="/auth/login" class="auth-link-premium">
+              <span class="auth-text">LOGIN</span>
+              <div class="auth-line"></div>
+            </NuxtLink>
+          </template>
+        </ClientOnly>
       </div>
 
       <!-- Mobile Menu Button -->
@@ -155,6 +164,68 @@
     <!-- Mobile Navigation -->
     <nav class="mobile-nav" :class="{ active: mobileMenuOpen }">
       <ul class="mobile-nav-list">
+        <!-- Auth Section for Mobile -->
+        <ClientOnly>
+          <template v-if="!isAuthenticated">
+            <li>
+              <NuxtLink 
+                to="/auth/login" 
+                class="mobile-nav-link auth-mobile-link"
+                @click="mobileMenuOpen = false"
+              >
+                <v-icon class="mobile-nav-icon">mdi-login</v-icon>
+                Login
+              </NuxtLink>
+            </li>
+            <li class="mobile-divider"></li>
+          </template>
+          <template v-else>
+            <li>
+              <NuxtLink 
+                to="/profile" 
+                class="mobile-nav-link"
+                @click="mobileMenuOpen = false"
+              >
+                <v-icon class="mobile-nav-icon">mdi-account</v-icon>
+                Profile
+              </NuxtLink>
+            </li>
+            <li v-if="isAdmin">
+              <NuxtLink 
+                to="/admin" 
+                class="mobile-nav-link"
+                @click="mobileMenuOpen = false"
+              >
+                <v-icon class="mobile-nav-icon">mdi-shield-account</v-icon>
+                Admin Dashboard
+              </NuxtLink>
+            </li>
+            <li>
+              <a 
+                class="mobile-nav-link logout-link"
+                @click="handleLogout"
+              >
+                <v-icon class="mobile-nav-icon">mdi-logout</v-icon>
+                Logout
+              </a>
+            </li>
+            <li class="mobile-divider"></li>
+          </template>
+          <template #fallback>
+            <li>
+              <NuxtLink 
+                to="/auth/login" 
+                class="mobile-nav-link auth-mobile-link"
+                @click="mobileMenuOpen = false"
+              >
+                <v-icon class="mobile-nav-icon">mdi-login</v-icon>
+                Login
+              </NuxtLink>
+            </li>
+            <li class="mobile-divider"></li>
+          </template>
+        </ClientOnly>
+        
         <!-- Power Search Items -->
         <li class="mobile-section-header">Power Search</li>
         <li v-for="item in powerSearchItems" :key="item.title">
@@ -169,7 +240,7 @@
         </li>
         
         <!-- Client Service Items -->
-        <li class="mobile-section-header">Client Resources</li>
+        <li class="mobile-section-header">Client Services</li>
         <li v-for="item in clientServiceItems" :key="item.title">
           <NuxtLink 
             :to="item.to" 
@@ -192,56 +263,6 @@
             {{ item.title }}
           </NuxtLink>
         </li>
-        
-        <!-- Mobile Auth Links -->
-        <template v-if="!isAuthenticated">
-          <li class="mobile-auth-section">
-            <NuxtLink 
-              to="/auth/login" 
-              class="mobile-auth-link login"
-              @click="mobileMenuOpen = false"
-            >
-              Login
-            </NuxtLink>
-            <NuxtLink 
-              to="/auth/register" 
-              class="mobile-auth-link register"
-              @click="mobileMenuOpen = false"
-            >
-              Register
-            </NuxtLink>
-          </li>
-        </template>
-        
-        <!-- Mobile User Menu for Authenticated Users -->
-        <template v-else>
-          <li class="mobile-auth-section">
-            <NuxtLink 
-              to="/profile" 
-              class="mobile-nav-link"
-              @click="mobileMenuOpen = false"
-            >
-              <v-icon class="mobile-nav-icon">mdi-account</v-icon>
-              Profile
-            </NuxtLink>
-            <NuxtLink 
-              v-if="isAdmin"
-              to="/admin" 
-              class="mobile-nav-link"
-              @click="mobileMenuOpen = false"
-            >
-              <v-icon class="mobile-nav-icon">mdi-shield-account</v-icon>
-              Admin
-            </NuxtLink>
-            <button 
-              @click="handleLogout"
-              class="mobile-nav-link mobile-logout-btn"
-            >
-              <v-icon class="mobile-nav-icon">mdi-logout</v-icon>
-              Logout
-            </button>
-          </li>
-        </template>
       </ul>
     </nav>
   </header>
@@ -258,7 +279,7 @@ const isAuthenticated = computed(() => auth.isAuthenticated)
 const isAdmin = computed(() => auth.isAdmin)
 
 const powerSearchItems = [
-  { title: 'Map Search', to: '/map-search', icon: 'mdi-map-search' },
+  { title: 'MLS Search', to: '/map-search', icon: 'mdi-map-search' },
   { title: 'AI Search', to: '/ai-search', icon: 'mdi-brain' },
   { title: 'Market Overview', to: '/market-overview', icon: 'mdi-chart-line' }
 ]
@@ -270,154 +291,168 @@ const clientServiceItems = [
 ]
 
 const menuItems = [
-  { title: 'Blogs', to: '/news', icon: 'mdi-newspaper' },
-  { title: 'About', to: '/about', icon: 'mdi-information' },
+  { title: 'News and Resources', to: '/news', icon: 'mdi-newspaper' },
+  { title: 'About Abdul', to: '/about', icon: 'mdi-information' },
   { title: 'Contact', to: '/contact', icon: 'mdi-email' }
 ]
 
 const handleLogout = () => {
+  // Close mobile menu if open
+  mobileMenuOpen.value = false
+  
   auth.logout()
   navigateTo('/auth/login')
 }
 </script>
 
 <style scoped>
+/* 1. STRUCTURAL STABILITY */
 .site-header {
-  background: white;
-  border-bottom: 1px solid #e5e7eb;
+  background: rgba(255, 255, 255, 0.98);
+  border-bottom: 1px solid #f1f1f1;
   position: sticky;
   top: 0;
-  z-index: 100;
-  height: 70px;
+  z-index: 1000;
+  height: 85px; /* Slightly increased for more prominence */
+  backdrop-filter: blur(12px);
 }
 
 .header-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 40px;
   display: flex;
   align-items: center;
-  height: 70px;
-  gap: 16px;
-  /* Prevent layout shifts */
+  height: 100%;
+  gap: 24px;
   box-sizing: border-box;
   position: relative;
 }
 
-/* Logo */
-.logo-section {
-  flex-shrink: 0;
-}
-
-.logo-link {
+.logo-section { 
+  flex-shrink: 0; 
   display: flex;
   align-items: center;
-  text-decoration: none;
-  color: #ff6b35;
 }
 
-.logo-icon {
-  transition: color 0.2s ease;
-}
+.desktop-nav { flex: 1; display: flex; justify-content: center; }
+.auth-section { flex-shrink: 0; display: flex; align-items: center; }
 
-.logo-link:hover .logo-icon {
-  color: #1565c0;
-}
-
+/* 2. LOGO ENHANCEMENTS */
 .logo-image {
-  height: 60px;
+  height: 56px; /* Increased height for better visibility */
   width: auto;
-  max-width: 200px;
+  max-width: 220px;
   object-fit: contain;
-  transition: transform 0.2s ease;
+  /* Technical sharpness improvements */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  /* Visual weight improvements */
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); 
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
-.logo-link:hover .logo-image {
+.logo-link:hover .logo-image { 
   transform: scale(1.05);
+  filter: drop-shadow(0 4px 8px rgba(0,0,0,0.1));
 }
 
-/* Desktop Navigation */
-.desktop-nav {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-}
-
+/* 3. NAVIGATION LINKS */
 .nav-list {
   display: flex;
   list-style: none;
   margin: 0;
   padding: 0;
-  gap: 16px;
+  gap: 32px;
   align-items: center;
-  flex-wrap: nowrap;
-}
-
-.nav-list li {
-  /* Fixed dimensions to prevent layout shifts */
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: fit-content;
-  flex-shrink: 0;
-  flex-grow: 0;
 }
 
 .nav-link {
   text-decoration: none;
-  color: #374151;
-  font-weight: 500;
-  font-size: 15px;
-  transition: color 0.2s ease;
+  color: #1a1a1a;
+  font-weight: 600; /* Made slightly bolder to match premium logo feel */
+  font-size: 13px; /* Slightly smaller for a more sophisticated look */
+  letter-spacing: 0.08em; 
+  text-transform: uppercase;
+  line-height: 1;
+  padding: 12px 0;
+  white-space: nowrap;
+  transition: color 0.3s ease;
   position: relative;
-  padding: 8px 0;
-  white-space: nowrap;
 }
 
-
-
-/* Auth Section */
-.auth-section {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 6px;
+  left: 0;
+  width: 0;
+  height: 1.5px;
+  background: #000;
+  transition: width 0.3s ease;
+}
+.nav-link:hover::after,
+.nav-link.router-link-active::after {
+  width: 100%;
 }
 
-.auth-link {
+/* Dropdown Triggers */
+.dropdown-trigger {
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+}
+
+.glass-menu {
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(0,0,0,0.06) !important;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.12) !important;
+  border-radius: 12px !important;
+  margin-top: 12px !important;
+}
+
+/* 4. PREMIUM LOGIN BUTTON */
+.auth-link-premium {
   text-decoration: none;
-  font-weight: 500;
-  font-size: 13px;
-  padding: 6px 12px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-
-.profile-btn {
-  background: none !important;
-  border: none;
-  cursor: pointer;
-  padding: 8px !important;
-  border-radius: 50% !important;
+  position: relative;
+  padding: 12px 32px;
+  background: #000;
+  color: #fff !important;
+  border-radius: 2px; /* Sharper corners for a more formal/luxury look */
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s ease;
-  box-shadow: none !important;
-  min-width: auto !important;
-  width: 40px !important;
-  height: 40px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
-.profile-btn:hover {
-  background: #f3f4f6 !important;
+.auth-link-premium:hover {
+  background: #1a1a1a;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
 }
 
-/* Mobile Menu Button */
+.auth-line {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  width: 0;
+  background: #fff;
+  transition: width 0.4s ease;
+}
+
+.auth-link-premium:hover .auth-line {
+  width: 100%;
+}
+
+/* MOBILE */
 .mobile-menu-btn {
   display: none;
   flex-direction: column;
@@ -425,372 +460,122 @@ const handleLogout = () => {
   border: none;
   cursor: pointer;
   padding: 8px;
-  width: 40px;
-  height: 40px;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
 }
-
 .hamburger-line {
-  width: 24px;
-  height: 2px;
-  background: #374151;
-  transition: all 0.3s ease;
-  border-radius: 2px;
+  width: 22px;
+  height: 1.5px;
+  background: #111;
+  margin: 3px 0;
+  transition: 0.3s;
 }
 
-.mobile-menu-btn.active .hamburger-line:nth-child(1) {
-  transform: rotate(45deg) translate(5px, 5px);
+@media (max-width: 1100px) {
+  .header-container { padding: 0 20px; }
+  .nav-list { gap: 16px; }
 }
 
-.mobile-menu-btn.active .hamburger-line:nth-child(2) {
-  opacity: 0;
+@media (max-width: 900px) {
+  .desktop-nav, .auth-section { display: none; }
+  .mobile-menu-btn { display: flex; }
+  .header-container { justify-content: space-between; }
 }
 
-.mobile-menu-btn.active .hamburger-line:nth-child(3) {
-  transform: rotate(-45deg) translate(7px, -6px);
-}
-
-/* Mobile Navigation */
 .mobile-nav-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.3);
   opacity: 0;
   visibility: hidden;
-  transition: all 0.3s ease;
+  transition: 0.3s;
   z-index: 1100;
 }
-
-.mobile-nav-overlay.active {
-  opacity: 1;
-  visibility: visible;
-}
+.mobile-nav-overlay.active { opacity: 1; visibility: visible; }
 
 .mobile-nav {
   position: fixed;
-  top: 64px;
+  top: 0;
   right: -300px;
   width: 280px;
-  height: calc(100vh - 64px);
+  height: 100vh;
   background: white;
-  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.1);
-  transition: right 0.3s ease;
+  transition: right 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
   z-index: 1200;
+  padding: 40px 20px;
   overflow-y: auto;
 }
-
-.mobile-nav.active {
-  right: 0;
-}
+.mobile-nav.active { right: 0; }
 
 .mobile-nav-list {
   list-style: none;
   margin: 0;
-  padding: 20px 0;
-}
-
-.mobile-nav-list li {
-  margin: 0;
+  padding: 0;
 }
 
 .mobile-nav-link {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 14px 16px;
+  color: #1a1a1a;
   text-decoration: none;
-  color: #374151;
+  font-size: 15px;
   font-weight: 500;
-  transition: background 0.2s ease;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
 .mobile-nav-link:hover {
-  background: #f9fafb;
-  color: #ff6b35;
-}
-
-.mobile-nav-link.router-link-active,
-.mobile-nav-link.router-link-exact-active {
-  background: #fef3f2;
-  color: #ff6b35;
+  background: #f5f5f5;
+  color: #000;
 }
 
 .mobile-nav-icon {
   font-size: 20px;
 }
 
-.mobile-auth-section {
-  border-top: 1px solid #e5e7eb;
-  margin-top: 20px;
-  padding-top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-left: 24px;
-  padding-right: 24px;
-}
-
-.mobile-auth-link {
-  text-decoration: none;
-  font-weight: 500;
-  padding: 12px;
-  border-radius: 6px;
-  text-align: center;
-  transition: all 0.2s ease;
-}
-
-.mobile-auth-link.login {
-  color: #374151;
-  border: 1px solid #d1d5db;
-}
-
-.mobile-auth-link.login:hover {
-  background: #f9fafb;
-}
-
-.mobile-auth-link.register {
-  background: #ff6b35;
-  color: white;
-}
-
-.mobile-auth-link.register:hover {
-  background: #1565c0;
-}
-
 .mobile-section-header {
-  font-weight: 600;
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 11px;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 16px 24px 8px;
-  margin-top: 16px;
-  border-top: 1px solid #e5e7eb;
+  letter-spacing: 0.15em;
+  color: #999;
+  padding: 20px 16px 8px;
+  margin-top: 12px;
 }
 
-.mobile-section-header:first-child {
-  margin-top: 0;
-  border-top: none;
+.mobile-divider {
+  height: 1px;
+  background: #e5e5e5;
+  margin: 16px 0;
 }
 
-.mobile-logout-btn {
-  background: none;
-  border: none;
-  width: 100%;
-  text-align: left;
+.auth-mobile-link {
+  background: #000;
+  color: #fff !important;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.auth-mobile-link:hover {
+  background: #1a1a1a !important;
+  color: #fff !important;
+}
+
+.logout-link {
   cursor: pointer;
-  font-family: inherit;
-  font-size: inherit;
+  color: #dc2626;
 }
 
-/* Power Search Dropdown */
-.dropdown-item {
-  position: relative;
+.logout-link:hover {
+  background: #fef2f2 !important;
+  color: #dc2626 !important;
 }
 
-.dropdown-trigger {
-  background: none !important;
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 15px !important;
-  font-family: inherit;
-  transition: all 0.2s ease;
-  
-  padding: 8px 0 !important;
-}
-
-/* .dropdown-trigger:hover {
-  color: #ff6b35 !important;
-  background: none !important;
-} */
-
-.v-list-item:hover {
-  background-color: transparent !important; /* Or your desired background color */
-}
-
-/* If you want to remove the active state highlight as well */
-.v-list-item--active {
-  background-color: transparent !important;
-}
-
-.dropdown-icon {
-  transition: transform 0.2s ease;
-}
-
-.dropdown-trigger:hover .dropdown-icon {
-  transform: rotate(180deg);
-}
-
-.dropdown-menu {
-  min-width: 200px;
-}
-
-.dropdown-list-item {
-  transition: background 0.2s ease;
-}
-
-/* Remove dropdown background highlights */
-.dropdown-menu .v-list-item {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.dropdown-menu .v-list-item:hover {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.dropdown-menu .v-list-item:focus {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.dropdown-menu .v-list-item:focus-visible {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.dropdown-menu .v-list-item.v-list-item--active {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.dropdown-menu .v-list-item.v-list-item--selected {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.dropdown-menu .v-list-item .v-list-item__overlay {
-  display: none !important;
-  opacity: 0 !important;
-}
-
-.dropdown-menu .v-list-item__content {
-  background: transparent !important;
-  background-color: transparent !important;
-}
-
-.dropdown-menu .v-list-item::before {
-  display: none !important;
-}
-
-.dropdown-menu .v-list-item::after {
-  display: none !important;
-}
-
-/* Remove any ripple effects */
-.dropdown-menu .v-list-item .v-ripple__container {
-  display: none !important;
-}
-
-
-
-/* Global stability rules */
-.site-header * {
-  box-sizing: border-box;
-}
-
-/* Prevent any text selection that might cause layout shifts */
-.nav-link,
-.auth-link {
-  user-select: none;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-}
-
-/* Responsive Design */
-@media (max-width: 1200px) {
-  .nav-list {
-    gap: 12px;
-  }
-  
-  .header-container {
-    gap: 12px;
-  }
-  
-  .nav-link {
-    font-size: 15px;
-  }
-  
-  .auth-link {
-    font-size: 12px;
-    padding: 6px 10px;
-  }
-}
-
-@media (max-width: 1024px) {
-  .nav-list {
-    gap: 8px;
-  }
-  
-  .header-container {
-    gap: 8px;
-  }
-  
-  .nav-link {
-    font-size: 15px;
-  }
-}
-
-@media (max-width: 900px) {
-  .desktop-nav,
-  .auth-section {
-    display: none;
-  }
-  
-  .mobile-menu-btn {
-    display: flex;
-  }
-  
-  .header-container {
-    justify-content: space-between;
-  }
-}
-
-@media (max-width: 768px) {
-  .desktop-nav,
-  .auth-section {
-    display: none;
-  }
-  
-  .mobile-menu-btn {
-    display: flex;
-  }
-  
-  .header-container {
-    padding: 0 24px;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  
-  .logo-image {
-    height: 45px;
-    max-width: 150px;
-  }
-}
-
-@media (max-width: 480px) {
-  .header-container {
-    padding: 0 16px;
-  }
-  
-  .mobile-nav {
-    width: 100%;
-    right: -100%;
-  }
-  
-  .logo-image {
-    height: 40px;
-    max-width: 120px;
-  }
+.profile-btn {
+  color: #1a1a1a !important;
+  font-size: 28px !important;
 }
 </style>

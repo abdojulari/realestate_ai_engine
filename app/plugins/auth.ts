@@ -1,5 +1,5 @@
 import { defineNuxtPlugin } from 'nuxt/app'
-import { useAuthStore } from '~/stores/auth.ts'
+import { useAuthStore } from '../stores/auth'
 import type { AuthResponse } from '~/types'
 
 export default defineNuxtPlugin(async (nuxtApp) => {

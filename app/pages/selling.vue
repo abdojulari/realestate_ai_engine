@@ -1,162 +1,251 @@
 <template>
-  <!-- Hero -->
-  <v-img
-    class="mb-10"
-    height="320"
-    cover
-    src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=1920&auto=format&fit=crop"
-    gradient="to bottom, rgba(0,0,0,.20), rgba(0,0,0,.60)"
-    eager
-    lazy-src="/favicon.ico"
-    referrerpolicy="no-referrer"
-  >
-    <div class="d-flex flex-column align-center justify-center text-center h-100 px-4">
-      <h1 class="text-h4 text-white mb-2">Your step-by-step guide to selling</h1>
-      <p class="text-body-1 text-white mb-0" style="max-width: 920px;">
-        Selling a home on your terms takes planning and preparation. Take these steps to get your home sale across the finish line.
-      </p>
-    </div>
-  </v-img>
+  <div class="guides-page">
+    <!-- Hero Section -->
+    <v-img
+      class="hero-gradient"
+      height="400"
+      cover
+      src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=1920&auto=format&fit=crop"
+      gradient="to bottom, rgba(0,0,0,.10), rgba(0,0,0,.70)"
+      eager
+    >
+      <div class="d-flex flex-column align-center justify-center text-center h-100 px-4">
+        <h1 class="text-h2 text-white mb-4 premium-hero-title">Your Step-by-Step Guide to Selling</h1>
+        <p class="text-h6 text-white mb-0 font-weight-light opacity-90" style="max-width: 800px; line-height: 1.6;">
+          Selling a home on your terms takes strategic planning and expert preparation. Follow our proven path to a successful closing.
+        </p>
+      </div>
+    </v-img>
 
-  <v-container class="py-12">
-    <v-row>
-      <v-col cols="12" md="8">
-        <v-card class="mb-6" flat>
-          <v-card-text>
-            <h2 class="text-h6 mb-4">On your checklist</h2>
-            <v-expansion-panels variant="accordion" class="elevation-0" flat>
-              <v-expansion-panel>
-                <v-expansion-panel-title>Research your market</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  Decide when you'd like to sell, explore your market, and talk to potential agents about how they would market your listing, including online.
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-              <v-expansion-panel>
-                <v-expansion-panel-title>Choose an agent</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  Six weeks before listing: Before signing a listing agreement with an agent, discuss your marketing plan. If you're aligned, make it official and start planning — the earlier the better.
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-              <v-expansion-panel>
-                <v-expansion-panel-title>Get your home ready</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  One month before listing: Start sprucing the place up. Your agent can help determine cosmetic fixes to make and items that will turn off buyers. If you can, get a storage pod or unit and start packing up, a little at a time.
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-              <v-expansion-panel>
-                <v-expansion-panel-title>Check your financial picture</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  Two to three weeks before listing: Contact your lender and ask for the loan payout information for your mortgage.
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-              <v-expansion-panel>
-                <v-expansion-panel-title>Find a photographer</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  One week before listing: Once you’ve got the house looking its best, your agent can help you coordinate photography.
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-              <v-expansion-panel>
-                <v-expansion-panel-title>Prepare for showings</v-expansion-panel-title>
-                <v-expansion-panel-text>
-                  When your listing is live: Keep your home clean and clutter-free so your agent is ready to show it at a moment's notice — and watch the offers roll in.
-                </v-expansion-panel-text>
-              </v-expansion-panel>
-            </v-expansion-panels>
-          </v-card-text>
-        </v-card>
-        <v-btn color="primary" to="/seller/homeestimate" class="mr-2">What's My Home Worth?</v-btn>
-        <v-btn variant="outlined" to="/contact">Talk to an Agent</v-btn>
-      </v-col>
-      <v-col cols="12" md="4">
-        <v-card class="mb-6" flat>
-          <v-card-text>
-            <div class="text-h6 mb-3">{{ sidebarTitle || 'Why List With Us' }}</div>
-            <v-list density="compact">
+    <v-container class="py-16">
+   
+      <!-- Selling Checklist Section -->
+      <v-row>
+        <v-col cols="12" md="8">
+          <div class="mb-8">
+            <div class="section-label mb-2">THE PROCESS</div>
+            <h2 class="text-h3 font-weight-bold mb-4">On Your Checklist</h2>
+            <p class="text-body-1 text-medium-emphasis premium-text">
+              A comprehensive roadmap designed to maximize your home's value and ensure a seamless transition.
+            </p>
+          </div>
+
+          <v-expansion-panels variant="accordion" class="premium-panels mb-10">
+            <v-expansion-panel
+              v-for="(step, index) in sellingChecklist"
+              :key="index"
+              class="mb-4 border-b-0"
+              elevation="0"
+            >
+              <v-expansion-panel-title class="py-6">
+                <template v-slot:default="{ expanded }">
+                  <v-row no-gutters align="center">
+                    <v-col cols="auto" class="mr-4">
+                      <v-avatar 
+                        :color="expanded ? 'black' : 'grey-lighten-4'" 
+                        :class="expanded ? 'text-white' : 'text-black'"
+                        size="48"
+                        class="transition-swing"
+                      >
+                        <v-icon size="24">{{ step.icon }}</v-icon>
+                      </v-avatar>
+                    </v-col>
+                    <v-col>
+                      <div class="text-subtitle-1 font-weight-bold">{{ step.title }}</div>
+                      <div v-if="step.timeline" class="text-caption text-primary font-weight-bold text-uppercase tracking-tighter">
+                        {{ step.timeline }}
+                      </div>
+                    </v-col>
+                  </v-row>
+                </template>
+              </v-expansion-panel-title>
+              <v-expansion-panel-text class="pt-2 pb-4">
+                <div class="text-body-1 premium-text text-medium-emphasis pl-14">
+                  {{ step.content }}
+                </div>
+              </v-expansion-panel-text>
+            </v-expansion-panel>
+          </v-expansion-panels>
+
+          <div class="d-flex flex-wrap gap-4">
+            <v-btn color="black" to="/seller/homeestimate" class="text-white px-8 rounded-lg" height="52" flat>
+              What's My Home Worth?
+            </v-btn>
+            <v-btn variant="outlined" color="black" to="/contact" class="px-8 rounded-lg" height="52">
+              Talk to an Agent
+            </v-btn>
+          </div>
+        </v-col>
+
+        <!-- Sidebar -->
+        <v-col cols="12" md="4" class="pl-md-10 mt-12 mt-md-0">
+          <v-card class="pa-8 bg-grey-lighten-5 rounded-xl mb-8" flat border>
+            <div class="text-h5 font-weight-bold mb-6">Why List With Us</div>
+            <v-list bg-color="transparent" density="comfortable">
               <v-list-item
                 v-for="(b, i) in bullets"
                 :key="i"
-                :prepend-icon="b.icon || 'mdi-check'"
-                :title="b.title"
-              />
+                class="px-0 mb-4"
+              >
+                <template v-slot:prepend>
+                  <v-avatar color="white" size="40" class="mr-4 border">
+                    <v-icon size="20" color="black">{{ b.icon || 'mdi-check' }}</v-icon>
+                  </v-avatar>
+                </template>
+                <v-list-item-title class="font-weight-bold">{{ b.title }}</v-list-item-title>
+              </v-list-item>
             </v-list>
-          </v-card-text>
-        </v-card>
-
-        <!-- Themed images -->
-        <v-card class="mb-4" flat>
-          <v-img height="180" cover src="https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=1200&auto=format&fit=crop" eager lazy-src="/favicon.ico" referrerpolicy="no-referrer" />
-          
-        </v-card>
-     
-      </v-col>
-    </v-row>
-
-    <v-divider class="my-12" />
-
-    <!-- Resources -->
-    <section>
-      <h2 class="text-h5 mb-4">Resources for sellers</h2>
-      <v-row>
-        <v-col cols="12" md="6">
-          <v-card 
-            :to="{ path: '/guides/affordability' }" 
-            class="hover:shadow-lg transition-shadow" flat
-          >
-            <v-card-title>How much home can you afford?</v-card-title>
-            <v-card-subtitle>Guide + quick calculator</v-card-subtitle>
-            <v-card-text>
-              Plan your next purchase with budgeting rules, down payment tiers, and an affordability calculator.
-            </v-card-text>
-            <v-card-actions>
-              <v-btn color="primary" variant="text">Open</v-btn>
-            </v-card-actions>
           </v-card>
-        </v-col>
-        <v-col cols="12" md="6">
-          <v-card 
-            :to="{ path: '/map-search' }" 
-            class="hover:shadow-lg transition-shadow" flat
-          >
-            <v-card-title>Explore recent listings</v-card-title>
-            <v-card-subtitle>Understand your market</v-card-subtitle>
-            <v-card-text>
-              Browse similar homes to gauge pricing and demand before you list.
-            </v-card-text>
-            <v-card-actions>
-              <v-btn color="primary" variant="text">Browse</v-btn>
-            </v-card-actions>
+
+          <v-card class="rounded-xl overflow-hidden" flat border>
+            <v-img 
+              height="240" 
+              cover 
+              src="https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1200&auto=format&fit=crop" 
+              class="align-end"
+            >
+              <div class="pa-6 bg-gradient-to-t from-black/80 to-transparent w-100">
+                <div class="text-white text-h6 font-weight-bold">Expert Staging</div>
+                <div class="text-white opacity-80 text-caption">Professional presentation matters.</div>
+              </div>
+            </v-img>
           </v-card>
         </v-col>
       </v-row>
-    </section>
-  </v-container>
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
+
 definePageMeta({ layout: 'default' })
 
-const title = ref('')
-const intro = ref('')
-const defaultIntro = 'Learn about our selling process, marketing plan, and request your free home valuation.'
-const processTitle = ref('')
-const processSteps = ref<string[]>([ 'Consultation and pricing strategy', 'Staging and professional photography', 'Launch marketing campaign across web and social', 'Showings and feedback', 'Offers, negotiation, and closing' ])
-const sidebarTitle = ref('')
-const bullets = ref<any[]>([ { title: 'Powerful marketing', icon: 'mdi-bullhorn' }, { title: 'Experienced negotiators', icon: 'mdi-handshake' }, { title: 'Fast, transparent process', icon: 'mdi-speedometer' } ])
+const bullets = ref([
+  { title: 'Powerful Marketing', icon: 'mdi-bullhorn-outline' },
+  { title: 'Expert Negotiation', icon: 'mdi-handshake-outline' },
+  { title: 'Transparent Process', icon: 'mdi-shield-search' }
+])
 
-onMounted(async () => {
-  try {
-    const page: any = await $fetch('/api/content/page/selling')
-    const items: any[] = (page && (page as any).items) ? (page as any).items : []
-    title.value = items.find(i => i.type === 'selling-title')?.content || ''
-    intro.value = items.find(i => i.type === 'selling-intro')?.content || ''
-    processTitle.value = items.find(i => i.type === 'selling-process-title')?.content || ''
-    const steps = items.filter(i => i.type === 'selling-process-step').map(i => i.content).filter(Boolean)
-    if (steps.length) processSteps.value = steps
-    sidebarTitle.value = items.find(i => i.type === 'selling-sidebar-title')?.content || ''
-    const bs = items.filter(i => i.type === 'selling-sidebar-item').map(i => ({ title: i.title || i.content, icon: i.metadata?.icon }))
-    if (bs.length) bullets.value = bs
-  } catch {}
-})
+const sellingChecklist = [
+  {
+    title: 'Research Your Market',
+    icon: 'mdi-magnify-expand',
+    timeline: 'Initial Phase',
+    content: "Decide when you'd like to sell, explore your local market trends, and talk to potential agents about how they would position your listing to stand out online."
+  },
+  {
+    title: 'Choose the Right Agent',
+    icon: 'mdi-account-tie-outline',
+    timeline: '6 Weeks Before Listing',
+    content: "Review a tailored marketing plan before signing. Alignment on strategy is key—official planning starts here to ensure a competitive launch."
+  },
+  {
+    title: 'Prepare Your Home',
+    icon: 'mdi-home-sparkles-outline',
+    timeline: '4 Weeks Before Listing',
+    content: "Focus on cosmetic fixes and staging. De-cluttering and neutralizing spaces helps buyers envision themselves in your home. We can coordinate storage if needed."
+  },
+  {
+    title: 'Verify Financial Picture',
+    icon: 'mdi-cash-check',
+    timeline: '2-3 Weeks Before Listing',
+    content: "Contact your lender for current loan payout information. Understanding your net proceeds helps in planning your next purchase."
+  },
+  {
+    title: 'Professional Media',
+    icon: 'mdi-camera-outline',
+    timeline: '1 Week Before Listing',
+    content: "Once the home is pristine, we coordinate professional photography, video tours, and drone shots to capture your home in its best light."
+  },
+  {
+    title: 'Go Live & Showings',
+    icon: 'mdi-calendar-check-outline',
+    timeline: 'Listing Active',
+    content: "Maintain a showing-ready environment. We manage scheduling and provide instant feedback as offers begin to arrive."
+  }
+]
 </script>
 
+<style scoped>
+.premium-hero-title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
 
+.section-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  color: #FF9800;
+  text-transform: uppercase;
+}
+
+.premium-text {
+  line-height: 1.8;
+  letter-spacing: 0.01em;
+}
+
+.guide-card {
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.guide-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 40px rgba(0,0,0,0.08) !important;
+  border-color: #000 !important;
+}
+
+/* CUSTOM ACCORDION STYLING */
+.premium-panels {
+  background: transparent !important;
+}
+
+.premium-panels :deep(.v-expansion-panel) {
+  background: white !important;
+  border-radius: 12px !important;
+  border: 1px solid #f0f0f0 !important;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  margin-bottom: 16px !important;
+}
+
+.premium-panels :deep(.v-expansion-panel--active) {
+  border-color: #000 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.05) !important;
+}
+
+.premium-panels :deep(.v-expansion-panel-title:hover) {
+  background: #fafafa;
+}
+
+.custom-list {
+  list-style: none;
+  padding: 0;
+}
+
+.custom-list li {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 12px;
+  font-size: 0.95rem;
+  color: #555;
+  line-height: 1.6;
+}
+
+.custom-list li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: #000;
+  font-weight: bold;
+}
+
+.tracking-widest { letter-spacing: 0.15em; }
+.tracking-tighter { letter-spacing: 0.05em; }
+
+.bg-gradient-to-t {
+  background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+}
+</style>

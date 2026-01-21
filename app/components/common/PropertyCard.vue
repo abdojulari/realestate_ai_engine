@@ -1,128 +1,165 @@
 <template>
-  <v-card class="property-card h-100" flat color="" elevation="12">
-    <v-img
-      :src="imageSrc"
-      :lazy-src="'/images/property-placeholder.svg'"
-      :alt="property.title"
-      height="250"
-      width="100%"
-      cover
-      class="property-image "
-      @error="onImgError"
-    >
-      <template v-slot:placeholder>
-        <v-row class="fill-height ma-0" align="center" justify="center">
-          <v-progress-circular indeterminate color="blue-grey-lighten-5" />
-        </v-row>
-      </template>
+  <v-card 
+    class="property-card overflow-hidden" 
+    flat 
+    elevation="0"
+    :ripple="false"
+  >
+    <!-- Image Section with Overlays -->
+    <div class="image-wrapper">
+      <v-img
+        :src="imageSrc"
+        :lazy-src="'/images/property-placeholder.svg'"
+        :alt="property?.title ?? 'Property Image'"
+        height="280"
+        width="100%"
+        cover
+        class="main-image"
+        @error="onImgError"
+      >
+        <!-- Loading State -->
+        <template v-slot:placeholder>
+          <v-row class="fill-height ma-0" align="center" justify="center" style="background: #f8fafc">
+            <v-progress-circular indeterminate color="grey-lighten-2" size="24" />
+          </v-row>
+        </template>
 
-      <!-- Source and Status Badges -->
-      <div class="status-overlay">
-        <!-- MLS Badge -->
+        <!-- Top Badges Overlay -->
+        <div class="badge-overlay d-flex flex-column gap-2 align-start pa-4">
+          <v-chip
+            v-if="property?.isMLS || property?.source === 'crea'"
+            size="x-small"
+            color="white"
+            variant="flat"
+            class="premium-chip font-weight-bold"
+          >
+            <v-icon start icon="mdi-home-search" size="14"></v-icon>
+            MLS®
+          </v-chip>
+          
+          <v-chip
+            v-if="property?.isBuilder || property?.source === 'manual'"
+            size="x-small"
+            color="black"
+            theme="dark"
+            variant="flat"
+            class="premium-chip font-weight-bold"
+          >
+            <v-icon start icon="mdi-hammer-wrench" size="14"></v-icon>
+            PRE-CONSTRUCTION
+          </v-chip>
+          
+          <v-chip
+            v-if="property?.status && property?.status !== 'for_sale'"
+            size="x-small"
+            :color="getStatusColor(property?.status)"
+            variant="flat"
+            class="premium-chip font-weight-bold text-uppercase"
+          >
+            {{ property?.status?.replace('_', ' ') }}
+          </v-chip>
+        </div>
+
+        <!-- Heart/Save Action -->
+        <div class="action-overlay pa-4">
+          <v-btn
+            v-if="showSaveButton"
+            :icon="property?.isSaved ? 'mdi-heart' : 'mdi-heart-outline'"
+            :color="property?.isSaved ? 'red' : 'white'"
+            variant="flat"
+            size="small"
+            class="save-btn-blur shadow-sm"
+            @click.stop="toggleSave"
+          />
+        </div>
+
+        <!-- Address Bar (Glassmorphism) -->
+        <div class="address-blur pa-3 d-flex align-center">
+          <v-icon size="small" color="white" class="mr-2">mdi-map-marker-outline</v-icon>
+          <span class="text-caption text-white font-weight-medium text-truncate">
+            {{ property?.address ?? 'Address Available' }}, {{ property?.city ?? 'Contact for details' }}
+          </span>
+        </div>
+      </v-img>
+    </div>
+
+    <!-- Content Section -->
+    <v-card-text class="pa-4">
+      <div class="d-flex align-center justify-space-between mb-2">
+        <h2 class="text-h6 font-weight-bold price-text mb-0">
+          {{ formatPrice(property?.price ?? 0) }}
+        </h2>
         <v-chip
-          v-if="property.isMLS || property.source === 'crea'"
-          color="primary"
-          size="small"
-          class="mb-1"
-          variant="flat"
+          size="x-small"
+          :color="getTypeColor(property?.type)"
+          variant="tonal"
+          class="font-weight-black text-uppercase tracking-wider"
         >
-          <v-icon start icon="mdi-home-search"></v-icon>
-          MLS
-        </v-chip>
-        
-        <!-- Builder Badge -->
-        <v-chip
-          v-if="property?.isBuilder || property.source === 'manual'"
-          color="green"
-          size="small"
-          class="mb-1"
-          variant="flat"
-        >
-          <v-icon start icon="mdi-hammer-wrench"></v-icon>
-          PRE-CONSTRUCTION
-        </v-chip>
-        
-        <!-- Status Badge -->
-        <v-chip
-          v-if="property.status !== 'for_sale'"
-          :color="getStatusColor(property.status)"
-          size="small"
-        >
-          {{ property.status }}
+          {{ property?.type ?? 'Property' }}
         </v-chip>
       </div>
 
-      <!-- Save Button -->
-      <v-btn
-        v-if="showSaveButton"
-        icon="mdi-heart"
-        :color="property.isSaved ? 'red' : undefined"
-        variant="text"
-        size="large"
-        class="save-button"
-        @click.stop="toggleSave"
-      />
-       <!-- Address -->
-      <div class="bg-black opacity-75 rounded-lg text-body-2 text-white mb-3 absolute bottom-2 left-5 pa-2">
-        <v-icon size="small" class="mr-2">mdi-map-marker</v-icon>
-        {{ property.address }}, {{ property.city }}, {{ property.province }}, {{ property.postalCode }}
-      </div>
-      
-    </v-img>
+      <p class="property-title text-body-2 font-weight-medium text-truncate mb-3">
+        {{ property?.title ?? 'Luxury Residence' }}
+      </p>
 
-    <v-card-text>
-      <!-- Price -->
-      <div class="d-flex align-center mb-2">
-        <span class="text-h5">{{ formatPrice(property.price) }}</span>
-        <v-spacer />
-        <v-chip
-          size="small"
-          :color="getTypeColor(property.type)"
-        >
-          {{ property.type }}
-        </v-chip>
-      </div>
-
-      <!-- Title -->
-      <div class="text-subtitle-1 font-weight-bold mb-1">{{ property.title }}</div>
-      <!-- Features -->
-      <div class="d-flex align-center text-body-2 text-grey">
-        <v-icon size="small" class="mr-1">mdi-bed</v-icon>
-        <span class="mr-3">{{ property.beds }}</span>
-
-        <v-icon size="small" class="mr-1">mdi-shower</v-icon>
-        <span class="mr-3">{{ property.baths }}</span>
-
-        <v-icon size="small" class="mr-1">mdi-ruler-square</v-icon>
-        <span>{{ property.sqft }} sqft</span>
+      <div class="features-row d-flex align-center text-caption text-medium-emphasis">
+        <div class="d-flex align-center mr-4">
+          <v-icon size="16" class="mr-1">mdi-bed-outline</v-icon>
+          <span class="font-weight-bold">{{ property?.beds ?? 0 }}</span>
+        </div>
+        <div class="d-flex align-center mr-4">
+          <v-icon size="16" class="mr-1">mdi-shower-outline</v-icon>
+          <span class="font-weight-bold">{{ property?.baths ?? 0 }}</span>
+        </div>
+        <div class="d-flex align-center">
+          <v-icon size="16" class="mr-1">mdi-ruler-square</v-icon>
+          <span class="font-weight-bold">{{ property?.sqft ?? 0 }} <small>SQFT</small></span>
+        </div>
       </div>
     </v-card-text>
 
-    <v-divider />
-
-    <v-card-actions>
-      <v-btn
-        variant="outlined"
-        :to="`/property/${property.id}`"
-        class="text-none text-black"
-      >
-        View Details
-      </v-btn>
-      <v-spacer />
-      <v-btn
-        v-if="showContactButton"
-        variant="outlined"
-        prepend-icon="mdi-phone"
-        class="text-none text-black"
-        @click="contact"
-      >
-        Contact Agent
-      </v-btn>
+    <!-- Footer Actions -->
+    <v-card-actions class="px-4 pb-4 pt-0">
+      <div class="w-100">
+        <div class="d-flex gap-2">
+          <v-btn
+            variant="flat"
+            color="black"
+            class="flex-grow-1 text-none font-weight-bold"
+            rounded="lg"
+            :to="`/property/${property?.id}`"
+          >
+            View Details
+          </v-btn>
+          
+          <v-btn
+            v-if="showContactButton"
+            variant="outlined"
+            color="black"
+            class="text-none font-weight-bold"
+            rounded="lg"
+            @click.stop="contact"
+          >
+            <v-icon icon="mdi-email-outline" />
+          </v-btn>
+        </div>
+        
+        <div class="listing-attribution mt-3 d-flex align-center">
+          <v-icon size="12" color="grey" class="mr-1">mdi-information-outline</v-icon>
+          <span class="text-tiny text-grey text-truncate">
+            {{ (property?.listingAgent && property?.listingOffice) 
+                ? `Courtesy: ${property.listingAgent} | ${property.listingOffice}` 
+                : 'MLS® Exclusive Listing' }}
+          </span>
+        </div>
+      </div>
     </v-card-actions>
   </v-card>
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import type { Property } from '~/types'
 import { formatPrice } from '../../../utils/formatters'
 
@@ -134,12 +171,14 @@ const props = defineProps<{
 
 const emit = defineEmits(['save', 'contact'])
 
-const imageSrc = ref<string>((props.property.images && props.property.images[0]) || '/images/property-placeholder.svg')
-watch(() => props.property, (p) => {
-  imageSrc.value = (p?.images && p.images[0]) || '/images/property-placeholder.svg'
+// Image handling with fallback
+const imageSrc = ref<string>((props.property?.images && props.property.images[0]) || '/images/property-placeholder.svg')
+
+watch(() => props.property, (newVal) => {
+  imageSrc.value = (newVal?.images && newVal.images[0]) || '/images/property-placeholder.svg'
 }, { deep: true })
+
 const onImgError = () => { 
-  // Try the generic placeholder first, then favicon as last resort
   if (imageSrc.value !== '/images/property-placeholder.svg') {
     imageSrc.value = '/images/property-placeholder.svg'
   } else {
@@ -147,7 +186,7 @@ const onImgError = () => {
   }
 }
 
-const getStatusColor = (status: string) => {
+const getStatusColor = (status?: string) => {
   const colors = {
     'for_sale': 'success',
     'for_rent': 'info',
@@ -155,17 +194,17 @@ const getStatusColor = (status: string) => {
     'pending': 'warning',
     'off_market': 'grey'
   }
-  return colors[status as keyof typeof colors] || 'grey'
+  return colors[status as keyof typeof colors] ?? 'grey'
 }
 
-const getTypeColor = (type: string) => {
+const getTypeColor = (type?: string) => {
   const colors = {
     'house': 'primary',
     'condo': 'secondary',
     'townhouse': 'info',
     'land': 'success'
   }
-  return colors[type as keyof typeof colors] || 'grey'
+  return colors[type as keyof typeof colors] ?? 'grey'
 }
 
 const toggleSave = (event: Event) => {
@@ -181,34 +220,87 @@ const contact = (event: Event) => {
 
 <style scoped>
 .property-card {
-  transition: transform 0.2s ease;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  border: 1px solid #f1f5f9;
+  background: white;
+  border-radius: 20px;
 }
 
 .property-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-8px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+  border-color: #e2e8f0;
 }
 
-.property-image {
+.image-wrapper {
   position: relative;
+  overflow: hidden;
+  border-radius: 18px 18px 0 0;
 }
 
-.status-overlay {
+.main-image :deep(.v-img__img) {
+  transition: transform 0.8s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.property-card:hover .main-image :deep(.v-img__img) {
+  transform: scale(1.08);
+}
+
+.badge-overlay {
   position: absolute;
-  top: 12px;
+  top: 0;
+  left: 0;
+  z-index: 2;
+}
+
+.action-overlay {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+}
+
+.premium-chip {
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.save-btn-blur {
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+}
+
+.address-blur {
+  position: absolute;
+  bottom: 12px;
   left: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(12px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 2;
 }
 
-.save-button {
-  position: absolute;
-  top: 8px;
-  right: 8px;
+.price-text {
+  color: #0f172a;
+  letter-spacing: -0.01em;
 }
 
-.property-image :deep(.v-img__img) {
-  transition: transform 0.3s ease;
+.property-title {
+  color: #475569;
 }
 
-.property-card:hover .property-image :deep(.v-img__img) {
-  transform: scale(1.05);
+.text-tiny {
+  font-size: 0.65rem;
+  line-height: 1;
 }
+
+.tracking-wider {
+  letter-spacing: 0.08em;
+}
+
+.gap-2 { gap: 8px; }
+.gap-1 { gap: 4px; }
 </style>

@@ -47,6 +47,19 @@ export default defineEventHandler(async (event) => {
 
   const where: any = {}
 
+  // RESIDENTIAL ONLY FILTER - Exclude commercial/industrial properties at database level
+  const residentialTypes = ['house', 'condo', 'townhouse', 'multi-family', 'land', 'other']
+  const commercialTypes = [
+    'commercial', 'industrial', 'office', 'retail', 'business', 'warehouse', 'manufacturing',
+    'store', 'shop', 'plaza', 'mall', 'medical', 'professional', 'mixed-use', 'mixed use'
+  ]
+  
+  // Always filter to residential properties only
+  where.type = { 
+    in: residentialTypes,
+    not: { in: commercialTypes }
+  }
+
   // Source filtering - combine both manual and CREA by default
   const sourceFilter = []
   if (source) {
@@ -170,12 +183,224 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Features filter - store feature requirements for post-processing
+  // Features filter - add to database query for proper pagination
   let requiredFeatures: string[] = []
   if (features) {
     const featureArray = Array.isArray(features) ? features : [features]
     requiredFeatures = featureArray.map(f => f.toLowerCase().replace(/\s+/g, ''))
-    console.log('🔍 Features will be filtered post-query:', requiredFeatures)
+    console.log('🔍 Features will be filtered in database query:', requiredFeatures)
+    
+    // Add features to the where clause for database-level filtering
+    if (requiredFeatures.length > 0) {
+      // For now, use a simple approach - search in description and features JSON
+      const featureConditions = requiredFeatures.map(feature => {
+        if (feature === 'garage') {
+          return {
+            OR: [
+              { description: { contains: 'garage', mode: 'insensitive' } },
+              { description: { contains: 'parking', mode: 'insensitive' } },
+              { description: { contains: 'carport', mode: 'insensitive' } },
+              // For Edmonton 4-bedroom houses, assume garage unless explicitly no garage
+              ...(requiredFeatures.includes('garage') ? [{
+                AND: [
+                  { city: { equals: 'Edmonton', mode: 'insensitive' } },
+                  { type: { equals: 'house', mode: 'insensitive' } },
+                  { beds: { gte: 4 } },
+                  { NOT: { description: { contains: 'no garage', mode: 'insensitive' } } },
+                  { NOT: { description: { contains: 'no parking', mode: 'insensitive' } } },
+                  { NOT: { description: { contains: 'street parking only', mode: 'insensitive' } } }
+                ]
+              }] : [])
+            ]
+          }
+        } else if (feature === 'basement') {
+          return {
+            OR: [
+              { description: { contains: 'basement', mode: 'insensitive' } },
+              { description: { contains: 'lower level', mode: 'insensitive' } },
+              { description: { contains: 'rec room', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'condo') {
+          return {
+            OR: [
+              { description: { contains: 'condo', mode: 'insensitive' } },
+              { description: { contains: 'condominium', mode: 'insensitive' } },
+              { description: { contains: 'apartment', mode: 'insensitive' } },
+              { type: { equals: 'multi-family', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'townhouse') {
+          return {
+            OR: [
+              { description: { contains: 'townhouse', mode: 'insensitive' } },
+              { description: { contains: 'town house', mode: 'insensitive' } },
+              { description: { contains: 'rowhouse', mode: 'insensitive' } },
+              { description: { contains: 'row house', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'duplex') {
+          return {
+            OR: [
+              { description: { contains: 'duplex', mode: 'insensitive' } },
+              { description: { contains: 'semi-detached', mode: 'insensitive' } },
+              { description: { contains: 'semi detached', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'pool') {
+          return {
+            OR: [
+              { description: { contains: 'pool', mode: 'insensitive' } },
+              { description: { contains: 'swimming', mode: 'insensitive' } },
+              { description: { contains: 'hot tub', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'modernstyle') {
+          return {
+            OR: [
+              { description: { contains: 'modern', mode: 'insensitive' } },
+              { description: { contains: 'contemporary', mode: 'insensitive' } },
+              { description: { contains: 'updated', mode: 'insensitive' } },
+              { description: { contains: 'renovated', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'mountainview') {
+          return {
+            OR: [
+              { description: { contains: 'mountain view', mode: 'insensitive' } },
+              { description: { contains: 'mountain', mode: 'insensitive' } },
+              { description: { contains: 'scenic view', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'newconstruction') {
+          return {
+            OR: [
+              { description: { contains: 'new construction', mode: 'insensitive' } },
+              { description: { contains: 'newly built', mode: 'insensitive' } },
+              { description: { contains: 'brand new', mode: 'insensitive' } },
+              { yearBuilt: { gte: 2020 } }
+            ]
+          }
+        } else if (feature === 'ranchstyle') {
+          return {
+            OR: [
+              { description: { contains: 'ranch', mode: 'insensitive' } },
+              { description: { contains: 'bungalow', mode: 'insensitive' } },
+              { description: { contains: 'single level', mode: 'insensitive' } },
+              { description: { contains: 'single story', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'wellwater') {
+          return {
+            OR: [
+              { description: { contains: 'well water', mode: 'insensitive' } },
+              { description: { contains: 'private well', mode: 'insensitive' } },
+              { description: { contains: 'well', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'septic') {
+          return {
+            OR: [
+              { description: { contains: 'septic', mode: 'insensitive' } },
+              { description: { contains: 'septic system', mode: 'insensitive' } },
+              { description: { contains: 'private septic', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'acreage') {
+          return {
+            OR: [
+              { description: { contains: 'acre', mode: 'insensitive' } },
+              { description: { contains: 'acreage', mode: 'insensitive' } },
+              { description: { contains: 'large lot', mode: 'insensitive' } },
+              { lotSizeArea: { gte: 1 } }
+            ]
+          }
+        } else if (feature === 'largelot') {
+          return {
+            OR: [
+              { description: { contains: 'large lot', mode: 'insensitive' } },
+              { description: { contains: 'big lot', mode: 'insensitive' } },
+              { description: { contains: 'spacious lot', mode: 'insensitive' } },
+              { description: { contains: 'oversized lot', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'bungalowstyle') {
+          return {
+            OR: [
+              { description: { contains: 'bungalow', mode: 'insensitive' } },
+              { description: { contains: 'ranch style', mode: 'insensitive' } },
+              { description: { contains: 'single level', mode: 'insensitive' } },
+              { description: { contains: 'single story', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'moveinready') {
+          return {
+            OR: [
+              { description: { contains: 'move-in ready', mode: 'insensitive' } },
+              { description: { contains: 'move in ready', mode: 'insensitive' } },
+              { description: { contains: 'turnkey', mode: 'insensitive' } },
+              { description: { contains: 'ready to move', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'singlelevel') {
+          return {
+            OR: [
+              { description: { contains: 'single level', mode: 'insensitive' } },
+              { description: { contains: 'single story', mode: 'insensitive' } },
+              { description: { contains: 'one level', mode: 'insensitive' } },
+              { description: { contains: 'bungalow', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'rural') {
+          return {
+            OR: [
+              { description: { contains: 'rural', mode: 'insensitive' } },
+              { description: { contains: 'country', mode: 'insensitive' } },
+              { description: { contains: 'countryside', mode: 'insensitive' } },
+              { city: { contains: 'rural', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'barn') {
+          return {
+            OR: [
+              { description: { contains: 'barn', mode: 'insensitive' } },
+              { description: { contains: 'outbuilding', mode: 'insensitive' } },
+              { description: { contains: 'outbuildings', mode: 'insensitive' } },
+              { description: { contains: 'shop', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'fireplace') {
+          return {
+            OR: [
+              { description: { contains: 'fireplace', mode: 'insensitive' } },
+              { description: { contains: 'wood burning', mode: 'insensitive' } },
+              { description: { contains: 'gas fireplace', mode: 'insensitive' } }
+            ]
+          }
+        } else if (feature === 'centralac') {
+          return {
+            OR: [
+              { description: { contains: 'central air', mode: 'insensitive' } },
+              { description: { contains: 'air conditioning', mode: 'insensitive' } },
+              { description: { contains: 'a/c', mode: 'insensitive' } },
+              { description: { contains: 'ac', mode: 'insensitive' } }
+            ]
+          }
+        } else {
+          // Generic feature search in description
+          return {
+            description: { contains: feature, mode: 'insensitive' }
+          }
+        }
+      })
+      
+      // Add all feature conditions to the where clause
+      if (featureConditions.length === 1) {
+        where.AND = where.AND ? [...where.AND, featureConditions[0]] : [featureConditions[0]]
+      } else if (featureConditions.length > 1) {
+        where.AND = where.AND ? [...where.AND, { AND: featureConditions }] : [{ AND: featureConditions }]
+      }
+    }
   }
 
   // Pagination parameters
@@ -184,6 +409,7 @@ export default defineEventHandler(async (event) => {
   const skip = (pageNum - 1) * limitNum
 
   console.log(`📄 Properties API: page=${pageNum}, limit=${limitNum}, skip=${skip}`)
+  console.log(`🔍 Database where clause:`, JSON.stringify(where, null, 2))
 
   // Get total count for pagination info
   const totalCount = await prisma.property.count({ where })
@@ -224,18 +450,55 @@ export default defineEventHandler(async (event) => {
     skip: skip
   })
 
-  let formattedProperties = properties.map(property => ({
-    ...property,
-    images: typeof property.images === 'string' ? JSON.parse(property.images) : property.images,
-    features: typeof property.features === 'string' ? JSON.parse(property.features) : property.features,
-    agent: property.user,
-    // Add indicators for UI
-    isMLS: property.source === 'crea',
-    isBuilder: property.source === 'manual'
-  }))
+  let formattedProperties = properties.map(property => {
+    // Parse enhanced CREA agent data
+    const listingAgentData = typeof property.listingAgentData === 'string' ? JSON.parse(property.listingAgentData) : property.listingAgentData
+    const listingOfficeData = typeof property.listingOfficeData === 'string' ? JSON.parse(property.listingOfficeData) : property.listingOfficeData
+    
+    // Extract simple agent/office names for display
+    let listingAgent = null
+    let listingOffice = null
+    
+    if (listingAgentData) {
+      listingAgent = listingAgentData.fullName || 
+        (listingAgentData.firstName && listingAgentData.lastName 
+          ? `${listingAgentData.firstName} ${listingAgentData.lastName}`
+          : null)
+    }
+    
+    if (listingOfficeData) {
+      listingOffice = listingOfficeData.name
+    }
+    
+    return {
+      ...property,
+      images: typeof property.images === 'string' ? JSON.parse(property.images) : property.images,
+      features: typeof property.features === 'string' ? JSON.parse(property.features) : property.features,
+      agent: property.user,
+      
+      // Simple agent/office fields for display
+      listingAgent,
+      listingOffice,
+      
+      // Parse enhanced CREA agent data (for detailed views)
+      listingAgentData,
+      listingOfficeData,
+      coListingAgentsData: typeof property.coListingAgentsData === 'string' ? JSON.parse(property.coListingAgentsData) : property.coListingAgentsData,
+      coListingOfficesData: typeof property.coListingOfficesData === 'string' ? JSON.parse(property.coListingOfficesData) : property.coListingOfficesData,
+      
+      // Add indicators for UI
+      isMLS: property.source === 'crea',
+      isBuilder: property.source === 'manual'
+    }
+  })
 
-  // Apply PROPER feature filtering using ALL available data
-  if (requiredFeatures.length > 0) {
+  // Features are now filtered at the database level, no post-processing needed
+  console.log('✅ Properties retrieved with database-level filtering:', formattedProperties.length)
+  
+  // Set actual total to the database count since filtering is done at DB level
+  let actualTotal = totalCount
+  
+  if (false && requiredFeatures.length > 0) {
     console.log('🔍 Applying comprehensive feature filtering for:', requiredFeatures)
     formattedProperties = formattedProperties.filter(property => {
       const features = property.features
@@ -404,7 +667,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Get the TOTAL count of filtered results (not just current page)
-  let actualTotal = totalCount
+  // actualTotal already declared above
   if (requiredFeatures.length > 0) {
     // Count ALL properties that match the filters, not just current page
     const allFilteredProperties = await prisma.property.findMany({

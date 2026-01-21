@@ -4,43 +4,57 @@
     <section class="hero-section">
       <v-container class="hero-container pr-0 mr-0">
         <v-row align="center" class="min-height-screen ma-0">
-          <v-col cols="12" md="6" class="hero-content ">
+          <v-col cols="12" md="6" class="hero-content">
             <div class="hero-text">
+              <span class="premium-label mb-4">EXCEPTIONAL REAL ESTATE</span>
               <h1 class="hero-title">
                 Find A House<br>
-                <span class="hero-title-accent">That Suits you</span>
+                <span class="hero-title-accent">That Suits You</span>
               </h1>
               <p class="hero-subtitle">
-                Want to find a home? We are ready to help you find<br>
-                one that suits your Lifestyle and needs
+                Discover a curated collection of properties designed for your lifestyle. 
+                Our dedicated team ensures your journey to a new home is seamless and sophisticated.
               </p>
-              <v-btn 
-                color="grey-darken-4" 
-                size="large" 
-                class="hero-cta-btn text-none font-weight-medium"
-                to="/properties"
-              >
-                Get Started
-              </v-btn>
+              <div class="d-flex align-center gap-4">
+                <v-btn 
+                  color="grey-darken-4" 
+                  size="x-large" 
+                  class="hero-cta-btn text-none font-weight-bold px-10"
+                  to="/properties"
+                  elevation="0"
+                >
+                  Get Started
+                </v-btn>
+                <v-btn
+                  variant="text"
+                  size="x-large"
+                  class="text-none font-weight-medium"
+                  @click="scrollToSearch"
+                >
+                  View Listings
+                </v-btn>
+              </div>
             </div>
 
             <!-- Stats -->
-            <div class="hero-stats ">
+            <div class="hero-stats">
               <div class="stat-item">
                 <div class="stat-number">{{ totalProperties }}</div>
-                <div class="stat-label">Listed Properties</div>
+                <div class="stat-label">Properties</div>
               </div>
+              <div class="stat-divider"></div>
               <div class="stat-item">
                 <div class="stat-number">{{ totalUsers > 0 ? `${totalUsers}+` : '500+' }}</div>
-                <div class="stat-label">Happy Customers</div>
+                <div class="stat-label">Clients</div>
               </div>
+              <div class="stat-divider"></div>
               <div class="stat-item">
                 <div class="stat-number">100+</div>
                 <div class="stat-label">Awards</div>
               </div>
             </div>
           </v-col>
-          <v-col cols="12" md="6" class="hero-image-col pa-0"> 
+          <v-col cols="12" md="6" class="pa-0"> 
               <v-img
                 :src="heroImage || 'https://images.unsplash.com/photo-1678575326996-a1bf09b86158?q=80&w=1932&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'"
                 alt="Modern House"
@@ -53,42 +67,45 @@
     </section>
 
     <!-- Floating Search Section -->
-    <div class="floating-search-section bg-white ">
+    <div class="floating-search-section" id="search-section">
       <v-container>
         <v-row justify="center">
           <v-col cols="12" lg="10" xl="8">
             <div class="floating-search-container mt-n16">
-              <h3 class="floating-search-title">Search for available properties</h3>
-              <PropertySearch 
-                elevation="3" 
-                @search="handleSearch"
-                class="floating-search"
-              />
+              <div class="text-center mb-8">
+                <span class="premium-label mb-2">Refine Search</span>
+                <h3 class="floating-search-title">Curated Property Search</h3>
+              </div>
+              <PropertySearch @search="handleSearch" />
             </div>
           </v-col>
         </v-row>
       </v-container>
     </div>
 
-    <!-- Featured Properties -->
-    <section class="featured-section">
+    <!-- Popular Homes Section (Blackish/Moody Theme) -->
+    <section class="featured-section dark-theme">
       <v-container>
         <div class="section-header">
-          <div class="section-label">POPULAR</div>
-          <h2 class="section-title">Our Popular Homes</h2>
+          <div>
+            <div class="premium-label text-grey-lighten-1">SELECTED COLLECTIONS</div>
+            <h2 class="section-title text-white">Our Popular Homes</h2>
+          </div>
           <v-btn 
-            variant="text" 
-            color="grey-darken-3" 
-            class="explore-btn text-none"
+            variant="outlined" 
+            color="white" 
+            class="explore-btn text-none px-6"
             to="/properties"
+            rounded="0"
           >
             Explore All
-            <v-icon end>mdi-arrow-right</v-icon>
+            <v-icon end size="small">mdi-arrow-right</v-icon>
           </v-btn>
         </div>
         
-        <div class="properties-carousel">
-          <FeaturedDeals :items="featuredProperties" @select="onSelectProperty" />
+        <div class="properties-carousel mt-12">
+          <!-- FeaturedDeals now fetches location-based single-family homes ($400K-$4M) -->
+          <FeaturedDeals @select="onSelectProperty" />
         </div>
       </v-container>
     </section>
@@ -102,504 +119,256 @@
     <!-- Testimonials -->
     <TestimonialSlider :testimonials="featuredTestimonials" />
 
-    <!-- CTA Section -->
-    <section class="contact-cta-section">
+    <!-- Enhanced Parallax CTA Section -->
+    <section class="parallax-cta-section">
+      <div class="parallax-bg-wrapper">
+         <div class="parallax-bg-image"></div>
+      </div>
       <div class="contact-cta-overlay">
         <v-container>
           <v-row align="center" justify="center">
-            <v-col cols="12" md="8" class="text-center">
+            <v-col cols="12" md="8" class="text-center parallax-content">
+              <span class="premium-label text-white mb-6">ESTABLISH YOUR LEGACY</span>
               <h2 class="contact-cta-title">
-                Ready to Find Your Dream Home?
+                Ready to Find Your<br>Dream Home?
               </h2>
-              <p class="contact-cta-subtitle">
-                Let us help you find the perfect property that matches your needs
+              <p class="contact-cta-subtitle mb-10">
+                A home is more than just a place; it's the foundation of your future. 
+                Let us help you find the space where your stories begin.
               </p>
               <v-btn
                 size="x-large"
-                color="orange-darken-2"
+                color="white"
                 to="/contact"
-                class="contact-cta-btn text-none font-weight-medium"
+                class="contact-cta-btn text-none font-weight-bold px-12"
+                rounded="0"
+                variant="elevated"
+                elevation="20"
               >
-                Contact Me Today
+                Schedule a Consultation
               </v-btn>
             </v-col>
           </v-row>
         </v-container>
       </div>
     </section>
-
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 
 const featuredProperties = ref<any[]>([])
 const heroImage = ref<string>('')
-const heroTitle = ref<string>('')
-const heroSubtitle = ref<string>('')
-const whyTitle = ref<string>('')
+const featuredTestimonials = ref<any[]>([])
 const totalUsers = ref<number>(0)
 
 const totalProperties = computed(() => {
   return featuredProperties.value.length > 0 ? `${featuredProperties.value.length}+` : '1200+'
 })
+
 onMounted(async () => {
-  console.log('🏡 Starting featured homes loading process...')
-  
-  // Load public stats (total users, etc.)
+  // Load Stats
   try {
     const stats = await $fetch('/api/stats')
-    if (stats?.totalUsers) {
-      totalUsers.value = stats.totalUsers
-    }
-  } catch (error) {
-    console.log('📊 Could not load stats:', error)
-  }
-  
-  try {
-    // Detect user's city using geolocation
-    let userCity = ''
-    try {
-      if (navigator.geolocation) {
-        console.log('🌍 Requesting geolocation...')
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            timeout: 5000,
-            enableHighAccuracy: false
-          })
-        })
-        
-        // Reverse geocode to get city name
-        const response = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${position.coords.latitude}&longitude=${position.coords.longitude}&localityLanguage=en`
-        )
-        const locationData = await response.json()
-        userCity = locationData.city || locationData.locality || ''
-        console.log('🌍 Detected user city:', userCity)
-      }
-    } catch (geoError) {
-      console.log('📍 Geolocation not available or denied, showing general featured homes')
-    }
-    
-    // Load featured properties directly with city filtering
-    try {
-      console.log('🔄 Loading featured properties...')
-      
-      // Build API query with city filter
-      const featuredQuery = new URLSearchParams()
-      featuredQuery.append('limit', '50') // Get more to filter from
-      featuredQuery.append('includeCrea', 'true')
-      featuredQuery.append('includeManual', 'true')
-      
-      if (userCity) {
-        featuredQuery.append('city', userCity)
-        console.log('🏙️ Loading featured properties for city:', userCity)
-      }
-      
-      // Call featured properties API directly
-      const allProperties = await $fetch(`/api/properties/featured?${featuredQuery.toString()}`)
-      
-      console.log('📦 Featured API returned:', allProperties?.length || 0, 'properties')
-      
-      if (allProperties && allProperties.length > 0) {
-        // Filter for ONLY houses - be strict about what we consider a house
-        const houses = allProperties.filter(property => {
-          const type = property.type?.toLowerCase() || ''
-          const title = property.title?.toLowerCase() || ''
-          
-          // Must be explicitly a house
-          const isHouse = type === 'house' || 
-                         type === 'single-family' || 
-                         type === 'detached' ||
-                         type === 'single family' ||
-                         type === 'detached house'
-          
-          // Must have bedrooms (actual living space)
-          const hasBedrooms = parseInt(property.beds) > 0
-          
-          // Exclude obvious non-residential
-          const notCommercial = !['commercial', 'industrial', 'office', 'retail'].includes(type) &&
-                               !title.includes('commercial') &&
-                               !title.includes('industrial') &&
-                               !title.includes('office')
-          
-          const notLand = !['land', 'vacant', 'lot'].includes(type) &&
-                         !title.includes('vacant') &&
-                         !title.includes(' lot ') &&
-                         !(title.includes('acre') && parseInt(property.beds) === 0)
-          
-          return isHouse && hasBedrooms && notCommercial && notLand
-        })
-        
-        console.log('🏠 Found', houses.length, 'houses for', userCity || 'all cities')
-        
-        // Houses are already filtered by city from the API
-        let sortedHouses = houses
-        
-        // Sort by quality: views, recency, then price variety
-        const finalHouses = sortedHouses.sort((a, b) => {
-          // 1. Sort by views (popularity)
-          const aViews = a.views || 0
-          const bViews = b.views || 0
-          if (aViews !== bViews) return bViews - aViews
-          
-          // 2. Sort by recency
-          const aDate = new Date(a.updatedAt || a.createdAt || 0).getTime()
-          const bDate = new Date(b.updatedAt || b.createdAt || 0).getTime()
-          if (aDate !== bDate) return bDate - aDate
-          
-          // 3. Price variety
-          return (a.price || 0) - (b.price || 0)
-        }).slice(0, 10)
-        
-        featuredProperties.value = finalHouses
-        console.log('✅ Featured houses loaded:', featuredProperties.value.length, 'houses')
-        console.log('🔍 House details:', featuredProperties.value.map(p => ({
-          title: p.title,
-          type: p.type,
-          beds: p.beds,
-          city: p.city,
-          price: p.price
-        })))
-        
-      } else {
-        console.warn('⚠️ Service worker returned no properties, trying direct API...')
-        throw new Error('Service worker failed')
-      }
-      
-    } catch (serviceWorkerError) {
-      console.log('⚠️ Service worker not available, using direct API')
-      
-      // Fallback to direct API calls
-      console.log('🔄 Falling back to direct API calls...')
-      try {
-        // Get properties directly from API with high limits
-        const response = await $fetch('/api/properties?limit=1000&status=for_sale')
-        const apiProperties = Array.isArray(response) ? response : response?.properties || []
-        
-        console.log('📦 Direct API returned:', apiProperties.length, 'properties')
-        
-        // Apply same house filtering
-        const houses = apiProperties.filter(property => {
-          const type = property.type?.toLowerCase() || ''
-          const isHouse = type === 'house' || type === 'single-family' || type === 'detached'
-          const hasBedrooms = parseInt(property.beds) > 0
-          return isHouse && hasBedrooms
-        })
-        
-        featuredProperties.value = houses.slice(0, 10)
-        console.log('✅ API fallback loaded:', featuredProperties.value.length, 'houses')
-        
-      } catch (apiError) {
-        console.error('❌ API fallback also failed:', apiError)
-        featuredProperties.value = []
-      }
-    }
-    
-  } catch (e) {
-    console.error('❌ Complete failure loading featured homes:', e)
-    featuredProperties.value = []
-  }
-  try {
-    const page = await $fetch('/api/content/page/home')
-    const items: any[] = (page as any).items || []
-    const hero = items.find(i => i.key === 'hero')
-    const title = items.find(i => i.key === 'hero-title')
-    const subtitle = items.find(i => i.key === 'hero-subtitle')
-    const why = items.find(i => i.key === 'why-choose-us')
-    const whyItems = items.filter(i => i.key === 'why-choose-us-item')
-    if (hero?.content) heroImage.value = hero.content
-    if (title?.content) heroTitle.value = title.content
-    if (subtitle?.content) heroSubtitle.value = subtitle.content
-    if (why?.title) whyTitle.value = why.title
-    if (whyItems?.length) {
-      features.splice(0, features.length, ...whyItems.map(i => ({ icon: i.metadata?.icon || 'mdi-check', title: i.title, description: i.content })))
-    }
+    if (stats?.totalUsers) totalUsers.value = stats.totalUsers
   } catch {}
-  // Load featured testimonials
+
+  // Load Properties
+  try {
+    const response = await $fetch('/api/properties?limit=10&status=for_sale')
+    featuredProperties.value = Array.isArray(response) ? response : response?.properties || []
+  } catch {}
+  
+  // Load Testimonials
   try {
     const testimonials = await $fetch('/api/testimonials?featured=true&limit=10')
     featuredTestimonials.value = testimonials || []
-  } catch (error) {
-    console.log('Failed to load testimonials:', error)
-  }
+  } catch {}
 })
 
-const features = reactive<any[]>([])
-
-const featuredTestimonials = ref<any[]>([])
-
-
 const handleSearch = (params: any) => {
-  console.log('Search params:', params)
-  // Navigate to search results page with params
-  navigateTo({
-    path: '/properties',
-    query: params
-  })
-}
-
-const toggleFavorite = (propertyId: number) => {
-  const property = featuredProperties.value.find(p => p.id === propertyId)
-  if (property) {
-    property.isFavorite = !property.isFavorite
-  }
+  navigateTo({ path: '/properties', query: params })
 }
 
 function onSelectProperty(p: any) {
   navigateTo(`/property/${p.id}`)
 }
 
-
 const scrollToSearch = () => {
-  const element = document.getElementById('search-section')
-  if (element) {
-    element.scrollIntoView({ behavior: 'smooth' })
-  }
+  document.getElementById('search-section')?.scrollIntoView({ behavior: 'smooth' })
 }
 </script>
 
 <style scoped>
-/* .home-page {
-  background: #f8f9fa;
-} */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+.home-page {
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+.premium-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: #94a3b8;
+  display: block;
+}
 
 /* Hero Section */
 .hero-section {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  min-height: 85vh;
-  padding: 2rem 0 0 0;
+  background: #ffffff;
+  min-height: 90vh;
+  display: flex;
+  align-items: center;
   position: relative;
-  overflow: hidden;
+  z-index: 1;
 }
-
-.hero-container {
-  height: 100%;
-  max-width: none !important;
-  padding-right: 0 !important;
-  padding-bottom: 0 !important;
-  margin-right: 0 !important;
-  margin-bottom: 0 !important;
-}
-
-.hero-container .v-row {
-  margin-bottom: 0 !important;
-}
-
-.hero-container .v-col {
-  padding-bottom: 0 !important;
-}
-
-/* .min-height-screen {
-  min-height: 85vh;
-} */
 
 .hero-content {
-  padding: 1rem 4rem;
+  padding: 0 4% !important;
+  position: relative;
+  z-index: 2;
 }
 
 .hero-title {
-  font-size: 3.5rem;
-  font-weight: 700;
-  color: #2c3e50;
-  line-height: 1.2;
-  margin-bottom: 1.5rem;
+  font-size: 4.8rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.0;
+  letter-spacing: -0.05em;
+  margin-bottom: 2rem;
 }
 
 .hero-title-accent {
-  color: #6c757d;
-  font-weight: 400;
+  color: #cbd5e1;
+  font-weight: 300;
 }
 
 .hero-subtitle {
   font-size: 1.1rem;
-  color: #6c757d;
-  line-height: 1.6;
-  margin-bottom: 2.5rem;
+  color: #64748b;
+  line-height: 1.8;
+  margin-bottom: 3rem;
+  max-width: 480px;
 }
 
-/* .hero-cta-btn {
-  padding: 1rem 2.5rem;
-  border-radius: 8px;
-  margin-bottom: 1rem;
-} */
-
-/* Hero Stats */
 .hero-stats {
   display: flex;
+  align-items: center;
   gap: 3rem;
-  margin-top: 1rem;
+  margin-top: 2rem;
 }
 
-.stat-item {
-  text-align: left;
+.stat-divider {
+  width: 1px;
+  height: 40px;
+  background: #f1f5f9;
 }
 
 .stat-number {
   font-size: 1.8rem;
-  font-weight: 700;
-  color: #2c3e50;
-  margin-bottom: 0.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.03em;
 }
 
 .stat-label {
-  font-size: 0.9rem;
-  color: #6c757d;
-  font-weight: 500;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-weight: 700;
 }
 
-/* Hero Image */
-.hero-image-col {
-  display: flex;
-  align-items: flex-end;
-  justify-content: flex-end;
-  padding-right: 0 !important;
-  padding-bottom: 0 !important;
-  margin-right: 0 !important;
-  margin-bottom: 0 !important;
-  position: relative;
-  height: 100%;
-}
 
 .hero-house {
-  width: calc(100% + 3rem);
-  height: 630px;
-  border-radius: 20px 0 0 0;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
-  margin-right: -3rem;
-  margin-bottom: 0;
-  object-fit: cover;
-}
-
-/* Floating Search Section */
-.floating-search-section {
+  height: 100vh;
+  width: 100%;
+  border-radius: 60px 0 0 60px;
   position: relative;
-  margin-top: 0;
-  margin-bottom: 50px;
-  z-index: 50;
-  pointer-events: none;
+  z-index: 1;
 }
 
+/* Floating Search */
 .floating-search-container {
   background: white;
-  padding: 2.5rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-  pointer-events: all;
+  padding: 4rem;
+  box-shadow: 0 50px 100px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f1f5f9;
+  z-index: 100;
+  top:-50px;
+  position: relative;
 }
+/* Floating Search */
+.floating-search-section {
+  background: white;
+  position: relative;
+  z-index: 100;
+}
+
 
 .floating-search-title {
-  font-size: 1.8rem;
-  font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 2rem;
-  text-align: center;
+  font-size: 2.5rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
 }
 
-/* Featured Properties Section */
-.featured-section {
-  background: white;
-  padding: 6rem 0 4rem 0;
-  margin-top: -10rem;
+/* Popular Homes (Dark Theme) */
+.featured-section.dark-theme {
+  padding: 160px 0 120px;
+  background: #111111; /* Blackish moody background */
   position: relative;
-  z-index: 10;
+  z-index: 5;
+}
+
+.featured-section.dark-theme .section-title {
+  font-size: 3.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .section-header {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
-  margin-bottom: 1rem;
-  margin-top: 4rem;
 }
 
-.section-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #6c757d;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.section-title {
-  font-size: 2.2rem;
-  font-weight: 700;
-  color: #2c3e50;
-  margin: 0.5rem 0;
-}
-
-.explore-btn {
-  color: #6c757d;
-  font-weight: 500;
-}
-
-/* Property Cards */
-.properties-carousel {
-  margin-top: 2rem;
-  background-color: white;
-}
-
-
-/* Testimonials Section */
-.testimonials-section {
-  background: #2c3e50;
-  padding: 6rem 0;
-  color: white;
-}
-
-.testimonial-content {
-  display: flex;
-  align-items: center;
-  gap: 4rem;
-  max-width: 1000px;
-  margin: 0 auto;
-}
-
-.testimonial-text {
-  flex: 1;
-}
-
-.testimonial-author {
-  margin-bottom: 2rem;
-}
-
-.author-name {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-
-.author-title {
-  color: #adb5bd;
-  font-size: 1rem;
-}
-
-.testimonial-quote {
-  font-size: 1.1rem;
-  line-height: 1.8;
-  font-style: italic;
-  color: #e9ecef;
-}
-
-.testimonial-image {
-  flex: 0 0 200px;
+/* Parallax CTA Section */
+.parallax-cta-section {
+  position: relative;
+  height: 80vh;
+  min-height: 600px;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
+.parallax-bg-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 120%; /* Taller for scroll movement */
+  z-index: 1;
+}
 
-/* Contact CTA Section */
-.contact-cta-section {
-  position: relative;
-  min-height: 60vh;
-  background-image: url('https://images.unsplash.com/photo-1448630360428-65456885c650?q=80&w=2067&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D');
+.parallax-bg-image {
+  width: 100%;
+  height: 100%;
+  background-image: url('https://images.unsplash.com/photo-1448630360428-65456885c650?q=80&w=2067&auto=format&fit=crop');
   background-size: cover;
   background-position: center;
-  background-attachment: fixed;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background-attachment: fixed; /* Core Parallax effect */
+}
+
+/* For browsers that don't support attachment fixed well, we use a fallback or more movement */
+@supports (-webkit-overflow-scrolling: touch) {
+  .parallax-bg-image {
+    background-attachment: scroll;
+  }
 }
 
 .contact-cta-overlay {
@@ -608,130 +377,66 @@ const scrollToSearch = () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: linear-gradient(to bottom, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.8) 100%);
+  z-index: 2;
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 4rem 0;
+}
+
+.parallax-content {
+  position: relative;
+  z-index: 3;
 }
 
 .contact-cta-title {
-  font-size: 3rem;
-  font-weight: 700;
+  font-size: 4.5rem;
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -0.04em;
   color: white;
   margin-bottom: 1.5rem;
-  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .contact-cta-subtitle {
   font-size: 1.25rem;
-  color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 3rem;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
-  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.7);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.8;
 }
 
 .contact-cta-btn {
-  padding: 1.2rem 3rem;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
 .contact-cta-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 152, 0, 0.4);
+  transform: translateY(-5px);
+  background-color: #f8fafc !important;
 }
 
-/* Mobile Responsiveness */
-@media (max-width: 768px) {
-  .hero-title {
+/* Mobile Adjustments */
+@media (max-width: 960px) {
+  .hero-title, .contact-cta-title {
+    font-size: 3rem;
+  }
+  
+  .hero-content {
+    padding: 60px 24px !important;
+  }
+  
+  .hero-house {
+    height: 400px;
+    border-radius: 0;
+  }
+  
+  .featured-section.dark-theme .section-title {
     font-size: 2.5rem;
-  }
-  
-  .hero-stats {
-    justify-content: space-between;
-    gap: 1rem;
-  }
-  
-  .stat-number {
-    font-size: 1.5rem;
   }
   
   .section-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1rem;
-  }
-  
-  .floating-search-section {
-    top: 5vh;
-  }
-  
-  .hero-section {
-    min-height: 50vh;
-    padding: 1rem 0 0 0;
-  }
-  
-  .min-height-screen {
-    min-height: 50vh;
-  }
-  
-  .floating-search-container {
-    padding: 1.5rem;
-    margin: 0 1rem;
-  }
-  
-  .floating-search-title {
-    font-size: 1.4rem;
-  }
-  
-  .testimonial-content {
-    flex-direction: column;
-    text-align: center;
     gap: 2rem;
-  }
-  
-  .hero-image-col {
-    padding-right: 1rem !important;
-    padding-left: 1rem !important;
-  }
-  
-  .hero-house {
-    width: 100%;
-    height: 300px;
-    border-radius: 20px;
-    margin-top: 2rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .hero-title {
-    font-size: 2rem;
-  }
-  
-  .contact-cta-title {
-    font-size: 2rem;
-  }
-  
-  .contact-cta-subtitle {
-    font-size: 1.1rem;
-  }
-  
-  .contact-cta-section {
-    background-attachment: scroll;
-    min-height: 50vh;
-  }
-  
-  .contact-cta-overlay {
-    padding: 3rem 0;
-  }
-  
-  .hero-stats {
-    flex-direction: column;
-    gap: 1.5rem;
-    text-align: center;
   }
 }
 </style>

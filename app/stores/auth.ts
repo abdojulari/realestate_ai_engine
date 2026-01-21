@@ -64,14 +64,37 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async login(email: string, password: string): Promise<User> {
+    async login(email: string, password: string, twoFactorCode?: string): Promise<User | { requiresTwoFactor: boolean; message: string; email: string }> {
+      const res = await $fetch<any>('/api/auth/login', {
+        method: 'POST',
+        body: { email, password, twoFactorCode }
+      })
+      
+      // Check if 2FA is required
+      if (res.requiresTwoFactor) {
+        return res
+      }
+      
+      this.setUser(res.user)
+      this.setToken(res.token)
+      return res.user
+    },
+
+    async verify2FA(email: string, password: string, code: string): Promise<User> {
       const res = await $fetch<AuthResponse>('/api/auth/login', {
         method: 'POST',
-        body: { email, password }
+        body: { email, password, twoFactorCode: code }
       })
       this.setUser(res.user)
       this.setToken(res.token)
       return res.user
+    },
+
+    async resend2FACode(email: string): Promise<void> {
+      await $fetch('/api/auth/resend-2fa', {
+        method: 'POST',
+        body: { email }
+      })
     },
 
     async register(data: RegisterData): Promise<User> {
@@ -123,7 +146,19 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async logout(): Promise<void> {
-      this.clearAuth()
+      try {
+        // Call logout endpoint to log activity
+        if (this.token) {
+          await $fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${this.token}` }
+          })
+        }
+      } catch (error) {
+        console.error('Error during logout:', error)
+      } finally {
+        this.clearAuth()
+      }
     },
 
     clearAuth() {

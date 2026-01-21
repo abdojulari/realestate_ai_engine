@@ -33,25 +33,38 @@ export const usePropertyService = () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
-  // Register service worker
+  // Register service worker - TEMPORARILY DISABLED
   const registerServiceWorker = async () => {
+    console.log('⚠️ Service Worker registration temporarily disabled for agent data debugging')
+    
+    // Unregister existing service worker
     if ('serviceWorker' in navigator) {
-      try {
-        const registration = await navigator.serviceWorker.register('/sw-properties.js')
-        console.log('✅ Property Service Worker registered:', registration)
-        
-        // Wait for the service worker to be ready
-        const sw = await navigator.serviceWorker.ready
-        serviceWorker.value = sw.active
-        
-        return registration
-      } catch (error) {
-        console.error('❌ Service Worker registration failed:', error)
-        throw error
+      const registrations = await navigator.serviceWorker.getRegistrations()
+      for (let registration of registrations) {
+        console.log('🗑️ Unregistering service worker:', registration)
+        await registration.unregister()
       }
-    } else {
-      throw new Error('Service Workers not supported')
     }
+    
+    throw new Error('Service Worker temporarily disabled')
+    
+    // if ('serviceWorker' in navigator) {
+    //   try {
+    //     const registration = await navigator.serviceWorker.register('/sw-properties.js')
+    //     console.log('✅ Property Service Worker registered:', registration)
+        
+    //     // Wait for the service worker to be ready
+    //     const sw = await navigator.serviceWorker.ready
+    //     serviceWorker.value = sw.active
+        
+    //     return registration
+    //   } catch (error) {
+    //     console.error('❌ Service Worker registration failed:', error)
+    //     throw error
+    //   }
+    // } else {
+    //   throw new Error('Service Workers not supported')
+    // }
   }
 
   // Send message to service worker
@@ -145,7 +158,13 @@ export const usePropertyService = () => {
           }
         })
         
-        const properties = await $fetch(`/api/properties?${queryParams.toString()}`)
+        const response = await $fetch(`/api/properties?${queryParams.toString()}`)
+        console.log('🔍 Search API response type:', typeof response, Array.isArray(response))
+        console.log('🔍 Search API response keys:', Object.keys(response))
+        console.log('🔍 Search API first property:', response.properties?.[0] || response[0])
+        
+        // Handle both array and paginated response formats
+        const properties = Array.isArray(response) ? response : (response.properties || [])
         console.log('🔍 Search completed via direct API:', properties.length, 'properties')
         return properties as any[]
       }

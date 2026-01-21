@@ -24,7 +24,7 @@
       <div class="status-overlay">
         <!-- MLS Badge -->
         <v-chip
-          v-if="property?.isMLS || property.source === 'crea'"
+          v-if="property.source === 'crea'"
           color="primary"
           size="small"
           class="ma-3"
@@ -36,7 +36,7 @@
         
         <!-- Builder Badge -->
         <v-chip
-          v-if="property?.isBuilder || property.source === 'manual'"
+          v-if="property.source === 'manual'"
           color="green"
           size="small"
           class="ma-3"
@@ -100,6 +100,8 @@
         Get Started
       </v-btn>
       
+      <v-spacer />
+      
       <div class="property-price d-flex ">
         {{ formatPrice(property.price || 0) }}
         <v-spacer />
@@ -109,6 +111,16 @@
         >
           {{ property.type }}
         </v-chip>
+      </div>
+      
+      <!-- Agent and Office Information -->
+      <div class="text-body-2 text-grey mt-2">
+        <span v-if="property.listingAgent && property.listingOffice">
+          Courtesy of {{ property.listingAgent }} of {{ property.listingOffice }}
+        </span>
+        <span v-else>
+          MLS Listing
+        </span>
       </div>
     </v-card-text>
   </v-card>
@@ -127,11 +139,10 @@ const props = defineProps<{
 
 const emit = defineEmits(['click', 'save', 'contact'])
 
-
-const imageSrc = ref<string>((props.property.images?.[0]?.url || props.property.images?.[0]) || '/images/property-placeholder.svg')
+const imageSrc = ref<string>(props.property.images?.[0] || '/images/property-placeholder.svg')
 
 watch(() => props.property, (p) => {
-  imageSrc.value = (p?.images?.[0]?.url || p?.images?.[0]) || '/images/property-placeholder.svg'
+  imageSrc.value = p?.images?.[0] || '/images/property-placeholder.svg'
 }, { deep: true })
 
 const onImgError = () => { 
@@ -178,6 +189,9 @@ const getTypeColor = (type: string) => {
   transition: all 0.3s ease;
   cursor: pointer;
   max-width: 400px;
+  height: 420px;
+  display: flex;
+  flex-direction: column;
 }
 
 /* .modern-property-card:hover {
@@ -221,6 +235,9 @@ const getTypeColor = (type: string) => {
 
 .property-details {
   padding: 1.5rem;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
 }
 
 .property-specs {

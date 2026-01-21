@@ -84,27 +84,11 @@ const loadProperties = async (page = 1) => {
     
     console.log('🔍 Properties page URL query params:', queryParams) // Debug log
     
-    // Try service worker first for better performance
-    try {
-      const searchFilters = {
-        ...queryParams,
-        limit,
-        page
-      }
-      
-      console.log('🔄 Loading properties via service worker...') 
-      const serviceWorkerResult = await searchProperties(searchFilters)
-      
-      if (serviceWorkerResult && serviceWorkerResult.length > 0) {
-        const { filterResidentialProperties } = await import('../../../utils/propertyFilters')
-        items.value = filterResidentialProperties(serviceWorkerResult)
-        currentPage.value = page
-        console.log('✅ Loaded from service worker:', items.value.length, 'residential properties')
-        return
-      }
-    } catch (swError) {
-      console.warn('⚠️ Service worker failed, falling back to API:', swError)
-    }
+    // TEMPORARILY DISABLED: Try service worker first for better performance
+    // The service worker is returning cached data without agent information
+    // Force direct API calls until service worker cache is updated
+    console.log('⚠️ Service worker temporarily disabled - using direct API calls for agent data')
+    
     
     // Fallback to direct API call
     const searchParams = new URLSearchParams()
@@ -122,6 +106,10 @@ const loadProperties = async (page = 1) => {
     console.log('🔍 Fetching from API URL:', apiUrl) // Debug log
     
     const response = await $fetch(apiUrl)
+    console.log('🔍 API Response type:', typeof response, Array.isArray(response))
+    console.log('🔍 API Response keys:', Object.keys(response))
+    console.log('🔍 API Response sample:', response.properties?.[0] || response[0]) // Debug the actual response
+    
     const { filterResidentialProperties } = await import('../../../utils/propertyFilters')
     
     // Handle both old array format and new paginated format
@@ -131,13 +119,16 @@ const loadProperties = async (page = 1) => {
       currentPage.value = page
       totalPages.value = 1
       totalProperties.value = response.length
+      console.log('🔍 After filtering (array format), first item agent:', items.value[0]?.listingAgent)
     } else {
       // New paginated format
       const allProperties = response.properties || []
+      console.log('🔍 Properties array before filtering, first item agent:', allProperties[0]?.listingAgent)
       items.value = filterResidentialProperties(allProperties)
       currentPage.value = response.pagination?.page || page
       totalPages.value = response.pagination?.totalPages || 1
       totalProperties.value = response.pagination?.total || 0
+      console.log('🔍 After filtering (paginated format), first item agent:', items.value[0]?.listingAgent)
     }
     
     console.log('✅ Found properties:', items.value.length, 'residential of', totalProperties.value, 'total') // Debug log

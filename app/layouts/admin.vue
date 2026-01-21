@@ -52,8 +52,7 @@
           <v-list-item
             prepend-icon="mdi-help-circle"
             :title="rail ? '' : 'Help'"
-            href="https://docs.example.com"
-            target="_blank"
+            to="/admin/help"
           />
           <v-divider class="my-2" />
           <v-list-item
@@ -83,6 +82,7 @@
         label="Search"
         hide-details
         density="compact"
+        outlined
         class="max-w-xs mr-4"
       />
 
@@ -100,38 +100,100 @@
       </v-btn>
 
       <!-- User Menu -->
-      <v-menu>
+      <v-menu offset-y>
         <template v-slot:activator="{ props }">
           <v-btn
-            class="ml-2"
             v-bind="props"
+            variant="text"
+            class="ml-2 text-none user-menu-btn"
+            rounded="lg"
           >
-            <v-avatar size="32" class="mr-2">
+            <v-avatar 
+              size="40" 
+              class="mr-2 user-avatar"
+              color="primary"
+            >
               <v-img
-                :src="user.avatar || '/images/default-avatar.png'"
-                alt="Avatar"
-              />
+                v-if="user.avatar"
+                :src="user.avatar"
+                alt="User Avatar"
+                cover
+              >
+                <template v-slot:placeholder>
+                  <v-row
+                    class="fill-height ma-0"
+                    align="center"
+                    justify="center"
+                  >
+                    <v-progress-circular
+                      indeterminate
+                      color="primary"
+                      size="20"
+                    />
+                  </v-row>
+                </template>
+              </v-img>
+              <span v-else class="text-h6 font-weight-bold">
+                {{ getUserInitials() }}
+              </span>
             </v-avatar>
-            {{ user.firstName }}
-            <v-icon end>mdi-chevron-down</v-icon>
+            <div class="d-flex flex-column align-start mr-2 d-none d-sm-flex">
+              <span class="text-body-2 font-weight-bold">{{ user.firstName }} {{ user.lastName }}</span>
+              <span class="text-caption text-medium-emphasis">{{ user.role || 'Admin' }}</span>
+            </div>
+            <v-icon>mdi-chevron-down</v-icon>
           </v-btn>
         </template>
 
-        <v-list>
+        <v-list class="user-menu-list" min-width="240">
+          <v-list-item class="py-3">
+            <div class="d-flex align-center">
+              <v-avatar 
+                size="48" 
+                color="primary"
+                class="mr-3"
+              >
+                <v-img
+                  v-if="user.avatar"
+                  :src="user.avatar"
+                  alt="User Avatar"
+                  cover
+                />
+                <span v-else class="text-h6 font-weight-bold">
+                  {{ getUserInitials() }}
+                </span>
+              </v-avatar>
+              <div>
+                <div class="text-body-1 font-weight-bold">{{ user.firstName }} {{ user.lastName }}</div>
+                <div class="text-caption text-medium-emphasis">{{ user.email }}</div>
+              </div>
+            </div>
+          </v-list-item>
+          
+          <v-divider class="my-2" />
+          
           <v-list-item
             prepend-icon="mdi-account"
-            title="Profile"
+            title="My Profile"
+            subtitle="Manage your account"
             to="/admin/profile"
+            class="rounded-lg mx-2"
           />
           <v-list-item
             prepend-icon="mdi-cog"
             title="Settings"
+            subtitle="Preferences & configuration"
             to="/admin/settings"
+            class="rounded-lg mx-2"
           />
-          <v-divider />
+          
+          <v-divider class="my-2" />
+          
           <v-list-item
             prepend-icon="mdi-logout"
             title="Logout"
+            subtitle="Sign out of your account"
+            class="rounded-lg mx-2"
             @click="handleLogout"
           />
         </v-list>
@@ -229,7 +291,13 @@ const search = ref('')
 const showNotifications = ref(false)
 
 // User from auth store
-const user = ref<any>({ firstName: '', lastName: '', avatar: null })
+const user = ref<any>({ 
+  firstName: '', 
+  lastName: '', 
+  email: '',
+  role: 'Admin',
+  avatar: null 
+})
 
 // Notifications from API
 const notifications = ref<any[]>([])
@@ -241,7 +309,11 @@ const menuItems = computed(() => [
   { title: 'Site', icon: 'mdi-home', to: '/' },
   { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', badge: userBadge.value ? String(userBadge.value) : undefined },
   { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties' },
+  { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync' },
+  { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync' },
+  { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter' },
   { title: 'Content', icon: 'mdi-file-document', to: '/admin/content' },
+  { title: 'Documents', icon: 'mdi-file-document', to: '/admin/documents' },
   { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports' },
  
 ])
@@ -277,17 +349,47 @@ watch(showNotifications, (value) => {
   if (!value) notifications.value = notifications.value.map(n => ({ ...n, read: true }))
 })
 
+// Get user initials for avatar fallback
+const getUserInitials = () => {
+  const first = user.value.firstName?.charAt(0) || ''
+  const last = user.value.lastName?.charAt(0) || ''
+  return (first + last).toUpperCase() || 'U'
+}
+
 // Load header data
 async function loadHeaderData() {
   try {
-    // user info
-    if (auth.user) user.value = { ...auth.user, avatar: null }
-    // notifications and counts
+    // Fetch user profile with avatar
+    const profileData: any = await api.get('/api/admin/profile')
+    if (profileData?.profile) {
+      user.value = {
+        firstName: profileData.profile.firstName || '',
+        lastName: profileData.profile.lastName || '',
+        email: profileData.profile.email || '',
+        role: profileData.profile.role || 'Admin',
+        avatar: profileData.profile.avatar || null
+      }
+    } else if (auth.user) {
+      // Fallback to auth store if profile API fails
+      user.value = { 
+        ...auth.user,
+        avatar: auth.user.avatar || null
+      }
+    }
+    
+    // Load notifications and counts
     const data: any = await api.get('/api/admin/notifications')
     notifications.value = data.notifications || []
     userBadge.value = await api.get('/api/admin/users').then((arr: any) => arr?.length || 0)
   } catch (e) {
     console.error('Header data load failed:', e)
+    // Fallback to auth store on error
+    if (auth.user) {
+      user.value = { 
+        ...auth.user,
+        avatar: auth.user.avatar || null
+      }
+    }
   }
 }
 
@@ -308,5 +410,51 @@ onMounted(async () => {
   .v-list-item__prepend > .v-icon {
     margin-inline-end: 0;
   }
+}
+
+/* Premium User Menu Styling */
+.user-menu-btn {
+  padding: 8px 12px !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.user-menu-btn:hover {
+  background-color: rgba(var(--v-theme-primary), 0.08);
+}
+
+.user-avatar {
+  border: 2px solid rgba(var(--v-theme-primary), 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.user-menu-btn:hover .user-avatar {
+  border-color: rgba(var(--v-theme-primary), 0.5);
+  box-shadow: 0 4px 12px rgba(var(--v-theme-primary), 0.3);
+  transform: scale(1.05);
+}
+
+.user-menu-list {
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+  overflow: hidden;
+}
+
+.user-menu-list .v-list-item {
+  transition: all 0.2s ease;
+}
+
+.user-menu-list .v-list-item:hover {
+  background-color: rgba(var(--v-theme-primary), 0.08);
+  transform: translateX(4px);
+}
+
+.user-menu-list .v-list-item--active {
+  background-color: rgba(var(--v-theme-primary), 0.12);
+}
+
+/* Avatar placeholder with gradient */
+.user-avatar:not(:has(img)) {
+  background: linear-gradient(135deg, rgb(var(--v-theme-primary)) 0%, rgb(var(--v-theme-secondary)) 100%);
 }
 </style>

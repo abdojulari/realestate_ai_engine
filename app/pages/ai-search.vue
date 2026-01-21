@@ -1,341 +1,431 @@
 <template>
   <div class="ai-search-page">
-    <!-- Hero Section -->
-    <section class="hero-section text-white py-16">
-      <v-container>
+    <!-- Hero Section with Premium Blur Background -->
+    <section class="hero-section text-white py-16 relative overflow-hidden">
+      <div class="hero-blur-bg"></div>
+      <v-container class="relative z-10">
         <v-row align="center" justify="center" class="text-center">
-          <v-col cols="12" md="8">
-            <v-icon size="64" class="mb-4">mdi-brain</v-icon>
-            <h1 class="text-h3 mb-4">AI-Powered Property Search</h1>
-            <p class="text-h6 mb-0">Describe your dream home in plain English and let AI find it for you</p>
+          <v-col cols="12" md="10" lg="8">
+            <div class="ai-chip mb-6 mx-auto">
+              <v-icon size="small" class="mr-2">mdi-sparkles</v-icon>
+              NEXT-GEN REAL ESTATE SEARCH
+            </div>
+            <h1 class="premium-title mb-6">Find Your Future with <span class="gradient-text">Intelligence</span></h1>
+            <p class="text-h6 font-weight-light opacity-80 mb-0 px-md-16">
+              Skip the traditional filters. Describe your dream lifestyle in plain English and let our neural engine curate the perfect match.
+            </p>
           </v-col>
         </v-row>
       </v-container>
     </section>
 
-    <!-- Search Section -->
-    <section class="search-section py-12">
-      <v-container>
-        <v-row >
-          <v-col cols="12" md="8">
-            <v-card flat>
-              <v-card-text class="pa-8">
-                <!-- Location Filters -->
-                <v-row class="mb-4">
-                  <v-col cols="12" md="6">
-                    <v-select
-                      v-model="selectedCity"
-                      :items="cities"
-                      item-title="name"
-                      item-value="name"
-                      label="Search in City"
-                      variant="outlined"
-                      prepend-inner-icon="mdi-map-marker"
-                      :loading="loadingCities"
-                      clearable
-                    >
-                      <template v-slot:selection="{ item }">
-                        <span>{{ item.raw.name }} ({{ item.raw.count }} properties)</span>
-                      </template>
-                      <template v-slot:item="{ item, props }">
-                        <v-list-item v-bind="props" :title="`${item.raw.name} (${item.raw.count} properties)`" />
-                      </template>
-                    </v-select>
-                  </v-col>
-                  <v-col cols="12" md="6">
-                    <NeighborhoodDropdown
-                      v-model="selectedNeighborhoodId"
-                      label="Or by Neighborhood"
-                      placeholder="Select specific neighborhood..."
-                      :city-filter="selectedCity"
-                      @neighborhood-selected="onNeighborhoodSelected"
-                    />
-                  </v-col>
-                </v-row>
-
-                <!-- Natural Language Input -->
-                <div class="mb-6">
-                  <h2 class="text-h5 mb-4">Tell us what you're looking for</h2>
-                  <v-textarea
-                    v-model="searchQuery"
-                    label="Describe your ideal property..."
-                    placeholder="Example: I want a 4 bedroom house with finished basement and double garage near schools"
-                    rows="4"
-                    variant="outlined"
-                    class="search-input"
-                    :loading="searching"
-                    id="ai-search-query"
+    <!-- Main Interface -->
+    <v-container class="mt-n12 pb-16 relative z-20">
+      <v-row>
+        <!-- Search Controls -->
+        <v-col cols="12" lg="8">
+          <v-card flat class="premium-search-card mb-8">
+            <div class="pa-6 pa-md-10">
+              <!-- Location Row -->
+              <v-row class="mb-6">
+                <v-col cols="12" md="6">
+                  <v-select
+                    v-model="selectedCity"
+                    :items="cities"
+                    item-title="name"
+                    item-value="name"
+                    label="Target City"
+                    variant="filled"
+                    class="premium-select"
+                    prepend-inner-icon="mdi-map-marker-outline"
+                    :loading="loadingCities"
+                    clearable
+                    hide-details
+                  >
+                    <template v-slot:selection="{ item }">
+                      <span>{{ item.raw.name }} ({{ item.raw.count }} properties)</span>
+                    </template>
+                    <template v-slot:item="{ item, props }">
+                      <v-list-item v-bind="props" :title="`${item.raw.name} (${item.raw.count} properties)`" />
+                    </template>
+                  </v-select>
+                </v-col>
+                <v-col cols="12" md="6">
+                  <NeighborhoodDropdown
+                    v-model="selectedNeighborhoodId"
+                    label="Neighborhood"
+                    placeholder="Select specific neighborhood..."
+                    :city-filter="selectedCity"
+                    @neighborhood-selected="onNeighborhoodSelected"
                   />
+                </v-col>
+              </v-row>
+
+              <!-- AI Input -->
+              <div class="input-wrapper relative mb-6">
+                <v-textarea
+                  v-model="searchQuery"
+                  placeholder="e.g. A modern 3-bedroom penthouse with floor-to-ceiling windows, a chef's kitchen, and a private balcony overlooking the city skyline..."
+                  variant="outlined"
+                  auto-grow
+                  rows="4"
+                  class="premium-textarea"
+                  persistent-placeholder
+                  :disabled="searching"
+                  hide-details
+                  @keyup.enter.ctrl="searchWithAI"
+                />
+                
+                <!-- Example Queries -->
+                <div class="example-queries mt-4">
+                  <p class="text-caption text-grey mb-2">QUICK EXAMPLES:</p>
+                  <div class="d-flex flex-wrap ga-2">
+                    <v-chip 
+                      v-for="example in exampleQueries" 
+                      :key="example"
+                      size="small"
+                      variant="outlined"
+                      @click="searchQuery = example"
+                      class="example-chip"
+                    >
+                      {{ example }}
+                    </v-chip>
+                  </div>
+                </div>
+
+                  <div class="input-footer d-flex flex-wrap align-center justify-space-between pt-6">
+                    <div class="d-flex align-center gap-4 mb-4 mb-sm-0">
+                      <div class="voice-trigger d-flex align-center">
+                        <v-btn 
+                          :icon="isListening ? 'mdi-microphone' : 'mdi-microphone-outline'" 
+                          variant="tonal" 
+                          :color="isListening ? 'error' : 'black'" 
+                          density="comfortable"
+                          @click="toggleSpeechRecognition"
+                          :disabled="searching"
+                          :class="{ 'listening-animation': isListening }"
+                        >
+                          <v-icon :class="{ 'pulse-icon': isListening }">
+                            {{ isListening ? 'mdi-microphone' : 'mdi-microphone-outline' }}
+                          </v-icon>
+                        </v-btn>
+                        <span class="text-caption font-weight-bold ml-2 text-uppercase tracking-widest">
+                          {{ isListening ? 'Listening...' : 'Voice' }}
+                        </span>
+                      </div>
+                      <v-divider vertical class="mx-2" />
+                      <div class="d-flex align-center">
+                        <v-icon size="small" color="grey" class="mr-2">mdi-information-outline</v-icon>
+                        <span class="text-caption text-grey">Ctrl + Enter to search</span>
+                      </div>
+                    </div>
                   
-                  <!-- Example Queries -->
-                  <div class="example-queries mt-4">
-                    <p class="text-subtitle-2 mb-2">Try these examples:</p>
-                    <div class="d-flex flex-wrap ga-2">
-                      <v-chip 
-                        v-for="example in exampleQueries" 
-                        :key="example"
-                        size="small"
-                        variant="outlined"
-                        @click="searchQuery = example"
-                        class="example-chip"
-                      >
-                        {{ example }}
-                      </v-chip>
+                  <div class="d-flex gap-2">
+                    
+                    <v-btn
+                      :loading="searching"
+                      color="black"
+                      class="search-btn-premium px-10"
+                      height="60"
+                      flat
+                      :disabled="!searchQuery.trim()"
+                      @click="searchWithAI"
+                    >
+                      <v-icon start icon="mdi-auto-fix" class="mr-3" />
+                      Neural Search
+                    </v-btn>
+                    
+                    <!-- Alert Scheduling Button -->
+                    <v-btn
+                      v-if="searchResults.length > 0"
+                      color="success"
+                      variant="outlined"
+                      height="56"
+                      class="px-6"
+                      @click="openAlertDialog"
+                    >
+                      <v-icon start>mdi-bell-plus</v-icon>
+                      Alerts
+                    </v-btn>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Error Display -->
+              <v-alert
+                v-if="errorMessage"
+                type="error"
+                variant="tonal"
+                class="mt-4"
+                closable
+                @click:close="errorMessage = ''"
+              >
+                {{ errorMessage }}
+              </v-alert>
+            </div>
+          </v-card>
+
+          <!-- Loading State Overlay -->
+          <v-fade-transition>
+            <div v-if="searching" class="search-loader py-16 text-center">
+              <v-progress-circular indeterminate color="black" size="64" width="2" />
+              <div class="mt-6 text-h6 font-weight-light">Analyzing your requirements...</div>
+            </div>
+          </v-fade-transition>
+
+          <!-- No Results / Empty State -->
+          <div v-if="!searching && searchResults.length === 0 && totalProperties === 0 && searchQuery" class="mt-12">
+            <v-card class="text-center pa-8 pa-md-12 rounded-xl" variant="outlined">
+              <v-avatar size="120" color="grey-lighten-4" class="mb-6">
+                <v-icon size="60" color="grey-lighten-1">mdi-home-search-outline</v-icon>
+              </v-avatar>
+              <h3 class="text-h5 font-weight-bold mb-2">No Properties Found</h3>
+              <p class="text-body-1 text-grey mb-6">
+                We couldn't find any properties matching your search criteria in 
+                <strong>{{ selectedNeighborhoodId ? 'the selected neighborhood' : (selectedCity || 'the selected area') }}</strong>.
+              </p>
+              
+              <v-card color="grey-lighten-4" flat class="pa-6 rounded-xl border mb-6 text-left">
+                <div class="d-flex align-center mb-4">
+                  <v-icon color="black" class="mr-2">mdi-lightbulb-on</v-icon>
+                  <span class="text-subtitle-2 font-weight-bold">TRY THESE SUGGESTIONS</span>
+                </div>
+                <ul class="text-body-2 text-medium-emphasis mb-0 leading-relaxed">
+                  <li v-if="selectedNeighborhoodId" class="mb-2">Remove the neighborhood filter to search the entire city</li>
+                  <li v-if="selectedCity" class="mb-2">Remove the city filter to search all cities</li>
+                  <li class="mb-2">Adjust your search query (e.g., try "3 bedroom" instead of "4 bedroom")</li>
+                  <li class="mb-2">Remove specific features like "garage" or "basement"</li>
+                  <li>Try a more general search query</li>
+                </ul>
+              </v-card>
+              
+              <div class="d-flex flex-wrap justify-center gap-2">
+                <v-btn 
+                  v-if="selectedNeighborhoodId" 
+                  color="black" 
+                  variant="outlined"
+                  rounded="lg"
+                  @click="selectedNeighborhoodId = null; searchWithAI(1)"
+                >
+                  <v-icon start>mdi-filter-remove</v-icon>
+                  Search Entire City
+                </v-btn>
+                <v-btn 
+                  v-if="selectedCity && !selectedNeighborhoodId" 
+                  color="black" 
+                  variant="outlined"
+                  rounded="lg"
+                  @click="selectedCity = ''; searchWithAI(1)"
+                >
+                  <v-icon start>mdi-map-marker-off</v-icon>
+                  Search All Cities
+                </v-btn>
+                <v-btn 
+                  color="black" 
+                  variant="outlined"
+                  rounded="lg"
+                  @click="searchQuery = ''; searchResults = []; totalProperties = 0"
+                >
+                  <v-icon start>mdi-refresh</v-icon>
+                  New Search
+                </v-btn>
+              </div>
+            </v-card>
+          </div>
+
+          <!-- Initial Empty State -->
+          <div v-else-if="!searching && searchResults.length === 0 && !searchQuery" class="mt-12 text-center py-16 rounded-xl empty-state-border">
+            <v-avatar size="120" color="grey-lighten-4" class="mb-6">
+              <v-icon size="60" color="grey-lighten-1">mdi-brain</v-icon>
+            </v-avatar>
+            <h3 class="text-h5 font-weight-bold mb-2">Ready to explore?</h3>
+            <p class="text-body-1 text-grey mb-0">Enter your dream home description above to begin.</p>
+          </div>
+
+          <!-- Results Section -->
+          <div v-if="searchResults.length > 0 && !searching" class="mt-12">
+            <div class="d-flex align-center mb-10">
+              <div>
+                <h2 class="text-h4 font-weight-bold">Curated Matches</h2>
+                <div class="text-subtitle-2 text-grey-darken-1">{{ totalProperties.toLocaleString() }} properties found based on your description</div>
+              </div>
+              <v-spacer />
+              <div class="d-flex align-center ga-2">
+                <v-chip v-if="selectedCity" color="info" variant="tonal" class="font-weight-bold">
+                  <v-icon start size="small">mdi-map-marker</v-icon>
+                  {{ selectedCity }}
+                </v-chip>
+                <v-chip color="success" variant="tonal" class="font-weight-bold">
+                  Showing {{ searchResults.length }}
+                </v-chip>
+              </div>
+            </div>
+
+            <v-row>
+              <v-col 
+                v-for="property in searchResults" 
+                :key="property.id"
+                cols="12" 
+                md="6"
+              >
+                <PropertyCard :property="property" />
+              </v-col>
+            </v-row>
+
+            <!-- Pagination Controls -->
+            <div v-if="totalPages > 1 && totalProperties > itemsPerPage" class="mt-16 d-flex justify-center">
+              <v-pagination
+                v-model="currentPage"
+                :length="totalPages"
+                :total-visible="5"
+                active-color="black"
+                rounded="lg"
+                @update:model-value="handlePageChange"
+              />
+            </div>
+          </div>
+        </v-col>
+
+        <!-- Sidebar Guide -->
+        <v-col cols="12" lg="4">
+          <div class="sticky-sidebar">
+            <v-card flat border class="sidebar-guide-premium pa-8 rounded-xl">
+              <div class="section-label mb-2">INTELLIGENT SEARCH</div>
+              <h3 class="text-h5 font-weight-bold mb-8">How it works</h3>
+              
+              <div class="steps-container">
+                <!-- Step 1 -->
+                <div class="step-item d-flex align-start mb-8">
+                  <div class="step-circle mr-4">
+                    <v-icon 
+                      v-if="step1Completed"
+                      color="success" 
+                      size="18"
+                    >
+                      mdi-check
+                    </v-icon>
+                    <v-icon v-else size="18">mdi-comment-text-outline</v-icon>
+                  </div>
+                  <div>
+                    <div class="text-subtitle-1 font-weight-bold mb-1">Natural Request</div>
+                    <div 
+                      class="text-body-2 text-medium-emphasis typewriter-text"
+                      :class="{ 'text-success': step1Completed }"
+                    >
+                      {{ step1Text }}
                     </div>
                   </div>
                 </div>
 
-                <!-- Search Button -->
-                <div class="text-center mb-6">
-                  <v-btn
-                    color="primary"
-                    size="large"
-                    :loading="searching"
-                    :disabled="!searchQuery.trim()"
-                    @click="searchWithAI"
-                    class="search-btn"
-                    variant="outlined"
-                    density="compact"
-                  >
-                    <v-icon start>mdi-magnify</v-icon>
-                    Search Properties
-                  </v-btn>
-                  
-                  <!-- Alert Scheduling Button -->
-                  <v-btn
-                    v-if="searchResults.length > 0"
-                    color="success"
-                    size="large"
-                    variant="outlined"
-                    class="ml-4"
-                    @click="openAlertDialog"
-                  >
-                    <v-icon start>mdi-bell-plus</v-icon>
-                    Get Alerts
-                  </v-btn>
+                <!-- Step 2 -->
+                <div v-if="step1Completed || step2Text" class="step-item d-flex align-start mb-8">
+                  <div class="step-circle mr-4">
+                    <v-icon 
+                      v-if="step2Completed"
+                      color="success" 
+                      size="18"
+                    >
+                      mdi-check
+                    </v-icon>
+                    <v-icon v-else-if="step2Text" size="18">mdi-brain</v-icon>
+                  </div>
+                  <div>
+                    <div class="text-subtitle-1 font-weight-bold mb-1">Neural Analysis</div>
+                    <div 
+                      class="text-body-2 text-medium-emphasis typewriter-text"
+                      :class="{ 'text-success': step2Completed }"
+                    >
+                      {{ step2Text }}
+                    </div>
+                  </div>
                 </div>
 
-                <!-- Error Display -->
-                <v-alert
-                  v-if="errorMessage"
-                  type="error"
-                  variant="tonal"
-                  class="mb-4"
-                  closable
-                  @click:close="errorMessage = ''"
-                >
-                  {{ errorMessage }}
-                </v-alert>
-              </v-card-text>
+                <!-- Step 3 -->
+                <div v-if="step2Completed || step3Text" class="step-item d-flex align-start mb-8">
+                  <div class="step-circle mr-4">
+                    <v-icon 
+                      v-if="step3Completed"
+                      color="success" 
+                      size="18"
+                    >
+                      mdi-check
+                    </v-icon>
+                    <v-icon v-else-if="step3Text" size="18">mdi-auto-fix</v-icon>
+                  </div>
+                  <div>
+                    <div class="text-subtitle-1 font-weight-bold mb-1">Live Curation</div>
+                    <div 
+                      class="text-body-2 text-medium-emphasis typewriter-text"
+                      :class="{ 'text-success': step3Completed }"
+                    >
+                      {{ step3Text }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Step 4 -->
+                <div v-if="step3Completed || step4Text" class="step-item d-flex align-start mb-8">
+                  <div class="step-circle mr-4">
+                    <v-icon 
+                      v-if="step4Completed"
+                      color="success" 
+                      size="18"
+                    >
+                      mdi-check
+                    </v-icon>
+                    <v-icon v-else-if="step4Text" size="18">mdi-view-grid-outline</v-icon>
+                  </div>
+                  <div>
+                    <div class="text-subtitle-1 font-weight-bold mb-1">Browse Results</div>
+                    <div 
+                      class="text-body-2 text-medium-emphasis typewriter-text"
+                      :class="{ 'text-success': step4Completed }"
+                    >
+                      {{ step4Text }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Step 5 -->
+                <div v-if="step4Completed || step5Text" class="step-item d-flex align-start mb-8">
+                  <div class="step-circle mr-4">
+                    <v-icon 
+                      v-if="step5Completed"
+                      color="success" 
+                      size="18"
+                    >
+                      mdi-check
+                    </v-icon>
+                    <v-icon v-else-if="step5Text" size="18">mdi-bell-outline</v-icon>
+                  </div>
+                  <div>
+                    <div class="text-subtitle-1 font-weight-bold mb-1">Stay Updated</div>
+                    <div 
+                      class="text-body-2 text-medium-emphasis typewriter-text"
+                      :class="{ 'text-success': step5Completed }"
+                    >
+                      {{ step5Text }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <v-divider class="my-8" />
+
+              <v-card color="grey-lighten-4" flat class="pa-6 rounded-xl border">
+                <div class="d-flex align-center mb-4">
+                  <v-icon color="black" class="mr-2">mdi-creation</v-icon>
+                  <span class="text-subtitle-2 font-weight-bold">ADVANCED TIP</span>
+                </div>
+                <p class="text-body-2 text-medium-emphasis mb-0 leading-relaxed">
+                  The more specific you are about <strong>materials</strong> (e.g., hardwood floors), <strong>lifestyle</strong> (e.g., quiet home office), and <strong>location</strong>, the better the matches.
+                </p>
+              </v-card>
             </v-card>
-          </v-col>
-           <v-col cols="12" md="4">
-             <v-card class="guide-card" flat>
-               <v-card-text class="pa-6">
-                 <h3 class="text-h6 mb-4 d-flex align-center">
-                   <v-icon class="mr-2" color="primary">mdi-lightbulb-outline</v-icon>
-                   How to use AI-Powered Search
-                 </h3>
-                 
-                 <div class="steps-container">
-                   <!-- Step 1 -->
-                   <div class="step-item d-flex align-start">
-                     <div class="step-icon mr-3">
-                       <v-icon 
-                         v-if="step1Completed"
-                         color="success" 
-                         size="20"
-                       >
-                         mdi-check-circle
-                       </v-icon>
-                       <div v-else class="step-number">1</div>
-                     </div>
-                     <div class="step-content flex-grow-1">
-                       <div 
-                         class="typewriter-text"
-                         :class="{ 'text-success': step1Completed }"
-                       >
-                         {{ step1Text }}
-                       </div>
-                     </div>
-                   </div>
-
-                   <!-- Step 2 -->
-                   <div v-if="step1Completed || step2Text" class="step-item d-flex align-start">
-                     <div class="step-icon mr-3">
-                       <v-icon 
-                         v-if="step2Completed"
-                         color="success" 
-                         size="20"
-                       >
-                         mdi-check-circle
-                       </v-icon>
-                       <div v-else-if="step2Text" class="step-number">2</div>
-                     </div>
-                     <div class="step-content flex-grow-1">
-                       <div 
-                         class="typewriter-text"
-                         :class="{ 'text-success': step2Completed }"
-                       >
-                         {{ step2Text }}
-                       </div>
-                     </div>
-                   </div>
-
-                   <!-- Step 3 -->
-                   <div v-if="step2Completed || step3Text" class="step-item d-flex align-start">
-                     <div class="step-icon mr-3">
-                       <v-icon 
-                         v-if="step3Completed"
-                         color="success" 
-                         size="20"
-                       >
-                         mdi-check-circle
-                       </v-icon>
-                       <div v-else-if="step3Text" class="step-number">3</div>
-                     </div>
-                     <div class="step-content flex-grow-1">
-                       <div 
-                         class="typewriter-text"
-                         :class="{ 'text-success': step3Completed }"
-                       >
-                         {{ step3Text }}
-                       </div>
-                     </div>
-                   </div>
-
-                   <!-- Step 4 -->
-                   <div v-if="step3Completed || step4Text" class="step-item d-flex align-start">
-                     <div class="step-icon mr-3">
-                       <v-icon 
-                         v-if="step4Completed"
-                         color="success" 
-                         size="20"
-                       >
-                         mdi-check-circle
-                       </v-icon>
-                       <div v-else-if="step4Text" class="step-number">4</div>
-                     </div>
-                     <div class="step-content flex-grow-1">
-                       <div 
-                         class="typewriter-text"
-                         :class="{ 'text-success': step4Completed }"
-                       >
-                         {{ step4Text }}
-                       </div>
-                     </div>
-                   </div>
-
-                   <!-- Step 5 -->
-                   <div v-if="step4Completed || step5Text" class="step-item d-flex align-start">
-                     <div class="step-icon mr-3">
-                       <v-icon 
-                         v-if="step5Completed"
-                         color="success" 
-                         size="20"
-                       >
-                         mdi-check-circle
-                       </v-icon>
-                       <div v-else-if="step5Text" class="step-number">5</div>
-                     </div>
-                     <div class="step-content flex-grow-1">
-                       <div 
-                         class="typewriter-text"
-                         :class="{ 'text-success': step5Completed }"
-                       >
-                         {{ step5Text }}
-                       </div>
-                     </div>
-                   </div>
-                 </div>
-               </v-card-text>
-             </v-card>
-          </v-col>
-        </v-row>
-      </v-container>
-    </section>
-
-    <!-- Results Section -->
-    <section v-if="searchResults.length > 0" class="results-section py-8">
-      <v-container>
-        <!-- Results Header -->
-        <div class="d-flex align-center mb-6">
-          <h2 class="text-h5">Search Results</h2>
-          <v-spacer />
-          <div class="d-flex align-center ga-2">
-            <v-chip v-if="selectedCity" color="info" variant="tonal">
-              <v-icon start>mdi-map-marker</v-icon>
-              {{ selectedCity }}
-            </v-chip>
-            <v-chip color="success" variant="tonal">
-              {{ totalProperties.toLocaleString() }} matches
-            </v-chip>
-            <v-chip color="primary" variant="tonal">
-              Showing {{ searchResults.length }}
-            </v-chip>
           </div>
-        </div>
-        
-        <!-- Properties Grid -->
-        <v-row>
-          <v-col 
-            v-for="property in searchResults" 
-            :key="property.id"
-            cols="12" 
-            md="6" 
-            lg="4"
-          >
-            <PropertyCard :property="property" />
-          </v-col>
-        </v-row>
-
-        <!-- Pagination Controls -->
-        <div v-if="totalPages > 1 && totalProperties > itemsPerPage" class="pagination-section mt-8">
-          <v-pagination
-            v-model="currentPage"
-            :length="totalPages"
-            :total-visible="5"
-            @update:model-value="handlePageChange"
-            class="justify-center"
-          />
-          
-          <!-- Simple Page Info -->
-          <div class="text-center mt-4">
-            <p class="text-body-2 text-grey-darken-1">
-              Page {{ currentPage }} of {{ totalPages }}
-            </p>
-          </div>
-        </div>
-      </v-container>
-    </section>
-
-    <!-- How It Works Section -->
-    <section class="how-it-works py-12 bg-blue-grey-lighten-5">
-      <v-container>
-        <v-row justify="center">
-          <v-col cols="12" md="10">
-            <h2 class="text-h4 text-center mb-8">How AI Search Works</h2>
-            <v-row>
-              <v-col cols="12" md="4" class="text-center">
-                <v-icon size="48" color="primary" class="mb-4">mdi-brain</v-icon>
-                <h3 class="text-h6 mb-2">1. AI Understanding</h3>
-                <p>Our AI parses your natural language description and extracts key property features</p>
-              </v-col>
-              <v-col cols="12" md="4" class="text-center">
-                <v-icon size="48" color="primary" class="mb-4">mdi-filter-variant</v-icon>
-                <h3 class="text-h6 mb-2">2. Smart Filtering</h3>
-                <p>Converts your requirements into precise search filters for our property database</p>
-              </v-col>
-              <v-col cols="12" md="4" class="text-center">
-                <v-icon size="48" color="primary" class="mb-4">mdi-home-search</v-icon>
-                <h3 class="text-h6 mb-2">3. Perfect Matches</h3>
-                <p>Returns properties that match your specific criteria from thousands of listings</p>
-              </v-col>
-            </v-row>
-          </v-col>
-        </v-row>
-      </v-container>
-    </section>
+        </v-col>
+      </v-row>
+    </v-container>
 
     <!-- Property Alert Dialog -->
     <v-dialog v-model="showAlertDialog" max-width="600" persistent>
@@ -500,6 +590,11 @@ const cities = ref<any[]>([])
 const loadingCities = ref(false)
 const userLocation = ref<{lat: number, lng: number} | null>(null)
 
+// Speech Recognition
+const isListening = ref(false)
+const speechRecognition = ref<any>(null)
+const speechSupported = ref(false)
+
 // Property alerts
 const showAlertDialog = ref(false)
 const creatingAlert = ref(false)
@@ -527,11 +622,11 @@ const step4Completed = ref(false)
 const step5Completed = ref(false)
 
 const stepTexts: string[] = [
-  "Enter your search prompt in natural language (e.g., '4 bedroom house with garage')",
-  "Select your preferred city from the dropdown menu",
-  "Click 'Search Properties' to find matching listings",
-  "Browse through results and use pagination to see more",
-  "Create alerts to get notified when new properties match your criteria"
+  "Describe exactly what you want, from the vibes to the specific architectural styles.",
+  "Our AI parses your input to find matches that go beyond simple database filters.",
+  "Real-time property data is cross-referenced with your lifestyle requirements.",
+  "Browse through results and use pagination to see more properties.",
+  "Create alerts to get notified when new properties match your criteria."
 ]
 
 const exampleQueries = [
@@ -539,15 +634,8 @@ const exampleQueries = [
   "Luxury condo downtown with parking and pool",
   "Modern townhouse under 500k with garage",
   "Waterfront property with 3+ bedrooms",
-  // NEW: Enhanced examples with residential features
-  "Acreage property with well water and septic",
-  "New construction ranch style home with mountain view",
-  "Single story bungalow move-in ready with large lot",
-  "2 acre rural property with barn and outbuildings",
-  "Renovated colonial home with municipal utilities",
-  "Custom built house with ocean view and fireplace",
-  "Horse property with irrigation and fencing",
-  "Recently built home with central air and double garage"
+  
+ 
 ]
 
 const frequencyOptions = [
@@ -599,8 +687,29 @@ const searchWithAI = async (pageNum = 1) => {
       if (value !== null && value !== undefined && value !== '') {
         // Handle mappings for the enhanced API
         if (key === 'beds') {
-          // Use exact match for bedrooms, not gte
-          queryParams.append('bedsExact', String(value))
+          // Check if original query indicates minimum (3+, "or more", etc.)
+          const query = searchQuery.value.toLowerCase()
+          const isMinimum = query.includes('+') || 
+                           query.includes('or more') ||
+                           query.includes('plus') ||
+                           query.includes('minimum') ||
+                           query.includes('at least')
+          
+          const isExact = query.includes('exactly') || 
+                         query.includes('precise') ||
+                         query.includes('specific')
+          
+          if (isExact) {
+            // Explicitly requested exact match
+            queryParams.append('bedsExact', String(value))
+          } else if (isMinimum) {
+            // Use minimum bedrooms (3+ bedrooms = 3 or more)
+            queryParams.append('beds', String(value))
+          } else {
+            // Default: for most searches like "4 bedroom house", use exact match
+            // This matches user expectations better
+            queryParams.append('bedsExact', String(value))
+          }
         } else if (key === 'garageSpaces') {
           // Map garageSpaces to garage feature
           queryParams.append('features', 'garage')
@@ -611,12 +720,37 @@ const searchWithAI = async (pageNum = 1) => {
           // Map garage boolean to garage feature
           queryParams.append('features', 'garage')
         } else if (key === 'features' && typeof value === 'object') {
-          // Handle features object - now with enhanced features
-          Object.entries(value).forEach(([featureKey, featureValue]) => {
-            if (featureValue) {
-              queryParams.append('features', featureKey)
+          // Handle features object - prioritize most important features to avoid over-filtering
+          const priorityFeatures = [
+            'garage', 'basement', 'pool', 'waterfront', 'condo', 'townhouse', 'duplex',
+            'mountainView', 'oceanView', 'newConstruction', 'acreage', 'wellWater', 'septic'
+          ]
+          
+          const secondaryFeatures = [
+            'modernStyle', 'bungalowStyle', 'largeLot', 'moveInReady', 'singleLevel',
+            'ranchStyle', 'fireplace', 'centralAC'
+          ]
+          
+          // First, add priority features
+          const addedFeatures = []
+          priorityFeatures.forEach(feature => {
+            if (value[feature]) {
+              queryParams.append('features', feature)
+              addedFeatures.push(feature)
             }
           })
+          
+          // If we have less than 2 priority features, add some secondary ones (max 2 total)
+          if (addedFeatures.length < 2) {
+            secondaryFeatures.forEach(feature => {
+              if (value[feature] && addedFeatures.length < 2) {
+                queryParams.append('features', feature)
+                addedFeatures.push(feature)
+              }
+            })
+          }
+          
+          console.log('🎯 Selected features for search:', addedFeatures)
         // NEW: Direct mapping for enhanced residential fields
         } else if (key === 'lotSizeAcres') {
           queryParams.append('lotSizeAcres', String(value))
@@ -680,6 +814,12 @@ const searchWithAI = async (pageNum = 1) => {
       }
       
       // Search completed successfully
+      console.log('✅ Search completed:', searchResults.value.length, 'properties on page', currentPage.value, 'of', totalPages.value)
+      
+      // Show a helpful message if no results
+      if (totalProperties.value === 0) {
+        console.log('⚠️ No properties found with current filters. Consider removing some filters.')
+      }
     } else {
       console.error('❌ API returned unexpected format:', response)
       searchResults.value = []
@@ -781,6 +921,137 @@ const findNearestCity = () => {
   
   selectedCity.value = nearestCity.name
   console.log('🎯 Auto-selected nearest city:', nearestCity.name)
+}
+
+// Neighborhood selection handler
+const onNeighborhoodSelected = (neighborhood: any) => {
+  if (neighborhood) {
+    selectedNeighborhoodId.value = neighborhood.id
+    console.log('🏘️ Neighborhood selected:', neighborhood.name, 'ID:', neighborhood.id)
+  } else {
+    selectedNeighborhoodId.value = null
+  }
+}
+
+// Speech Recognition Functions
+const initSpeechRecognition = () => {
+  if (typeof window === 'undefined') return
+
+  // Check browser support
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  
+  if (!SpeechRecognition) {
+    console.warn('⚠️ Speech Recognition not supported in this browser')
+    speechSupported.value = false
+    return
+  }
+
+  speechSupported.value = true
+  speechRecognition.value = new SpeechRecognition()
+  
+  // Configure recognition
+  speechRecognition.value.continuous = false
+  speechRecognition.value.interimResults = true
+  speechRecognition.value.lang = 'en-US'
+  speechRecognition.value.maxAlternatives = 1
+
+  // Event: Speech recognition results
+  speechRecognition.value.onresult = (event: any) => {
+    let interimTranscript = ''
+    let finalTranscript = ''
+
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const transcript = event.results[i][0].transcript
+      
+      if (event.results[i].isFinal) {
+        finalTranscript += transcript
+      } else {
+        interimTranscript += transcript
+      }
+    }
+
+    // Update search query with interim or final results
+    if (finalTranscript) {
+      searchQuery.value = finalTranscript
+      console.log('🎤 Final transcript:', finalTranscript)
+    } else if (interimTranscript) {
+      searchQuery.value = interimTranscript
+      console.log('🎤 Interim transcript:', interimTranscript)
+    }
+  }
+
+  // Event: Speech recognition ends
+  speechRecognition.value.onend = () => {
+    isListening.value = false
+    console.log('🎤 Speech recognition ended')
+  }
+
+  // Event: Speech recognition error
+  speechRecognition.value.onerror = (event: any) => {
+    console.error('🎤 Speech recognition error:', event.error)
+    isListening.value = false
+    
+    let errorMsg = 'Voice recognition failed. '
+    switch (event.error) {
+      case 'no-speech':
+        errorMsg += 'No speech detected. Please try again.'
+        break
+      case 'audio-capture':
+        errorMsg += 'No microphone found.'
+        break
+      case 'not-allowed':
+        errorMsg += 'Microphone permission denied.'
+        break
+      case 'network':
+        errorMsg += 'Network error occurred.'
+        break
+      default:
+        errorMsg += 'Please try again.'
+    }
+    
+    errorMessage.value = errorMsg
+    
+    // Clear error after 5 seconds
+    setTimeout(() => {
+      if (errorMessage.value === errorMsg) {
+        errorMessage.value = ''
+      }
+    }, 5000)
+  }
+
+  // Event: Speech starts
+  speechRecognition.value.onstart = () => {
+    isListening.value = true
+    errorMessage.value = ''
+    console.log('🎤 Speech recognition started')
+  }
+}
+
+const toggleSpeechRecognition = () => {
+  if (!speechSupported.value) {
+    errorMessage.value = 'Speech recognition is not supported in your browser. Please try Chrome, Edge, or Safari.'
+    setTimeout(() => {
+      errorMessage.value = ''
+    }, 5000)
+    return
+  }
+
+  if (isListening.value) {
+    // Stop listening
+    speechRecognition.value?.stop()
+    isListening.value = false
+  } else {
+    // Start listening
+    try {
+      speechRecognition.value?.start()
+    } catch (error) {
+      console.error('🎤 Failed to start speech recognition:', error)
+      errorMessage.value = 'Failed to start voice recognition. Please try again.'
+      setTimeout(() => {
+        errorMessage.value = ''
+      }, 5000)
+    }
+  }
 }
 
 // Alert dialog functions
@@ -896,6 +1167,9 @@ onMounted(async () => {
   await loadCities()
   detectUserLocation()
   
+  // Initialize speech recognition
+  initSpeechRecognition()
+  
   // Start the step animation
   startStepAnimation()
 })
@@ -912,111 +1186,161 @@ useHead({
 
 <style scoped>
 .ai-search-page {
+  background-color: #fcfcfc;
   min-height: 100vh;
-  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
 }
 
+/* HERO */
 .hero-section {
-  background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), 
-              url('https://imageio.forbes.com/specials-images/imageserve/666fde4152910f2a6c6be2f0/0x0.jpg?format=jpg&height=900&width=1600&fit=bounds');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  background: #000;
+  min-height: 440px;
 }
 
-.search-input :deep(.v-field) {
-  border-radius: 12px;
-  font-size: 1.1rem;
+.hero-blur-bg {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at 80% 20%, rgba(25, 118, 210, 0.2) 0%, transparent 50%),
+              radial-gradient(circle at 20% 80%, rgba(25, 118, 210, 0.15) 0%, transparent 50%);
+  filter: blur(80px);
+}
+
+.premium-title {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: clamp(2.5rem, 5vw, 4.5rem);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #fff 40%, rgba(255,255,255,0.3) 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.ai-chip {
+  width: fit-content;
+  padding: 8px 20px;
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+}
+
+/* SEARCH CARD */
+.premium-search-card {
+  background: #fff !important;
+  border-radius: 32px !important;
+  box-shadow: 0 40px 100px rgba(0,0,0,0.08) !important;
+  border: 1px solid #f0f0f0 !important;
+}
+
+.premium-select :deep(.v-field) {
+  border-radius: 14px !important;
+  background-color: #f8f9fa !important;
+}
+
+.premium-textarea :deep(.v-field) {
+  border-radius: 20px !important;
+  padding: 16px !important;
+  background-color: #fcfcfc !important;
+  border-color: #eee !important;
 }
 
 .example-chip {
   cursor: pointer;
   transition: all 0.2s;
+  border-radius: 8px !important;
 }
 
 .example-chip:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background: #f5f5f5;
 }
 
-.extracted-filters {
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border-radius: 12px;
-  padding: 20px;
-  border: 1px solid #e3f2fd;
-}
-
-.filters-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.search-btn {
-  border-radius: 12px !important;
-  font-weight: 600 !important;
+.search-btn-premium {
+  border-radius: 16px !important;
   text-transform: none !important;
+  font-weight: 800 !important;
+  font-size: 1.05rem !important;
+  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1) !important;
 }
 
-.how-it-works {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+.search-btn-premium:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.2) !important;
 }
 
-.pagination-section {
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 16px;
-  padding: 24px;
+.search-loader {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 24px;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-/* Animated Guide Styles */
-.steps-container {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+/* SIDEBAR */
+.sticky-sidebar {
+  position: sticky;
+  top: 100px;
 }
 
-.step-item {
-  margin-bottom: 16px;
-  transition: all 0.3s ease;
+.sidebar-guide-premium {
+  background: #fff;
+  border-radius: 24px !important;
 }
 
-.step-icon {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  min-width: 24px;
-  margin-top: 2px; /* Align with first line of text */
-}
-
-.step-number {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: #1976d2;
-  color: white;
+.step-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: #f8f9fa;
+  border: 1px solid #eee;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
-  font-weight: bold;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
 }
 
-.step-content {
-  flex: 1;
+.step-item:hover .step-circle {
+  background: #000;
+  color: #fff;
 }
 
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.25em;
+  color: #FF9800;
+}
+
+.empty-state-border {
+  border: 2px dashed #e0e0e0;
+}
+
+.tracking-widest { letter-spacing: 0.15em; }
+.leading-relaxed { line-height: 1.7; }
+.gap-2 { gap: 8px; }
+.gap-4 { gap: 16px; }
+.relative { position: relative; }
+.z-10 { z-index: 10; }
+.z-20 { z-index: 20; }
+
+/* Typewriter Animation */
 .typewriter-text {
-  font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
   position: relative;
 }
 
 .typewriter-text::after {
   content: '|';
   animation: blink 1s infinite;
-  color: #1976d2;
+  color: #000;
+  margin-left: 2px;
 }
 
 .text-success.typewriter-text::after {
@@ -1028,18 +1352,73 @@ useHead({
   51%, 100% { opacity: 0; }
 }
 
+/* Voice Recognition Animations */
+.listening-animation {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.pulse-icon {
+  animation: pulse-scale 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(244, 67, 54, 0);
+  }
+}
+
+@keyframes pulse-scale {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+.voice-trigger {
+  transition: all 0.3s ease;
+}
+
 /* Mobile responsiveness */
-@media (max-width: 768px) {
+@media (max-width: 960px) {
+  .sticky-sidebar {
+    position: relative;
+    top: 0;
+  }
+
+  .premium-title {
+    font-size: 2rem;
+  }
+
+  .premium-search-card {
+    border-radius: 24px !important;
+  }
+
+  .search-btn-premium {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
   .hero-section {
-    padding: 40px 0;
+    padding: 48px 0;
   }
-  
-  .search-card {
-    margin: 0 16px;
+
+  .premium-title {
+    font-size: 1.75rem;
   }
-  
-  .filters-grid {
-    justify-content: center;
+
+  .input-footer {
+    flex-direction: column;
+    align-items: stretch !important;
+  }
+
+  .search-btn-premium {
+    margin-top: 12px;
   }
 }
 </style>

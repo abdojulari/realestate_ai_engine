@@ -36,23 +36,6 @@ export default defineEventHandler(async (event) => {
         
         // Import CREA service directly
         const { creaService } = await import('../../../utils/crea.service')
-        
-        // Get system user for CREA listings
-        let systemUser = await prisma.user.findFirst({
-          where: { email: 'system@abdul.com' }
-        })
-
-        if (!systemUser) {
-          systemUser = await prisma.user.create({
-            data: {
-              email: 'system@abdul.com',
-              firstName: 'System',
-              lastName: 'MLS',
-              role: 'agent',
-              provider: 'system'
-            }
-          })
-        }
 
         // Update progress
         await prisma.setting.upsert({
@@ -104,7 +87,37 @@ export default defineEventHandler(async (event) => {
           
           for (const creaProp of batch) {
             try {
-              const transformedProperty = creaService.transformToLocalProperty(creaProp, systemUser.id)
+              // CRITICAL: Fetch agent and office data for each property before storing
+              let agentData = undefined
+              try {
+                console.log(`🔍 Fetching agent/office data for ${creaProp.ListingKey}...`)
+                const propertyWithAgents = await creaService.getPropertyWithAgentDetails(creaProp.ListingKey)
+                
+                if (propertyWithAgents.property) {
+                  agentData = {
+                    listingAgent: propertyWithAgents.listingAgent,
+                    listingOffice: propertyWithAgents.listingOffice,
+                    coListingAgents: propertyWithAgents.coListingAgents,
+                    coListingOffices: propertyWithAgents.coListingOffices
+                  }
+                  console.log(`📋 Agent: ${agentData.listingAgent?.MemberFullName || 'No agent'} @ ${agentData.listingOffice?.OfficeName || 'No office'}`)
+                } else {
+                  console.warn(`⚠️ Property ${creaProp.ListingKey} not found when fetching agent details`)
+                }
+              } catch (agentError) {
+                console.warn(`⚠️ Failed to fetch agent data for ${creaProp.ListingKey}:`, agentError.message)
+              }
+
+              const transformedProperty = creaService.transformToLocalProperty(creaProp, agentData)
+              
+              // Skip if transformer returned null (likely commercial property)
+              if (!transformedProperty) {
+                console.log(`🏢 SKIPPING property ${creaProp.ListingKey} - filtered out by transformer (likely commercial)`)
+                continue
+              }
+              
+              // Remove relation fields that shouldn't be in the create/update data
+              const { user, agent, isSaved, ...propertyData } = transformedProperty as any
               
               // Upsert property
               const existingProperty = await prisma.property.findFirst({
@@ -114,12 +127,12 @@ export default defineEventHandler(async (event) => {
               if (existingProperty) {
                 await prisma.property.update({
                   where: { id: existingProperty.id },
-                  data: { ...transformedProperty, lastSyncAt: new Date() }
+                  data: { ...propertyData, lastSyncAt: new Date() }
                 })
                 syncStats.updated++
               } else {
                 await prisma.property.create({
-                  data: { ...transformedProperty, lastSyncAt: new Date() }
+                  data: { ...propertyData, lastSyncAt: new Date() }
                 })
                 syncStats.created++
               }

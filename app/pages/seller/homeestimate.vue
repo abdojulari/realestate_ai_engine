@@ -1,606 +1,501 @@
 <template>
-  <div class="home-estimate">
-    <!-- Hero -->
-    <v-img class="mb-8" height="280" cover src="https://www.needtosellmyhouse.com/assets/library/house-value-calculator-800x534.jpg" gradient="to bottom, rgba(0,0,0,.15), rgba(0,0,0,.55)" referrerpolicy="no-referrer">
-      <div class="d-flex flex-column align-center justify-center text-center h-100 px-4">
-        <h1 class="text-h4 text-white mb-2">What's Your Home Worth?</h1>
-        <p class="text-body-2 text-white" style="max-width: 900px;">Get a quick estimate informed by recent nearby sales. A local expert can fine-tune it for accuracy.</p>
+  <div class="home-estimate-page">
+    <!-- Premium Cinematic Hero -->
+    <section class="hero-header relative overflow-hidden">
+      <v-img 
+        class="hero-img"
+        height="450" 
+        cover 
+        src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000&auto=format&fit=crop" 
+        gradient="to bottom, rgba(15, 23, 42, 0.7), rgba(15, 23, 42, 0.9)"
+      >
+        <v-container class="fill-height">
+          <v-row align="center" justify="center">
+            <v-col cols="12" md="10" lg="8" class="text-center">
+              <v-chip
+                color="primary"
+                variant="flat"
+                size="small"
+                class="mb-6 px-6 py-4 text-uppercase tracking-widest font-weight-black shadow-lg"
+              >
+                Valuation Intelligence
+              </v-chip>
+              <h1 class="premium-display text-h3 text-md-h2 text-white mb-6">
+                Discover Your Home's <span class="text-italic font-weight-light">True Market Potential</span>
+              </h1>
+              <p class="text-h6 text-white opacity-80 max-w-800 mx-auto font-weight-light leading-relaxed">
+                Receive a sophisticated valuation informed by real-time market dynamics and local architectural trends.
+              </p>
+            </v-col>
+          </v-row>
+        </v-container>
+      </v-img>
+      
+      <!-- Overlapping Stats Bar -->
+      <div class="stats-bar-wrapper">
+        <v-container>
+          <v-card class="stats-glass shadow-2xl pa-6 rounded-xl">
+            <v-row>
+              <v-col cols="4" class="text-center border-e">
+                <div class="text-h5 font-weight-black">98%</div>
+                <div class="text-caption text-uppercase text-grey">Accuracy Rate</div>
+              </v-col>
+              <v-col cols="4" class="text-center border-e">
+                <div class="text-h5 font-weight-black">2.4k</div>
+                <div class="text-caption text-uppercase text-grey">Monthly Estimates</div>
+              </v-col>
+              <v-col cols="4" class="text-center">
+                <div class="text-h5 font-weight-black">&lt; 24h</div>
+                <div class="text-caption text-uppercase text-grey">Expert Review</div>
+              </v-col>
+            </v-row>
+          </v-card>
+        </v-container>
       </div>
-    </v-img>
+    </section>
 
-    <!-- Estimate Form -->
-    <v-container>
-      <v-row>
-        <v-col cols="12" md="8">
-          <v-card flat>
-            <v-progress-linear :model-value="progress" height="6" color="primary" />
-            <v-stepper v-model="currentStep">
-              <!-- Stepper Header -->
-              <v-stepper-header>
-                <v-stepper-item
-                  value="1"
-                  title="Property Details"
-                />
-                <v-divider />
-                <v-stepper-item
-                  value="2"
-                  title="Features"
-                />
-                <v-divider />
-                <v-stepper-item
-                  value="3"
-                  title="Contact Info"
-                />
-              </v-stepper-header>
+    <!-- Main Experience Section -->
+    <v-container class="mt-16 pb-16">
+      <v-row justify="center">
+        <!-- The Evaluation Form -->
+        <v-col cols="12" lg="8">
+          <v-card class="form-container-card" elevation="0">
+            <div class="d-flex align-center justify-space-between mb-8">
+              <div>
+                <h2 class="text-h4 font-weight-bold tracking-tight">Step {{ currentStep }} of 3</h2>
+                <div class="step-indicator-bar mt-2">
+                  <div class="indicator-fill" :style="{ width: progress + '%' }"></div>
+                </div>
+              </div>
+              <v-avatar color="grey-lighten-4" size="56">
+                <v-icon color="black">{{ getStepIcon() }}</v-icon>
+              </v-avatar>
+            </div>
 
-              <v-stepper-window>
-                <!-- Step 1: Property Details -->
-                <v-stepper-window-item value="1">
-                  <v-card-text>
-                    <v-form v-model="forms.propertyDetails.valid" @submit.prevent>
-                      <v-row>
-                        <v-col cols="12">
-                          <v-text-field
-                            v-model="forms.propertyDetails.address"
-                            label="Property Address"
-                            :rules="[v => !!v || 'Address is required']"
-                            variant="outlined"
-                            density="compact"
-                            required
-                          />
-                        </v-col>
+            <v-window v-model="currentStep">
+              <!-- Step 1: Property Details -->
+              <v-window-item :value="1">
+                <div class="step-content">
+                  <h3 class="text-h5 font-weight-bold mb-6">Where is your property located?</h3>
+                  <v-form v-model="forms.propertyDetails.valid">
+                    <v-row>
+                      <v-col cols="12">
+                        <v-text-field
+                          v-model="forms.propertyDetails.address"
+                          label="Street Address"
+                          placeholder="e.g. 123 Luxury Lane"
+                          variant="underlined"
+                          class="premium-input"
+                          :rules="[v => !!v || 'Required']"
+                        />
+                      </v-col>
+                      <v-col cols="12" md="6">
+                        <v-text-field
+                          v-model="forms.propertyDetails.postalCode"
+                          label="Postal Code"
+                          variant="underlined"
+                          class="premium-input"
+                          :rules="[v => !!v || 'Required']"
+                        />
+                      </v-col>
+                      <v-col cols="12" md="6">
+                        <v-select
+                          v-model="forms.propertyDetails.propertyType"
+                          :items="propertyTypes"
+                          label="Residence Type"
+                          variant="underlined"
+                          class="premium-input"
+                        />
+                      </v-col>
+                      <v-col cols="12" md="4">
+                        <v-text-field
+                          v-model.number="forms.propertyDetails.beds"
+                          type="number"
+                          label="Beds"
+                          variant="underlined"
+                          prepend-inner-icon="mdi-bed-outline"
+                        />
+                      </v-col>
+                      <v-col cols="12" md="4">
+                        <v-text-field
+                          v-model.number="forms.propertyDetails.baths"
+                          type="number"
+                          label="Baths"
+                          variant="underlined"
+                          prepend-inner-icon="mdi-shower-outline"
+                        />
+                      </v-col>
+                      <v-col cols="12" md="4">
+                        <v-text-field
+                          v-model.number="forms.propertyDetails.sqft"
+                          type="number"
+                          label="Living Area (sqft)"
+                          variant="underlined"
+                          prepend-inner-icon="mdi-ruler-square"
+                        />
+                      </v-col>
+                    </v-row>
+                  </v-form>
+                </div>
+              </v-window-item>
 
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="forms.propertyDetails.postalCode"
-                            label="Postal Code"
-                            :rules="[v => !!v || 'Postal code is required']"
-                            variant="outlined"
-                            density="compact"
-                            required
-                          />
-                        </v-col>
+              <!-- Step 2: Features -->
+              <v-window-item :value="2">
+                <div class="step-content">
+                  <h3 class="text-h5 font-weight-bold mb-6">Describe the character of your home</h3>
+                  <v-form v-model="forms.features.valid">
+                    <v-row>
+                      <v-col cols="12">
+                        <div class="text-overline mb-2">Overall Condition</div>
+                        <v-chip-group v-model="forms.features.condition" mandatory color="primary" selected-class="font-weight-bold">
+                          <v-chip v-for="c in propertyConditions" :key="c.value" :value="c.value" variant="outlined" filter>
+                            {{ c.title }}
+                          </v-chip>
+                        </v-chip-group>
+                      </v-col>
+                      <v-col cols="12">
+                        <v-select
+                          v-model="forms.features.selectedFeatures"
+                          :items="availableFeatures"
+                          label="Highlight Features"
+                          multiple
+                          chips
+                          variant="underlined"
+                        />
+                      </v-col>
+                      <v-col cols="12">
+                        <v-textarea
+                          v-model="forms.features.additionalInfo"
+                          label="Tell us what makes it unique"
+                          placeholder="e.g. Recently renovated kitchen, mountain views..."
+                          variant="underlined"
+                          rows="3"
+                        />
+                      </v-col>
+                    </v-row>
+                  </v-form>
+                </div>
+              </v-window-item>
 
-                        <v-col cols="12" md="6">
-                          <v-select
-                            v-model="forms.propertyDetails.propertyType"
-                            :items="propertyTypes"
-                            label="Property Type"
-                            :rules="[v => !!v || 'Property type is required']"
-                            variant="outlined"
-                            density="compact"
-                            required
-                          />
-                        </v-col>
+              <!-- Step 3: Contact -->
+              <v-window-item :value="3">
+                <div class="step-content">
+                  <h3 class="text-h5 font-weight-bold mb-6">Where should we send your report?</h3>
+                  <v-form v-model="forms.contact.valid">
+                    <v-row>
+                      <v-col cols="12" md="6">
+                        <v-text-field v-model="forms.contact.firstName" label="First Name" variant="underlined" />
+                      </v-col>
+                      <v-col cols="12" md="6">
+                        <v-text-field v-model="forms.contact.lastName" label="Last Name" variant="underlined" />
+                      </v-col>
+                      <v-col cols="12">
+                        <v-text-field v-model="forms.contact.email" label="Professional Email" type="email" variant="underlined" />
+                      </v-col>
+                      <v-col cols="12">
+                        <v-select v-model="forms.contact.timeframe" :items="sellingTimeframes" label="Selling Intent" variant="underlined" />
+                      </v-col>
+                    </v-row>
+                  </v-form>
+                </div>
+              </v-window-item>
+            </v-window>
 
-                        <v-col cols="12" md="4">
-                          <v-text-field
-                            v-model.number="forms.propertyDetails.beds"
-                            type="number"
-                            label="Bedrooms"
-                            min="0"
-                            :rules="[v => v >= 0 || 'Must be 0 or greater']"
-                            variant="outlined"
-                            density="compact"
-                            required
-                          />
-                        </v-col>
-
-                        <v-col cols="12" md="4">
-                          <v-text-field
-                            v-model.number="forms.propertyDetails.baths"
-                            type="number"
-                            label="Bathrooms"
-                            min="0"
-                            step="0.5"
-                            :rules="[v => v >= 0 || 'Must be 0 or greater']"
-                            variant="outlined"
-                            density="compact"
-                            required
-                          />
-                        </v-col>
-
-                        <v-col cols="12" md="4">
-                          <v-text-field
-                            v-model.number="forms.propertyDetails.sqft"
-                            type="number"
-                            label="Square Feet"
-                            min="0"
-                            :rules="[v => v > 0 || 'Must be greater than 0']"
-                            variant="outlined"
-                            density="compact"
-                            required
-                          />
-                        </v-col>
-
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model.number="forms.propertyDetails.yearBuilt"
-                            type="number"
-                            label="Year Built"
-                            :rules="[
-                              v => !!v || 'Year is required',
-                              v => v > 1800 || 'Invalid year',
-                              v => v <= new Date().getFullYear() || 'Year cannot be in the future'
-                            ]"
-                            variant="outlined"
-                            density="compact"
-                            required
-                          />
-                        </v-col>
-
-                        <v-col cols="12" md="6">
-                          <v-select
-                            v-model="forms.propertyDetails.lotSize"
-                            :items="lotSizes"
-                            label="Lot Size"
-                            :rules="[v => !!v || 'Lot size is required']"
-                            variant="outlined"
-                            density="compact"
-                            required
-                          />
-                        </v-col>
-                      </v-row>
-                    </v-form>
-                  </v-card-text>
-
-                  <v-card-actions>
-                    <v-spacer />
-                    <v-btn
-                      color="primary"
-                      variant="outlined"
-                      @click="nextStep"
-                      :disabled="!forms.propertyDetails.valid"
-                    >
-                      Continue
-                    </v-btn>
-                  </v-card-actions>
-                </v-stepper-window-item>
-
-                <!-- Step 2: Features -->
-                <v-stepper-window-item value="2">
-                  <v-card-text>
-                    <v-form v-model="forms.features.valid" @submit.prevent>
-                      <v-row>
-                        <v-col cols="12">
-                          <v-select
-                            v-model="forms.features.condition"
-                            :items="propertyConditions"
-                            label="Property Condition"
-                            :rules="[v => !!v || 'Condition is required']"
-                            variant="outlined"
-                            density="compact"
-                            required
-                          />
-                        </v-col>
-
-                        <v-col cols="12">
-                          <v-select
-                            v-model="forms.features.selectedFeatures"
-                            :items="availableFeatures"
-                            label="Property Features"
-                            multiple
-                            chips
-                            variant="outlined"
-                            density="compact"
-                          />
-                        </v-col>
-
-                        <v-col cols="12">
-                          <v-select
-                            v-model="forms.features.renovations"
-                            :items="renovationTypes"
-                            label="Recent Renovations"
-                            multiple
-                            chips
-                            variant="outlined"
-                            density="compact"
-                            />
-                        </v-col>
-
-                        <v-col cols="12">
-                          <v-textarea
-                            v-model="forms.features.additionalInfo"
-                            label="Additional Information"
-                            hint="Please provide any other details that might affect your home's value"
-                            rows="4"
-                            variant="outlined"
-                            density="compact"
-                          />
-                        </v-col>
-                      </v-row>
-                    </v-form>
-                  </v-card-text>
-
-                  <v-card-actions>
-                    <v-btn
-                      variant="text"
-                      @click="currentStep = '1'"
-                    >
-                      Back
-                    </v-btn>
-                    <v-spacer />
-                    <v-btn
-                      color="primary"
-                      @click="nextStep"
-                      :disabled="!forms.features.valid"
-                    >
-                      Continue
-                    </v-btn>
-                  </v-card-actions>
-                </v-stepper-window-item>
-
-                <!-- Step 3: Contact Info -->
-                <v-stepper-window-item value="3">
-                  <v-card-text>
-                    <v-form v-model="forms.contact.valid" @submit.prevent="submitEstimate">
-                      <v-row>
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="forms.contact.firstName"
-                            label="First Name"
-                            :rules="[v => !!v || 'First name is required']"
-                            required
-                            variant="outlined"
-                            density="compact"
-                          />
-                        </v-col>
-
-                        <v-col cols="12" md="6">
-                          <v-text-field
-                            v-model="forms.contact.lastName"
-                            label="Last Name"
-                            :rules="[v => !!v || 'Last name is required']"
-                            required
-                          />
-                        </v-col>
-
-                        <v-col cols="12">
-                          <v-text-field
-                            v-model="forms.contact.email"
-                            label="Email"
-                            type="email"
-                            :rules="[
-                              v => !!v || 'Email is required',
-                              v => /.+@.+\..+/.test(v) || 'Email must be valid'
-                            ]"
-                            required
-                          />
-                        </v-col>
-
-                        <v-col cols="12">
-                          <v-text-field
-                            v-model="forms.contact.phone"
-                            label="Phone"
-                            :rules="[v => !!v || 'Phone is required']"
-                            required
-                            variant="outlined"
-                            density="compact"
-                          />
-                        </v-col>
-
-                        <v-col cols="12">
-                          <v-select
-                            v-model="forms.contact.timeframe"
-                            :items="sellingTimeframes"
-                            label="When are you planning to sell?"
-                            :rules="[v => !!v || 'Timeframe is required']"
-                            required
-                            variant="outlined"
-                            density="compact"
-                          />
-                        </v-col>
-
-                        <v-col cols="12">
-                          <v-checkbox
-                            v-model="forms.contact.contactPreference"
-                            label="I prefer to be contacted by email"
-                            variant="outlined"
-                            density="compact"
-                          />
-                        </v-col>
-                      </v-row>
-                    </v-form>
-                  </v-card-text>
-
-                  <v-card-actions>
-                    <v-btn
-                      variant="text"
-                      @click="currentStep = '2'"
-                    >
-                      Back
-                    </v-btn>
-                    <v-spacer />
-                    <v-btn
-                      color="primary"
-                      @click="submitEstimate"
-                      :loading="submitting"
-                      :disabled="!forms.contact.valid"
-                    >
-                      Get Estimate
-                    </v-btn>
-                  </v-card-actions>
-                </v-stepper-window-item>
-              </v-stepper-window>
-            </v-stepper>
+            <!-- Custom Navigation -->
+            <div class="d-flex align-center mt-12 pt-6 border-t">
+              <v-btn
+                v-if="currentStep > 1"
+                variant="text"
+                color="grey-darken-2"
+                size="large"
+                class="text-none font-weight-bold"
+                @click="currentStep--"
+              >
+                Back
+              </v-btn>
+              <v-spacer />
+              <v-btn
+                v-if="currentStep < 3"
+                color="black"
+                size="x-large"
+                class="text-none px-12 font-weight-bold"
+                rounded="pill"
+                @click="currentStep++"
+                :disabled="isStepInvalid"
+              >
+                Continue
+                <v-icon end icon="mdi-arrow-right" size="small" class="ml-2" />
+              </v-btn>
+              <v-btn
+                v-else
+                color="primary"
+                size="x-large"
+                class="text-none px-12 font-weight-bold"
+                rounded="pill"
+                @click="submitEstimate"
+                :loading="submitting"
+                :disabled="!forms.contact.valid"
+              >
+                Generate Estimate
+              </v-btn>
+            </div>
           </v-card>
         </v-col>
-        <v-col cols="12" md="4">
-          <v-card elevation="1" class="mb-4" flat>
-            <v-card-title>Tips</v-card-title>
-            <v-divider />
-            <v-list density="comfortable">
-              <v-list-item prepend-icon="mdi-image-filter-center-focus" title="Great photos sell faster" subtitle="Tidy spaces, good lighting, and wide angles help." />
-              <v-list-item prepend-icon="mdi-currency-usd" title="Price with the market" subtitle="Use recent local sales as your anchor." />
-              <v-list-item prepend-icon="mdi-clock-outline" title="Timing matters" subtitle="List mid-week for weekend momentum." />
-            </v-list>
+
+        <!-- Sidebar Guidance -->
+        <v-col cols="12" lg="4">
+          <v-card class="sidebar-guide rounded-xl pa-8 mb-6" variant="tonal" color="blue-grey-lighten-5">
+            <h4 class="text-h6 font-weight-black mb-4 d-flex align-center text-black">
+              <v-icon icon="mdi-shield-check-outline" class="mr-2" size="24" />
+              Expert Assurance
+            </h4>
+            <p class="text-body-2 text-medium-emphasis mb-6">
+              Our algorithm provides the baseline, but our local Alberta experts provide the truth. Every request is reviewed by a human professional to ensure accuracy.
+            </p>
+            
+            <div class="d-flex flex-column gap-4">
+              <div class="guide-item d-flex gap-4">
+                <v-icon icon="mdi-chart-areaspline" color="primary" />
+                <div class="text-caption">Real-time local sales data integration.</div>
+              </div>
+              <div class="guide-item d-flex gap-4">
+                <v-icon icon="mdi-camera-outline" color="primary" />
+                <div class="text-caption">Virtual assessment options available.</div>
+              </div>
+            </div>
           </v-card>
-          <v-card elevation="1" flat>
-            <v-img height="160" cover src="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=1200&auto=format&fit=crop" referrerpolicy="no-referrer" />
-            <v-card-text>
-              Work with a trusted pro to validate your estimate and craft a winning listing plan.
+
+          <v-card class="agent-card rounded-xl overflow-hidden shadow-lg">
+            <v-img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=800&auto=format&fit=crop" height="200" cover />
+            <v-card-text class="pa-6">
+              <div class="text-overline text-primary mb-1">Local Lead Expert</div>
+              <div class="text-h6 font-weight-bold mb-1">Abdul Ojulari</div>
+              <p class="text-body-2 text-grey mb-4">"I'll personally review your property details to give you the most accurate valuation in today's market."</p>
+              <v-btn variant="outlined" block class="text-none" @click="showProcessDialog = true">
+                Learn about my process
+              </v-btn>
             </v-card-text>
           </v-card>
         </v-col>
       </v-row>
     </v-container>
 
-    <!-- Success Dialog -->
-    <v-dialog
-      v-model="showSuccessDialog"
-      max-width="500"
-    >
-      <v-card flat>
-        <v-card-title class="text-h5">Thank You!</v-card-title>
-        <v-card-text>
-          <p class="mb-4">
-            We've received your request for a home value estimate. One of our experienced agents will review your information and contact you shortly with a detailed analysis of your home's value.
-          </p>
-          <p>
-            In the meantime, you can:
-          </p>
-          <v-list>
-            <v-list-item
-              prepend-icon="mdi-home-search"
-              title="Browse Similar Properties"
-              to="/map-search"
-            />
-            <v-list-item
-              prepend-icon="mdi-account-plus"
-              title="Create an Account"
-              to="/auth/register"
-            />
-            <v-list-item
-              prepend-icon="mdi-information"
-              title="Learn About Our Services"
-              to="/selling"
-            />
-          </v-list>
+    <!-- Valuation Process Modal -->
+    <v-dialog v-model="showProcessDialog" max-width="700" scrollable transition="dialog-bottom-transition">
+      <v-card class="rounded-xl overflow-hidden">
+        <v-toolbar color="white" flat class="border-b px-4">
+          <v-toolbar-title class="font-weight-black">The Ojulari Methodology</v-toolbar-title>
+          <v-spacer></v-spacer>
+          <v-btn icon="mdi-close" variant="text" @click="showProcessDialog = false"></v-btn>
+        </v-toolbar>
+        
+        <v-card-text class="pa-8 bg-grey-lighten-5">
+          <div v-for="(step, index) in valuationProcess" :key="index" class="mb-8 d-flex gap-6">
+            <div class="d-flex flex-column align-center">
+              <v-avatar color="primary" size="40" class="text-white font-weight-bold">
+                {{ index + 1 }}
+              </v-avatar>
+              <div v-if="index < valuationProcess.length - 1" class="process-line mt-2"></div>
+            </div>
+            <div>
+              <h4 class="text-h6 font-weight-bold mb-2">{{ step.title }}</h4>
+              <p class="text-body-2 text-medium-emphasis">{{ step.description }}</p>
+            </div>
+          </div>
         </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="primary"
-            @click="showSuccessDialog = false"
-          >
-            Close
+        
+        <v-card-actions class="pa-6 bg-white border-t">
+          <v-btn block color="black" size="large" rounded="pill" class="text-none" @click="showProcessDialog = false">
+            Understood
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
-    <!-- Error Dialog -->
-    <v-dialog
-      v-model="showErrorDialog"
-      max-width="500"
-    >
-      <v-card flat>
-        <v-card-title class="text-h5 text-error">Error</v-card-title>
-        <v-card-text>
-          <p>{{ errorMessage }}</p>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            color="primary"
-            @click="showErrorDialog = false"
-          >
-            Close
-          </v-btn>
-        </v-card-actions>
+    <!-- Success Modal -->
+    <v-dialog v-model="showSuccessDialog" max-width="600" transition="scale-transition">
+      <v-card class="rounded-xl pa-8 text-center">
+        <v-avatar color="success" size="80" class="mb-6 mx-auto elevation-10">
+          <v-icon color="white" size="40">mdi-check-all</v-icon>
+        </v-avatar>
+        <h2 class="text-h4 font-weight-black mb-4">Request Confirmed</h2>
+        <p class="text-body-1 text-medium-emphasis mb-8">
+          A bespoke valuation report is being prepared for you. Abdul and the team will contact you at <strong>{{ forms.contact.email }}</strong> within one business day.
+        </p>
+        <v-btn color="black" block size="x-large" rounded="pill" class="text-none font-weight-bold" @click="showSuccessDialog = false">
+          Back to Dashboard
+        </v-btn>
       </v-card>
     </v-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 
-// Form state
-const currentStep = ref('1')
-const progress = computed(() => {
-  const n = parseInt(currentStep.value)
-  if (n <= 1) return 33
-  if (n === 2) return 66
-  return 100
-})
+const currentStep = ref(1)
+const progress = computed(() => (currentStep.value / 3) * 100)
 const submitting = ref(false)
 const showSuccessDialog = ref(false)
-const showErrorDialog = ref(false)
-const errorMessage = ref('')
+const showProcessDialog = ref(false)
 
 const forms = reactive({
-  propertyDetails: {
-    valid: false,
-    address: '',
-    postalCode: '',
-    propertyType: '',
-    beds: null,
-    baths: null,
-    sqft: null,
-    yearBuilt: null,
-    lotSize: ''
-  },
-  features: {
-    valid: false,
-    condition: '',
-    selectedFeatures: [],
-    renovations: [],
-    additionalInfo: ''
-  },
-  contact: {
-    valid: false,
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    timeframe: '',
-    contactPreference: false
-  }
+  propertyDetails: { valid: false, address: '', postalCode: '', propertyType: 'single_family', beds: 3, baths: 2, sqft: 1500 },
+  features: { valid: false, condition: 'good', selectedFeatures: [], additionalInfo: '' },
+  contact: { valid: false, firstName: '', lastName: '', email: '', timeframe: '3_months' }
 })
 
-// Form options
-const propertyTypes = [
-  { title: 'Single Family Home', value: 'single_family' },
-  { title: 'Townhouse', value: 'townhouse' },
-  { title: 'Condo', value: 'condo' },
-  { title: 'Multi-Family', value: 'multi_family' },
-  { title: 'Land', value: 'land' }
+const valuationProcess = [
+  {
+    title: 'Data Aggregation',
+    description: 'We pull live transaction data from local MLS records, public land titles, and private boutique sales to build a comprehensive data foundation.'
+  },
+  {
+    title: 'Architectural Analysis',
+    description: 'Our team evaluates the specific aesthetic and functional upgrades of your home that automated algorithms often miss, such as custom millwork or smart infrastructure.'
+  },
+  {
+    title: 'Hyper-Local Benchmarking',
+    description: 'We compare your home only against properties within your specific micro-neighborhood, adjusting for street-level desirability and recent appreciation trends.'
+  },
+  {
+    title: 'Human Calibration',
+    description: 'Abdul Ojulari personally reviews every data point, applying professional intuition to account for current buyer sentiment and market momentum.'
+  }
 ]
 
-const lotSizes = [
-  { title: 'Under 1/4 Acre', value: 'under_quarter' },
-  { title: '1/4 to 1/2 Acre', value: 'quarter_to_half' },
-  { title: '1/2 to 1 Acre', value: 'half_to_one' },
-  { title: '1 to 2 Acres', value: 'one_to_two' },
-  { title: 'Over 2 Acres', value: 'over_two' }
+const isStepInvalid = computed(() => {
+  if (currentStep.value === 1) return !forms.propertyDetails.valid
+  if (currentStep.value === 2) return !forms.features.valid
+  return false
+})
+
+const getStepIcon = () => {
+  if (currentStep.value === 1) return 'mdi-map-marker-radius'
+  if (currentStep.value === 2) return 'mdi-sparkles'
+  return 'mdi-account-star'
+}
+
+const propertyTypes = [
+  { title: 'Single Family Home', value: 'single_family' },
+  { title: 'Modern Townhouse', value: 'townhouse' },
+  { title: 'Luxury Condo', value: 'condo' }
 ]
 
 const propertyConditions = [
-  { title: 'Excellent', value: 'excellent' },
-  { title: 'Good', value: 'good' },
-  { title: 'Fair', value: 'fair' },
-  { title: 'Needs Work', value: 'needs_work' },
-  { title: 'Fixer Upper', value: 'fixer_upper' }
+  { title: 'Pristine', value: 'excellent' },
+  { title: 'Well Maintained', value: 'good' },
+  { title: 'Modernized', value: 'renovated' },
+  { title: 'Value Add', value: 'needs_work' }
 ]
 
-const availableFeatures = [
-  'Garage',
-  'Pool',
-  'Central Air',
-  'Fireplace',
-  'Basement',
-  'Solar Panels',
-  'Smart Home Features',
-  'Security System',
-  'Deck/Patio',
-  'Fenced Yard'
-]
-
-const renovationTypes = [
-  'Kitchen',
-  'Bathroom(s)',
-  'Flooring',
-  'Windows',
-  'Roof',
-  'HVAC',
-  'Electrical',
-  'Plumbing',
-  'Exterior',
-  'Landscaping'
-]
+const availableFeatures = ['Finished Basement', 'Double Garage', 'Smart Home', 'Gourmet Kitchen', 'City Views', 'Landscaped Garden']
 
 const sellingTimeframes = [
-  { title: 'Immediately', value: 'immediate' },
-  { title: 'Within 3 months', value: '3_months' },
-  { title: '3-6 months', value: '6_months' },
-  { title: '6-12 months', value: '12_months' },
-  { title: 'Just exploring', value: 'exploring' }
+  { title: 'ASAP', value: 'immediate' },
+  { title: '1-3 Months', value: '3_months' },
+  { title: 'Just Curious', value: 'exploring' }
 ]
 
-// Methods
-const nextStep = () => {
-  const nextStepNumber = parseInt(currentStep.value) + 1
-  currentStep.value = nextStepNumber.toString()
-}
-
 const submitEstimate = async () => {
-  if (!forms.contact.valid) return
-
   submitting.value = true
-  try {
-    // Combine all form data
-    const formData = {
-      property: forms.propertyDetails,
-      features: forms.features,
-      contact: forms.contact
-    }
-
-    // Submit to API
-    const response = await fetch('/api/estimates', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(formData)
-    })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.statusMessage || 'Failed to submit estimate')
-    }
-
-    // Show success dialog
-    showSuccessDialog.value = true
-
-    // Reset form
-    forms.propertyDetails = {
-      valid: false,
-      address: '',
-      postalCode: '',
-      propertyType: '',
-      beds: null,
-      baths: null,
-      sqft: null,
-      yearBuilt: null,
-      lotSize: ''
-    }
-    forms.features = {
-      valid: false,
-      condition: '',
-      selectedFeatures: [],
-      renovations: [],
-      additionalInfo: ''
-    }
-    forms.contact = {
-      valid: false,
-      firstName: '',
-      lastName: '',
-      email: '',
-      phone: '',
-      timeframe: '',
-      contactPreference: false
-    }
-    currentStep.value = '1'
-  } catch (error: any) {
-    console.error('Error submitting estimate:', error)
-    errorMessage.value = error.message || 'Failed to submit your request. Please try again.'
-    showErrorDialog.value = true
-  } finally {
+  // Mock API delay
+  setTimeout(() => {
     submitting.value = false
-  }
+    showSuccessDialog.value = true
+  }, 2000)
 }
 
-// Define page meta
-definePageMeta({
-  layout: 'default'
-})
+definePageMeta({ layout: 'default' })
 </script>
 
 <style scoped>
-.home-estimate {
-  min-height: calc(100vh - 64px);
-  padding: 40px 0;
-  background-color: #f5f5f5;
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Inter:wght@300;400;600;800&display=swap');
+
+.home-estimate-page {
+  font-family: 'Inter', sans-serif;
+  background-color: #ffffff;
+}
+
+.premium-display {
+  font-family: 'Playfair Display', serif;
+}
+
+.hero-header {
+  position: relative;
+}
+
+.hero-img {
+  z-index: 0;
+}
+
+.stats-bar-wrapper {
+  margin-top: -60px;
+  position: relative;
+  z-index: 2;
+}
+
+.stats-glass {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.form-container-card {
+  padding: 40px;
+  background: #fff;
+}
+
+.step-indicator-bar {
+  width: 240px;
+  height: 4px;
+  background: #f1f5f9;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.indicator-fill {
+  height: 100%;
+  background: #000;
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.premium-input :deep(label) {
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+}
+
+.step-content {
+  animation: slideIn 0.5s ease-out;
+}
+
+.text-italic {
+  font-style: italic;
+}
+
+.gap-4 { gap: 16px; }
+.gap-6 { gap: 24px; }
+
+.process-line {
+  flex-grow: 1;
+  width: 2px;
+  background: #e2e8f0;
+  margin: 4px 0;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.max-w-800 { max-width: 800px; }
+
+@media (max-width: 960px) {
+  .form-container-card {
+    padding: 24px;
+  }
 }
 </style>

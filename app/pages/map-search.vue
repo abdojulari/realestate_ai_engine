@@ -1,215 +1,181 @@
 <template>
-  <v-container fluid class="pa-0 map-search">
-    <v-row no-gutters class="map-search-row">
-      <!-- Search Panel -->
+  <v-container fluid class="pa-0 map-search-wrapper">
+    <v-row no-gutters class="layout-row">
+      <!-- Search Panel: Sidebar -->
       <v-col 
         cols="12" 
         lg="4" 
+        xl="3"
         class="search-panel-col"
-        :class="{ 'panel-expanded': showPanel }"
+        :class="{ 'panel-hidden': !showPanel }"
       >
         <div class="search-panel">
-          <div class="panel-header">
-            <v-btn
-              icon="mdi-menu"
-              variant="text"
-              @click="showPanel = !showPanel"
-              class="d-lg-none"
-            />
-            <h1 class="text-h5">Property Search</h1>
-          </div>
-
-          <div class="panel-content">
-        <!-- Location Selection -->
-        <div class="mb-4">
-          <CitySelector
-            v-model="selectedCity"
-            @city-selected="handleCitySelected"
-          />
-          
-          <!-- Neighborhood Selection -->
-          <div class="mt-3">
-            <NeighborhoodDropdown
-              v-model="selectedNeighborhoodId"
-              label="Filter by Neighborhood"
-              placeholder="Select neighborhood..."
-              :city-filter="selectedCity"
-              @neighborhood-selected="handleNeighborhoodSelected"
-            />
-          </div>
-          
-          <v-alert 
-            v-if="selectedCity || selectedNeighborhoodId"
-            type="info"
-            variant="tonal"
-            density="compact"
-            class="mt-2"
-            prepend-icon="mdi-information"
-          >
-            <span v-if="selectedNeighborhoodInfo">
-              Showing properties in <strong>{{ selectedNeighborhoodInfo.name }}, {{ selectedNeighborhoodInfo.city }}</strong>
-            </span>
-            <span v-else-if="selectedCity">
-              Showing properties in <strong>{{ selectedCity }}</strong>
-            </span>
-            <template v-slot:append>
+          <!-- Premium Header -->
+          <div class="panel-header px-6 py-6">
+            <div class="d-flex align-center justify-space-between mb-4">
+              <h1 class="premium-title">Properties</h1>
               <v-btn
-                size="small"
+                icon="mdi-close"
                 variant="text"
-                @click="clearLocationSelection"
-              >
-                Show All
-              </v-btn>
-            </template>
-          </v-alert>
-        </div>
-
-        <!-- Search Filters -->
-        <SearchFilters
-          :initial-filters="filters"
-          @search="handleSearch"
-          @update:filters="updateFilters"
-          variant="outlined"
-          density="compact"
-        />
-
-        <v-divider class="my-4" />
-
-        <!-- Search Results -->
-        <div class="search-results">
-          <div class="d-flex align-center mb-4">
-            <div class="text-body-1">
-              <strong>{{ totalProperties }}</strong> properties found
-              <span v-if="selectedCity" class="text-medium-emphasis">in {{ selectedCity }}</span>
-              <br>
-              <span class="text-caption text-medium-emphasis">
-                Page {{ currentPage }} of {{ totalPagesComputed }} • Showing {{ paginatedProperties.length }} per page
-              </span>
+                density="comfortable"
+                @click="showPanel = false"
+                class="d-lg-none"
+              />
             </div>
-            <v-spacer />
-            <v-select
-              v-model="sortBy"
-              :items="sortOptions"
-              label="Sort by"
-              density="compact"
-              hide-details
-              class="sort-select"
-              variant="outlined"
-              @update:model-value="handleSortChange"
-            />
-          </div>
-
-          <!-- Property List -->
-          <div class="property-list">
-            <v-skeleton-loader
-              v-if="initialLoading || loading"
-              type="card"
-              :loading="initialLoading || loading"
-              class="mb-4"
-              v-for="n in 3"
-              :key="n"
-            />
             
-            <PropertyCard
-              v-else
-              v-for="property in paginatedProperties"
-              :key="property.id"
-              :property="property"
-              class="mb-4"
-              @click="selectProperty(property)"
-              @save="toggleSave(property)"
-              @contact="contactAgent(property)"
-            />
-
-          </div>
-
-          <!-- Clean Pagination Controls -->
-          <div v-if="totalPagesComputed > 1" class="d-flex align-center justify-center gap-2 mt-6">
-            <!-- Previous Button -->
-            <v-btn
-              :disabled="currentPage === 1"
-              variant="outlined"
-              size="small"
-              @click="goToPage(currentPage - 1)"
-            >
-              <v-icon>mdi-chevron-left</v-icon>
-              Previous
-            </v-btn>
-
-            <!-- Page Numbers (only show current and optionally next) -->
-            <div class="d-flex align-center gap-1">
-              <v-chip 
-                color="primary" 
-                variant="flat" 
-                size="small"
-                class="px-3"
-              >
-                {{ currentPage }}
-              </v-chip>
+            <!-- Location Selection Group -->
+            <div class="location-group">
+              <CitySelector
+                v-model="selectedCity"
+                @city-selected="handleCitySelected"
+                class="premium-input mb-3"
+              />
               
-              <span class="text-caption text-medium-emphasis px-2">of</span>
-              
-              <v-chip 
-                variant="outlined" 
-                size="small"
-                class="px-3"
-              >
-                {{ totalPagesComputed }}
-              </v-chip>
-            </div>
+              <NeighborhoodDropdown
+                v-model="selectedNeighborhoodId"
+                label="Neighborhood"
+                placeholder="All Areas"
+                :city-filter="selectedCity"
+                @neighborhood-selected="handleNeighborhoodSelected"
+                class="premium-input"
+              />
 
-            <!-- Next Button -->
-            <v-btn
-              :disabled="currentPage === totalPagesComputed"
-              variant="outlined"
-              size="small"
-              @click="goToPage(currentPage + 1)"
-            >
-              Next
-              <v-icon>mdi-chevron-right</v-icon>
-            </v-btn>
-          </div>
-            
-            <!-- Results Summary -->
-            <div v-if="sortedProperties.length > 0" class="mt-4">
-              <v-chip 
-                variant="outlined" 
-                color="primary" 
-                size="small"
-              >
-                <v-icon start size="small">mdi-information</v-icon>
-                {{ ((currentPage - 1) * itemsPerPage) + 1 }}-{{ Math.min(currentPage * itemsPerPage, totalProperties) }} of {{ totalProperties }} properties
-              </v-chip>
-            </div>
-
-            <!-- No Results -->
-            <div v-if="!initialLoading && !loading && sortedProperties.length === 0" class="text-center py-8">
-              <v-icon size="64" color="grey" class="mb-4">mdi-home-search</v-icon>
-              <h3 class="text-h6 mb-2">No Properties Found</h3>
-              <p class="text-body-2 text-medium-emphasis mb-4">
-                <span v-if="selectedCity">No properties match your criteria in {{ selectedCity }}</span>
-                <span v-else>Try adjusting your search filters</span>
-              </p>
-              <v-btn 
-                v-if="selectedCity" 
-                variant="outlined"
-                @click="clearCitySelection"
-              >
-                <v-icon start>mdi-refresh</v-icon>
-                Show All Cities
-              </v-btn>
+              <v-expand-transition>
+                <v-alert 
+                  v-if="selectedCity || selectedNeighborhoodId"
+                  variant="tonal"
+                  color="black"
+                  density="compact"
+                  class="mt-4 selection-alert"
+                  rounded="lg"
+                >
+                  <div class="d-flex align-center justify-space-between">
+                    <span class="text-caption font-weight-bold">
+                      {{ selectedNeighborhoodInfo?.name || selectedCity }}
+                    </span>
+                    <v-btn 
+                      size="x-small" 
+                      variant="plain" 
+                      @click="clearLocationSelection"
+                      class="text-decoration-underline"
+                    >Reset</v-btn>
+                  </div>
+                </v-alert>
+              </v-expand-transition>
             </div>
           </div>
-        </div>
+
+          <v-divider />
+
+          <!-- Main Scrollable Content Area -->
+          <div class="panel-main-content">
+            <!-- Filter Section -->
+            <div class="filters-section px-6 py-6">
+              <SearchFilters
+                :initial-filters="filters"
+                @search="handleSearch"
+                @update:filters="updateFilters"
+                variant="filled"
+                density="comfortable"
+                class="custom-filters"
+              />
+            </div>
+
+            <v-divider class="mx-6" />
+
+            <!-- Results List -->
+            <div class="results-container px-6 py-6">
+              <div class="d-flex align-center justify-space-between mb-6">
+                <div>
+                  <div class="text-h6 font-weight-bold leading-tight">
+                    {{ initialLoading ? 'Searching...' : `${totalProperties} Found` }}
+                  </div>
+                  <div class="text-caption text-medium-emphasis tracking-wide" v-if="!initialLoading">
+                    Showing results in {{ selectedCity || 'All Areas' }}
+                  </div>
+                </div>
+                <v-select
+                  v-model="sortBy"
+                  :items="sortOptions"
+                  variant="plain"
+                  density="compact"
+                  hide-details
+                  class="sort-minimal"
+                  @update:model-value="handleSortChange"
+                />
+              </div>
+
+              <!-- Property List -->
+              <div class="property-list-container">
+                <v-row v-if="initialLoading || loading" no-gutters>
+                  <v-col v-for="n in 3" :key="n" cols="12" class="mb-6">
+                    <v-skeleton-loader type="image, article" class="rounded-xl" />
+                  </v-col>
+                </v-row>
+                
+                <template v-else-if="properties.length > 0">
+                  <div v-for="property in paginatedProperties" :key="property.id" class="mb-6">
+                    <PropertyCard
+                      :property="property"
+                      class="premium-card"
+                      @click="selectProperty(property)"
+                      @save="toggleSave(property)"
+                      @contact="contactAgent(property)"
+                    />
+                  </div>
+                </template>
+
+                <!-- Premium Pagination -->
+                <div v-if="totalPagesComputed > 1 && !loading" class="pagination-footer pt-4 pb-12">
+                  <div class="d-flex align-center justify-center gap-4">
+                    <v-btn
+                      :disabled="currentPage === 1"
+                      variant="outlined"
+                      icon="mdi-arrow-left"
+                      size="small"
+                      @click="goToPage(currentPage - 1)"
+                    />
+                    <div class="page-indicator">
+                      <span class="current">{{ currentPage }}</span>
+                      <span class="separator">/</span>
+                      <span class="total">{{ totalPagesComputed }}</span>
+                    </div>
+                    <v-btn
+                      :disabled="currentPage === totalPagesComputed"
+                      variant="outlined"
+                      icon="mdi-arrow-right"
+                      size="small"
+                      @click="goToPage(currentPage + 1)"
+                    />
+                  </div>
+                </div>
+
+                <!-- Empty State -->
+                <div v-if="!loading && properties.length === 0" class="text-center py-16">
+                  <v-icon size="48" color="grey-lighten-1" class="mb-4">mdi-map-marker-off-outline</v-icon>
+                  <div class="text-h6 font-weight-bold">No results found</div>
+                  <div class="text-body-2 text-medium-emphasis mb-6">Try adjusting your filters or area</div>
+                  <v-btn variant="outlined" rounded="pill" @click="clearCitySelection">Clear All</v-btn>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </v-col>
 
-      <!-- Map -->
-      <v-col 
-        cols="8" 
-        class="d-none d-lg-block map-container-col"
-      >
-        <div class="map-container">
+      <!-- Map Section -->
+      <v-col class="map-container-col">
+        <!-- Floating Mobile Toggle -->
+        <v-btn
+          v-if="!showPanel"
+          class="mobile-panel-toggle d-lg-none"
+          color="black"
+          icon="mdi-filter-variant"
+          elevation="8"
+          @click="showPanel = true"
+        />
+
+        <div class="map-wrapper">
           <PropertyMap
             :properties="properties"
             :selected-property="selectedProperty"
@@ -217,49 +183,44 @@
             @marker-click="selectProperty"
           />
 
-          <!-- Selected Property Card -->
-          <v-slide-y-transition>
-            <div v-if="selectedProperty" class="selected-property-card elevation-24">
-              <PropertyCard
-                :property="selectedProperty"
-                :show-contact-button="true"
-                @save="toggleSave(selectedProperty)"
-                @contact="contactAgent(selectedProperty)"
-              />
-              <v-btn
-                icon="mdi-close-circle"
-                variant="text"
-                color="white"
-                class="close-btn"
-                @click="selectedProperty = null"
-              />
+          <!-- Floating Selected Detail -->
+          <v-slide-y-reverse-transition>
+            <div v-if="selectedProperty" class="floating-property-detail shadow-2xl">
+              <div class="relative">
+                <v-btn
+                  icon="mdi-close"
+                  size="small"
+                  variant="flat"
+                  color="white"
+                  class="close-floating-btn"
+                  @click="selectedProperty = null"
+                />
+                <PropertyCard
+                  :property="selectedProperty"
+                  show-contact-button
+                  compact
+                  @save="toggleSave(selectedProperty)"
+                  @contact="contactAgent(selectedProperty)"
+                />
+              </div>
             </div>
-          </v-slide-y-transition>
+          </v-slide-y-reverse-transition>
         </div>
       </v-col>
     </v-row>
 
-    <!-- Contact Dialog -->
-    <v-dialog
-      v-model="showContactDialog"
-      max-width="600"
-      color="white"
-    >
+    <!-- Dialogs -->
+    <v-dialog v-model="showContactDialog" max-width="550" persistent transition="dialog-bottom-transition">
       <InquiryForm
         v-if="contactProperty"
         :property-id="contactProperty.id"
         :agent="contactProperty.agent"
+        class="rounded-xl overflow-hidden"
         @submit="handleInquiry"
         @schedule="handleSchedule"
+        @close="showContactDialog = false"
       />
     </v-dialog>
-
-    <!-- Loading Overlay - Only show on initial load or explicit searches -->
-    <LoadingState
-      v-if="initialLoading || loading"
-      message="Loading properties..."
-      overlay
-    />
   </v-container>
 </template>
 
@@ -271,6 +232,7 @@ import { propertyService } from '~/services/property.service'
 import { usePropertyService } from '~/composables/usePropertyService'
 import { filterResidentialProperties } from '../../utils/propertyFilters'
 
+// Interfaces
 interface Property extends BaseProperty {
   isSaved: boolean;
   agent: User;
@@ -280,37 +242,27 @@ interface City {
   name: string
   count: number
   province: string
-  coordinates?: {
-    latitude: number
-    longitude: number
-  }
-  stats: {
-    avgPrice: number
-    minPrice: number
-    maxPrice: number
-    avgSqft: number
-  }
+  coordinates?: { latitude: number; longitude: number }
+  stats: { avgPrice: number; minPrice: number; maxPrice: number; avgSqft: number }
 }
 
+// State
 const loading = ref(false)
-const initialLoading = ref(true) // For initial page load
-const loadingMore = ref(false)
+const initialLoading = ref(true)
 const showPanel = ref(true)
 const selectedProperty = ref<Property | null>(null)
 const showContactDialog = ref(false)
 const contactProperty = ref<Property | null>(null)
 const currentPage = ref(1)
-const itemsPerPage = 100  // Show 100 properties per page (increased from 10)
-const loadMoreEnabled = ref(false)  // Use traditional pagination instead of "Load More"
+const itemsPerPage = 100
 const selectedCity = ref('')
 const selectedNeighborhoodId = ref<number | null>(null)
 const selectedNeighborhoodInfo = ref<any>(null)
 const totalProperties = ref(0)
-const totalPages = ref(0)  // Track total pages from API
+const totalPages = ref(0)
 let boundsUpdateTimeout: NodeJS.Timeout | null = null
 
-// Service worker integration
-const { registerServiceWorker, loadCities, loadCityProperties, searchProperties } = usePropertyService()
+const { registerServiceWorker } = usePropertyService()
 
 const filters = ref<PropertyFilter>({
   location: '',
@@ -328,184 +280,74 @@ const filters = ref<PropertyFilter>({
 
 const sortBy = ref('newest')
 const sortOptions = [
-  { title: 'Newest First', value: 'newest' },
-  { title: 'Price (Low to High)', value: 'price_asc' },
-  { title: 'Price (High to Low)', value: 'price_desc' },
-  { title: 'Most Popular', value: 'popular' }
+  { title: 'Newest', value: 'newest' },
+  { title: 'Price: Low', value: 'price_asc' },
+  { title: 'Price: High', value: 'price_desc' },
+  { title: 'Popular', value: 'popular' }
 ]
 
-// Properties come from API (no mocks)
 const properties = ref<Property[]>([])
 
-// Helper function to convert sort value to API format
 const getSortOrder = (sortValue: string) => {
   switch (sortValue) {
-    case 'price_asc':
-      return { field: 'price', direction: 'asc' }
-    case 'price_desc':
-      return { field: 'price', direction: 'desc' }
-    case 'popular':
-      return { field: 'views', direction: 'desc' }
-    case 'newest':
-    default:
-      return { field: 'createdAt', direction: 'desc' }
+    case 'price_asc': return { field: 'price', direction: 'asc' }
+    case 'price_desc': return { field: 'price', direction: 'desc' }
+    case 'popular': return { field: 'views', direction: 'desc' }
+    default: return { field: 'createdAt', direction: 'desc' }
   }
 }
 
-const sortedProperties = computed(() => {
-  // Since we're getting sorted data from API, just return the properties
-  // The API handles sorting based on the sortBy parameter we send
-  return properties.value
-})
+const totalPagesComputed = computed(() => totalPages.value || Math.ceil(totalProperties.value / itemsPerPage))
+const paginatedProperties = computed(() => properties.value)
 
-// Since we're getting paginated data from API, paginatedProperties is just the sorted current page
-const paginatedProperties = computed(() => {
-  return sortedProperties.value
-})
-
-// Use the totalPages from API response instead of calculating from local data
-const totalPagesComputed = computed(() => {
-  return totalPages.value || Math.ceil(totalProperties.value / itemsPerPage)
-})
-
-const handleSearch = async (searchParams: PropertyFilter, showLoadingState: boolean = true, page: number = currentPage.value) => {
-  if (showLoadingState) {
-    loading.value = true
-  }
-  console.log('🔍 Map search called with params:', searchParams, 'page:', page)
+const handleSearch = async (searchParams: PropertyFilter, showLoadingState: boolean = true, page?: number) => {
+  const targetPage = page !== undefined ? page : currentPage.value
+  if (showLoadingState) loading.value = true
   
   try {
-    let data: any[] = []
-    let totalCount = 0
-    
-    // Use pagination with limit of 100 per page and include sort parameters
     const paginatedSearchParams = {
       ...searchParams,
       limit: itemsPerPage,
-      offset: (page - 1) * itemsPerPage,
+      offset: (targetPage - 1) * itemsPerPage,
       sortBy: sortBy.value,
       sortOrder: getSortOrder(sortBy.value)
     }
     
     const response = await propertyService.searchWithPagination(paginatedSearchParams)
+    let data = filterResidentialProperties(response.properties || [])
     
-    console.log('🔍 API Response structure:', response)
+    totalProperties.value = response.pagination?.total || data.length
+    totalPages.value = Math.ceil(totalProperties.value / itemsPerPage)
     
-    // Extract data and pagination info from the structured response
-    data = response.properties || []
-    totalCount = response.pagination?.total || data.length
-    
-    console.log('📊 Got paginated response:', {
-      propertiesCount: data.length,
-      totalCount: totalCount,
-      currentPage: response.pagination?.page || page,
-      limit: response.pagination?.limit || itemsPerPage
-    })
-    
-    // Filter out commercial and industrial properties - only show residential
-    data = filterResidentialProperties(data)
-    
-    // Important: After filtering, we need to adjust the total count if we filtered out properties
-    // However, we can't accurately know the total filtered count without querying the API differently
-    // For now, we'll use the original total count but this might show more pages than actually exist
-    totalProperties.value = totalCount
-    totalPages.value = Math.ceil(totalCount / itemsPerPage)
-    
-    // If we filtered out all properties on this page but there are more pages, 
-    // the pagination will still show correctly, user just needs to navigate to find properties
-    
-    console.log('🔍 Pagination Debug:', {
-      currentPage: page,
-      itemsPerPage: itemsPerPage,
-      rawDataLength: data.length,
-      totalCount: totalCount,
-      calculatedTotalPages: totalPages.value,
-      totalProperties: totalProperties.value
-    })
-    
-    console.log('🔍 Applied filters:', {
-      city: searchParams.city,
-      type: searchParams.propertyType || searchParams.type,
-      minPrice: searchParams.minPrice,
-      maxPrice: searchParams.maxPrice,
-      beds: searchParams.beds,
-      baths: searchParams.baths,
-      page: page,
-      limit: itemsPerPage
-    })
-    
-    console.log('✅ Search completed, found:', data.length, 'residential properties on page', page, 'of', totalPages.value)
-    
-    // Ensure agent/isSaved shape as expected by view
     properties.value = data.map((p: any) => ({
       ...p,
       isSaved: Boolean(p.isSaved),
       agent: p.agent || p.user
     }))
-    
-    console.log('📍 Residential properties with coordinates:', properties.value.filter(p => p.latitude && p.longitude).length)
   } catch (error) {
-    console.error('❌ Search error:', error)
-    // Fallback to regular search on error
-    try {
-      const fallbackParams = {
-        ...searchParams,
-        limit: itemsPerPage,
-        offset: (page - 1) * itemsPerPage
-      }
-      const fallbackResponse = await propertyService.searchWithPagination(fallbackParams)
-      
-      // Apply residential filter to fallback data as well
-      let fallbackData = filterResidentialProperties(fallbackResponse.properties || [])
-      
-      properties.value = fallbackData.map((p: any) => ({
-        ...p,
-        isSaved: Boolean(p.isSaved),
-        agent: p.agent || p.user
-      }))
-      totalProperties.value = fallbackResponse.pagination?.total || fallbackData.length
-      totalPages.value = Math.ceil((fallbackResponse.pagination?.total || fallbackData.length) / itemsPerPage)
-    } catch (fallbackError) {
-      console.error('❌ Fallback search also failed:', fallbackError)
-    }
+    console.error('Search error:', error)
   } finally {
-    if (showLoadingState) {
-      loading.value = false
-    }
+    loading.value = false
     initialLoading.value = false
   }
 }
 
 const updateFilters = (newFilters: PropertyFilter) => {
-  filters.value = newFilters
-  currentPage.value = 1 // Reset to first page when filters change
-  handleSearch(newFilters)
-}
-
-const handleSortChange = async () => {
-  // Reset to first page when sort changes and trigger new search
+  filters.value = { ...filters.value, ...newFilters }
   currentPage.value = 1
-  await handleSearch(filters.value, true, 1)
+  handleSearch(filters.value)
 }
 
-interface MapBounds {
-  north: number;
-  south: number;
-  east: number;
-  west: number;
+const handleSortChange = () => {
+  currentPage.value = 1
+  handleSearch(filters.value, true, 1)
 }
 
-const handleBoundsUpdate = (bounds: MapBounds) => {
-  // Clear previous timeout
-  if (boundsUpdateTimeout) {
-    clearTimeout(boundsUpdateTimeout)
-  }
-  
-  // Debounce bounds updates to avoid excessive API calls
-  // Don't show loading state for map interactions
+const handleBoundsUpdate = (bounds: any) => {
+  if (boundsUpdateTimeout) clearTimeout(boundsUpdateTimeout)
   boundsUpdateTimeout = setTimeout(() => {
     handleSearch({ ...filters.value, bounds }, false)
-  }, 500) // Wait 500ms after user stops interacting
+  }, 600)
 }
 
 const selectProperty = (property: Property) => {
@@ -513,15 +355,7 @@ const selectProperty = (property: Property) => {
 }
 
 const toggleSave = async (property: Property) => {
-  try {
-    // Replace with actual API call
-    // await fetch(`/api/properties/${property.id}/save`, {
-    //   method: property.isSaved ? 'DELETE' : 'POST'
-    // })
-    property.isSaved = !property.isSaved
-  } catch (error) {
-    console.error('Error toggling save:', error)
-  }
+  property.isSaved = !property.isSaved
 }
 
 const contactAgent = (property: Property) => {
@@ -529,56 +363,14 @@ const contactAgent = (property: Property) => {
   showContactDialog.value = true
 }
 
-interface InquiryData {
-  message: string;
-  type: 'inquiry' | 'viewing';
-  preferredContactTime?: string;
-}
+const handleInquiry = async () => { showContactDialog.value = false }
+const handleSchedule = async () => { showContactDialog.value = false }
 
-const handleInquiry = async (data: InquiryData) => {
-  try {
-    // Replace with actual API call
-    // await fetch('/api/inquiries', {
-    //   method: 'POST',
-    //   body: JSON.stringify(data)
-    // })
-    showContactDialog.value = false
-  } catch (error) {
-    console.error('Error submitting inquiry:', error)
-  }
-}
-
-interface ScheduleData {
-  dateTime: string;
-  message?: string;
-}
-
-const handleSchedule = async (data: ScheduleData) => {
-  try {
-    // Replace with actual API call
-    // await fetch('/api/viewings', {
-    //   method: 'POST',
-    //   body: JSON.stringify(data)
-    // })
-    showContactDialog.value = false
-  } catch (error) {
-    console.error('Error scheduling viewing:', error)
-  }
-}
-
-// Handle city selection
 const handleCitySelected = (city: City | null) => {
   if (city) {
     selectedCity.value = city.name
     filters.value.city = city.name
-    filters.value.location = '' // Clear location when city is selected
-    
-    console.log(`🏙️ Selected city: ${city.name} (${city.count} properties)`)
-    
-    // Reset pagination
     currentPage.value = 1
-    
-    // Trigger search for selected city
     handleSearch(filters.value)
   }
 }
@@ -586,7 +378,6 @@ const handleCitySelected = (city: City | null) => {
 const handleNeighborhoodSelected = (neighborhood: any) => {
   selectedNeighborhoodInfo.value = neighborhood
   if (neighborhood) {
-    // Clear city filter since neighborhood is more specific
     selectedCity.value = ''
     filters.value.city = ''
     filters.value.neighborhoodId = neighborhood.id
@@ -615,129 +406,188 @@ const clearCitySelection = () => {
 const goToPage = async (page: number) => {
   if (page >= 1 && page <= totalPagesComputed.value) {
     currentPage.value = page
-    scrollToTop()
-    // Trigger new search for the selected page
+    scrollToResultsTop()
     await handleSearch(filters.value, true, page)
   }
 }
 
-const scrollToTop = () => {
-  const searchPanel = document.querySelector('.search-results')
-  if (searchPanel) {
-    searchPanel.scrollTop = 0
-  }
+const scrollToResultsTop = () => {
+  document.querySelector('.panel-main-content')?.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
-// Track page views
 onMounted(async () => {
-  const analytics = useAnalytics()
-  analytics.trackPageView({
-    path: '/map-search',
-    title: 'Property Search'
-  })
-  
-  // Register service worker
-  try {
-    await registerServiceWorker()
-    console.log('✅ Service worker ready')
-  } catch (error) {
-    console.warn('⚠️ Service worker failed to register:', error)
-  }
-  
-  // Initial load - start without city filter to show some results immediately
+  useAnalytics().trackPageView({ path: '/map-search', title: 'Property Search' })
+  try { await registerServiceWorker() } catch (e) {}
   await handleSearch(filters.value)
 })
 </script>
 
 <style scoped>
-.map-search {
-  height: calc(100vh - 64px); /* Adjust based on header height */
+.map-search-wrapper {
+  height: calc(100vh - 64px);
+  background-color: #fff;
+  overflow: hidden;
 }
 
-.map-search-row {
+.layout-row {
   height: 100%;
+  flex-wrap: nowrap;
 }
 
+/* Sidebar Structure */
 .search-panel-col {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+  background: #fff;
   height: 100%;
-}
-
-.search-panel {
-  height: 100%;
-  background: white;
-  border-right: 1px solid rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s ease;
 }
-
-.panel-header {
-  padding: 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
-.panel-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 16px;
-}
-
-.map-container-col {
-  height: 100%;
-}
-
-.map-container {
-  height: 100%;
-  position: relative;
-}
-
-.selected-property-card {
-  position: absolute;
-  bottom: 24px;
-  left: 24px;
-  right: 24px;
-  max-width: 400px;
-  
-  margin: auto;
-  z-index: 1;
-}
-
-.close-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-}
-
-.sort-select {
-  width: 200px;
-}
-
-/* Mobile responsive styles are now handled by Vuetify grid system */
-/* On mobile (< lg), search panel uses cols="12" (full width) and map is hidden with d-none d-lg-block */
 
 .search-panel {
-  border-right: none;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border-right: 1px solid #f0f0f0;
 }
 
-/* Only add border-right on large screens */
-@media (min-width: 1264px) {
-  .search-panel {
-    border-right: 1px solid rgba(0, 0, 0, 0.12);
-  }
+/* Scrollable Container for Filters + List */
+.panel-main-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
+
+.panel-main-content::-webkit-scrollbar {
+  width: 5px;
+}
+.panel-main-content::-webkit-scrollbar-thumb {
+  background: #e0e0e0;
+  border-radius: 10px;
+}
+
+.premium-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.premium-input :deep(.v-field) {
+  border-radius: 12px !important;
+  background-color: #f9f9f9 !important;
+}
+
+/* Spacing and Visibility Fixes */
+.filters-section {
+  flex-shrink: 0;
+}
+
+.results-container {
+  flex: 1;
+}
+
+.property-list-container {
+  min-height: 400px;
+}
+
+/* Pagination Styles */
+.page-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.page-indicator .separator {
+  color: #ccc;
+  font-weight: 400;
+}
+.page-indicator .total {
+  color: #999;
+}
+
+/* Map Section Fixes */
+.map-container-col {
+  position: relative;
+  height: 100%;
+  flex-grow: 1;
+  min-width: 0; /* Prevents overflow-x issues in flex */
+}
+
+.map-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #f8f8f8;
+}
+
+.mobile-panel-toggle {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  z-index: 100;
+}
+
+.floating-property-detail {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 420px;
+  z-index: 100;
+}
+
+.close-floating-btn {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  z-index: 110;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Utility */
+.leading-tight { line-height: 1.2; }
+.tracking-wide { letter-spacing: 0.05em; }
+.shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
 
 @media (max-width: 1263px) {
-  .search-panel {
+  .layout-row {
+    flex-wrap: wrap;
+  }
+  
+  .search-panel-col {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 100% !important;
+    max-width: 400px;
+    box-shadow: 20px 0 50px rgba(0,0,0,0.1);
+  }
+  
+  .panel-hidden {
+    transform: translateX(-110%);
+  }
+  
+  .map-container-col {
     width: 100%;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+    flex: 1 1 100%;
   }
 
-  .selected-property-card {
-    left: 16px;
-    right: 16px;
+  .floating-property-detail {
+    bottom: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .search-panel-col {
+    max-width: 100%;
   }
 }
 </style>

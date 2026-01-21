@@ -146,8 +146,8 @@
 </template>
 
 <script setup lang="ts">
-import { useAuth } from '~/composables/useAuth'
-const auth = useAuth()
+import { useAuthStore } from '~/stores/auth'
+const auth = useAuthStore()
 const { $fetch } = useNuxtApp()
 
 const isEditing = ref(false)

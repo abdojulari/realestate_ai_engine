@@ -126,21 +126,29 @@ function parseWithRules(query: string): Record<string, any> {
   
   // 5. PROPERTY TYPE - "house", "condo", "townhouse"
   const typePatterns = [
-    /(house|home)/,
+    /(townhouse|town[\s-]*house|rowhouse)/, // Check townhouse first
     /(condo|condominium|apartment)/,
-    /(townhouse|town[\s-]*house|rowhouse)/,
-    /(duplex|semi[\s-]*detached)/
+    /(duplex|semi[\s-]*detached)/,
+    /(house|home)/ // Check house last as it's most generic
   ]
   
   for (const pattern of typePatterns) {
     const match = query.match(pattern)
     if (match) {
       if (match[0].includes('condo') || match[0].includes('apartment')) {
-        filters.type = 'condo'
+        // Map condo/apartment to multi-family (actual type in database)
+        filters.type = 'multi-family'
+        filters.features = filters.features || {}
+        filters.features.condo = true // Also add as feature for description search
       } else if (match[0].includes('townhouse') || match[0].includes('row')) {
-        filters.type = 'townhouse'
+        // Map townhouse to house (actual type in database) 
+        filters.type = 'house'
+        filters.features = filters.features || {}
+        filters.features.townhouse = true // Add as feature for description search
       } else if (match[0].includes('duplex') || match[0].includes('semi')) {
-        filters.type = 'duplex'
+        filters.type = 'house' // Most duplexes are listed as houses
+        filters.features = filters.features || {}
+        filters.features.duplex = true
       } else {
         filters.type = 'house'
       }

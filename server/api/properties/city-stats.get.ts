@@ -18,10 +18,28 @@ export default defineEventHandler(async (event) => {
       }
     })
 
+    // Get property type statistics
+    const propertyTypeStats = await prisma.property.groupBy({
+      by: ['type'],
+      _count: {
+        id: true
+      },
+      orderBy: {
+        _count: {
+          id: 'desc'
+        }
+      }
+    })
+
     // Transform the data
     const cities = cityStats.map(stat => ({
       city: stat.city,
       propertyCount: stat._count.id
+    }))
+
+    const propertyTypes = propertyTypeStats.map(stat => ({
+      type: stat.type,
+      count: stat._count.id
     }))
 
     // Calculate summary statistics
@@ -31,6 +49,7 @@ export default defineEventHandler(async (event) => {
 
     return {
       cities,
+      propertyTypes,
       summary: {
         totalCities,
         totalProperties,

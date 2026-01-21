@@ -1,622 +1,729 @@
 <template>
-  <v-container>
-    <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">System Settings</h1>
-      <v-spacer />
-      <v-chip :color="syncStatus === 'running' ? 'warning' : 'success'" variant="tonal">
-        <v-icon start>{{ syncStatus === 'running' ? 'mdi-sync' : 'mdi-check-circle' }}</v-icon>
-        {{ syncStatus === 'running' ? 'Sync Running' : 'System Ready' }}
-      </v-chip>
+  <div class="premium-settings-wrapper bg-[#F8FAFC] min-h-screen">
+    <!-- TOP NAVIGATION BAR (PREMIUM LOOK) -->
+    <div class="header-glass sticky top-0 z-50 px-8 py-4 border-b border-slate-200 backdrop-blur-md bg-white/80">
+      <div class="max-w-[1600px] mx-auto d-flex align-center">
+        <div>
+          <div class="flex items-center space-x-2 mb-0">
+            <span class="text-[10px] uppercase tracking-[0.3em] font-bold text-primary">System Architecture</span>
+          </div>
+          <h1 class="text-h4 font-serif text-slate-900 font-weight-bold">System Settings</h1>
+        </div>
+        <v-spacer />
+        <div class="d-flex align-center gap-4">
+          <v-chip 
+            :color="syncStatus === 'running' ? 'warning' : 'success'" 
+            variant="flat" 
+            class="premium-chip font-weight-bold"
+            elevation="0"
+          >
+            <v-icon start size="18">{{ syncStatus === 'running' ? 'mdi-loading mdi-spin' : 'mdi-check-circle' }}</v-icon>
+            {{ syncStatus === 'running' ? 'Sync Running' : 'System Ready' }}
+          </v-chip>
+        </div>
+      </div>
     </div>
 
-    <!-- CREA MLS Integration Section -->
-    <v-card class="mb-6">
-      <v-card-title class="d-flex align-center">
-        <v-icon class="mr-3" color="primary">mdi-database-sync</v-icon>
-        CREA MLS Data Sync
-      </v-card-title>
-      <v-card-text>
-        <v-row>
-          <v-col cols="12" md="6">
-            <div class="d-flex align-center mb-4">
-              <v-icon class="mr-2" color="success">mdi-check-circle</v-icon>
-              <span>Connected to CREA DDF API</span>
-            </div>
-            
-            <!-- Sync Statistics -->
-            <v-card variant="outlined" class="mb-4">
-              <v-card-text>
-                <h3 class="text-h6 mb-3">Current Data Status</h3>
-                <div class="stats-grid">
-                  <div class="stat-item">
-                    <div class="stat-value">{{ stats.totalProperties?.toLocaleString() || '0' }}</div>
-                    <div class="stat-label">Total Properties</div>
-                  </div>
-                  <div class="stat-item">
-                    <div class="stat-value">{{ stats.creaProperties?.toLocaleString() || '0' }}</div>
-                    <div class="stat-label">MLS Properties</div>
-                  </div>
-                  <div class="stat-item">
-                    <div class="stat-value">{{ stats.manualProperties?.toLocaleString() || '0' }}</div>
-                    <div class="stat-label">Manual Properties</div>
-                  </div>
-                </div>
-                <div class="mt-3">
-                  <div class="text-caption">Last Sync: {{ formatDateTime(stats.lastSyncAt) || 'Never' }}</div>
-                </div>
-              </v-card-text>
-            </v-card>
+    <v-container fluid class="max-w-[1600px] px-8 pt-8 pb-16">
 
-            <!-- Manual Sync Controls -->
-            <div class="sync-controls">
-              <h3 class="text-h6 mb-3">Manual Sync</h3>
+      <!-- CREA MLS Integration Section -->
+      <v-row>
+        <v-col cols="12">
+          <v-card class="premium-card mb-8">
+            <div class="p-8 border-b border-slate-100 bg-slate-50/50 d-flex align-center">
+              <div class="icon-orb mr-5">
+                <v-icon color="primary" size="24">mdi-database-sync</v-icon>
+              </div>
+              <div>
+                <h2 class="text-h5 font-serif text-slate-900">CREA MLS Data Sync</h2>
+                <p class="text-caption text-slate-500 font-medium italic mb-0">Synchronize property listings with the DDF® endpoint</p>
+              </div>
+            </div>
+
+            <v-card-text class="p-8">
               <v-row>
-                <v-col cols="12" sm="8">
-                  <v-select
-                    v-model="syncCity"
-                    :items="cities"
-                    item-title="name"
-                    item-value="name"
-                    label="City (Optional)"
-                    variant="outlined"
-                    density="compact"
-                    clearable
-                  >
-                    <template v-slot:selection="{ item }">
-                      {{ item.raw.name }} ({{ item.raw.count }} properties)
-                    </template>
-                  </v-select>
+                <v-col cols="12" md="6">
+                  <div class="d-flex align-center mb-6 status-badge px-4 py-2 bg-green-50 rounded-lg w-fit">
+                    <v-icon class="mr-2" color="success">mdi-check-circle</v-icon>
+                    <span class="text-success font-weight-bold text-caption uppercase tracking-wider">Connected to CREA DDF API</span>
+                  </div>
+                  
+                  <!-- Sync Statistics -->
+                  <div class="luxury-stats-container mb-6">
+                    <h3 class="text-subtitle-2 font-weight-bold text-slate-400 uppercase tracking-widest mb-4">Live Analytics</h3>
+                    <div class="stats-grid-premium">
+                      <div class="stat-item-luxury">
+                        <span class="stat-value">{{ stats.totalProperties?.toLocaleString() || '0' }}</span>
+                        <span class="stat-label">Total</span>
+                      </div>
+                      <div class="stat-item-luxury">
+                        <span class="stat-value">{{ stats.creaProperties?.toLocaleString() || '0' }}</span>
+                        <span class="stat-label">MLS DDF</span>
+                      </div>
+                      <div class="stat-item-luxury">
+                        <span class="stat-value">{{ stats.manualProperties?.toLocaleString() || '0' }}</span>
+                        <span class="stat-label">Private</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="last-sync-pill d-flex align-center justify-space-between px-6 py-4 rounded-xl bg-slate-50 border border-slate-100 mb-6">
+                    <div>
+                      <span class="text-caption text-slate-400 font-weight-bold uppercase block mb-1">Latest Transmission</span>
+                      <span class="text-subtitle-1 font-mono font-weight-bold text-slate-800">{{ formatDateTime(stats.lastSyncAt) || 'Never' }}</span>
+                    </div>
+                    <v-icon color="slate-300">mdi-clock-outline</v-icon>
+                  </div>
+
+                  <!-- Manual Sync Controls -->
+                  <div class="sync-controls-premium">
+                    <h3 class="text-subtitle-2 font-weight-bold text-slate-400 uppercase tracking-widest mb-4">Manual Sync</h3>
+                    <v-select
+                      v-model="syncCity"
+                      :items="cities"
+                      item-title="name"
+                      item-value="name"
+                      label="City (Optional)"
+                      variant="outlined"
+                      rounded="lg"
+                      class="mb-4 premium-input"
+                      clearable
+                    >
+                      <template v-slot:selection="{ item }">
+                        {{ item.raw.name }} ({{ item.raw.count }} properties)
+                      </template>
+                    </v-select>
+                    <v-btn
+                      color="primary"
+                      block
+                      :loading="syncing"
+                      :disabled="syncStatus === 'running'"
+                      @click="startManualSync"
+                      class="action-btn-primary"
+                      elevation="0"
+                    >
+                      <v-icon start>mdi-sync</v-icon>
+                      {{ syncing ? 'Syncing...' : 'Force Manual Update' }}
+                    </v-btn>
+                  </div>
                 </v-col>
-                <v-col cols="12" sm="4">
-                  <v-btn
-                    color="primary"
-                    block
-                    :loading="syncing"
-                    :disabled="syncStatus === 'running'"
-                    @click="startManualSync"
-                  >
-                    <v-icon start>mdi-sync</v-icon>
-                    Sync Now
-                  </v-btn>
+
+                <v-col cols="12" md="6">
+                  <div class="pl-md-8 border-l border-slate-100 h-full">
+                    <h3 class="text-h6 font-serif mb-6">Automation Controls</h3>
+                    
+                    <v-switch
+                      v-model="autoSyncEnabled"
+                      color="primary"
+                      label="Enable Automated Synchronization"
+                      inset
+                      class="premium-switch mb-4"
+                      hide-details
+                      @update:model-value="updateAutoSyncSetting"
+                    ></v-switch>
+
+                    <v-select
+                      v-model="autoSyncTime"
+                      :items="timeOptions"
+                      label="Sync Time"
+                      variant="outlined"
+                      rounded="lg"
+                      class="mb-4 premium-input"
+                      :disabled="!autoSyncEnabled"
+                      @update:model-value="updateAutoSyncSetting"
+                    ></v-select>
+
+                    <div v-if="autoSyncEnabled" class="next-sync-info px-6 py-4 rounded-xl bg-blue-50 border border-blue-100 mb-6">
+                      <div class="text-caption text-blue-600 font-weight-bold uppercase mb-1">Next Scheduled Sync</div>
+                      <div class="text-subtitle-2 font-weight-bold text-blue-900">{{ nextSyncTime }}</div>
+                    </div>
+
+                    <v-alert
+                      v-if="autoSyncEnabled"
+                      type="info"
+                      variant="tonal"
+                      class="mb-0"
+                      density="compact"
+                    >
+                      <div class="text-caption">
+                        <strong>Automatic Sync:</strong> New MLS properties will be synced daily at {{ autoSyncTime }}. 
+                        This happens in the background without affecting site performance.
+                      </div>
+                    </v-alert>
+                  </div>
                 </v-col>
               </v-row>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <!-- Sync Progress/Results -->
+      <v-row v-if="lastSyncResult || syncing">
+        <v-col cols="12">
+          <v-card class="premium-card">
+            <div class="p-8 border-b border-slate-100 d-flex align-center">
+              <v-icon class="mr-3" color="primary">mdi-history</v-icon>
+              <h2 class="text-h6 font-weight-bold">Sync Activity</h2>
             </div>
-          </v-col>
-
-          <v-col cols="12" md="6">
-            <!-- Automatic Sync Settings -->
-            <v-card variant="outlined">
-              <v-card-text>
-                <h3 class="text-h6 mb-3">Automatic Sync</h3>
-                
-                <v-switch
-                  v-model="autoSyncEnabled"
-                  label="Enable automatic daily sync"
-                  color="primary"
-                  @update:model-value="updateAutoSyncSetting"
-                />
-                
-                <div v-if="autoSyncEnabled" class="mt-3">
-                  <v-select
-                    v-model="autoSyncTime"
-                    :items="timeOptions"
-                    label="Sync Time"
-                    variant="outlined"
-                    density="compact"
-                    @update:model-value="updateAutoSyncSetting"
+            <v-card-text class="p-8">
+              <!-- Current Sync Progress -->
+              <div v-if="syncing" class="mb-6 p-6 bg-blue-50 rounded-xl border border-blue-100">
+                <div class="d-flex align-center mb-3">
+                  <v-progress-circular
+                    indeterminate
+                    size="20"
+                    width="2"
+                    color="primary"
+                    class="mr-3"
                   />
-                  <div class="text-caption mt-2">
-                    Next sync: {{ nextSyncTime }}
-                  </div>
+                  <span class="font-weight-bold text-blue-900">Syncing properties from CREA...</span>
                 </div>
+                <v-progress-linear
+                  :model-value="syncProgress"
+                  color="primary"
+                  height="6"
+                  rounded
+                  class="mb-2"
+                />
+                <div class="text-caption text-blue-700 font-weight-medium">{{ syncProgressText }}</div>
+              </div>
 
+              <!-- Last Sync Results -->
+              <div v-if="lastSyncResult">
+                <h4 class="text-subtitle-2 font-weight-bold text-slate-400 uppercase tracking-widest mb-4">Last Sync Results</h4>
+                <div class="sync-results d-flex flex-wrap gap-3 mb-4">
+                  <v-chip color="success" variant="flat" class="premium-chip-result">
+                    <v-icon start size="16">mdi-plus</v-icon>
+                    {{ lastSyncResult.created || 0 }} Created
+                  </v-chip>
+                  <v-chip color="info" variant="flat" class="premium-chip-result">
+                    <v-icon start size="16">mdi-update</v-icon>
+                    {{ lastSyncResult.updated || 0 }} Updated
+                  </v-chip>
+                  <v-chip v-if="lastSyncResult.total" color="primary" variant="flat" class="premium-chip-result">
+                    <v-icon start size="16">mdi-database</v-icon>
+                    {{ lastSyncResult.total }} Total
+                  </v-chip>
+                  <v-chip v-if="lastSyncResult.errors > 0" color="error" variant="flat" class="premium-chip-result">
+                    <v-icon start size="16">mdi-alert</v-icon>
+                    {{ lastSyncResult.errors }} Errors
+                  </v-chip>
+                </div>
+                
+                <!-- Error details if any -->
                 <v-alert
-                  v-if="autoSyncEnabled"
-                  type="info"
+                  v-if="lastSyncResult.error"
+                  type="error"
                   variant="tonal"
-                  class="mt-4"
+                  class="mb-4"
+                  rounded="lg"
                 >
                   <div class="text-body-2">
-                    <strong>Automatic Sync:</strong> New MLS properties will be synced daily at {{ autoSyncTime }}. 
-                    This happens in the background without affecting site performance.
+                    <strong>Sync Error:</strong> {{ lastSyncResult.error }}
                   </div>
                 </v-alert>
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
+                
+                <div class="text-caption text-slate-500">
+                  Completed: {{ formatDateTime(lastSyncResult.timestamp) }}
+                </div>
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
 
-    <!-- Sync Progress/Results -->
-    <v-card v-if="lastSyncResult || syncing">
-      <v-card-title>
-        <v-icon class="mr-3">mdi-history</v-icon>
-        Sync Activity
-      </v-card-title>
-      <v-card-text>
-        <!-- Current Sync Progress -->
-        <div v-if="syncing" class="mb-4">
-          <div class="d-flex align-center mb-2">
-            <v-progress-circular
-              indeterminate
-              size="20"
-              width="2"
-              color="primary"
-              class="mr-2"
-            />
-            <span>Syncing properties from CREA...</span>
-          </div>
-          <v-progress-linear
-            :model-value="syncProgress"
-            color="primary"
-            height="4"
-            rounded
-          />
-          <div class="text-caption mt-1">{{ syncProgressText }}</div>
-        </div>
+      <!-- Other Settings Sections -->
+      <v-row class="mt-8">
+        <v-col cols="12">
+          <h2 class="text-h4 font-serif text-slate-900 mb-6 d-flex align-center">
+            <v-icon size="32" class="mr-4" color="primary">mdi-cog-outline</v-icon>
+            System Configuration
+          </h2>
+        </v-col>
 
-        <!-- Last Sync Results -->
-        <div v-if="lastSyncResult">
-          <h4 class="text-subtitle-1 mb-2">Last Sync Results</h4>
-          <div class="sync-results">
-            <v-chip color="success" class="mr-2 mb-2">
-              <v-icon start>mdi-plus</v-icon>
-              {{ lastSyncResult.created || 0 }} Created
-            </v-chip>
-            <v-chip color="info" class="mr-2 mb-2">
-              <v-icon start>mdi-update</v-icon>
-              {{ lastSyncResult.updated || 0 }} Updated
-            </v-chip>
-            <v-chip v-if="lastSyncResult.total" color="primary" class="mr-2 mb-2">
-              <v-icon start>mdi-database</v-icon>
-              {{ lastSyncResult.total }} Total
-            </v-chip>
-            <v-chip v-if="lastSyncResult.errors > 0" color="error" class="mr-2 mb-2">
-              <v-icon start>mdi-alert</v-icon>
-              {{ lastSyncResult.errors }} Errors
-            </v-chip>
-          </div>
-          
-          <!-- Error details if any -->
-          <v-alert
-            v-if="lastSyncResult.error"
-            type="error"
-            variant="tonal"
-            class="mt-3"
-          >
-            <div class="text-body-2">
-              <strong>Sync Error:</strong> {{ lastSyncResult.error }}
+        <v-col cols="12" md="3">
+          <v-card class="premium-card sticky top-24">
+            <v-list nav class="p-2">
+              <v-list-item
+                v-for="section in settingSections"
+                :key="section.id"
+                :value="section"
+                :active="activeSection === section.id"
+                @click="activeSection = section.id"
+                class="rounded-lg mb-1 premium-nav-item"
+                :class="{ 'active-nav-item': activeSection === section.id }"
+              >
+                <template v-slot:prepend>
+                  <v-icon :icon="section.icon" class="mr-3" />
+                </template>
+                <v-list-item-title class="font-weight-bold">{{ section.title }}</v-list-item-title>
+              </v-list-item>
+            </v-list>
+          </v-card>
+        </v-col>
+
+        <v-col cols="12" md="9">
+          <!-- General Settings -->
+          <v-card v-if="activeSection === 'general'" class="premium-card mb-6">
+            <div class="p-8 border-b border-slate-100 d-flex align-center">
+              <v-icon color="primary" class="mr-3">mdi-cog</v-icon>
+              <h2 class="text-h6 font-weight-bold">General Settings</h2>
             </div>
-          </v-alert>
-          
-          <div class="text-caption mt-2">
-            Completed: {{ formatDateTime(lastSyncResult.timestamp) }}
-          </div>
-        </div>
-      </v-card-text>
-    </v-card>
+            <v-card-text class="p-8">
+              <v-form v-model="isGeneralFormValid" @submit.prevent="saveGeneralSettings">
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="generalSettings.siteName"
+                      label="Site Name"
+                      :rules="[v => !!v || 'Site name is required']"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                      required
+                    />
+                  </v-col>
 
-    <!-- Other Settings Sections -->
-    <v-row>
-      <v-col cols="12" md="3">
-        <v-card>
-          <v-list nav>
-            <v-list-item
-              v-for="section in settingSections"
-              :key="section.id"
-              :value="section"
-              :active="activeSection === section.id"
-              @click="activeSection = section.id"
-            >
-              <template v-slot:prepend>
-                <v-icon :icon="section.icon" />
-              </template>
-              <v-list-item-title>{{ section.title }}</v-list-item-title>
-            </v-list-item>
-          </v-list>
-        </v-card>
-      </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="generalSettings.supportEmail"
+                      label="Support Email"
+                      type="email"
+                      :rules="emailRules"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                      required
+                    />
+                  </v-col>
 
-      <v-col cols="12" md="9">
-        <!-- General Settings -->
-        <v-card v-if="activeSection === 'general'" class="mb-6">
-          <v-card-title>General Settings</v-card-title>
-      <v-card-text>
-            <v-form v-model="isGeneralFormValid" @submit.prevent="saveGeneralSettings">
-              <v-row>
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="generalSettings.siteName"
-                    label="Site Name"
-                    :rules="[v => !!v || 'Site name is required']"
-                    variant="outlined"
-                    density="compact"
-                    required
-                  />
-                </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="generalSettings.phone"
+                      label="Contact Phone"
+                      :rules="phoneRules"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                    />
+                  </v-col>
 
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="generalSettings.supportEmail"
-                    label="Support Email"
-                    type="email"
-                    :rules="emailRules"
-                    variant="outlined"
-                    density="compact"
-                    required
-                  />
-                </v-col>
+                  <v-col cols="12" md="6">
+                    <v-select
+                      v-model="generalSettings.timezone"
+                      :items="timezones"
+                      label="Default Timezone"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                      required
+                      :rules="[v => !!v || 'Timezone is required']"
+                    />
+                  </v-col>
 
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="generalSettings.phone"
-                    label="Contact Phone"
-                    :rules="phoneRules"
-                    variant="outlined"
-                    density="compact"
-                  />
-                </v-col>
+                  <v-col cols="12">
+                    <v-file-input
+                      v-model="generalSettings.logo"
+                      label="Site Logo"
+                      accept="image/*"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                      show-size
+                      prepend-icon="mdi-camera"
+                    />
+                  </v-col>
+                </v-row>
+              </v-form>
+            </v-card-text>
+            <v-card-actions class="px-8 pb-8">
+              <v-spacer />
+              <v-btn
+                color="primary"
+                :loading="saving"
+                :disabled="!isGeneralFormValid"
+                @click="saveGeneralSettings"
+                class="action-btn-primary px-8"
+              >
+                Save Changes
+              </v-btn>
+            </v-card-actions>
+          </v-card>
 
-                <v-col cols="12" md="6">
-                  <v-select
-                    v-model="generalSettings.timezone"
-                    :items="timezones"
-                    label="Default Timezone"
-                    variant="outlined"
-                    density="compact"
-                    required
-                    :rules="[v => !!v || 'Timezone is required']"
-                  />
-                </v-col>
+          <!-- Email Settings -->
+          <v-card v-if="activeSection === 'email'" class="premium-card mb-6">
+            <div class="p-8 border-b border-slate-100 d-flex align-center">
+              <v-icon color="primary" class="mr-3">mdi-email</v-icon>
+              <h2 class="text-h6 font-weight-bold">Email Settings</h2>
+            </div>
+            <v-card-text class="p-8">
+              <v-form v-model="isEmailFormValid" @submit.prevent="saveEmailSettings">
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-select
+                      v-model="emailSettings.provider"
+                      :items="emailProviders"
+                      label="Email Provider"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                      required
+                      :rules="[v => !!v || 'Email provider is required']"
+                    />
+                  </v-col>
 
-                <v-col cols="12">
-                  <v-file-input
-                    v-model="generalSettings.logo"
-                    label="Site Logo"
-                    accept="image/*"
-                    variant="outlined"
-                    density="compact"
-                    show-size
-                    prepend-icon="mdi-camera"
-                  />
-                </v-col>
-              </v-row>
-            </v-form>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn
-              color="primary"
-              :loading="saving"
-              :disabled="!isGeneralFormValid"
-              @click="saveGeneralSettings"
-            >
-              Save Changes
-            </v-btn>
-          </v-card-actions>
-        </v-card>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="emailSettings.fromEmail"
+                      label="From Email"
+                      type="email"
+                      :rules="emailRules"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                      required
+                    />
+                  </v-col>
 
-        <!-- Email Settings -->
-        <v-card v-if="activeSection === 'email'" class="mb-6">
-          <v-card-title>Email Settings</v-card-title>
-          <v-card-text>
-            <v-form v-model="isEmailFormValid" @submit.prevent="saveEmailSettings">
-              <v-row>
-                <v-col cols="12" md="6">
-                  <v-select
-                    v-model="emailSettings.provider"
-                    :items="emailProviders"
-                    label="Email Provider"
-                    variant="outlined"
-                    density="compact"
-                    required
-                    :rules="[v => !!v || 'Email provider is required']"
-                  />
-                </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="emailSettings.fromName"
+                      label="From Name"
+                      :rules="[v => !!v || 'From name is required']"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                      required
+                    />
+                  </v-col>
 
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="emailSettings.fromEmail"
-                    label="From Email"
-                    type="email"
-                    :rules="emailRules"
-                    variant="outlined"
-                    density="compact"
-                    required
-                  />
-                </v-col>
-
-                <v-col cols="12" md="6">
-                  <v-text-field
-                    v-model="emailSettings.fromName"
-                    label="From Name"
-                    :rules="[v => !!v || 'From name is required']"
-                    variant="outlined"
-                    density="compact"
-                    required
-                  />
-                </v-col>
-
-                <v-col cols="12">
-                  <v-expansion-panels>
-                    <v-expansion-panel title="SMTP Settings">
-                      <v-expansion-panel-text>
-                        <v-row>
-                          <v-col cols="12" md="6">
-                            <v-text-field
-                              v-model="emailSettings.smtp.host"
-                              label="SMTP Host"
-                              :rules="[v => !!v || 'SMTP host is required']"
-                              variant="outlined"
-                              density="compact"
-                            />
-                          </v-col>
-
-                          <v-col cols="12" md="6">
-                            <v-text-field
-                              v-model="emailSettings.smtp.port"
-                              label="SMTP Port"
-                              type="number"
-                              :rules="[v => !!v || 'SMTP port is required']"
-                              variant="outlined"
-                              density="compact"
-                            />
-                          </v-col>
-
-                          <v-col cols="12" md="6">
-                            <v-text-field
-                              v-model="emailSettings.smtp.username"
-                              label="SMTP Username"
-                              variant="outlined"
-                              density="compact"
-                            />
-                          </v-col>
-
-                          <v-col cols="12" md="6">
-                            <v-text-field
-                              v-model="emailSettings.smtp.password"
-                              label="SMTP Password"
-                              type="password"
-                              autocomplete="new-password"
-                              variant="outlined"
-                              density="compact"
+                  <v-col cols="12">
+                    <v-expansion-panels class="premium-expansion">
+                      <v-expansion-panel class="premium-panel">
+                        <v-expansion-panel-title class="font-weight-bold">
+                          <v-icon start>mdi-server</v-icon>
+                          SMTP Settings
+                        </v-expansion-panel-title>
+                        <v-expansion-panel-text class="pt-4">
+                          <v-row>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="emailSettings.smtp.host"
+                                label="SMTP Host"
+                                :rules="[v => !!v || 'SMTP host is required']"
+                                variant="outlined"
+                                rounded="lg"
+                                class="premium-input"
                               />
-                          </v-col>
+                            </v-col>
 
-                          <v-col cols="12">
-                            <v-switch
-                              v-model="emailSettings.smtp.secure"
-                              label="Use SSL/TLS"
-                              variant="outlined"
-                              density="compact"
-                            />
-                          </v-col>
-                        </v-row>
-                      </v-expansion-panel-text>
-                    </v-expansion-panel>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="emailSettings.smtp.port"
+                                label="SMTP Port"
+                                type="number"
+                                :rules="[v => !!v || 'SMTP port is required']"
+                                variant="outlined"
+                                rounded="lg"
+                                class="premium-input"
+                              />
+                            </v-col>
 
-                    <v-expansion-panel title="Email Templates">
-                      <v-expansion-panel-text>
-                        <v-table>
-                          <thead>
-                            <tr>
-                              <th>Template</th>
-                              <th>Subject</th>
-                              <th class="text-right">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr
-                              v-for="template in emailTemplates"
-                              :key="template.id"
-                            >
-                              <td>{{ template.name }}</td>
-                              <td>{{ template.subject }}</td>
-                              <td class="text-right">
-                                <v-btn
-                                  icon="mdi-pencil"
-                                  variant="text"
-                                  size="small"
-                                  @click="editTemplate(template)"
-                                />
-                                <v-btn
-                                  icon="mdi-eye"
-                                  variant="text"
-                                  size="small"
-                                  @click="previewTemplate(template)"
-                                />
-                              </td>
-                            </tr>
-                          </tbody>
-                        </v-table>
-                      </v-expansion-panel-text>
-                    </v-expansion-panel>
-                  </v-expansion-panels>
-                </v-col>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="emailSettings.smtp.username"
+                                label="SMTP Username"
+                                variant="outlined"
+                                rounded="lg"
+                                class="premium-input"
+                              />
+                            </v-col>
 
-                <v-col cols="12">
-                  <v-btn
-                    color="info"
-                    prepend-icon="mdi-email-check"
-                    @click="testEmailSettings"
-                    :loading="testing"
-                  >
-                    Test Email Settings
-                  </v-btn>
-                </v-col>
-              </v-row>
-            </v-form>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn
-              color="primary"
-              :loading="saving"
-              :disabled="!isEmailFormValid"
-              @click="saveEmailSettings"
-            >
-              Save Changes
-            </v-btn>
-          </v-card-actions>
-        </v-card>
+                            <v-col cols="12" md="6">
+                              <v-text-field
+                                v-model="emailSettings.smtp.password"
+                                label="SMTP Password"
+                                type="password"
+                                autocomplete="new-password"
+                                variant="outlined"
+                                rounded="lg"
+                                class="premium-input"
+                              />
+                            </v-col>
 
-        <!-- API Settings -->
-        <v-card v-if="activeSection === 'api'" class="mb-6">
-          <v-card-title>API Settings</v-card-title>
-          <v-card-text>
-            <v-form v-model="isApiFormValid" @submit.prevent="saveApiSettings">
-              <v-row>
-                <v-col cols="12">
-                  <v-expansion-panels>
-                    <v-expansion-panel
-                      v-for="api in apiSettings"
-                      :key="api.name"
-                      :title="api.name"
+                            <v-col cols="12">
+                              <v-switch
+                                v-model="emailSettings.smtp.secure"
+                                label="Use SSL/TLS"
+                                color="primary"
+                                class="premium-switch"
+                                hide-details
+                              />
+                            </v-col>
+                          </v-row>
+                        </v-expansion-panel-text>
+                      </v-expansion-panel>
+
+                      <v-expansion-panel class="premium-panel">
+                        <v-expansion-panel-title class="font-weight-bold">
+                          <v-icon start>mdi-text-box-multiple</v-icon>
+                          Email Templates
+                        </v-expansion-panel-title>
+                        <v-expansion-panel-text class="pt-4">
+                          <v-table class="premium-table">
+                            <thead>
+                              <tr>
+                                <th class="text-caption font-weight-bold text-slate-400 uppercase">Template</th>
+                                <th class="text-caption font-weight-bold text-slate-400 uppercase">Subject</th>
+                                <th class="text-right text-caption font-weight-bold text-slate-400 uppercase">Actions</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr
+                                v-for="template in emailTemplates"
+                                :key="template.id"
+                                class="table-row-premium"
+                              >
+                                <td class="font-weight-bold text-slate-700">{{ template.name }}</td>
+                                <td class="text-slate-600">{{ template.subject }}</td>
+                                <td class="text-right">
+                                  <v-btn
+                                    icon="mdi-pencil"
+                                    variant="text"
+                                    size="small"
+                                    color="slate-400"
+                                    @click="editTemplate(template)"
+                                  />
+                                  <v-btn
+                                    icon="mdi-eye"
+                                    variant="text"
+                                    size="small"
+                                    color="primary"
+                                    @click="previewTemplate(template)"
+                                  />
+                                </td>
+                              </tr>
+                            </tbody>
+                          </v-table>
+                        </v-expansion-panel-text>
+                      </v-expansion-panel>
+                    </v-expansion-panels>
+                  </v-col>
+
+                  <v-col cols="12">
+                    <v-btn
+                      color="info"
+                      prepend-icon="mdi-email-check"
+                      @click="testEmailSettings"
+                      :loading="testing"
+                      variant="tonal"
+                      class="px-6"
+                      rounded="lg"
                     >
-                      <v-expansion-panel-text>
-                        <v-row>
-                          <v-col cols="12">
-                            <v-text-field
-                              v-model="api.apiKey"
-                              :label="api.name + ' API Key'"
-                              type="password"
-                              autocomplete="new-password"
-                              variant="outlined"
-                              density="compact"
-                            />
-                          </v-col>
+                      Test Email Settings
+                    </v-btn>
+                  </v-col>
+                </v-row>
+              </v-form>
+            </v-card-text>
+            <v-card-actions class="px-8 pb-8">
+              <v-spacer />
+              <v-btn
+                color="primary"
+                :loading="saving"
+                :disabled="!isEmailFormValid"
+                @click="saveEmailSettings"
+                class="action-btn-primary px-8"
+              >
+                Save Changes
+              </v-btn>
+            </v-card-actions>
+          </v-card>
 
-                          <v-col cols="12">
-                            <v-text-field
-                              v-model="api.apiSecret"
-                              :label="api.name + ' API Secret'"
-                              type="password"
-                              autocomplete="new-password"
-                              variant="outlined"
-                              density="compact"
-                            />
-                          </v-col>
+          <!-- API Settings -->
+          <v-card v-if="activeSection === 'api'" class="premium-card mb-6">
+            <div class="p-8 border-b border-slate-100 d-flex align-center">
+              <v-icon color="primary" class="mr-3">mdi-api</v-icon>
+              <h2 class="text-h6 font-weight-bold">API Integration</h2>
+            </div>
+            <v-card-text class="p-8">
+              <v-form v-model="isApiFormValid" @submit.prevent="saveApiSettings">
+                <v-row>
+                  <v-col cols="12">
+                    <v-expansion-panels class="premium-expansion">
+                      <v-expansion-panel
+                        v-for="api in apiSettings"
+                        :key="api.name"
+                        class="premium-panel"
+                      >
+                        <v-expansion-panel-title class="font-weight-bold">
+                          <v-icon start>mdi-key</v-icon>
+                          {{ api.name }}
+                        </v-expansion-panel-title>
+                        <v-expansion-panel-text class="pt-4">
+                          <v-row>
+                            <v-col cols="12">
+                              <v-text-field
+                                v-model="api.apiKey"
+                                :label="api.name + ' API Key'"
+                                type="password"
+                                autocomplete="new-password"
+                                variant="outlined"
+                                rounded="lg"
+                                class="premium-input"
+                              />
+                            </v-col>
 
-                          <v-col cols="12">
-                            <v-switch
-                              v-model="api.enabled"
-                              :label="'Enable ' + api.name"
-                              variant="outlined"
-                              density="compact"
-                            />
-                          </v-col>
+                            <v-col cols="12">
+                              <v-text-field
+                                v-model="api.apiSecret"
+                                :label="api.name + ' API Secret'"
+                                type="password"
+                                autocomplete="new-password"
+                                variant="outlined"
+                                rounded="lg"
+                                class="premium-input"
+                              />
+                            </v-col>
 
-                          <v-col cols="12">
-                            <v-btn
-                              color="info"
-                              prepend-icon="mdi-check-circle"
-                              @click="verifyApiCredentials(api)"
-                              :loading="api.verifying"
-                            >
-                              Verify Credentials
-                            </v-btn>
-                          </v-col>
-                        </v-row>
-                      </v-expansion-panel-text>
-                    </v-expansion-panel>
-                  </v-expansion-panels>
-                </v-col>
-              </v-row>
-            </v-form>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn
-              color="primary"
-              :loading="saving"
-              :disabled="!isApiFormValid"
-              @click="saveApiSettings"
-            >
-              Save Changes
-            </v-btn>
-          </v-card-actions>
-        </v-card>
+                            <v-col cols="12">
+                              <v-switch
+                                v-model="api.enabled"
+                                :label="'Enable ' + api.name"
+                                color="primary"
+                                class="premium-switch"
+                                hide-details
+                              />
+                            </v-col>
 
-        <!-- Security Settings -->
-        <v-card v-if="activeSection === 'security'" class="mb-6">
-          <v-card-title>Security Settings</v-card-title>
-          <v-card-text>
-            <v-form v-model="isSecurityFormValid" @submit.prevent="saveSecuritySettings">
-              <v-row>
-                <v-col cols="12" md="6">
-                  <v-select
-                    v-model="securitySettings.sessionTimeout"
-                    :items="sessionTimeouts"
-                    label="Session Timeout"
-                    required
-                    :rules="[v => !!v || 'Session timeout is required']"
-                    variant="outlined"
-                    density="compact"
-                  />
-                </v-col>
+                            <v-col cols="12" class="mt-4">
+                              <v-btn
+                                color="info"
+                                prepend-icon="mdi-check-circle"
+                                @click="verifyApiCredentials(api)"
+                                :loading="api.verifying"
+                                variant="tonal"
+                                rounded="lg"
+                                class="px-6"
+                              >
+                                Verify Credentials
+                              </v-btn>
+                            </v-col>
+                          </v-row>
+                        </v-expansion-panel-text>
+                      </v-expansion-panel>
+                    </v-expansion-panels>
+                  </v-col>
+                </v-row>
+              </v-form>
+            </v-card-text>
+            <v-card-actions class="px-8 pb-8">
+              <v-spacer />
+              <v-btn
+                color="primary"
+                :loading="saving"
+                :disabled="!isApiFormValid"
+                @click="saveApiSettings"
+                class="action-btn-primary px-8"
+              >
+                Save Changes
+              </v-btn>
+            </v-card-actions>
+          </v-card>
 
-                <v-col cols="12" md="6">
-                  <v-select
-                    v-model="securitySettings.passwordPolicy"
-                    :items="passwordPolicies"
-                    label="Password Policy"
-                    required
-                    :rules="[v => !!v || 'Password policy is required']"
-                    variant="outlined"
-                    density="compact"
-                  />
-                </v-col>
+          <!-- Security Settings -->
+          <v-card v-if="activeSection === 'security'" class="premium-card mb-6 border-error-subtle">
+            <div class="p-8 border-b border-slate-100 d-flex align-center">
+              <v-icon color="error" class="mr-3">mdi-shield</v-icon>
+              <h2 class="text-h6 font-weight-bold">Security Settings</h2>
+            </div>
+            <v-card-text class="p-8">
+              <v-form v-model="isSecurityFormValid" @submit.prevent="saveSecuritySettings">
+                <v-row>
+                  <v-col cols="12" md="6">
+                    <v-select
+                      v-model="securitySettings.sessionTimeout"
+                      :items="sessionTimeouts"
+                      label="Session Timeout"
+                      required
+                      :rules="[v => !!v || 'Session timeout is required']"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                    />
+                  </v-col>
 
-                <v-col cols="12">
-                  <v-switch
-                    v-model="securitySettings.twoFactorAuth"
-                    label="Enable Two-Factor Authentication"
-                    variant="outlined"
-                    density="compact"
-                  />
-                </v-col>
+                  <v-col cols="12" md="6">
+                    <v-select
+                      v-model="securitySettings.passwordPolicy"
+                      :items="passwordPolicies"
+                      label="Password Policy"
+                      required
+                      :rules="[v => !!v || 'Password policy is required']"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                    />
+                  </v-col>
 
-                <v-col cols="12">
-                  <v-switch
-                    v-model="securitySettings.ipWhitelisting"
-                    label="Enable IP Whitelisting"
-                    variant="outlined"
-                    density="compact"
-                  />
-                </v-col>
+                  <v-col cols="12">
+                    <div class="p-6 bg-red-50 rounded-xl border border-red-100 mb-4">
+                      <v-switch
+                        v-model="securitySettings.twoFactorAuth"
+                        label="Enable Two-Factor Authentication"
+                        color="error"
+                        class="premium-switch mb-0"
+                        hide-details
+                      />
+                    </div>
+                  </v-col>
 
-                <v-col
-                  v-if="securitySettings.ipWhitelisting"
-                  cols="12"
-                >
-                  <v-textarea
-                    v-model="securitySettings.whitelistedIps"
-                    label="Whitelisted IPs"
-                    hint="Enter one IP address per line"
-                    persistent-hint
-                    rows="4"
-                    variant="outlined"
-                    density="compact"
-                  />
-                </v-col>
-              </v-row>
-            </v-form>
-          </v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn
-              color="primary"
-              :loading="saving"
-              :disabled="!isSecurityFormValid"
-              @click="saveSecuritySettings"
-            >
-              Save Changes
-            </v-btn>
-          </v-card-actions>
-        </v-card>
-      </v-col>
-    </v-row>
+                  <v-col cols="12">
+                    <v-switch
+                      v-model="securitySettings.ipWhitelisting"
+                      label="Enable IP Whitelisting"
+                      color="error"
+                      class="premium-switch"
+                      hide-details
+                    />
+                  </v-col>
+
+                  <v-col
+                    v-if="securitySettings.ipWhitelisting"
+                    cols="12"
+                  >
+                    <v-textarea
+                      v-model="securitySettings.whitelistedIps"
+                      label="Whitelisted IPs"
+                      hint="Enter one IP address per line"
+                      persistent-hint
+                      rows="4"
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                    />
+                  </v-col>
+                </v-row>
+              </v-form>
+            </v-card-text>
+            <v-card-actions class="px-8 pb-8">
+              <v-spacer />
+              <v-btn
+                color="error"
+                :loading="saving"
+                :disabled="!isSecurityFormValid"
+                @click="saveSecuritySettings"
+                class="action-btn-primary px-8"
+                variant="flat"
+              >
+                Update Security
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+        </v-col>
+      </v-row>
+    </v-container>
 
     <!-- Template Editor Dialog -->
     <v-dialog
@@ -624,9 +731,12 @@
       max-width="800"
       scrollable
     >
-      <v-card v-if="selectedTemplate">
-        <v-card-title>Edit Template: {{ selectedTemplate.name }}</v-card-title>
-        <v-card-text>
+      <v-card v-if="selectedTemplate" class="premium-card">
+        <div class="p-8 bg-slate-900 text-white">
+          <h2 class="text-h5 font-serif">Edit Template: {{ selectedTemplate.name }}</h2>
+          <p class="text-caption text-slate-400 mb-0">Customize email content and variables</p>
+        </div>
+        <v-card-text class="p-8">
           <v-form v-model="isTemplateFormValid" @submit.prevent="saveTemplate">
             <v-row>
               <v-col cols="12">
@@ -636,7 +746,8 @@
                   :rules="[v => !!v || 'Subject is required']"
                   required
                   variant="outlined"
-                  density="compact"
+                  rounded="lg"
+                  class="premium-input"
                 />
               </v-col>
 
@@ -648,23 +759,28 @@
                   required
                   rows="15"
                   variant="outlined"
-                  density="compact"
+                  rounded="lg"
+                  class="premium-input"
                 />
               </v-col>
 
               <v-col cols="12">
-                <v-expansion-panels>
-                  <v-expansion-panel>
-                    <v-expansion-panel-title>Available Variables</v-expansion-panel-title>
-                    <v-expansion-panel-text>
+                <v-expansion-panels class="premium-expansion">
+                  <v-expansion-panel class="premium-panel">
+                    <v-expansion-panel-title class="font-weight-bold">
+                      <v-icon start>mdi-code-braces</v-icon>
+                      Available Variables
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text class="pt-4">
                       <v-chip-group>
                         <v-chip
                           v-for="variable in templateVariables"
                           :key="variable"
                           @click="insertVariable(variable)"
                           variant="outlined"
-                          density="compact"
-                          >
+                          color="primary"
+                          class="font-mono"
+                        >
                           {{ variable }}
                         </v-chip>
                       </v-chip-group>
@@ -675,21 +791,21 @@
             </v-row>
           </v-form>
         </v-card-text>
-        <v-card-actions>
+        <v-card-actions class="p-8 pt-0">
           <v-spacer />
           <v-btn
             variant="text"
-            density="compact"
+            class="px-6"
             @click="showTemplateDialog = false"
           >
             Cancel
           </v-btn>
           <v-btn
             color="primary"
-            density="compact"
             :loading="saving"
             :disabled="!isTemplateFormValid"
             @click="saveTemplate"
+            class="action-btn-primary px-8"
           >
             Save Template
           </v-btn>
@@ -702,32 +818,45 @@
       v-model="showPreviewDialog"
       max-width="600"
     >
-      <v-card v-if="selectedTemplate">
-        <v-card-title>Preview: {{ selectedTemplate.name }}</v-card-title>
-        <v-card-text>
-          <div class="preview-container">
-            <div class="preview-subject mb-4">
-              <strong>Subject:</strong> {{ selectedTemplate.subject }}
-            </div>
-            <div class="preview-content" v-html="previewContent" />
+      <v-card v-if="selectedTemplate" class="premium-card">
+        <div class="p-8 bg-slate-900 text-white">
+          <h2 class="text-h5 font-serif">Preview: {{ selectedTemplate.name }}</h2>
+          <p class="text-caption text-slate-400 mb-0">How your email will appear to recipients</p>
         </div>
-      </v-card-text>
-        <v-card-actions>
+        <v-card-text class="p-8">
+          <div class="preview-container">
+            <div class="preview-subject mb-6 p-6 bg-slate-50 rounded-xl">
+              <div class="text-caption text-slate-400 font-weight-bold uppercase mb-2">Subject Line</div>
+              <div class="text-subtitle-1 font-weight-bold text-slate-900">{{ selectedTemplate.subject }}</div>
+            </div>
+            <div class="preview-content p-6 bg-white rounded-xl border border-slate-200" v-html="previewContent" />
+          </div>
+        </v-card-text>
+        <v-card-actions class="p-8 pt-0">
           <v-spacer />
           <v-btn
             color="primary"
-            density="compact"
             @click="showPreviewDialog = false"
+            class="action-btn-primary px-8"
           >
             Close
           </v-btn>
         </v-card-actions>
-    </v-card>
+      </v-card>
     </v-dialog>
-  </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
+// Helper function to safely get auth headers
+const getAuthHeaders = () => {
+  if (process.client) {
+    const token = localStorage.getItem('token')
+    return token ? { 'Authorization': `Bearer ${token}` } : {}
+  }
+  return {}
+}
+
 const syncing = ref(false)
 const syncStatus = ref('ready') // 'ready', 'running', 'error'
 const syncProgress = ref(0)
@@ -900,7 +1029,7 @@ const saveGeneralSettings = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify(generalSettings.value)
     })
@@ -926,7 +1055,7 @@ const saveEmailSettings = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify(emailSettings.value)
     })
@@ -952,7 +1081,7 @@ const saveApiSettings = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify(apiSettings.value)
     })
@@ -978,7 +1107,7 @@ const saveSecuritySettings = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify(securitySettings.value)
     })
@@ -1004,7 +1133,7 @@ const testEmailSettings = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify(emailSettings.value)
     })
@@ -1138,7 +1267,7 @@ const startManualSync = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify(syncPayload)
     })
@@ -1174,7 +1303,7 @@ const updateAutoSyncSetting = async () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeaders()
       },
       body: JSON.stringify(settings)
     })
@@ -1188,9 +1317,7 @@ const updateAutoSyncSetting = async () => {
 const loadStats = async () => {
   try {
     const data = await fetch('/api/admin/dashboard', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+      headers: getAuthHeaders()
     }).then(r => r.json())
     
     stats.value = data.stats || {}
@@ -1211,9 +1338,7 @@ const loadCities = async () => {
 const loadAutoSyncSettings = async () => {
   try {
     const data = await fetch('/api/admin/settings/crea-sync', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+      headers: getAuthHeaders()
     }).then(r => r.json())
     
     autoSyncEnabled.value = data.autoSyncEnabled || false
@@ -1226,9 +1351,7 @@ const loadAutoSyncSettings = async () => {
 const loadCurrentSyncStatus = async () => {
   try {
     const response = await fetch('/api/admin/crea/sync-status', {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
-      }
+      headers: getAuthHeaders()
     })
     
     if (!response.ok) return
@@ -1269,9 +1392,7 @@ const pollForSyncStatus = () => {
   const pollInterval = setInterval(async () => {
     try {
       const response = await fetch('/api/admin/crea/sync-status', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        headers: getAuthHeaders()
       })
       
       if (!response.ok) {
@@ -1344,22 +1465,13 @@ const pollForSyncStatus = () => {
 const loadAllSettings = async () => {
   try {
     // Load all settings in parallel
+    const headers = getAuthHeaders()
     const [generalRes, emailRes, apiRes, securityRes, templatesRes] = await Promise.all([
-      fetch('/api/admin/settings/general', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      }),
-      fetch('/api/admin/settings/email', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      }),
-      fetch('/api/admin/settings/api', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      }),
-      fetch('/api/admin/settings/security', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      }),
-      fetch('/api/admin/settings/email/templates', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      })
+      fetch('/api/admin/settings/general', { headers }),
+      fetch('/api/admin/settings/email', { headers }),
+      fetch('/api/admin/settings/api', { headers }),
+      fetch('/api/admin/settings/security', { headers }),
+      fetch('/api/admin/settings/email/templates', { headers })
     ])
 
     // Update settings with loaded data
@@ -1411,36 +1523,235 @@ definePageMeta({
 </script>
 
 <style scoped>
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 16px;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap');
+
+.premium-settings-wrapper {
+  font-family: 'Inter', sans-serif;
+  letter-spacing: -0.01em;
+  min-height: 100vh;
 }
 
-.stat-item {
+.font-serif {
+  font-family: 'Playfair Display', serif;
+}
+
+.header-glass {
+  backdrop-filter: blur(12px);
+  background: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Card Styling */
+.premium-card {
+  background: white !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 20px !important;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.03) !important;
+  transition: transform 0.2s ease;
+  overflow: hidden;
+}
+
+.premium-card:hover {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+}
+
+.border-error-subtle {
+  border-color: #FEE2E2 !important;
+}
+
+.icon-orb {
+  width: 48px;
+  height: 48px;
+  background: rgba(25, 118, 210, 0.08);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bg-purple-50 {
+  background: rgba(156, 39, 176, 0.08) !important;
+}
+
+/* Luxury Stats */
+.stats-grid-premium {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.stat-item-luxury {
+  background: #F8FAFC;
+  border: 1px solid #F1F5F9;
+  padding: 20px 10px;
+  border-radius: 16px;
   text-align: center;
-  padding: 16px;
-  background: #f5f5f5;
-  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.stat-item-luxury:hover {
+  background: white;
+  border-color: #CBD5E1;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .stat-value {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #1976d2;
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #1E293B;
+  line-height: 1;
+  margin-bottom: 4px;
 }
 
 .stat-label {
-  font-size: 0.875rem;
-  color: #666;
-  margin-top: 4px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #94A3B8;
+  letter-spacing: 0.05em;
 }
 
-.sync-controls {
-  background: #f8f9fa;
-  padding: 20px;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
+.last-sync-pill {
+  transition: all 0.2s ease;
+}
+
+.sync-controls-premium {
+  background: #F8FAFC;
+  padding: 24px;
+  border-radius: 16px;
+  border: 1px solid #F1F5F9;
+}
+
+.next-sync-info {
+  transition: all 0.2s ease;
+}
+
+/* Table styling */
+.premium-table :deep(th) {
+  background: #F8FAFC !important;
+  height: 60px !important;
+  border-bottom: 1px solid #F1F5F9 !important;
+  font-weight: 700 !important;
+}
+
+.premium-table :deep(td) {
+  height: 60px !important;
+  border-bottom: 1px solid #F8FAFC !important;
+}
+
+.table-row-premium {
+  transition: background 0.15s ease;
+}
+
+.table-row-premium:hover {
+  background: #F1F5F9 !important;
+}
+
+/* Navigation Items */
+.premium-nav-item {
+  transition: all 0.2s ease;
+}
+
+.premium-nav-item:hover {
+  background: #F1F5F9 !important;
+}
+
+.active-nav-item {
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
+  color: white !important;
+}
+
+.active-nav-item :deep(.v-list-item-title) {
+  color: white !important;
+}
+
+.active-nav-item :deep(.v-icon) {
+  color: white !important;
+}
+
+/* Inputs & Buttons */
+.premium-input :deep(.v-field__outline) {
+  --v-field-border-opacity: 0.1;
+  border-radius: 12px !important;
+}
+
+.premium-input :deep(.v-field) {
+  border-radius: 12px !important;
+}
+
+.premium-input-filled :deep(.v-field) {
+  border-radius: 12px !important;
+  background: #F1F5F9 !important;
+}
+
+.action-btn-primary {
+  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
+  color: white !important;
+  border-radius: 12px !important;
+  height: 52px !important;
+  font-weight: 700 !important;
+  text-transform: none !important;
+  letter-spacing: 0.02em !important;
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.2) !important;
+  transition: all 0.2s ease !important;
+}
+
+.action-btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(25, 118, 210, 0.3) !important;
+  transform: translateY(-1px);
+}
+
+.action-btn-outline {
+  border: 2px solid #E2E8F0 !important;
+  border-radius: 12px !important;
+  height: 52px !important;
+  text-transform: none !important;
+  font-weight: 700 !important;
+  color: #475569 !important;
+}
+
+.add-btn-premium {
+  background: #10B981 !important;
+  color: white !important;
+  border-radius: 10px !important;
+  text-transform: none !important;
+  font-weight: 700 !important;
+}
+
+.premium-chip {
+  height: 36px !important;
+  font-size: 0.75rem !important;
+  letter-spacing: 0.02em !important;
+  border-radius: 10px !important;
+}
+
+.premium-chip-result {
+  height: 32px !important;
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+}
+
+.premium-switch :deep(.v-selection-control) {
+  min-height: 40px !important;
+}
+
+/* Expansion Panels */
+.premium-expansion :deep(.v-expansion-panel) {
+  border-radius: 12px !important;
+  margin-bottom: 12px !important;
+  border: 1px solid #E2E8F0 !important;
+}
+
+.premium-expansion :deep(.v-expansion-panel-title) {
+  padding: 20px 24px !important;
+  border-radius: 12px !important;
+}
+
+.premium-panel {
+  background: white !important;
 }
 
 .sync-results {
@@ -1450,20 +1761,145 @@ definePageMeta({
 }
 
 .preview-container {
-  padding: 20px;
-  background: #f5f5f5;
-  border-radius: 4px;
+  padding: 0;
 }
 
 .preview-subject {
-  padding: 10px;
-  background: white;
-  border-radius: 4px;
+  transition: all 0.2s ease;
 }
 
 .preview-content {
-  padding: 20px;
-  background: white;
-  border-radius: 4px;
+  min-height: 200px;
+}
+
+/* Utility Classes */
+.bg-green-50 {
+  background: #F0FDF4 !important;
+}
+
+.bg-blue-50 {
+  background: #EFF6FF !important;
+}
+
+.bg-red-50 {
+  background: #FEF2F2 !important;
+}
+
+.bg-slate-50 {
+  background: #F8FAFC !important;
+}
+
+.border-slate-100 {
+  border-color: #F1F5F9 !important;
+}
+
+.border-slate-200 {
+  border-color: #E2E8F0 !important;
+}
+
+.border-blue-100 {
+  border-color: #DBEAFE !important;
+}
+
+.border-red-100 {
+  border-color: #FEE2E2 !important;
+}
+
+.text-slate-400 {
+  color: #94A3B8 !important;
+}
+
+.text-slate-500 {
+  color: #64748B !important;
+}
+
+.text-slate-600 {
+  color: #475569 !important;
+}
+
+.text-slate-700 {
+  color: #334155 !important;
+}
+
+.text-slate-800 {
+  color: #1E293B !important;
+}
+
+.text-slate-900 {
+  color: #0F172A !important;
+}
+
+.text-blue-600 {
+  color: #2563EB !important;
+}
+
+.text-blue-700 {
+  color: #1D4ED8 !important;
+}
+
+.text-blue-900 {
+  color: #1E3A8A !important;
+}
+
+.rounded-lg {
+  border-radius: 12px !important;
+}
+
+.rounded-xl {
+  border-radius: 16px !important;
+}
+
+.tracking-wider {
+  letter-spacing: 0.05em !important;
+}
+
+.tracking-widest {
+  letter-spacing: 0.1em !important;
+}
+
+.font-mono {
+  font-family: 'Courier New', monospace !important;
+}
+
+.w-fit {
+  width: fit-content;
+}
+
+.sticky {
+  position: sticky;
+}
+
+.top-0 {
+  top: 0;
+}
+
+.top-24 {
+  top: 96px;
+}
+
+.z-50 {
+  z-index: 50;
+}
+
+.gap-3 {
+  gap: 12px;
+}
+
+.gap-4 {
+  gap: 16px;
+}
+
+@media (max-width: 960px) {
+  .stats-grid-premium {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .header-glass {
+    padding: 16px !important;
+  }
+  
+  .premium-card .p-8 {
+    padding: 24px !important;
+  }
 }
 </style>

@@ -1,73 +1,120 @@
 <template>
   <div class="market-overview-page">
-    <!-- Hero Section -->
-    <section class="hero-section bg-gradient-to-r from-blue-600 to-purple-600 text-white py-12">
-      <v-container>
+    <!-- Hero Section with Premium Gradient & Texture -->
+    <section class="hero-section text-white overflow-hidden">
+      <div class="hero-bg-overlay"></div>
+      <v-container class="relative py-16">
         <v-row align="center" justify="center" class="text-center">
-          <v-col cols="12" md="8">
-            <h1 class="text-h3 mb-4 font-weight-bold">Alberta Real Estate Market Overview</h1>
-            <p class="text-h6 mb-0 opacity-90">
-              Comprehensive neighborhood and pricing insights across Alberta cities
+          <v-col cols="12" md="10" lg="8">
+            <v-chip
+              color="white"
+              variant="outlined"
+              size="small"
+              class="mb-6 px-4 py-3 text-uppercase tracking-widest font-weight-bold"
+              style="border-color: rgba(255,255,255,0.4) !important;"
+            >
+              Market Insights
+            </v-chip>
+            <h1 class="premium-title text-h3 text-sm-h2 mb-6">
+              Alberta Real Estate <br class="hidden-sm-and-down" />
+              <span class="text-italic font-weight-light">Market Intelligence</span>
+            </h1>
+            <p class="text-subtitle-1 text-md-h6 mb-0 opacity-80 max-w-700 mx-auto font-weight-light">
+              Access comprehensive neighborhood analytics and pricing trends across Alberta's most vibrant cities.
             </p>
           </v-col>
         </v-row>
       </v-container>
+      
+      <!-- Decorative Abstract Element -->
+      <div class="decorative-circle top-right"></div>
+      <div class="decorative-circle bottom-left"></div>
     </section>
 
-    <!-- Main Content -->
-    <section class="content-section py-8">
+    <!-- Main Content with Refined Spacing -->
+    <section class="content-section pb-16">
       <v-container>
-        <v-row>
+        <v-row class="mt-n10">
           <v-col cols="12">
-            <!-- City Market Overview Component (Real Data) -->
-            <CityMarketOverview 
-              @city-selected="handleCitySelected"
-            />
+            <!-- Market Overview Component Wrapper -->
+            <v-card class="premium-glass-card pa-2" elevation="24">
+              <CityMarketOverview 
+                @city-selected="handleCitySelected"
+              />
+            </v-card>
           </v-col>
         </v-row>
         
-        <!-- Neighborhood Section (Limited Sample Data) -->
-        <v-row class="mt-8" v-if="showNeighborhoodData">
+        <!-- Neighborhood Section: Refined Design -->
+        <v-row class="mt-12" v-if="showNeighborhoodData">
           <v-col cols="12">
+            <div class="section-header mb-8 d-flex align-center">
+              <div>
+                <h2 class="text-h4 font-weight-bold mb-2">Neighborhood Breakdown</h2>
+                <div class="section-line"></div>
+              </div>
+              <v-spacer />
+              <v-chip size="small" color="blue-darken-4" variant="tonal" prepend-icon="mdi-chart-bell-curve">
+                Beta Access
+              </v-chip>
+            </div>
+
             <v-alert
-              type="info"
-              variant="tonal"
-              class="mb-4"
+              border="start"
+              color="blue-darken-3"
+              theme="dark"
+              variant="flat"
+              class="mb-8 rounded-xl elevation-4"
+              icon="mdi-lightbulb-on-outline"
             >
-              <v-alert-title>Neighborhood Data</v-alert-title>
-              The neighborhood breakdown below shows sample data for select cities. 
-              We're working on expanding neighborhood coverage across all Alberta cities.
+              <div class="text-h6 font-weight-bold">Insights Expanding</div>
+              <div class="text-body-2 opacity-90">
+                We are currently indexing localized data. The following metrics represent curated sample sets for key Alberta regions.
+              </div>
             </v-alert>
-            <NeighborhoodMarketOverview 
-              @city-selected="handleCitySelected"
-            />
+
+            <v-card class="premium-glass-card pa-2" elevation="12">
+              <NeighborhoodMarketOverview 
+                @city-selected="handleCitySelected"
+              />
+            </v-card>
           </v-col>
         </v-row>
 
-        <!-- City Details Modal -->
+        <!-- City Details Modal: High End Refinement -->
         <v-dialog
           v-model="showCityDialog"
-          max-width="800px"
+          max-width="850px"
           scrollable
+          transition="dialog-bottom-transition"
+          class="premium-dialog"
         >
-          <v-card>
-            <v-card-title class="d-flex align-center">
-              <v-icon class="mr-2" color="primary">mdi-city</v-icon>
-              <span>{{ selectedCity }} Neighborhoods</span>
+          <v-card class="rounded-xl overflow-hidden">
+            <v-card-title class="pa-6 d-flex align-center bg-grey-lighten-4">
+              <div class="d-flex align-center">
+                <v-avatar color="black" size="48" class="mr-4">
+                  <v-icon color="white">mdi-city-variant-outline</v-icon>
+                </v-avatar>
+                <div>
+                  <div class="text-overline leading-none mb-1">CITY ANALYTICS</div>
+                  <div class="text-h5 font-weight-black">{{ selectedCity }}</div>
+                </div>
+              </div>
               <v-spacer />
               <v-btn
-                icon
-                variant="text"
+                icon="mdi-close"
+                variant="tonal"
+                color="grey-darken-3"
                 @click="showCityDialog = false"
-              >
-                <v-icon>mdi-close</v-icon>
-              </v-btn>
+              />
             </v-card-title>
 
-            <v-card-text>
-              <div v-if="loadingCityDetails" class="text-center py-8">
-                <v-progress-circular indeterminate color="primary" />
-                <p class="mt-3">Loading {{ selectedCity }} neighborhoods...</p>
+            <v-divider />
+
+            <v-card-text class="pa-0">
+              <div v-if="loadingCityDetails" class="text-center py-16">
+                <v-progress-circular indeterminate color="black" size="64" width="2" />
+                <p class="mt-6 text-overline tracking-widest">Gathering intelligence...</p>
               </div>
 
               <div v-else-if="cityNeighborhoods.length > 0">
@@ -75,54 +122,59 @@
                   :headers="cityDetailHeaders"
                   :items="cityNeighborhoods"
                   :items-per-page="10"
-                  class="elevation-1"
+                  class="premium-table"
+                  hover
                 >
                   <template #item.name="{ item }">
-                    <div class="d-flex align-center">
-                      <v-icon class="mr-2" size="16" color="success">mdi-home-group</v-icon>
-                      <span class="font-weight-medium">{{ item.name }}</span>
+                    <div class="py-3">
+                      <div class="text-subtitle-1 font-weight-bold">{{ item.name }}</div>
+                      <div class="text-caption text-medium-emphasis">Residential Zone</div>
                     </div>
                   </template>
 
                   <template #item.propertyCount="{ item }">
                     <v-chip
                       :color="getPropertyCountColor(item.propertyCount)"
-                      variant="flat"
+                      variant="tonal"
                       size="small"
+                      class="font-weight-black"
                     >
-                      {{ item.propertyCount }}
+                      {{ item.propertyCount }} Active
                     </v-chip>
                   </template>
 
                   <template #item.averagePrice="{ item }">
-                    <span class="font-weight-bold text-primary">
-                      {{ formatPrice(item.averagePrice) }}
-                    </span>
+                    <div class="text-right">
+                      <div class="text-subtitle-1 font-weight-black text-blue-darken-4">
+                        {{ formatPrice(item.averagePrice) }}
+                      </div>
+                      <div class="text-tiny text-uppercase tracking-tighter text-grey">Avg Listing</div>
+                    </div>
                   </template>
                 </v-data-table>
               </div>
 
-              <div v-else class="text-center py-8">
-                <v-icon size="48" color="grey-lighten-1">mdi-home-search-outline</v-icon>
-                <p class="mt-3">No neighborhoods found for {{ selectedCity }}</p>
+              <div v-else class="text-center py-16 px-6">
+                <v-icon size="64" color="grey-lighten-2">mdi-database-off-outline</v-icon>
+                <h3 class="text-h6 font-weight-bold mt-4">No Localized Data Found</h3>
+                <p class="text-body-2 text-medium-emphasis">We're still collecting neighborhood-level metrics for {{ selectedCity }}.</p>
               </div>
             </v-card-text>
 
-            <v-card-actions>
-              <v-spacer />
+            <v-divider />
+
+            <v-card-actions class="pa-6 bg-white">
               <v-btn
-                color="primary"
-                variant="outlined"
+                color="black"
+                variant="flat"
+                size="large"
+                block
+                rounded="lg"
+                class="text-none font-weight-bold"
                 @click="searchPropertiesInCity"
               >
-                <v-icon start>mdi-magnify</v-icon>
-                Search Properties in {{ selectedCity }}
-              </v-btn>
-              <v-btn
-                color="primary"
-                @click="showCityDialog = false"
-              >
-                Close
+                Browse All Properties in {{ selectedCity }}
+                <v-icon end icon="mdi-arrow-right" size="small" class="ml-2" />
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -133,31 +185,29 @@
 </template>
 
 <script setup lang="ts">
-// Page meta
+import { ref } from 'vue'
+
 definePageMeta({
   title: 'Market Overview - Alberta Real Estate',
   description: 'Comprehensive overview of Alberta real estate market by neighborhoods and cities'
 })
 
-// Reactive data
 const showCityDialog = ref(false)
 const selectedCity = ref('')
 const loadingCityDetails = ref(false)
 const cityNeighborhoods = ref<any[]>([])
-const showNeighborhoodData = ref(false) // Toggle to show neighborhood section
+const showNeighborhoodData = ref(false)
 
-// City detail table headers
 const cityDetailHeaders = [
-  { title: 'Neighborhood', key: 'name', sortable: true },
-  { title: 'Properties', key: 'propertyCount', sortable: true },
-  { title: 'Average Price', key: 'averagePrice', sortable: true }
+  { title: 'Neighborhood', key: 'name', sortable: true, align: 'start' as const },
+  { title: 'Availability', key: 'propertyCount', sortable: true, align: 'center' as const },
+  { title: 'Market Value', key: 'averagePrice', sortable: true, align: 'end' as const }
 ]
 
-// Methods
 const formatPrice = (price: number): string => {
   if (!price) return 'N/A'
   if (price >= 1000000) {
-    return `$${(price / 1000000).toFixed(1)}M`
+    return `$${(price / 1000000).toFixed(2)}M`
   } else if (price >= 1000) {
     return `$${(price / 1000).toFixed(0)}K`
   }
@@ -165,10 +215,10 @@ const formatPrice = (price: number): string => {
 }
 
 const getPropertyCountColor = (count: number): string => {
-  if (count >= 50) return 'success'
-  if (count >= 25) return 'warning'
-  if (count >= 10) return 'info'
-  return 'default'
+  if (count >= 50) return 'blue-darken-4'
+  if (count >= 25) return 'blue-darken-1'
+  if (count >= 10) return 'blue-lighten-1'
+  return 'grey'
 }
 
 const handleCitySelected = async (city: string) => {
@@ -192,60 +242,104 @@ const handleCitySelected = async (city: string) => {
 }
 
 const searchPropertiesInCity = () => {
-  // Navigate to properties page with city filter
   navigateTo({
     path: '/properties',
-    query: {
-      city: selectedCity.value
-    }
+    query: { city: selectedCity.value }
   })
   showCityDialog.value = false
 }
 
-// SEO
 useHead({
-  title: 'Alberta Market Overview - Real Estate Insights by City & Neighborhood',
+  title: 'Alberta Real Estate Intelligence | Market Overview',
   meta: [
-    {
-      name: 'description',
-      content: 'Explore comprehensive Alberta real estate market data including neighborhood statistics, property counts, and average prices across major cities like Calgary, Edmonton, and more.'
-    },
-    {
-      name: 'keywords',
-      content: 'Alberta real estate, market overview, neighborhood statistics, Calgary properties, Edmonton real estate, property prices'
-    }
+    { name: 'description', content: 'Explore high-fidelity market data for Alberta real estate. Detailed neighborhood stats, average pricing, and inventory levels for Calgary, Edmonton, and surrounding areas.' }
   ]
 })
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap');
+
 .market-overview-page {
   min-height: 100vh;
-  background-color: #f8fafc;
+  background-color: #f1f5f9;
+}
+
+.premium-title {
+  font-family: 'Playfair Display', serif;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
 .hero-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #0f172a;
   position: relative;
+  min-height: 400px;
+  display: flex;
+  align-items: center;
 }
 
-.hero-section::before {
-  content: '';
+.hero-bg-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.1);
-  pointer-events: none;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  opacity: 0.95;
 }
 
-.content-section {
-  position: relative;
-  z-index: 1;
+/* Glassmorphism Elements */
+.premium-glass-card {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 24px !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1) !important;
 }
 
-:deep(.v-dialog .v-card) {
-  border-radius: 12px;
+.section-line {
+  width: 60px;
+  height: 4px;
+  background: #1e293b;
+  border-radius: 2px;
+}
+
+.decorative-circle {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), transparent);
+  z-index: 0;
+}
+
+.top-right { top: -100px; right: -50px; }
+.bottom-left { bottom: -100px; left: -50px; }
+
+.max-w-700 { max-width: 700px; }
+
+.text-italic { font-style: italic; }
+
+.tracking-widest { letter-spacing: 0.2em; }
+.tracking-tighter { letter-spacing: -0.05em; }
+
+.premium-table :deep(thead th) {
+  font-weight: 800 !important;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: #64748b !important;
+  background-color: #f8fafc !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+}
+
+.premium-table :deep(tbody tr:hover) {
+  background-color: #f1f5f9 !important;
+}
+
+.text-tiny { font-size: 0.65rem; }
+
+@media (max-width: 600px) {
+  .hero-section {
+    min-height: 300px;
+  }
 }
 </style>

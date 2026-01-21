@@ -85,33 +85,69 @@ export default defineEventHandler(async (event) => {
   })
 
   // Format properties
-  const formattedProperties = properties.map(property => ({
-    id: property.id,
-    title: property.title,
-    description: property.description,
-    price: property.price,
-    beds: property.beds,
-    baths: property.baths,
-    sqft: property.sqft,
-    type: property.type,
-    status: property.status,
-    address: property.address,
-    city: property.city,
-    province: property.province,
-    postalCode: property.postalCode,
-    latitude: property.latitude,
-    longitude: property.longitude,
-    features: property.features,
-    images: property.images,
-    views: property.views,
-    source: property.source,
-    externalId: property.externalId,
-    mlsNumber: property.mlsNumber,
-    createdAt: property.createdAt,
-    updatedAt: property.updatedAt,
-    user: property.user,
-    neighborhood: property.neighborhood?.neighborhood || null
-  }))
+  const formattedProperties = properties.map(property => {
+    // Parse enhanced CREA agent data
+    const listingAgentData = typeof property.listingAgentData === 'string' ? JSON.parse(property.listingAgentData) : property.listingAgentData
+    const listingOfficeData = typeof property.listingOfficeData === 'string' ? JSON.parse(property.listingOfficeData) : property.listingOfficeData
+    
+    // Extract simple agent/office names for display
+    let listingAgent = null
+    let listingOffice = null
+    
+    if (listingAgentData) {
+      listingAgent = listingAgentData.fullName || 
+        (listingAgentData.firstName && listingAgentData.lastName 
+          ? `${listingAgentData.firstName} ${listingAgentData.lastName}`
+          : null)
+    }
+    
+    if (listingOfficeData) {
+      listingOffice = listingOfficeData.name
+    }
+
+    return {
+      id: property.id,
+      title: property.title,
+      description: property.description,
+      price: property.price,
+      beds: property.beds,
+      baths: property.baths,
+      sqft: property.sqft,
+      type: property.type,
+      status: property.status,
+      address: property.address,
+      city: property.city,
+      province: property.province,
+      postalCode: property.postalCode,
+      latitude: property.latitude,
+      longitude: property.longitude,
+      features: property.features,
+      images: property.images,
+      views: property.views,
+      source: property.source,
+      externalId: property.externalId,
+      mlsNumber: property.mlsNumber,
+      createdAt: property.createdAt,
+      updatedAt: property.updatedAt,
+      user: property.user,
+      neighborhood: property.neighborhood?.neighborhood || null,
+      
+      // Simple agent/office fields for display
+      listingAgent,
+      listingOffice,
+      
+      // Enhanced agent data for detailed views
+      listingAgentData,
+      listingOfficeData,
+      coListingAgentsData: typeof property.coListingAgentsData === 'string' ? JSON.parse(property.coListingAgentsData) : property.coListingAgentsData,
+      coListingOfficesData: typeof property.coListingOfficesData === 'string' ? JSON.parse(property.coListingOfficesData) : property.coListingOfficesData,
+      
+      // Add indicators for UI
+      isMLS: property.source === 'crea',
+      isBuilder: property.source === 'manual',
+      agent: property.user
+    }
+  })
 
   return {
     properties: formattedProperties,

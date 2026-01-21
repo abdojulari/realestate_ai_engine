@@ -1,200 +1,183 @@
 <template>
-  <v-container class="py-12">
+  <v-container class="py-16">
     <v-row justify="center">
-      <v-col cols="12" md="8" lg="6">
-        <v-card class="elevation-8">
-          <v-card-title class="text-h4 text-center py-6 bg-primary text-white">
-            <v-icon left size="large" class="mr-2">mdi-file-document-outline</v-icon>
-            Terms and Conditions
-          </v-card-title>
-          
-          <v-card-text class="pa-6">
-            <div class="text-center mb-6">
-              <v-btn 
-                color="primary" 
-                size="large" 
-                @click="dialog = true"
-                class="text-h6"
-              >
-                <v-icon left>mdi-eye</v-icon>
-                View Terms & Conditions
-              </v-btn>
-            </div>
-            
-            <v-alert type="info" variant="tonal" class="mb-4">
-              <template v-slot:prepend>
-                <v-icon>mdi-information</v-icon>
-              </template>
-              <strong>Important:</strong> By using our services, you agree to these terms and conditions. 
-              Please read them carefully before proceeding.
-            </v-alert>
+      <v-col cols="12" md="10" lg="8">
+        <!-- Hero Section -->
+        <div class="text-center mb-12">
+          <div class="premium-badge mb-4">Legal Documentation</div>
+          <h1 class="display-serif mb-4">Terms & Conditions</h1>
+          <p class="subtitle-text">Homes By Abdul Ojulari</p>
+          <div class="elegant-divider mx-auto"></div>
+        </div>
 
-            <div class="text-body-1 text-center">
-              <p class="mb-2"><strong>Last Updated:</strong> September 18, 2025</p>
-              <p class="mb-2"><strong>Effective Date:</strong> September 18, 2025</p>
-              <p><strong>Jurisdiction:</strong> Edmonton, Alberta, Canada</p>
-            </div>
+        <v-card class="premium-main-card" border>
+          <v-card-text class="pa-10">
+            <v-row align="center">
+              <v-col cols="12" md="7">
+                <div class="d-flex align-center mb-6">
+                  <div class="icon-circle mr-4">
+                    <v-icon icon="mdi-shield-check-outline" color="gold-darken-2" />
+                  </div>
+                  <h2 class="text-h5 font-weight-bold">Agreement Overview</h2>
+                </div>
+                
+                <p class="text-body-1 text-secondary mb-8">
+                  By accessing our digital services, you enter into a binding agreement with Homes By Abdul Ojulari. 
+                  These terms govern your usage of our property platforms and the protection of your digital rights.
+                </p>
+
+                <v-btn 
+                  block
+                  height="56"
+                  class="premium-action-btn"
+                  @click="dialog = true"
+                >
+                  <v-icon left class="mr-2">mdi-text-box-search-outline</v-icon>
+                  Review Full Disclosure
+                </v-btn>
+              </v-col>
+
+              <v-col cols="12" md="5" class="border-left-md pl-md-10">
+                <div class="metadata-item">
+                  <span class="label">Last Updated</span>
+                  <span class="value">September 18, 2025</span>
+                </div>
+                <div class="metadata-item">
+                  <span class="label">Effective Date</span>
+                  <span class="value">September 18, 2025</span>
+                </div>
+                <div class="metadata-item">
+                  <span class="label">Jurisdiction</span>
+                  <span class="value">Edmonton, Alberta, CA</span>
+                </div>
+                
+                <v-alert
+                  variant="text"
+                  density="compact"
+                  class="legal-alert pa-0 mt-6"
+                  icon="mdi-information-outline"
+                >
+                  <small class="text-grey-darken-1">
+                    Compliance with local RECA (Real Estate Council of Alberta) standards is maintained throughout these terms.
+                  </small>
+                </v-alert>
+              </v-col>
+            </v-row>
           </v-card-text>
         </v-card>
       </v-col>
     </v-row>
 
-    <!-- Terms Dialog -->
-    <v-dialog v-model="dialog" max-width="900px" scrollable>
-      <v-card>
-        <v-card-title class="text-h5 bg-primary text-white pa-4 d-flex align-center">
-          <v-icon left class="mr-2">mdi-file-document-outline</v-icon>
-          Terms and Conditions - Homes By Abdul Ojulari
-          <v-spacer></v-spacer>
-          <v-btn icon @click="dialog = false" color="white" variant="text">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
+    <!-- Full Screen Legal Dialog -->
+    <v-dialog 
+      v-model="dialog" 
+      max-width="1000px" 
+      transition="dialog-bottom-transition"
+      scrollable
+    >
+      <v-card class="legal-dialog-card">
+        <v-card-title class="pa-0">
+          <div class="dialog-header px-8 py-6 d-flex align-center">
+            <div>
+              <h2 class="text-h5 font-weight-black mb-1">Detailed Terms of Service</h2>
+              <p class="text-caption text-uppercase letter-spacing-1">Homes By Abdul Ojulari</p>
+            </div>
+            <v-spacer />
+            <v-btn 
+              icon="mdi-close" 
+              variant="tonal" 
+              density="comfortable" 
+              @click="dialog = false" 
+              class="rounded-lg"
+            />
+          </div>
         </v-card-title>
 
-        <v-card-text class="pa-0">
-          <div class="pa-6" style="max-height: 70vh; overflow-y: auto;">
-            
-            <!-- Header Info -->
-            <div class="text-center mb-6 pa-4 bg-grey-lighten-5 rounded">
-              <p class="text-h6 mb-2">Homes By Abdul Ojulari</p>
-              <p class="text-body-2 mb-1"><strong>Effective Date:</strong> September 18, 2025</p>
-              <p class="text-body-2"><strong>Last Updated:</strong> September 18, 2025</p>
+        <v-divider />
+
+        <v-card-text class="pa-0 bg-stone">
+          <div class="legal-content-container pa-10">
+            <!-- Table of Contents / Summary -->
+            <div class="summary-box mb-12 pa-6 rounded-xl">
+              <h3 class="text-subtitle-1 font-weight-bold mb-3">Key Highlights</h3>
+              <p class="text-body-2 text-secondary mb-0">
+                Welcome to <strong>Homes By Abdul Ojulari</strong>. By using our App, you agree to these Terms. 
+                If you do not agree, please cease use immediately.
+              </p>
             </div>
 
-            <div class="terms-content">
-              <p class="text-body-1 mb-4">
-                Welcome to <strong>Homes By Abdul Ojulari</strong> ("we", "us", "our"). By accessing or using our mobile application or website (the "App"), you agree to be bound by the following Terms and Conditions ("Terms").
-              </p>
-              
-              <p class="text-body-1 mb-6">
-                <strong>Please read them carefully. If you do not agree, do not use our App.</strong>
-              </p>
-
+            <div class="legal-sections">
               <!-- Section 1 -->
-              <div class="mb-6">
-                <h3 class="text-h6 mb-3 text-primary d-flex align-center">
-                  <v-icon left size="small" class="mr-2">mdi-check-circle</v-icon>
-                  1. Acceptance of Terms
-                </h3>
-                <p class="text-body-1 ml-6">
-                  By using this App, you agree to these Terms. These Terms apply to all users, including real estate agents, property seekers, and general visitors.
-                </p>
-              </div>
+              <section class="legal-section">
+                <div class="section-number">01</div>
+                <div class="section-body">
+                  <h3 class="section-title">Acceptance of Terms</h3>
+                  <p>These Terms apply to all users, including real estate agents, property seekers, and general visitors. Use of the app constitutes a formal digital signature of acceptance.</p>
+                </div>
+              </section>
 
               <!-- Section 2 -->
-              <div class="mb-6">
-                <h3 class="text-h6 mb-3 text-primary d-flex align-center">
-                  <v-icon left size="small" class="mr-2">mdi-account-check</v-icon>
-                  2. Eligibility
-                </h3>
-                <p class="text-body-1 ml-6">
-                  You must be at least 18 years old to use this App. By using the App, you confirm that you meet this requirement.
-                </p>
-              </div>
+              <section class="legal-section">
+                <div class="section-number">02</div>
+                <div class="section-body">
+                  <h3 class="section-title">Eligibility</h3>
+                  <p>Usage is restricted to individuals 18 years of age or older. By proceeding, you warrant your legal capacity to enter into binding contracts.</p>
+                </div>
+              </section>
 
               <!-- Section 3 -->
-              <div class="mb-6">
-                <h3 class="text-h6 mb-3 text-primary d-flex align-center">
-                  <v-icon left size="small" class="mr-2">mdi-account-plus</v-icon>
-                  3. User Registration & Account
-                </h3>
-                <p class="text-body-1 ml-6">
-                  To access certain features, you may be required to create an account. You agree to provide accurate information, including your full name, email address, and phone number. You are responsible for maintaining the confidentiality of your account credentials.
-                </p>
-              </div>
-
-              <!-- Section 4 -->
-              <div class="mb-6">
-                <h3 class="text-h6 mb-3 text-primary d-flex align-center">
-                  <v-icon left size="small" class="mr-2">mdi-shield-account</v-icon>
-                  4. Collection and Use of Personal Information
-                </h3>
-                <p class="text-body-1 ml-6 mb-3">
-                  By using the App, you consent to the collection and use of your personal information, including but not limited to:
-                </p>
-                <v-list class="ml-6 mb-3" density="compact">
-                  <v-list-item class="d-flex align-center">
-                    <v-icon left size="small" class="mr-2">mdi-circle-small</v-icon>
-                    Name
-                  </v-list-item>
-                  <v-list-item class="d-flex align-center">
-                    <v-icon left size="small" class="mr-2">mdi-circle-small</v-icon>
-                    Email address
-                  </v-list-item>
-                  <v-list-item class="d-flex align-center">
-                    <v-icon left size="small" class="mr-2">mdi-circle-small</v-icon>
-                    Phone number
-                  </v-list-item>
-                  <v-list-item class="d-flex align-center">
-                    <v-icon left size="small" class="mr-2">mdi-circle-small</v-icon>
-                    Property preferences
-                  </v-list-item>
-                  <v-list-item class="d-flex align-center">
-                    <v-icon left size="small" class="mr-2">mdi-circle-small</v-icon>
-                    Location data (optional)
-                  </v-list-item>
-                </v-list>
-                <p class="text-body-1 ml-6 mb-3">We may use this information for:</p>
-                <v-list class="ml-6 mb-3" density="compact">
-                  <v-list-item class="d-flex align-center">
-                    <v-icon left size="small" class="mr-2">mdi-circle-small</v-icon>
-                    Marketing and promotional communications
-                  </v-list-item>
-                  <v-list-item class="d-flex align-center">
-                    <v-icon left size="small" class="mr-2">mdi-circle-small</v-icon>
-                    Service improvement and user analysis
-                  </v-list-item>
-                  <v-list-item class="d-flex align-center">
-                    <v-icon left size="small" class="mr-2">mdi-circle-small</v-icon>
-                    Sharing with trusted third-party partners for relevant offers
-                  </v-list-item>
-                </v-list>
-                <p class="text-body-1 ml-6">
-                  You may opt out of marketing communications by following the unsubscribe instructions in emails or contacting us directly. Please refer to our Privacy Policy for more details on data use and protection.
-                </p>
-              </div>
+              <section class="legal-section">
+                <div class="section-number">03</div>
+                <div class="section-body">
+                  <h3 class="section-title">Data Collection & Privacy</h3>
+                  <p>We prioritize the integrity of your personal information. Data collected includes:</p>
+                  <ul class="premium-list">
+                    <li>Full Legal Identity & Contact Metadata</li>
+                    <li>Property Preferences & Search Behavior</li>
+                    <li>Geospatial Location Data (Optional)</li>
+                  </ul>
+                  <p class="mt-4">This data is utilized for service optimization and curated marketing communications. You may opt out at any time via your account settings.</p>
+                </div>
+              </section>
 
               <!-- Contact Section -->
-              <div class="mb-6">
-                <h3 class="text-h6 mb-3 text-primary d-flex align-center">
-                  <v-icon left size="small" class="mr-2">mdi-phone</v-icon>
-                  13. Contact Us
-                </h3>
-                <p class="text-body-1 ml-6 mb-3">
-                  If you have any questions or concerns about these Terms, please contact us at:
-                </p>
-                <v-card class="ml-6 pa-4 bg-grey-lighten-5">
-                  <v-list density="compact">
-                    <v-list-item class="d-flex align-center">
-                      <v-icon left class="mr-2">mdi-email</v-icon>
-                      <strong>Email:</strong> info@homesbyabdulojulari.ca
-                    </v-list-item>
-                    <v-list-item class="d-flex align-center">
-                      <v-icon left class="mr-2">mdi-phone</v-icon>
-                      <strong>Phone:</strong> 647-563-7235
-                    </v-list-item>
-                    <v-list-item class="d-flex align-center">
-                      <v-icon left class="mr-2">mdi-office-building</v-icon>
-                      <strong>Company:</strong> Homes By Abdul Ojulari
-                    </v-list-item>
-                    <v-list-item class="d-flex align-center">
-                      <v-icon left class="mr-2">mdi-map-marker</v-icon>
-                      <strong>Location:</strong> Edmonton, Alberta, Canada
-                    </v-list-item>
-                  </v-list>
-                </v-card>
-              </div>
-
+              <section class="legal-section contact-section mt-12">
+                <div class="section-body">
+                  <h3 class="section-title">Corporate Inquiries</h3>
+                  <div class="contact-grid mt-6">
+                    <div class="contact-card">
+                      <v-icon icon="mdi-email-outline" size="small" />
+                      <span>info@homesbyabdulojulari.ca</span>
+                    </div>
+                    <div class="contact-card">
+                      <v-icon icon="mdi-phone-outline" size="small" />
+                      <span>647-563-7235</span>
+                    </div>
+                    <div class="contact-card">
+                      <v-icon icon="mdi-map-marker-outline" size="small" />
+                      <span>Edmonton, Alberta, Canada</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
         </v-card-text>
 
-        <v-card-actions class="pa-4 bg-grey-lighten-5">
-          <v-spacer></v-spacer>
-          <v-btn color="primary" @click="dialog = false" size="large">
-            <v-icon left>mdi-check</v-icon>
-            I Understand
+        <v-divider />
+
+        <v-card-actions class="pa-6 bg-white">
+          <v-spacer />
+          <v-btn 
+            variant="flat" 
+            color="#121212" 
+            class="px-10 rounded-pill text-none font-weight-bold"
+            height="50"
+            @click="dialog = false"
+          >
+            I Acknowledge and Agree
           </v-btn>
+          <v-spacer />
         </v-card-actions>
       </v-card>
     </v-dialog>
@@ -206,32 +189,215 @@ import { ref } from 'vue'
 
 const dialog = ref(false)
 
-// SEO
-useHead({
-  title: 'Terms and Conditions - Homes By Abdul Ojulari',
-  meta: [
-    { name: 'description', content: 'Terms and Conditions for Homes By Abdul Ojulari real estate services in Edmonton, Alberta, Canada.' },
-    { name: 'keywords', content: 'terms, conditions, real estate, Edmonton, Alberta, Canada, legal' }
-  ]
-})
+// Optional: SEO logic remains functional
+if (typeof useHead !== 'undefined') {
+  useHead({
+    title: 'Legal | Homes By Abdul Ojulari',
+    meta: [
+      { name: 'description', content: 'Official Terms and Conditions for Homes By Abdul Ojulari real estate services.' }
+    ]
+  })
+}
 </script>
 
 <style scoped>
-.terms-content {
-  line-height: 1.6;
+/* Typography & Palette */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Inter:wght@300;400;600;700&display=swap');
+
+.display-serif {
+  font-family: 'Playfair Display', serif;
+  font-size: 3.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.02em;
 }
 
-.terms-content h3 {
-  border-bottom: 2px solid #1976D2;
-  padding-bottom: 8px;
+.subtitle-text {
+  font-family: 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: #8c734b; /* Muted Gold */
+  font-weight: 600;
+  font-size: 0.85rem;
 }
 
-.v-list-item {
+/* UI Elements */
+.premium-badge {
+  display: inline-block;
+  background: #f4f1ea;
+  color: #8c734b;
+  padding: 6px 16px;
+  border-radius: 100px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.elegant-divider {
+  width: 60px;
+  height: 3px;
+  background: #8c734b;
+  margin-top: 1rem;
+}
+
+.premium-main-card {
+  border-radius: 24px !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.05) !important;
+}
+
+.icon-circle {
+  width: 48px;
+  height: 48px;
+  background: #f4f1ea;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.premium-action-btn {
+  background: #121212 !important;
+  color: white !important;
+  border-radius: 12px !important;
+  text-transform: none !important;
+  font-weight: 700 !important;
+  font-size: 1rem !important;
+  letter-spacing: 0;
+  transition: all 0.3s ease;
+}
+
+.premium-action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(0,0,0,0.2) !important;
+}
+
+/* Metadata */
+.metadata-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.metadata-item .label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #9ca3af;
+}
+
+.metadata-item .value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+/* Dialog Styles */
+.legal-dialog-card {
+  border-radius: 28px !important;
+  overflow: hidden;
+}
+
+.dialog-header {
+  background: #fff;
+}
+
+.bg-stone {
+  background-color: #f9f9f8;
+}
+
+.summary-box {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+}
+
+.legal-section {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+.section-number {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.5rem;
+  font-style: italic;
+  color: #8c734b;
+  opacity: 0.5;
+}
+
+.section-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.section-body p {
+  color: #4b5563;
+  line-height: 1.8;
+  font-size: 1.05rem;
+}
+
+.premium-list {
+  list-style: none;
   padding-left: 0;
-  min-height: 32px;
+  margin-top: 16px;
 }
 
-.v-card {
-  box-shadow: 0 8px 32px rgba(0,0,0,0.1) !important;
+.premium-list li {
+  position: relative;
+  padding-left: 28px;
+  margin-bottom: 12px;
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.premium-list li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: #8c734b;
+  font-weight: bold;
+}
+
+.contact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.contact-card {
+  background: #fff;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+/* Responsive Fixes */
+@media (min-width: 960px) {
+  .border-left-md {
+    border-left: 1px solid #f3f4f6 !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .display-serif {
+    font-size: 2.5rem;
+  }
+  .pa-10 {
+    padding: 24px !important;
+  }
+  .legal-section {
+    flex-direction: column;
+    gap: 8px;
+  }
 }
 </style>

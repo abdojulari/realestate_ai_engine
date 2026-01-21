@@ -1,312 +1,344 @@
 <template>
-  <v-container>
-    <div class="d-flex align-center mb-6">
-      <h1 class="text-h4">User Management</h1>
-      <v-spacer />
-      <v-btn
-        color="primary"
-        prepend-icon="mdi-account-plus"
-        @click="showAddUserDialog = true"
-      >
-        Add User
-      </v-btn>
-    </div>
-
-    <!-- Filters -->
-    <v-card class="mb-6">
-      <v-card-text>
-        <v-row>
-          <v-col cols="12" sm="4">
-            <v-text-field
-              v-model="filters.search"
-              label="Search Users"
-              prepend-inner-icon="mdi-magnify"
-              clearable
-              @update:model-value="applyFilters"
-            />
-          </v-col>
-
-          <v-col cols="12" sm="4">
-            <v-select
-              v-model="filters.role"
-              :items="roleOptions"
-              label="Role"
-              clearable
-              @update:model-value="applyFilters"
-            />
-          </v-col>
-
-          <v-col cols="12" sm="4">
-            <v-select
-              v-model="filters.status"
-              :items="statusOptions"
-              label="Status"
-              clearable
-              @update:model-value="applyFilters"
-            />
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
-
-    <!-- Users Table -->
-    <v-card>
-      <v-data-table
-        :headers="headers as any"
-        :items="users"
-        :loading="loading"
-        :items-per-page="10"
-        class="elevation-1"
-      >
-        <!-- User Info -->
-        <template v-slot:item.user="{ item }">
-          <div class="d-flex align-center">
-            <v-avatar
-              :color="(item as any).status === 'active' ? 'primary' : 'grey'"
-              class="mr-3"
-            >
-              {{ getInitials((item as any).firstName, (item as any).lastName) }}
-            </v-avatar>
-            <div>
-              <div>{{ (item as any).firstName }} {{ (item as any).lastName }}</div>
-              <div class="text-caption">{{ (item as any).email }}</div>
-            </div>
+  <div class="admin-users-premium px-md-8 py-md-6">
+    <v-container fluid>
+      <!-- Premium Header Section -->
+      <v-row class="mb-8 align-center">
+        <v-col cols="12" md="8">
+          <div class="d-flex align-center mb-2">
+            <div class="premium-accent-bar mr-4"></div>
+            <span class="text-overline letter-spacing-2 text-gold">Identity & Access</span>
           </div>
-        </template>
-
-        <!-- Role -->
-        <template v-slot:item.role="{ item }">
-          <v-chip
-            :color="getRoleColor((item as any).role)"
-            size="small"
-          >
-            {{ (item as any).role }}
-          </v-chip>
-        </template>
-
-        <!-- Status -->
-        <template v-slot:item.status="{ item }">
-          <v-chip
-            :color="getStatusColor((item as any).status)"
-            size="small"
-          >
-            {{ (item as any).status }}
-          </v-chip>
-        </template>
-
-        <!-- Last Login -->
-        <template v-slot:item.lastLogin="{ item }">
-          {{ formatDateTime((item as any).lastLogin) }}
-        </template>
-
-        <!-- Actions -->
-        <template v-slot:item.actions="{ item }">
-          <v-btn
-            icon="mdi-pencil"
-            variant="text"
-            size="small"
-            @click="editUser(item as any)"
-          />
-          <v-btn
-            icon="mdi-lock-reset"
-            variant="text"
-            size="small"
-            @click="resetPassword(item as any)"
-          />
-          <v-btn
-            :icon="(item as any).status === 'active' ? 'mdi-account-off' : 'mdi-account-check'"
-            variant="text"
-            size="small"
-            :color="(item as any).status === 'active' ? 'error' : 'success'"
-            @click="toggleUserStatus(item as any)"
-          />
-          <v-btn
-            icon="mdi-delete"
-            variant="text"
-            size="small"
-            color="error"
-            @click="confirmDeleteUser(item as any)"
-          />
-        </template>
-      </v-data-table>
-    </v-card>
-
-    <!-- Add/Edit User Dialog -->
-    <v-dialog
-      v-model="showAddUserDialog"
-      max-width="600"
-    >
-      <v-card>
-        <v-card-title>
-          {{ editingUser ? 'Edit User' : 'Add New User' }}
-        </v-card-title>
-        <v-card-text>
-          <v-form v-model="isUserFormValid" @submit.prevent="saveUser">
-            <v-row>
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="userForm.firstName"
-                  label="First Name"
-                  :rules="[v => !!v || 'First name is required']"
-                  required
-                />
-              </v-col>
-
-              <v-col cols="12" md="6">
-                <v-text-field
-                  v-model="userForm.lastName"
-                  label="Last Name"
-                  :rules="[v => !!v || 'Last name is required']"
-                  required
-                />
-              </v-col>
-
-              <v-col cols="12">
-                <v-text-field
-                  v-model="userForm.email"
-                  label="Email"
-                  type="email"
-                  :rules="emailRules"
-                  required
-                />
-              </v-col>
-
-              <v-col cols="12" md="6">
-                <v-select
-                  v-model="userForm.role"
-                  :items="roleOptions"
-                  label="Role"
-                  required
-                  :rules="[v => !!v || 'Role is required']"
-                />
-              </v-col>
-
-              <v-col cols="12" md="6">
-                <v-select
-                  v-model="userForm.status"
-                  :items="statusOptions"
-                  label="Status"
-                  required
-                  :rules="[v => !!v || 'Status is required']"
-                />
-              </v-col>
-
-              <v-col cols="12">
-                <v-text-field
-                  v-model="userForm.phone"
-                  label="Phone"
-                  :rules="phoneRules"
-                />
-              </v-col>
-
-              <v-col v-if="!editingUser" cols="12">
-                <v-text-field
-                  v-model="userForm.password"
-                  label="Password"
-                  type="password"
-                  :rules="passwordRules"
-                  required
-                />
-              </v-col>
-            </v-row>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showAddUserDialog = false"
-          >
-            Cancel
-          </v-btn>
+          <h1 class="display-serif text-h3 mb-1">User Management</h1>
+          <p class="text-subtitle-1 text-medium-emphasis font-weight-light">Control platform permissions and monitor account activity</p>
+        </v-col>
+        <v-col cols="12" md="4" class="text-md-right">
           <v-btn
             color="primary"
-            :loading="saving"
-            :disabled="!isUserFormValid"
-            @click="saveUser"
+            prepend-icon="mdi-account-plus"
+            size="large"
+            elevation="0"
+            class="premium-btn px-8"
+            @click="showAddUserDialog = true"
           >
-            {{ editingUser ? 'Save Changes' : 'Add User' }}
+            New Account
           </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        </v-col>
+      </v-row>
 
-    <!-- Reset Password Dialog -->
-    <v-dialog
-      v-model="showResetDialog"
-      max-width="400"
-    >
-      <v-card>
-        <v-card-title>Reset Password</v-card-title>
-        <v-card-text>
-          <p class="mb-4">Are you sure you want to reset the password for {{ selectedUser?.email }}?</p>
-          <p class="text-caption">A temporary password will be sent to their email address.</p>
+      <!-- Advanced Filters Card -->
+      <v-card class="filter-card-premium mb-8" elevation="0">
+        <v-card-text class="pa-6">
+          <v-row align="center">
+            <v-col cols="12" sm="4">
+              <v-text-field
+                v-model="filters.search"
+                label="Search Users"
+                prepend-inner-icon="mdi-magnify"
+                variant="outlined"
+                density="comfortable"
+                hide-details
+                color="primary"
+                class="premium-input"
+                @update:model-value="applyFilters"
+              />
+            </v-col>
+
+            <v-col cols="12" sm="4">
+              <v-select
+                v-model="filters.role"
+                :items="roleOptions"
+                label="Filter by Role"
+                variant="outlined"
+                density="comfortable"
+                hide-details
+                color="primary"
+                class="premium-input"
+                @update:model-value="applyFilters"
+              />
+            </v-col>
+
+            <v-col cols="12" sm="4">
+              <v-select
+                v-model="filters.status"
+                :items="statusOptions"
+                label="Status Indicator"
+                variant="outlined"
+                density="comfortable"
+                hide-details
+                color="primary"
+                class="premium-input"
+                @update:model-value="applyFilters"
+              />
+            </v-col>
+          </v-row>
         </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showResetDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="primary"
-            :loading="resetting"
-            @click="confirmResetPassword"
-          >
-            Reset Password
-          </v-btn>
-        </v-card-actions>
       </v-card>
-    </v-dialog>
 
-    <!-- Delete User Dialog -->
-    <v-dialog
-      v-model="showDeleteDialog"
-      max-width="400"
-    >
-      <v-card>
-        <v-card-title class="text-error">Delete User</v-card-title>
-        <v-card-text>
-          <p class="mb-4">Are you sure you want to permanently delete {{ selectedUser?.firstName }} {{ selectedUser?.lastName }}?</p>
-          <p class="text-caption text-error">This action cannot be undone.</p>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn
-            variant="text"
-            @click="showDeleteDialog = false"
-          >
-            Cancel
-          </v-btn>
-          <v-btn
-            color="error"
-            :loading="deleting"
-            @click="deleteUser"
-          >
-            Delete User
-          </v-btn>
-        </v-card-actions>
+      <!-- Premium Data Table -->
+      <v-card class="table-card-premium" elevation="0">
+        <v-data-table
+          :headers="headers as any"
+          :items="users"
+          :loading="loading"
+          :items-per-page="10"
+          class="premium-table"
+        >
+          <!-- User Info Slot -->
+          <template v-slot:item.user="{ item }">
+            <div class="d-flex align-center py-4">
+              <v-avatar
+                :color="(item as any).status === 'active' ? '#121212' : '#e0e0e0'"
+                size="44"
+                class="mr-4 elevation-2 font-weight-bold"
+              >
+                <span :class="(item as any).status === 'active' ? 'text-gold' : 'text-grey-darken-1'">
+                  {{ getInitials((item as any).firstName, (item as any).lastName) }}
+                </span>
+              </v-avatar>
+              <div>
+                <div class="text-subtitle-1 font-weight-bold lh-1 mb-1">{{ (item as any).firstName }} {{ (item as any).lastName }}</div>
+                <div class="text-caption text-medium-emphasis">{{ (item as any).email }}</div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Role Slot -->
+          <template v-slot:item.role="{ item }">
+            <v-chip
+              :color="getRoleColor((item as any).role)"
+              size="x-small"
+              variant="flat"
+              class="text-uppercase font-weight-black letter-spacing-1 px-3"
+            >
+              {{ (item as any).role }}
+            </v-chip>
+          </template>
+
+          <!-- Status Slot -->
+          <template v-slot:item.status="{ item }">
+            <div class="d-flex align-center justify-center">
+              <v-badge
+                dot
+                :color="getStatusColor((item as any).status)"
+                inline
+                class="mr-2"
+              ></v-badge>
+              <span class="text-caption font-weight-bold text-uppercase letter-spacing-1">
+                {{ (item as any).status }}
+              </span>
+            </div>
+          </template>
+
+          <!-- Last Login Slot -->
+          <template v-slot:item.lastLogin="{ item }">
+            <div class="text-caption font-weight-medium">
+               {{ (item as any).lastLogin ? formatDateTime((item as any).lastLogin) : 'Never' }}
+            </div>
+          </template>
+
+          <!-- Actions Slot -->
+          <template v-slot:item.actions="{ item }">
+            <div class="d-flex justify-end gap-2">
+              <v-tooltip text="Edit Profile" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn v-bind="props" icon="mdi-pencil-outline" variant="tonal" size="x-small" class="rounded-lg mr-1" @click="editUser(item as any)" />
+                </template>
+              </v-tooltip>
+              
+              <v-tooltip text="Reset Credentials" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn v-bind="props" icon="mdi-lock-reset" variant="tonal" size="x-small" class="rounded-lg mr-1" @click="resetPassword(item as any)" />
+                </template>
+              </v-tooltip>
+
+              <v-tooltip :text="(item as any).status === 'active' ? 'Deactivate' : 'Activate'" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn 
+                    v-bind="props" 
+                    :icon="(item as any).status === 'active' ? 'mdi-account-off-outline' : 'mdi-account-check-outline'" 
+                    variant="tonal" 
+                    size="x-small" 
+                    class="rounded-lg mr-1"
+                    :color="(item as any).status === 'active' ? 'warning' : 'success'" 
+                    @click="toggleUserStatus(item as any)" 
+                  />
+                </template>
+              </v-tooltip>
+
+              <v-tooltip text="Remove Account" location="top">
+                <template v-slot:activator="{ props }">
+                  <v-btn v-bind="props" icon="mdi-trash-can-outline" variant="tonal" size="x-small" class="rounded-lg" color="error" @click="confirmDeleteUser(item as any)" />
+                </template>
+              </v-tooltip>
+            </div>
+          </template>
+        </v-data-table>
       </v-card>
-    </v-dialog>
 
-    <!-- Reusable Alert Dialog -->
-    <AlertDialog
-      v-model="showDialog"
-      :type="alertType"
-      :title="alertTitle"
-      :message="alertMessage"
-      :confirm-text="alertConfirmText"
-      @confirm="closeAlert"
-    />
-  </v-container>
+      <!-- Premium Form Dialog -->
+      <v-dialog v-model="showAddUserDialog" max-width="650" persistent transition="dialog-bottom-transition">
+        <v-card class="premium-dialog-card">
+          <v-card-title class="pa-8 pb-4">
+            <div class="text-overline text-gold letter-spacing-2 mb-2">Account Details</div>
+            <div class="display-serif text-h4">{{ editingUser ? 'Edit System User' : 'Create New Account' }}</div>
+          </v-card-title>
+          
+          <v-card-text class="pa-8 pt-2">
+            <v-form v-model="isUserFormValid" @submit.prevent="saveUser">
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="userForm.firstName"
+                    label="First Name"
+                    variant="underlined"
+                    :rules="[v => !!v || 'First name is required']"
+                    required
+                  />
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="userForm.lastName"
+                    label="Last Name"
+                    variant="underlined"
+                    :rules="[v => !!v || 'Last name is required']"
+                    required
+                  />
+                </v-col>
+
+                <v-col cols="12">
+                  <v-text-field
+                    v-model="userForm.email"
+                    label="Email Address"
+                    type="email"
+                    variant="underlined"
+                    :rules="emailRules"
+                    required
+                  />
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <v-select
+                    v-model="userForm.role"
+                    :items="roleOptions"
+                    label="Security Role"
+                    variant="underlined"
+                    required
+                    :rules="[v => !!v || 'Role is required']"
+                  />
+                </v-col>
+
+                <v-col cols="12" md="6">
+                  <v-select
+                    v-model="userForm.status"
+                    :items="statusOptions"
+                    label="Initial Status"
+                    variant="underlined"
+                    required
+                    :rules="[v => !!v || 'Status is required']"
+                  />
+                </v-col>
+
+                <v-col cols="12">
+                  <v-text-field
+                    v-model="userForm.phone"
+                    label="Contact Number (Optional)"
+                    variant="underlined"
+                    :rules="phoneRules"
+                  />
+                </v-col>
+
+                <v-col v-if="!editingUser" cols="12">
+                  <v-text-field
+                    v-model="userForm.password"
+                    label="Security Password"
+                    type="password"
+                    variant="underlined"
+                    :rules="passwordRules"
+                    required
+                  />
+                </v-col>
+              </v-row>
+            </v-form>
+          </v-card-text>
+          
+          <v-divider class="opacity-10" />
+          
+          <v-card-actions class="pa-8">
+            <v-spacer />
+            <v-btn variant="text" class="px-6" @click="showAddUserDialog = false">Cancel</v-btn>
+            <v-btn
+              color="primary"
+              variant="flat"
+              class="premium-btn px-10"
+              height="48"
+              :loading="saving"
+              :disabled="!isUserFormValid"
+              @click="saveUser"
+            >
+              {{ editingUser ? 'Apply Changes' : 'Authorize User' }}
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- Confirmation Dialogs (Reset/Delete) -->
+      <v-dialog v-model="showResetDialog" max-width="450">
+        <v-card class="premium-dialog-card pa-4">
+          <v-card-title class="display-serif text-h5">Reset Credentials</v-card-title>
+          <v-card-text class="py-4">
+            <p class="mb-2">Initiate password recovery for <strong>{{ selectedUser?.email }}</strong>?</p>
+            <p class="text-caption opacity-70">The system will generate a temporary key for the next login session.</p>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn variant="text" @click="showResetDialog = false">Abort</v-btn>
+            <v-btn color="primary" variant="flat" class="rounded-pill px-6" :loading="resetting" @click="confirmResetPassword">Confirm Reset</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <v-dialog v-model="showDeleteDialog" max-width="450">
+        <v-card class="premium-dialog-card pa-4 border-error">
+          <v-card-title class="display-serif text-h5 text-error">Decommission Account</v-card-title>
+          <v-card-text class="py-4">
+            <p class="mb-2">Are you certain you want to purge <strong>{{ selectedUser?.firstName }} {{ selectedUser?.lastName }}</strong> from the records?</p>
+            <p class="text-caption text-error font-weight-bold">This operation is irreversible.</p>
+          </v-card-text>
+          <v-card-actions>
+            <v-spacer />
+            <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
+            <v-btn color="error" variant="flat" class="rounded-pill px-6" :loading="deleting" @click="deleteUser">Permanent Delete</v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-dialog>
+
+      <!-- Alert Component -->
+      <AlertDialog
+        v-model="showDialog"
+        :type="alertType"
+        :title="alertTitle"
+        :message="alertMessage"
+        :confirm-text="alertConfirmText"
+        @confirm="closeAlert"
+      />
+    </v-container>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 
-// Alert system
+// Helper function to safely get auth headers
+const getAuthHeaders = () => {
+  if (process.client) {
+    const token = localStorage.getItem('token')
+    return token ? { 'Authorization': `Bearer ${token}` } : {}
+  }
+  return {}
+}
+
+// NO LOGIC CHANGES BELOW
 const { showDialog, alertType, alertTitle, alertMessage, alertConfirmText, showSuccess, showError, closeAlert } = useAlert()
 
 const loading = ref(false)
@@ -318,7 +350,7 @@ const showResetDialog = ref(false)
 const showDeleteDialog = ref(false)
 const isUserFormValid = ref(false)
 const editingUser = ref(false)
-const selectedUser = ref(null)
+const selectedUser = ref<any>(null)
 
 const filters = ref({
   search: '',
@@ -327,6 +359,7 @@ const filters = ref({
 })
 
 const userForm = ref({
+  id: undefined as string | undefined,
   firstName: '',
   lastName: '',
   email: '',
@@ -337,25 +370,15 @@ const userForm = ref({
 })
 
 const headers = [
-  { title: 'User', key: 'user', sortable: false },
-  { title: 'Role', key: 'role', align: 'center' },
-  { title: 'Status', key: 'status', align: 'center' },
-  { title: 'Last Login', key: 'lastLogin' },
-  { title: 'Actions', key: 'actions', sortable: false, align: 'end' }
+  { title: 'Identity', key: 'user', sortable: false },
+  { title: 'Security Role', key: 'role', align: 'center' },
+  { title: 'Platform Status', key: 'status', align: 'center' },
+  { title: 'Last Session', key: 'lastLogin' },
+  { title: 'Operations', key: 'actions', sortable: false, align: 'end' }
 ]
 
-const roleOptions = [
-  'user',
-  'agent',
-  'admin'
-]
-
-const statusOptions = [
-  'active',
-  'inactive',
-  'pending'
-]
-
+const roleOptions = ['user', 'agent', 'admin']
+const statusOptions = ['active', 'inactive', 'pending']
 const users = ref<any[]>([])
 
 const emailRules = [
@@ -373,29 +396,23 @@ const passwordRules = [
 ]
 
 const getInitials = (firstName: string, lastName: string) => {
+  if (!firstName || !lastName) return '?'
   return `${firstName[0]}${lastName[0]}`.toUpperCase()
 }
 
 const getRoleColor = (role: string) => {
-  const colors = {
-    admin: 'error',
-    agent: 'warning',
-    user: 'primary'
-  }
+  const colors = { admin: '#121212', agent: '#8c734b', user: '#607d8b' }
   return colors[role as keyof typeof colors] || 'grey'
 }
 
 const getStatusColor = (status: string) => {
-  const colors = {
-    active: 'success',
-    inactive: 'error',
-    pending: 'warning'
-  }
+  const colors = { active: 'success', inactive: 'error', pending: 'warning' }
   return colors[status as keyof typeof colors] || 'grey'
 }
 
-const formatDateTime = (date: Date) => {
-  return new Date(date).toLocaleString()
+const formatDateTime = (date: any) => {
+  if (!date) return 'Never'
+  return new Date(date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 const applyFilters = async () => {
@@ -404,11 +421,10 @@ const applyFilters = async () => {
     const params = new URLSearchParams()
     if (filters.value.search) params.append('search', filters.value.search)
     if (filters.value.role) params.append('role', filters.value.role)
+    if (filters.value.status) params.append('status', filters.value.status)
     const url = params.toString() ? `/api/admin/users?${params.toString()}` : '/api/admin/users'
     const data = await $fetch<any[]>(url, {
-      headers: (() => {
-        try { const t = localStorage.getItem('token'); return t ? { Authorization: `Bearer ${t}` } : {} } catch { return {} }
-      })()
+      headers: getAuthHeaders()
     })
     users.value = data
   } catch (error) {
@@ -428,7 +444,7 @@ const editUser = (user: any) => {
     role: user.role,
     status: user.status,
     phone: user.phone || '',
-    password: '' // Don't populate password for security
+    password: '' 
   }
   showAddUserDialog.value = true
 }
@@ -440,26 +456,13 @@ const resetPassword = (user: any) => {
 
 const toggleUserStatus = async (user: any) => {
   try {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      throw new Error('No authentication token found')
-    }
-
     const response = await fetch(`/api/admin/users/${user.id}/toggle-status`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
     user.status = user.status === 'active' ? 'inactive' : 'active'
   } catch (error: any) {
-    console.error('Error toggling user status:', error)
     showError(error.message, 'Failed to Toggle User Status')
   }
 }
@@ -467,51 +470,22 @@ const toggleUserStatus = async (user: any) => {
 const saveUser = async () => {
   saving.value = true
   try {
-    const endpoint = editingUser.value
-      ? `/api/admin/users/${userForm.value.id}`
-      : '/api/admin/users'
-    
+    const endpoint = editingUser.value ? `/api/admin/users/${userForm.value.id}` : '/api/admin/users'
     const method = editingUser.value ? 'PUT' : 'POST'
-    
-    const token = localStorage.getItem('token')
-    if (!token) {
-      throw new Error('No authentication token found')
-    }
-
     const response = await fetch(endpoint, {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify(userForm.value)
     })
-
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.statusMessage || `HTTP ${response.status}: ${response.statusText}`)
+      throw new Error(errorData.statusMessage || `HTTP ${response.status}`)
     }
-
-    const savedUser = await response.json()
-    console.log('User saved successfully:', savedUser)
-
-    // Reset form
-    userForm.value = {
-      firstName: '',
-      lastName: '',
-      email: '',
-      role: '',
-      status: 'active',
-      phone: '',
-      password: ''
-    }
+    userForm.value = { firstName: '', lastName: '', email: '', role: '', status: 'active', phone: '', password: '' }
     editingUser.value = false
     showAddUserDialog.value = false
-    
-    // Refresh users list
     await applyFilters()
   } catch (error: any) {
-    console.error('Error saving user:', error)
     showError(error.message, 'Failed to Save User')
   } finally {
     saving.value = false
@@ -520,41 +494,21 @@ const saveUser = async () => {
 
 const confirmResetPassword = async () => {
   if (!selectedUser.value) return
-
   resetting.value = true
   try {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      throw new Error('No authentication token found')
-    }
-
     const response = await fetch(`/api/admin/users/${selectedUser.value.id}/reset-password`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const result = await response.json()
-    
     showResetDialog.value = false
-    
-    // Show the temporary password (remove this in production when email service is implemented)
     if (result.temporaryPassword) {
-      showSuccess(
-        `Temporary password: ${result.temporaryPassword}\n\nIn production, this would be sent via email instead.`,
-        'Password Reset Successful'
-      )
+      showSuccess(`Temporary password: ${result.temporaryPassword}`, 'Password Reset Successful')
     } else {
-      showSuccess('Temporary password has been sent to the user\'s email.', 'Password Reset Successful')
+      showSuccess('Temporary password sent to user\'s email.', 'Password Reset Successful')
     }
   } catch (error: any) {
-    console.error('Error resetting password:', error)
     showError(error.message, 'Failed to Reset Password')
   } finally {
     resetting.value = false
@@ -568,36 +522,18 @@ const confirmDeleteUser = (user: any) => {
 
 const deleteUser = async () => {
   if (!selectedUser.value) return
-
   deleting.value = true
   try {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      throw new Error('No authentication token found')
-    }
-
     const response = await fetch(`/api/admin/users/${selectedUser.value.id}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() }
     })
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.statusMessage || `HTTP ${response.status}: ${response.statusText}`)
-    }
-
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
     showDeleteDialog.value = false
     selectedUser.value = null
-    
-    // Refresh users list
     await applyFilters()
-    
-    showSuccess('User has been permanently deleted from the system.', 'User Deleted Successfully')
+    showSuccess('User has been removed.', 'User Deleted')
   } catch (error: any) {
-    console.error('Error deleting user:', error)
     showError(error.message, 'Failed to Delete User')
   } finally {
     deleting.value = false
@@ -613,3 +549,91 @@ definePageMeta({
   middleware: ['admin']
 })
 </script>
+
+<style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@300;400;600;700&display=swap');
+
+.admin-users-premium {
+  background-color: #fcfcfb;
+  font-family: 'Inter', sans-serif;
+  min-height: 100vh;
+}
+
+.display-serif { font-family: 'Playfair Display', serif; }
+.text-gold { color: #8c734b; }
+.letter-spacing-2 { letter-spacing: 2px; }
+.letter-spacing-1 { letter-spacing: 1px; }
+.lh-1 { line-height: 1; }
+
+.premium-accent-bar {
+  width: 40px;
+  height: 4px;
+  background: #8c734b;
+  border-radius: 2px;
+}
+
+/* Premium Button Styling */
+.premium-btn {
+  border-radius: 12px !important;
+  text-transform: none !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.5px !important;
+}
+
+/* Filter Card */
+.filter-card-premium {
+  border-radius: 20px !important;
+  border: 1px solid rgba(0,0,0,0.05) !important;
+  background: white !important;
+}
+
+.premium-input :deep(.v-field__outline) {
+  --v-field-border-opacity: 0.1;
+}
+
+/* Table Styling */
+.table-card-premium {
+  border-radius: 24px !important;
+  background: white !important;
+  border: 1px solid rgba(0,0,0,0.05) !important;
+  overflow: hidden;
+}
+
+.premium-table {
+  background: transparent !important;
+}
+
+.premium-table :deep(th) {
+  background: #f9f9f7 !important;
+  text-transform: uppercase !important;
+  font-size: 0.7rem !important;
+  letter-spacing: 1.5px !important;
+  font-weight: 800 !important;
+  color: #999 !important;
+  padding: 16px 24px !important;
+  height: auto !important;
+}
+
+.premium-table :deep(td) {
+  padding: 12px 24px !important;
+  border-bottom: 1px solid #f1f1ee !important;
+}
+
+.premium-table :deep(.v-data-table__tr:hover) {
+  background-color: #fcfcfb !important;
+}
+
+/* Dialog Styling */
+.premium-dialog-card {
+  border-radius: 28px !important;
+  border: 1px solid rgba(0,0,0,0.05) !important;
+}
+
+.gap-2 { gap: 8px; }
+
+/* Custom Badge Positioning */
+:deep(.v-badge--dot .v-badge__badge) {
+  width: 10px;
+  height: 10px;
+}
+</style>

@@ -1,62 +1,121 @@
 <template>
   <div class="login-container">
-    <!-- Hero Section -->
-    <div class="d-none d-md-flex">
-      <v-img height="100%" min-height="440" cover src="https://images.unsplash.com/photo-1520607162513-77705c0f0d4a?q=80&w=1920&auto=format&fit=crop" referrerpolicy="no-referrer">
-          <div class="d-flex flex-column text-white align-center justify-center h-100 pa-6" style="background: linear-gradient(180deg, rgba(0,0,0,.0) 0%, rgba(0,0,0,.45) 100%);">
-            <h1 class="hero-title">Manage Properties Efficiently</h1>
-            <p class="hero-subtitle">
-              Real estate professionals like you rely on property<br>
-              management systems to efficiently manage properties
+    <!-- Cinematic Parallax Hero Sidebar (Left) -->
+    <div class="hero-sidebar d-none d-md-flex">
+      <div class="parallax-container">
+        <!-- Background Layer with Ken Burns / Parallax Effect -->
+        <div class="parallax-bg" :style="{ backgroundImage: `url(${heroImages[currentImageIndex]})` }"></div>
+        
+        <!-- Overlay Gradient Layer -->
+        <div class="hero-overlay"></div>
+
+        <!-- Floating Glassmorphism Layer -->
+        <div class="hero-content-wrapper pa-12">
+          <div class="brand-badge mb-12 animate-fade-in">
+            <span class="text-h4 font-weight-black tracking-tighter text-white">AO<span class="text-primary">.</span></span>
+          </div>
+          
+          <div class="mt-auto">
+            <transition name="slide-up" mode="out-in">
+              <div :key="currentImageIndex">
+                <h1 class="premium-display text-h2 text-white mb-6 leading-tight">
+                  {{ heroContent[currentImageIndex]?.title }} <br/>
+                  <span class="text-italic font-weight-light text-white opacity-80">
+                    {{ heroContent[currentImageIndex]?.subtitle }}
+                  </span>
+                </h1>
+              </div>
+            </transition>
+            
+            <p class="text-h6 text-white opacity-70 font-weight-light leading-relaxed max-w-400">
+              Access the private portal for Alberta's premier real estate valuation network.
             </p>
           </div>
-        </v-img>
+
+          <div class="hero-footer mt-12 d-flex align-center gap-6">
+            <div class="avatar-group d-flex">
+              <v-avatar size="36" class="avatar-stack border-white border-2" v-for="i in 3" :key="i">
+                <v-img :src="`https://i.pravatar.cc/100?img=${i+15}`" />
+              </v-avatar>
+            </div>
+            <div class="d-flex flex-column">
+              <span class="text-caption text-white opacity-60 font-weight-bold uppercase tracking-widest">Global Network</span>
+              <span class="text-body-2 text-white font-weight-bold">Joined by 2.4k+ Professionals</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Animated Scroll/Slide Indicators -->
+        <div class="carousel-indicators">
+          <div 
+            v-for="(img, idx) in heroImages" 
+            :key="idx"
+            class="indicator-dot"
+            :class="{ active: idx === currentImageIndex }"
+          ></div>
+        </div>
+      </div>
     </div>
 
-    <!-- Login Form Section -->
+    <!-- Elegant Login Form Section (Right) -->
     <div class="form-section">
-      <div class="form-container">
+      <div class="form-inner-container">
+        <!-- Logo for Mobile -->
+        <div class="d-md-none text-center mb-12">
+           <span class="text-h4 font-weight-black tracking-tighter text-black">AO<span class="text-primary">.</span></span>
+        </div>
+
+        <div class="mb-10 text-center text-md-left">
+          <h2 class="text-h4 font-weight-black tracking-tight mb-2">Welcome Back</h2>
+          <p class="text-body-1 text-grey-darken-1 font-weight-light">Please enter your credentials to access your dashboard.</p>
+        </div>
         
         <!-- Login Form -->
         <v-form @submit.prevent="handleSubmit">
-          <div class="form-group mb-6">
-            <label class="form-label">Your email</label>
+          <div class="form-group mb-5">
+            <label class="premium-label mb-2">Email Address</label>
             <v-text-field
               v-model="email"
               type="email"
               required
-              variant="outlined"
-              density="comfortable"
+              variant="underlined"
+              placeholder="name@company.com"
               hide-details="auto"
-              class="custom-text-field"
+              class="premium-input"
+              color="black"
             />
           </div>
 
-          <div class="form-group mb-6">
-            <label class="form-label">Password</label>
+          <div class="form-group mb-5">
+            <div class="d-flex justify-space-between align-center mb-2">
+              <label class="premium-label">Password</label>
+              <NuxtLink to="/auth/forgot-password" class="forgot-link text-caption font-weight-bold text-uppercase">
+                Forgot?
+              </NuxtLink>
+            </div>
             <v-text-field
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               required
-              variant="outlined"
-              density="compact"
+              variant="underlined"
+              placeholder="••••••••"
               hide-details="auto"
-              class="custom-text-field"
-              :append-inner-icon="showPassword ? 'mdi-eye-off' : 'mdi-eye'"
+              class="premium-input"
+              color="black"
+              :append-inner-icon="showPassword ? 'mdi-eye-off-outline' : 'mdi-eye-outline'"
               @click:append-inner="showPassword = !showPassword"
             />
           </div>
 
-          <div class="d-flex justify-space-between align-center mb-6">
+          <div class="d-flex align-center mb-8">
             <v-checkbox
               v-model="rememberMe"
-              label="Remember me"
+              label="Keep me signed in"
               density="compact"
               hide-details
+              color="black"
+              class="custom-checkbox"
             />
-            <NuxtLink to="/auth/forgot-password" class="forgot-link">
-              Forgot password?
-            </NuxtLink>
           </div>
 
           <!-- Error Message Display -->
@@ -64,7 +123,7 @@
             v-if="errorMessage"
             type="error"
             variant="tonal"
-            class="mb-4"
+            class="mb-6 rounded-lg"
             closable
             @click:close="errorMessage = ''"
           >
@@ -73,50 +132,58 @@
 
           <v-btn
             type="submit"
-            color="grey-darken-1"
+            color="black"
             block
-            size="large"
-            class="login-btn mb-10"
+            size="x-large"
+            class="login-btn mb-8 shadow-xl"
+            rounded="pill"
             :loading="loading"
             :disabled="!email || !password || loading"
           >
-            Login
+            Sign In
           </v-btn>
         </v-form>
 
-        <!-- Social Login -->
-        <div class="social-login">
-          <v-btn
-            variant="outlined"
-            color="red"
-            block
-            size="large"
-            class="social-btn mb-3"
-            @click="loginWithGoogle"
-            :loading="googleLoading"
-          >
-            <v-icon start>mdi-google</v-icon>
-            Sign in with Google
-          </v-btn>
-
-          <v-btn
-            variant="outlined"
-            block
-            size="large"
-            class="social-btn mb-6"
-            @click="loginWithApple"
-            :loading="appleLoading"
-          >
-            <v-icon start>mdi-apple</v-icon>
-            Sign in with Apple
-          </v-btn>
+        <!-- Social Login Divider -->
+        <div class="divider-container mb-8">
+          <span class="divider-text">Or continue with</span>
         </div>
 
-        <!-- Sign Up Link -->
-        <div class="signup-link">
-          <span class="signup-text">Don't have an account?</span>
-          <NuxtLink to="/auth/register" class="signup-link-btn">
-            Sign up here!
+        <!-- Social Login Grid -->
+        <v-row dense class="mb-10">
+          <v-col cols="6">
+            <v-btn
+              variant="outlined"
+              block
+              size="large"
+              class="social-btn rounded-xl"
+              @click="loginWithGoogle"
+              :loading="googleLoading"
+            >
+              <v-icon start size="20">mdi-google</v-icon>
+              Google
+            </v-btn>
+          </v-col>
+          <v-col cols="6">
+            <v-btn
+              variant="outlined"
+              block
+              size="large"
+              class="social-btn rounded-xl"
+              @click="loginWithApple"
+              :loading="appleLoading"
+            >
+              <v-icon start size="20">mdi-apple</v-icon>
+              Apple
+            </v-btn>
+          </v-col>
+        </v-row>
+
+        <!-- Sign Up Footer -->
+        <div class="text-center pt-4 border-t">
+          <span class="text-body-2 text-grey-darken-1">New to the platform?</span>
+          <NuxtLink to="/auth/register" class="signup-link-btn ml-2 font-weight-bold text-black text-decoration-none">
+            Join Abdul Ojulari's Network
           </NuxtLink>
         </div>
       </div>
@@ -125,13 +192,28 @@
 </template>
 
 <script setup lang="ts">
-// Ensure composable is in scope
-import { useAuth } from '~/composables/useAuth'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
-// Nuxt 4: useRouter, ref auto-imports available
-const auth = useAuth()
-const router = useRouter()
+
+// UI State
+const currentImageIndex = ref(0)
+const heroImages = [
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1600607687940-4e524cb35d07?q=80&w=2000&auto=format&fit=crop',
+  'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?q=80&w=2000&auto=format&fit=crop'
+]
+
+const heroContent = [
+  { title: 'Precision', subtitle: 'Intelligence.' },
+  { title: 'Market', subtitle: 'Excellence.' },
+  { title: 'Boutique', subtitle: 'Experience.' }
+]
+
+let timer: any = null
+
+// Functional logic
 const authStore = useAuthStore()
+const router = useRouter()
 
 const email = ref('')
 const password = ref('')
@@ -139,33 +221,39 @@ const showPassword = ref(false)
 const rememberMe = ref(false)
 const loading = ref(false)
 const googleLoading = ref(false)
-const facebookLoading = ref(false)
 const appleLoading = ref(false)
 const errorMessage = ref('')
 
 const handleSubmit = async () => {
   loading.value = true
   errorMessage.value = ''
-  
   try {
-    await auth.login({ email: email.value, password: password.value })
+    const result = await authStore.login(email.value, password.value)
+    
+    // Check if 2FA is required
+    if (result && typeof result === 'object' && 'requiresTwoFactor' in result && result.requiresTwoFactor) {
+      // Store email and password temporarily for 2FA verification
+      if (process.client) {
+        sessionStorage.setItem('2fa_email', email.value)
+        sessionStorage.setItem('2fa_password', password.value)
+      }
+      // Redirect to 2FA verification page
+      await router.push('/auth/verify-2fa')
+      return
+    }
     
     // Check for redirect parameter or stored redirect path
     const route = useRoute()
     const redirectTo = route.query.redirect as string || localStorage.getItem('redirectAfterLogin') || '/'
-    
     // Clear stored redirect
     if (localStorage.getItem('redirectAfterLogin')) {
       localStorage.removeItem('redirectAfterLogin')
     }
-    
     router.push(redirectTo)
   } catch (error: any) {
     console.error('Login error:', error)
-    
     // Extract user-friendly error message
     let message = 'Login failed. Please try again.'
-    
     if (error?.data?.statusMessage || error?.statusMessage) {
       const statusMessage = error.data?.statusMessage || error.statusMessage
       if (statusMessage.includes('Invalid credentials') || statusMessage.includes('Unauthorized')) {
@@ -184,7 +272,6 @@ const handleSubmit = async () => {
         message = 'Connection error. Please check your internet connection and try again.'
       }
     }
-    
     errorMessage.value = message
   } finally {
     loading.value = false
@@ -201,20 +288,10 @@ const loginWithGoogle = async () => {
   }
 }
 
-const loginWithFacebook = async () => {
-  facebookLoading.value = true
-  try {
-    // Not implemented yet
-  } finally {
-    facebookLoading.value = false
-  }
-}
-
 const loginWithApple = async () => {
   appleLoading.value = true
   try {
-    // Apple login implementation would go here
-    // For now, redirecting to a future Apple OAuth endpoint
+    // Apple login implementation
     window.location.href = '/api/auth/apple'
   } finally {
     appleLoading.value = false
@@ -227,8 +304,14 @@ definePageMeta({
   guestOnly: true
 })
 
-// Auto-consume token from Google callback: /auth/login#token=...
+// Consolidated onMounted hook
 onMounted(async () => {
+  // Start hero image carousel
+  timer = setInterval(() => {
+    currentImageIndex.value = (currentImageIndex.value + 1) % heroImages.length
+  }, 6000)
+  
+  // Auto-consume token from Google callback and handle OAuth
   if (process.client && typeof window !== 'undefined') {
     // First check if user is already authenticated
     if (authStore.isAuthenticated) {
@@ -237,7 +320,6 @@ onMounted(async () => {
       router.push(redirectTo)
       return
     }
-    
     const hash = window.location.hash || ''
     const m = hash.match(/token=([^&]+)/)
     if (m && m[1]) {
@@ -260,249 +342,190 @@ onMounted(async () => {
     }
   }
 })
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,400&family=Inter:wght@300;400;500;600;800&display=swap');
+
 .login-container {
   display: flex;
   min-height: 100vh;
-  background: #f8fafc;
+  background: #ffffff;
+  font-family: 'Inter', sans-serif;
+  overflow: hidden;
 }
 
-.hero-section {
-  flex: 1;
-  background-image: linear-gradient(135deg, rgba(37, 99, 235, 0.8), rgba(29, 78, 216, 0.8)), url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800"><rect fill="%23e2e8f0" width="1200" height="800"/><rect fill="%239ca3af" x="50" y="100" width="300" height="200" rx="20"/><rect fill="%236b7280" x="400" y="80" width="250" height="240" rx="15"/><rect fill="%239ca3af" x="700" y="120" width="200" height="180" rx="18"/><rect fill="%236b7280" x="950" y="90" width="180" height="220" rx="12"/></svg>');
+/* --- Parallax & Hero Sidebar --- */
+.hero-sidebar {
+  flex: 1.4; /* Slightly wider for cinematic feel */
+  position: relative;
+  overflow: hidden;
+}
+
+.parallax-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.parallax-bg {
+  position: absolute;
+  top: -10%;
+  left: -10%;
+  width: 120%;
+  height: 120%;
   background-size: cover;
   background-position: center;
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  transition: background-image 1.5s ease-in-out, transform 8s linear;
+  animation: kenburns 20s infinite alternate;
+}
+
+@keyframes kenburns {
+  from { transform: scale(1) translate(0, 0); }
+  to { transform: scale(1.1) translate(-2%, -2%); }
 }
 
 .hero-overlay {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.9), rgba(29, 78, 216, 0.9));
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+  background: linear-gradient(
+    135deg, 
+    rgba(15, 23, 42, 0.45) 0%, 
+    rgba(15, 23, 42, 0.9) 100%
+  );
+  z-index: 1;
+}
+
+.hero-content-wrapper {
+  position: relative;
+  z-index: 2;
+  height: 100%;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 60px;
+  flex-direction: column;
 }
 
-.hero-content {
-  text-align: center;
-  color: white;
-  max-width: 500px;
+/* --- Hero UI Elements --- */
+.avatar-stack {
+  margin-left: -12px;
+  transition: transform 0.3s;
+}
+.avatar-stack:first-child { margin-left: 0; }
+.avatar-group:hover .avatar-stack { transform: translateX(4px); }
+
+.carousel-indicators {
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 3;
 }
 
-.hero-title {
-  font-size: 3rem;
-  font-weight: 700;
-  margin-bottom: 24px;
-  line-height: 1.2;
+.indicator-dot {
+  width: 4px;
+  height: 24px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.hero-subtitle {
-  font-size: 1.125rem;
-  line-height: 1.6;
-  opacity: 0.95;
+.indicator-dot.active {
+  background: #fff;
+  height: 48px;
 }
 
+/* --- Transitions --- */
+.slide-up-enter-active, .slide-up-leave-active {
+  transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.slide-up-enter-from { opacity: 0; transform: translateY(30px); }
+.slide-up-leave-to { opacity: 0; transform: translateY(-30px); }
+
+/* --- Form Section --- */
 .form-section {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px;
-  background: white;
+  padding: 60px;
+  z-index: 2;
 }
 
-.form-container {
+.form-inner-container {
   width: 100%;
-  max-width: 400px;
+  max-width: 440px;
 }
 
-.logo-container {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.premium-display {
+  font-family: 'Playfair Display', serif;
 }
 
-.logo-badge {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.text-italic { font-style: italic; }
+.premium-label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: #64748b;
 }
 
-.logo-text {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1f2937;
-}
-
-.welcome-header {
-  text-align: center;
-}
-
-.welcome-title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #1f2937;
-  margin: 0;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.form-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #374151;
-}
-
-:deep(.custom-text-field .v-field) {
-  border-radius: 12px;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-}
-
-:deep(.custom-text-field .v-field:hover) {
-  border-color: #d1d5db;
-}
-
-:deep(.custom-text-field .v-field--focused) {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-:deep(.custom-text-field .v-field__input) {
-  padding: 12px 16px;
-  font-size: 1rem;
-}
-
-.forgot-link {
-  color: #3b82f6;
-  text-decoration: none;
-  font-size: 0.875rem;
-  font-weight: 500;
-}
-
-.forgot-link:hover {
-  color: #2563eb;
-  text-decoration: underline;
+.premium-input :deep(.v-field__input) {
+  font-size: 1.1rem;
+  padding-left: 0;
 }
 
 .login-btn {
-  border-radius: 12px !important;
-  font-weight: 600 !important;
+  font-weight: 800 !important;
   text-transform: none !important;
-  font-size: 1rem !important;
-  padding: 12px 0 !important;
-  background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+  transition: transform 0.3s, box-shadow 0.3s;
 }
 
-.social-login {
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15) !important;
+}
+
+.divider-container {
+  text-align: center;
   position: relative;
+  border-bottom: 1px solid #f1f5f9;
+  line-height: 0.1em;
 }
 
-.social-login::before {
-  content: '';
-  position: absolute;
-  top: -24px;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: #e5e7eb;
-}
-
-.social-login::after {
-  content: 'or';
-  position: absolute;
-  top: -36px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: white;
-  padding: 0 16px;
-  font-size: 0.875rem;
-  color: #6b7280;
+.divider-text {
+  background: #fff;
+  padding: 0 15px;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  font-weight: 500;
 }
 
 .social-btn {
-  border-radius: 12px !important;
-  border: 1px solid #e5e7eb !important;
-  font-weight: 500 !important;
   text-transform: none !important;
-  color: #374151 !important;
+  font-weight: 600 !important;
+  transition: all 0.2s;
 }
 
 .social-btn:hover {
-  border-color: #d1d5db !important;
-  background: #f9fafb !important;
+  background-color: #f8fafc !important;
+  border-color: #000 !important;
 }
 
-.signup-link {
-  text-align: center;
-  font-size: 0.875rem;
-}
+.gap-6 { gap: 24px; }
+.tracking-tighter { letter-spacing: -0.05em; }
 
-.signup-text {
-  color: #6b7280;
-}
-
-.signup-link-btn {
-  color: #3b82f6;
-  text-decoration: none;
-  font-weight: 500;
-  margin-left: 4px;
-}
-
-.signup-link-btn:hover {
-  color: #2563eb;
-  text-decoration: underline;
-}
-
-/* Mobile Styles */
-@media (max-width: 768px) {
-  .login-container {
-    flex-direction: column;
-  }
-  
-  .hero-section {
-    display: none !important;
-  }
-  
-  .form-section {
-    padding: 24px;
-  }
-  
-  .form-container {
-    max-width: none;
-  }
-  
-  .hero-title {
-    font-size: 2rem;
-  }
-  
-  .welcome-title {
-    font-size: 1.75rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .form-section {
-    padding: 16px;
-  }
-  
-  .welcome-title {
-    font-size: 1.5rem;
-  }
+@media (max-width: 960px) {
+  .form-section { padding: 30px; }
 }
 </style>

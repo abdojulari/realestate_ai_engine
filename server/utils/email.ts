@@ -1,184 +1,230 @@
-import { PrismaClient } from '@prisma/client'
-import * as nodemailer from 'nodemailer'
+import nodemailer from 'nodemailer'
+import type { Transporter } from 'nodemailer'
 
-const prisma = new PrismaClient()
-
-interface EmailSettings {
-  provider: string
-  fromEmail: string
-  fromName: string
-  smtp: {
-    host: string
-    port: string
-    username: string
-    password: string
-    secure: boolean
-  }
-}
-
-interface EmailTemplate {
-  id: number
-  name: string
-  subject: string
-  content: string
-  variables?: string[]
-}
-
-// Cache for email settings to avoid database calls on every email
-let cachedEmailSettings: EmailSettings | null = null
-let settingsCacheTime = 0
-const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
-
-export async function getEmailSettings(): Promise<EmailSettings> {
-  const now = Date.now()
-  
-  // Return cached settings if still valid
-  if (cachedEmailSettings && (now - settingsCacheTime) < CACHE_DURATION) {
-    return cachedEmailSettings
-  }
-
-  try {
-    // Get email settings from database
-    const settings = await prisma.setting.findMany({
-      where: {
-        key: {
-          startsWith: 'email.'
-        }
-      }
-    })
-
-    const settingsMap = settings.reduce((acc, setting) => {
-      const key = setting.key.replace('email.', '')
-      try {
-        acc[key] = key === 'smtp' ? JSON.parse(setting.value) : setting.value
-      } catch {
-        acc[key] = setting.value
-      }
-      return acc
-    }, {} as Record<string, any>)
-
-    // Fallback to environment variables if no database settings
-    const emailSettings: EmailSettings = {
-      provider: settingsMap.provider || 'SMTP',
-      fromEmail: settingsMap.fromEmail || process.env.SMTP_SENDER || 'noreply@example.com',
-      fromName: settingsMap.fromName || 'Real Estate Platform',
-      smtp: settingsMap.smtp || {
-        host: process.env.SMTP_HOSTNAME || 'localhost',
-        port: process.env.SMTP_PORT || '587',
-        username: process.env.SMTP_USERNAME || '',
-        password: process.env.SMTP_PASSWORD || '',
-        secure: process.env.SMTP_PORT === '465'
-      }
-    }
-
-    // Cache the settings
-    cachedEmailSettings = emailSettings
-    settingsCacheTime = now
-
-    return emailSettings
-  } catch (error) {
-    console.error('Failed to load email settings, using environment fallback:', error)
-    
-    // Fallback to environment variables
-    return {
-      provider: 'SMTP',
-      fromEmail: process.env.SMTP_SENDER || 'noreply@example.com',
-      fromName: 'Real Estate Platform',
-      smtp: {
-        host: process.env.SMTP_HOSTNAME || 'localhost',
-        port: process.env.SMTP_PORT || '587',
-        username: process.env.SMTP_USERNAME || '',
-        password: process.env.SMTP_PASSWORD || '',
-        secure: process.env.SMTP_PORT === '465'
-      }
-    }
-  }
-}
-
-export async function getEmailTemplate(templateName: string): Promise<EmailTemplate | null> {
-  try {
-    const template = await prisma.emailTemplate.findFirst({
-      where: {
-        name: templateName,
-        isActive: true
-      }
-    })
-
-    return template
-  } catch (error) {
-    console.error('Failed to load email template:', error)
-    return null
-  }
-}
-
-export async function sendEmail(options: {
+interface EmailOptions {
   to: string | string[]
   subject: string
-  html?: string
+  html: string
   text?: string
-  templateName?: string
-  templateData?: Record<string, string>
-  replyTo?: string
-}) {
+  from?: string
+  attachments?: Array<{
+    filename: string
+    path?: string
+    content?: Buffer | string
+    contentType?: string
+  }>
+}
+
+let transporter: Transporter | null = null
+
+/**
+ * Get or create email transporter
+ */
+function getTransporter(): Transporter {
+  if (transporter) {
+    return transporter
+  }
+
+  const config = useRuntimeConfig()
+
+  // Configure based on runtime config (from nuxt.config.ts)
+  transporter = nodemailer.createTransport({
+    host: config.smtpHostname || process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(config.smtpPort || process.env.SMTP_PORT || '587'),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: config.smtpUsername || process.env.SMTP_USER,
+      pass: config.smtpPassword || process.env.SMTP_PASSWORD
+    }
+  })
+
+  return transporter
+}
+
+/**
+ * Send an email
+ */
+export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
-    const emailSettings = await getEmailSettings()
+    const config = useRuntimeConfig()
+    const transport = getTransporter()
     
-    // Create transporter
-    const transporter = nodemailer.createTransport({
-      host: emailSettings.smtp.host,
-      port: parseInt(emailSettings.smtp.port),
-      secure: emailSettings.smtp.secure,
-      auth: {
-        user: emailSettings.smtp.username,
-        pass: emailSettings.smtp.password
-      }
-    })
-
-    let { subject, html, text } = options
-    
-    // Use template if specified
-    if (options.templateName) {
-      const template = await getEmailTemplate(options.templateName)
-      if (template) {
-        subject = template.subject
-        html = template.content
-        
-        // Replace template variables
-        if (options.templateData) {
-          for (const [key, value] of Object.entries(options.templateData)) {
-            const placeholder = `{{${key}}}`
-            subject = subject.replace(new RegExp(placeholder, 'g'), value)
-            html = html.replace(new RegExp(placeholder, 'g'), value)
-          }
-        }
-      }
-    }
-
-    // Send email
     const mailOptions = {
-      from: emailSettings.fromName ? `${emailSettings.fromName} <${emailSettings.fromEmail}>` : emailSettings.fromEmail,
+      from: options.from || config.smtpSender || process.env.SMTP_FROM || 'noreply@homebyabdul.com',
       to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
-      subject,
-      html,
-      text,
-      replyTo: options.replyTo
+      subject: options.subject,
+      html: options.html,
+      text: options.text || stripHtml(options.html),
+      attachments: options.attachments
     }
 
-    const info = await transporter.sendMail(mailOptions)
-    console.log('✅ Email sent successfully:', info.messageId)
-    
-    return {
-      success: true,
-      messageId: info.messageId
-    }
-  } catch (error: any) {
-    console.error('❌ Failed to send email:', error)
-    throw new Error(`Failed to send email: ${error.message}`)
+    await transport.sendMail(mailOptions)
+    return true
+  } catch (error) {
+    console.error('Error sending email:', error)
+    return false
   }
 }
 
-// Clear settings cache (useful when settings are updated)
-export function clearEmailSettingsCache() {
-  cachedEmailSettings = null
-  settingsCacheTime = 0
+/**
+ * Send newsletter to multiple recipients
+ */
+export async function sendNewsletterBatch(
+  subscribers: Array<{ id: number; email: string; firstName?: string; lastName?: string }>,
+  campaign: {
+    id: number
+    subject: string
+    content: string
+    plainTextContent?: string
+    attachments?: any
+  }
+): Promise<{ success: number; failed: number; errors: any[] }> {
+  const results = { success: 0, failed: 0, errors: [] as any[] }
+
+  // Send emails in batches to avoid rate limits
+  const batchSize = 50
+  for (let i = 0; i < subscribers.length; i += batchSize) {
+    const batch = subscribers.slice(i, i + batchSize)
+    
+    await Promise.all(
+      batch.map(async (subscriber) => {
+        try {
+          // Personalize content
+          let personalizedContent = campaign.content
+            .replace(/\{firstName\}/g, subscriber.firstName || '')
+            .replace(/\{lastName\}/g, subscriber.lastName || '')
+            .replace(/\{email\}/g, subscriber.email)
+
+          // Add unsubscribe link
+          const unsubscribeLink = `${process.env.APP_URL}/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
+          personalizedContent += `<br><br><small><a href="${unsubscribeLink}">Unsubscribe</a></small>`
+
+          const sent = await sendEmail({
+            to: subscriber.email,
+            subject: campaign.subject,
+            html: personalizedContent,
+            text: campaign.plainTextContent,
+            attachments: campaign.attachments ? JSON.parse(JSON.stringify(campaign.attachments)) : undefined
+          })
+
+          if (sent) {
+            results.success++
+          } else {
+            results.failed++
+            results.errors.push({ email: subscriber.email, error: 'Failed to send' })
+          }
+        } catch (error) {
+          results.failed++
+          results.errors.push({ email: subscriber.email, error: error instanceof Error ? error.message : 'Unknown error' })
+        }
+      })
+    )
+
+    // Add delay between batches to respect rate limits
+    if (i + batchSize < subscribers.length) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+
+  return results
+}
+
+/**
+ * Strip HTML tags from content for plain text version
+ */
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[^>]*>.*<\/style>/gm, '')
+    .replace(/<script[^>]*>.*<\/script>/gm, '')
+    .replace(/<[^>]+>/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * Validate email address
+ */
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email)
+}
+
+/**
+ * Generate email template with basic styling
+ */
+export function generateEmailTemplate(content: string, options?: {
+  title?: string
+  preheader?: string
+  footerText?: string
+}): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  ${options?.preheader ? `<meta name="description" content="${options.preheader}">` : ''}
+  <title>${options?.title || 'Newsletter'}</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background-color: #f5f5f5;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+    }
+    .header {
+      background-color: #121212;
+      color: #ffffff;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .content {
+      padding: 40px 20px;
+      color: #333333;
+    }
+    .footer {
+      background-color: #f8f8f8;
+      padding: 20px;
+      text-align: center;
+      font-size: 12px;
+      color: #999999;
+    }
+    .button {
+      display: inline-block;
+      padding: 12px 24px;
+      background-color: #8c734b;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 6px;
+      margin: 20px 0;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+    }
+  </style>
+</head>
+<body>
+  ${options?.preheader ? `<div style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${options.preheader}</div>` : ''}
+  <div class="container">
+    <div class="header">
+      <h1 style="margin: 0; font-size: 24px; letter-spacing: -0.5px;">Alberta One Real Estate</h1>
+    </div>
+    <div class="content">
+      ${content}
+    </div>
+    <div class="footer">
+      <p>${options?.footerText || 'You received this email because you subscribed to our newsletter.'}</p>
+      <p>© ${new Date().getFullYear()} Alberta One Real Estate. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+  `.trim()
 }

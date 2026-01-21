@@ -317,6 +317,15 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 
+// Helper function to safely get auth headers
+const getAuthHeaders = () => {
+  if (process.client) {
+    const token = localStorage.getItem('token')
+    return token ? { 'Authorization': `Bearer ${token}` } : {}
+  }
+  return {}
+}
+
 const loading = ref(false)
 const currentPage = ref(1)
 const totalPages = ref(1)
@@ -418,14 +427,7 @@ const applyFilters = async () => {
     const url = `/api/admin/properties?${params.toString()}`
     
     const response = await $fetch(url, {
-      headers: (() => { 
-        try { 
-          const t = localStorage.getItem('token')
-          return t ? { Authorization: `Bearer ${t}` } : undefined
-        } catch { 
-          return undefined
-        } 
-      })()
+      headers: getAuthHeaders()
     }) as any
     
     // Handle new paginated response format

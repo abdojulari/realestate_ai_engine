@@ -11,6 +11,14 @@ interface CreaProperty {
   ListingKey: string
   ListingId: string
   PropertySubType: string
+  PropertyType?: string
+  BusinessType?: string
+  StructureType?: string
+  PropertyClass?: string
+  PropertyUse?: string
+  CurrentUse?: string
+  PossibleUse?: string
+  ExistingLeaseType?: string
   ListPrice: number | null
   BedroomsTotal: number | null
   BathroomsTotalInteger: number | null
@@ -32,7 +40,17 @@ interface CreaProperty {
   ModificationTimestamp: string
   OriginalEntryTimestamp: string
   ListingURL: string
+  
+  // Agent and Office Relationships
   ListAgentKey: string
+  ListOfficeKey: string
+  CoListAgentKey?: string
+  CoListAgentKey2?: string
+  CoListAgentKey3?: string
+  CoListOfficeKey?: string
+  CoListOfficeKey2?: string
+  CoListOfficeKey3?: string
+  
   YearBuilt: number | null
   ParkingTotal: number | null
   Heating: string[]
@@ -99,8 +117,44 @@ interface CreaProperty {
   waterBodyName?: string | null
 }
 
+interface CreaMember {
+  MemberKey: string
+  MemberMlsId: string
+  MemberFirstName: string
+  MemberLastName: string
+  MemberFullName: string
+  MemberEmail?: string
+  MemberDirectPhone?: string
+  MemberMobilePhone?: string
+  MemberOfficePhone?: string
+  MemberStateLicense?: string
+  MemberDesignation?: string[]
+  MemberPhotoURL?: string
+  OfficeKey: string
+  OfficeName?: string
+  ModificationTimestamp: string
+}
+
+interface CreaOffice {
+  OfficeKey: string
+  OfficeId: string
+  OfficeName: string
+  OfficePhone?: string
+  OfficeEmail?: string
+  OfficeAddress1?: string
+  OfficeAddress2?: string
+  OfficeCity?: string
+  OfficeStateOrProvince?: string
+  OfficePostalCode?: string
+  OfficeCountry?: string
+  OfficeWebsiteURL?: string
+  OfficeBrokerKey?: string
+  OfficeBrokerMlsId?: string
+  ModificationTimestamp: string
+}
+
 interface CreaApiResponse {
-  value: CreaProperty[]
+  value: CreaProperty[] | CreaMember[] | CreaOffice[]
   '@odata.nextLink'?: string
 }
 
@@ -163,10 +217,19 @@ class CreaService {
   async getProperties(filters: any = {}): Promise<CreaProperty[]> {
     const params = new URLSearchParams()
 
-    // Add OData query parameters
-    if (filters.city) {
-      params.append('$filter', `City eq '${filters.city}'`)
+    // Build filter conditions array
+    const filterConditions: string[] = []
+
+    // Handle province filter (simplified approach for Alberta sync)
+    if (filters.province) {
+      filterConditions.push(`StateOrProvince eq '${filters.province}'`)
     }
+
+    // Add other filters
+    if (filters.city) {
+      filterConditions.push(`City eq '${filters.city}'`)
+    }
+    
     if (filters.minPrice || filters.maxPrice) {
       let priceFilter = ''
       if (filters.minPrice) priceFilter += `ListPrice ge ${filters.minPrice}`
@@ -175,28 +238,80 @@ class CreaService {
         priceFilter += `ListPrice le ${filters.maxPrice}`
       }
       if (priceFilter) {
-        const existingFilter = params.get('$filter')
-        params.set('$filter', existingFilter ? `${existingFilter} and ${priceFilter}` : priceFilter)
+        filterConditions.push(priceFilter)
       }
     }
+    
     if (filters.beds) {
-      const existingFilter = params.get('$filter')
-      const bedsFilter = `BedroomsTotal ge ${filters.beds}`
-      params.set('$filter', existingFilter ? `${existingFilter} and ${bedsFilter}` : bedsFilter)
+      filterConditions.push(`BedroomsTotal ge ${filters.beds}`)
     }
 
-    params.append('$top', '100') // Limit to 100 results per request
+    // For non-province specific queries, add residential-only filters
+    // But keep them simple to avoid 400 errors
+    if (!filters.province) {
+      // Only add the most essential commercial exclusions
+      filterConditions.push("PropertySubType ne 'Office'")
+      filterConditions.push("PropertySubType ne 'Commercial'")
+      filterConditions.push("PropertySubType ne 'Industrial'")
+    }
+
+    // Handle direct $filter parameter (for backward compatibility)
+    if (filters.$filter && !filters.province) {
+      filterConditions.push(filters.$filter)
+    }
+
+    // Build OData query string manually to avoid URL encoding of $ characters
+    const queryParts: string[] = []
     
-    const queryString = params.toString()
+    // Combine all filter conditions
+    if (filterConditions.length > 0) {
+      queryParts.push(`$filter=${encodeURIComponent(filterConditions.join(' and '))}`)
+    }
+
+    // Handle $top parameter
+    const topLimit = filters.$top || 100
+    queryParts.push(`$top=${topLimit}`)
+    
+    const queryString = queryParts.join('&')
     const endpoint = `/odata/v1/Property${queryString ? `?${queryString}` : ''}`
 
+    console.log('CREA API Query:', endpoint)
     const response: CreaApiResponse = await this.makeCreaRequest(endpoint)
-    return response.value
+    
+    console.log(`CREA returned ${response.value?.length || 0} properties`)
+    return (response.value as CreaProperty[]) || []
+  }
+
+  // Get total count of properties from CREA
+  async getPropertiesCount(filters: any = {}): Promise<number> {
+    const filterConditions: string[] = []
+
+    if (filters.province) {
+      filterConditions.push(`StateOrProvince eq '${filters.province}'`)
+    }
+
+    const queryParts: string[] = []
+    
+    if (filterConditions.length > 0) {
+      queryParts.push(`$filter=${encodeURIComponent(filterConditions.join(' and '))}`)
+    }
+
+    // Only get count, no actual data
+    queryParts.push('$top=0')
+    queryParts.push('$count=true')
+    
+    const queryString = queryParts.join('&')
+    const endpoint = `/odata/v1/Property${queryString ? `?${queryString}` : ''}`
+
+    console.log('CREA Count Query:', endpoint)
+    const response: any = await this.makeCreaRequest(endpoint)
+    
+    return response['@odata.count'] || 0
   }
 
   async getPropertyById(listingKey: string): Promise<CreaProperty | null> {
     try {
-      const property: CreaProperty = await this.makeCreaRequest(`/odata/v1/Property/${listingKey}`)
+      const property: CreaProperty = await this.makeCreaRequest(`/odata/v1/Property/${listingKey}?$expand=Media`)
       return property
     } catch (error) {
       console.error('Error fetching CREA property:', error)
@@ -204,17 +319,188 @@ class CreaService {
     }
   }
 
+  async getMemberById(memberKey: string): Promise<CreaMember | null> {
+    try {
+      const response: { value: CreaMember[] } = await this.makeCreaRequest(`/odata/v1/Member?$filter=MemberKey eq '${memberKey}'`)
+      return response.value[0] || null
+    } catch (error) {
+      console.error('Error fetching CREA member:', error)
+      return null
+    }
+  }
+
+  async getOfficeById(officeKey: string): Promise<CreaOffice | null> {
+    try {
+      const response: { value: CreaOffice[] } = await this.makeCreaRequest(`/odata/v1/Office?$filter=OfficeKey eq '${officeKey}'`)
+      return response.value[0] || null
+    } catch (error) {
+      console.error('Error fetching CREA office:', error)
+      return null
+    }
+  }
+
+  async getMembersByKeys(memberKeys: string[]): Promise<CreaMember[]> {
+    if (!memberKeys.length) return []
+    
+    try {
+      const keyFilter = memberKeys.map(key => `MemberKey eq '${key}'`).join(' or ')
+      const response: { value: CreaMember[] } = await this.makeCreaRequest(`/odata/v1/Member?$filter=${keyFilter}`)
+      return response.value || []
+    } catch (error) {
+      console.error('Error fetching CREA members:', error)
+      return []
+    }
+  }
+
+  async getOfficesByKeys(officeKeys: string[]): Promise<CreaOffice[]> {
+    if (!officeKeys.length) return []
+    
+    try {
+      const keyFilter = officeKeys.map(key => `OfficeKey eq '${key}'`).join(' or ')
+      const response: { value: CreaOffice[] } = await this.makeCreaRequest(`/odata/v1/Office?$filter=${keyFilter}`)
+      return response.value || []
+    } catch (error) {
+      console.error('Error fetching CREA offices:', error)
+      return []
+    }
+  }
+
+  /**
+   * Get property with complete agent and office information
+   */
+  async getPropertyWithAgentDetails(listingKey: string): Promise<{
+    property: CreaProperty | null
+    listingAgent: CreaMember | null
+    listingOffice: CreaOffice | null
+    coListingAgents: CreaMember[]
+    coListingOffices: CreaOffice[]
+  }> {
+    const property = await this.getPropertyById(listingKey)
+    
+    if (!property) {
+      return {
+        property: null,
+        listingAgent: null,
+        listingOffice: null,
+        coListingAgents: [],
+        coListingOffices: []
+      }
+    }
+
+    // Collect all agent and office keys
+    const agentKeys = [property.ListAgentKey, property.CoListAgentKey, property.CoListAgentKey2, property.CoListAgentKey3].filter((key): key is string => Boolean(key))
+    const officeKeys = [property.ListOfficeKey, property.CoListOfficeKey, property.CoListOfficeKey2, property.CoListOfficeKey3].filter((key): key is string => Boolean(key))
+
+    // Fetch all agents and offices in parallel
+    const [agents, offices] = await Promise.all([
+      this.getMembersByKeys(agentKeys),
+      this.getOfficesByKeys(officeKeys)
+    ])
+
+    // Map agents and offices by their keys for easy lookup
+    const agentMap = new Map(agents.map(agent => [agent.MemberKey, agent]))
+    const officeMap = new Map(offices.map(office => [office.OfficeKey, office]))
+
+    return {
+      property,
+      listingAgent: agentMap.get(property.ListAgentKey) || null,
+      listingOffice: officeMap.get(property.ListOfficeKey) || null,
+      coListingAgents: [
+        property.CoListAgentKey && agentMap.get(property.CoListAgentKey),
+        property.CoListAgentKey2 && agentMap.get(property.CoListAgentKey2),
+        property.CoListAgentKey3 && agentMap.get(property.CoListAgentKey3)
+      ].filter((agent): agent is CreaMember => Boolean(agent)),
+      coListingOffices: [
+        property.CoListOfficeKey && officeMap.get(property.CoListOfficeKey),
+        property.CoListOfficeKey2 && officeMap.get(property.CoListOfficeKey2),
+        property.CoListOfficeKey3 && officeMap.get(property.CoListOfficeKey3)
+      ].filter((office): office is CreaOffice => Boolean(office))
+    }
+  }
+
+  /**
+   * Map CREA PropertySubType to our system property types with enhanced commercial detection
+   */
+  private mapPropertyType(subType: string, additionalFields?: {
+    businessType?: string
+    structureType?: string
+    currentUse?: string
+    propertyClass?: string
+  }): string {
+    if (!subType) return 'house'
+    
+    const type = subType.toLowerCase()
+    
+    // ENHANCED COMMERCIAL DETECTION - Check all available fields
+    const allFields = [
+      subType,
+      additionalFields?.businessType,
+      additionalFields?.structureType, 
+      additionalFields?.currentUse,
+      additionalFields?.propertyClass
+    ].filter((f): f is string => Boolean(f) && typeof f === 'string').map(f => f.toLowerCase())
+    
+    const commercialIndicators = [
+      'office', 'commercial', 'retail', 'industrial', 'warehouse', 'manufacturing',
+      'business', 'store', 'shop', 'plaza', 'mall', 'medical', 'professional',
+      'mixed use', 'mixed-use', 'agriculture', 'farm', 'investment'
+    ]
+    
+    // If ANY field contains commercial indicators, mark as commercial
+    const isCommercial = allFields.some(field => 
+      field && typeof field === 'string' && commercialIndicators.some(indicator => field.includes(indicator))
+    )
+    
+    if (isCommercial) {
+      console.log(`🏢 Commercial property detected: ${subType} (${allFields.join(', ')})`)
+      if (type.includes('industrial') || type.includes('warehouse') || type.includes('manufacturing')) {
+        return 'industrial'
+      }
+      return 'commercial'
+    }
+    
+    // RESIDENTIAL TYPE MAPPING
+    if (type.includes('vacant land') || type.includes('land')) return 'land'
+    if (type.includes('single family') || type.includes('single-family') || type.includes('detached')) return 'house'
+    if (type.includes('condo') || type.includes('apartment') || type.includes('condominium')) return 'condo'
+    if (type.includes('townhouse') || type.includes('town') || type.includes('row house')) return 'townhouse'
+    if (type.includes('multi-family') || type.includes('duplex') || type.includes('multiplex') || 
+        type.includes('fourplex') || type.includes('triplex')) return 'multi-family'
+    
+    // Special handling for properties with 0 bedrooms - likely commercial
+    // This will be checked in the transform function
+    
+    // Log unknown types for debugging
+    console.warn(`⚠️ Unknown PropertySubType: "${subType}" - defaulting to 'house'`)
+    
+    return 'house' // Default for residential
+  }
+
   /**
    * Transform CREA property to Local Property format
    */
-  transformToLocalProperty(creaProp: CreaProperty, systemUserId: number): Omit<Property, 'id' | 'createdAt' | 'updatedAt'> {
-    // Extract property type from PropertySubType
-    let type = 'house' // default
-    const subType = creaProp.PropertySubType?.toLowerCase() || ''
-    if (subType.includes('condo') || subType.includes('apartment')) {
-      type = 'condo'
-    } else if (subType.includes('townhouse') || subType.includes('town')) {
-      type = 'townhouse'
+  transformToLocalProperty(creaProp: CreaProperty, agentData?: {
+    listingAgent?: CreaMember | null
+    listingOffice?: CreaOffice | null
+    coListingAgents?: CreaMember[]
+    coListingOffices?: CreaOffice[]
+  }): Omit<Property, 'id' | 'createdAt' | 'updatedAt'> | null {
+    // Extract property type using enhanced commercial detection
+    const type = this.mapPropertyType(creaProp.PropertySubType || creaProp.PropertyType || '', {
+      businessType: creaProp.BusinessType,
+      structureType: creaProp.StructureType,
+      currentUse: creaProp.CurrentUse,
+      propertyClass: creaProp.PropertyClass
+    })
+    
+    // Additional check: Properties with 0 bedrooms and no living area are likely commercial
+    const hasNoBedrooms = !creaProp.BedroomsTotal || creaProp.BedroomsTotal === 0
+    const hasNoLivingArea = !creaProp.LivingArea || creaProp.LivingArea === 0
+    const isLikelyCommercial = hasNoBedrooms && hasNoLivingArea && type === 'house'
+    
+    if (isLikelyCommercial) {
+      console.log(`🏢 Commercial property detected by bedroom/area analysis: ${creaProp.PropertySubType}`)
+      return null // Return null to indicate this should be filtered out
     }
 
     // Extract status
@@ -225,11 +511,14 @@ class CreaService {
       status = 'sold'
     }
 
-    // Extract images and sort by order
+    // Extract images and sort by order (Media is included by default in CREA DDF OData API)
     const images = creaProp.Media
       ?.filter(media => media.MediaURL)
       .sort((a, b) => a.Order - b.Order)
       .map(media => media.MediaURL) || []
+    
+    // Log image count
+    console.log(`📸 Property ${creaProp.ListingKey}: ${images.length} images`)
 
     // Build features object
     const features = {
@@ -328,17 +617,16 @@ class CreaService {
       address: creaProp.UnparsedAddress,
       city: creaProp.City,
       province: creaProp.StateOrProvince,
-      postalCode: creaProp.PostalCode,
+      postalCode: creaProp.PostalCode || '',
       latitude: creaProp.Latitude,
       longitude: creaProp.Longitude,
       features,
       images,
       views: 0,
-      userId: systemUserId,
+      userId: null as any, // CREA properties are not owned by any user
       source: 'crea' as const,
       externalId: creaProp.ListingKey,
       mlsNumber: creaProp.ListingId,
-      lastSyncAt: new Date(),
       
       // Enhanced Residential Fields (now in schema)
       lotSizeArea: creaProp.lotSizeArea,
@@ -358,24 +646,67 @@ class CreaService {
       streetNumber: creaProp.streetNumber,
       unitNumber: creaProp.unitNumber,
       
-      // User/Agent info
-      user: {
-        id: systemUserId,
-        firstName: 'MLS',
-        lastName: 'Listing',
-        email: 'mls@abdul.com',
-        phone: null,
-      },
-      agent: {
-        id: systemUserId,
-        firstName: 'MLS',
-        lastName: 'Listing',
-        email: 'mls@abdul.com',
-        phone: null,
-        name: 'MLS Listing',
-        agency: 'CREA DDF',
-        role: 'agent',
-      },
+      // Store raw agent and office data for detailed display
+      listingAgentData: agentData?.listingAgent ? {
+        memberKey: agentData.listingAgent.MemberKey,
+        mlsId: agentData.listingAgent.MemberMlsId,
+        fullName: agentData.listingAgent.MemberFullName,
+        firstName: agentData.listingAgent.MemberFirstName,
+        lastName: agentData.listingAgent.MemberLastName,
+        email: agentData.listingAgent.MemberEmail,
+        directPhone: agentData.listingAgent.MemberDirectPhone,
+        mobilePhone: agentData.listingAgent.MemberMobilePhone,
+        officePhone: agentData.listingAgent.MemberOfficePhone,
+        license: agentData.listingAgent.MemberStateLicense,
+        designations: agentData.listingAgent.MemberDesignation,
+        photoURL: agentData.listingAgent.MemberPhotoURL
+      } : null,
+      
+      listingOfficeData: agentData?.listingOffice ? {
+        officeKey: agentData.listingOffice.OfficeKey,
+        officeId: agentData.listingOffice.OfficeId,
+        name: agentData.listingOffice.OfficeName,
+        phone: agentData.listingOffice.OfficePhone,
+        email: agentData.listingOffice.OfficeEmail,
+        address: [
+          agentData.listingOffice.OfficeAddress1,
+          agentData.listingOffice.OfficeAddress2
+        ].filter(Boolean).join(', '),
+        city: agentData.listingOffice.OfficeCity,
+        province: agentData.listingOffice.OfficeStateOrProvince,
+        postalCode: agentData.listingOffice.OfficePostalCode,
+        country: agentData.listingOffice.OfficeCountry,
+        website: agentData.listingOffice.OfficeWebsiteURL
+      } : null,
+      
+      coListingAgentsData: agentData?.coListingAgents?.map(agent => ({
+        memberKey: agent.MemberKey,
+        mlsId: agent.MemberMlsId,
+        fullName: agent.MemberFullName,
+        firstName: agent.MemberFirstName,
+        lastName: agent.MemberLastName,
+        email: agent.MemberEmail,
+        directPhone: agent.MemberDirectPhone,
+        mobilePhone: agent.MemberMobilePhone,
+        officePhone: agent.MemberOfficePhone,
+        license: agent.MemberStateLicense,
+        designations: agent.MemberDesignation,
+        photoURL: agent.MemberPhotoURL
+      })) || [],
+      
+      coListingOfficesData: agentData?.coListingOffices?.map(office => ({
+        officeKey: office.OfficeKey,
+        officeId: office.OfficeId,
+        name: office.OfficeName,
+        phone: office.OfficePhone,
+        email: office.OfficeEmail,
+        address: [office.OfficeAddress1, office.OfficeAddress2].filter(Boolean).join(', '),
+        city: office.OfficeCity,
+        province: office.OfficeStateOrProvince,
+        postalCode: office.OfficePostalCode,
+        country: office.OfficeCountry,
+        website: office.OfficeWebsiteURL
+      })) || [],
     }
   }
 }

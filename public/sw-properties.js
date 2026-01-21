@@ -1,5 +1,5 @@
 // Service Worker for Property Management
-const CACHE_NAME = 'abdul-properties-v1'
+const CACHE_NAME = 'abdul-properties-v2' // Updated to clear old cache with missing agent data
 const API_BASE = self.location.origin
 
 // Property cache storage
