@@ -44,9 +44,9 @@
             </v-col>
 
             <v-col cols="12" sm="4">
-              <v-select
-                v-model="filters.role"
-                :items="roleOptions"
+            <v-select
+              v-model="filters.role"
+              :items="roleFilterOptions"
                 label="Filter by Role"
                 variant="outlined"
                 density="comfortable"
@@ -327,7 +327,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 // Helper function to safely get auth headers
 const getAuthHeaders = () => {
@@ -340,6 +341,7 @@ const getAuthHeaders = () => {
 
 // NO LOGIC CHANGES BELOW
 const { showDialog, alertType, alertTitle, alertMessage, alertConfirmText, showSuccess, showError, closeAlert } = useAlert()
+const route = useRoute()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -378,6 +380,7 @@ const headers = [
 ]
 
 const roleOptions = ['user', 'agent', 'admin']
+const roleFilterOptions = ['user', 'agent', 'admin', 'crm']
 const statusOptions = ['active', 'inactive', 'pending']
 const users = ref<any[]>([])
 
@@ -431,6 +434,16 @@ const applyFilters = async () => {
     console.error('Error applying filters:', error)
   } finally {
     loading.value = false
+  }
+}
+
+const syncFiltersFromRoute = () => {
+  const crm = route.query.crm === '1' || route.query.crm === 'true'
+  const role = (route.query.role as string) || null
+  if (crm) {
+    filters.value.role = 'crm'
+  } else if (role) {
+    filters.value.role = role
   }
 }
 
@@ -541,8 +554,17 @@ const deleteUser = async () => {
 }
 
 onMounted(() => {
+  syncFiltersFromRoute()
   applyFilters()
 })
+
+watch(
+  () => route.query,
+  () => {
+    syncFiltersFromRoute()
+    applyFilters()
+  }
+)
 
 definePageMeta({
   layout: 'admin',

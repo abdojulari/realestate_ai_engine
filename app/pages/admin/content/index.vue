@@ -511,8 +511,24 @@ const pageKeyOptions: Record<string, Array<{ title: string, value: string }>> = 
     { title: 'Why Choose Us Item', value: 'why-choose-us-item' }
   ],
   about: [
-    { title: 'About Title', value: 'about-title' },
-    { title: 'About Body', value: 'about-body' }
+    { title: 'Hero Title', value: 'about.hero.title' },
+    { title: 'Hero Subtitle', value: 'about.hero.subtitle' },
+    { title: 'Hero Image', value: 'about.hero.image' },
+    { title: 'Story Title', value: 'about.story.title' },
+    { title: 'Story Content (HTML)', value: 'about.story.content' },
+    { title: 'Core Value 1', value: 'about.values.1' },
+    { title: 'Core Value 2', value: 'about.values.2' },
+    { title: 'Core Value 3', value: 'about.values.3' },
+    { title: 'Stat 1', value: 'about.stats.1' },
+    { title: 'Stat 2', value: 'about.stats.2' },
+    { title: 'Stat 3', value: 'about.stats.3' },
+    { title: 'Stat 4', value: 'about.stats.4' },
+    { title: 'CTA Title', value: 'about.cta.title' },
+    { title: 'CTA Subtitle', value: 'about.cta.subtitle' },
+    { title: 'Legacy: About Title', value: 'about-title' },
+    { title: 'Legacy: About Body', value: 'about-body' },
+    { title: 'Legacy: About Subtitle', value: 'about-subtitle' },
+    { title: 'Legacy: About Image', value: 'about-image' }
   ],
   testimonials: [
     { title: 'Testimonial Item', value: 'testimonial' }

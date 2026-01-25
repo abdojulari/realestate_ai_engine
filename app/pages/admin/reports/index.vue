@@ -191,6 +191,7 @@
         <v-tabs v-model="activeTab" class="premium-tabs px-4 pt-4" color="primary">
           <v-tab value="listings" class="font-weight-bold text-caption">Property Inventory</v-tab>
           <v-tab value="users" class="font-weight-bold text-caption">User Dynamics</v-tab>
+          <v-tab value="crm" class="font-weight-bold text-caption">CRM Users</v-tab>
           <v-tab value="inquiries" class="font-weight-bold text-caption">Lead Pipeline</v-tab>
           <v-tab value="viewings" class="font-weight-bold text-caption">On-Site Logistics</v-tab>
         </v-tabs>
@@ -257,6 +258,47 @@
                 </thead>
                 <tbody>
                   <tr v-for="user in userReport" :key="user.id" class="table-row-premium">
+                    <td class="px-8 py-4">
+                      <div class="d-flex align-center">
+                        <v-avatar :color="user.status === 'active' ? 'primary' : 'slate-300'" size="36" class="mr-4 text-caption font-weight-black">
+                          {{ getInitials(user.name) }}
+                        </v-avatar>
+                        <div>
+                          <div class="font-weight-black text-slate-800">{{ user.name }}</div>
+                          <div class="text-caption text-slate-400">{{ user.email }}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <v-chip size="x-small" variant="tonal" class="font-weight-bold">
+                        {{ formatTimeAgo(user.lastActive) }}
+                      </v-chip>
+                    </td>
+                    <td>
+                      <div class="d-flex gap-4 text-caption">
+                        <span class="font-weight-bold text-slate-600">Saved: {{ user.savedProperties }}</span>
+                        <span class="font-weight-bold text-slate-600">Inq: {{ user.inquiries }}</span>
+                      </div>
+                    </td>
+                    <td class="px-8 text-caption text-slate-500">{{ formatDate(user.registrationDate) }}</td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-window-item>
+
+            <!-- CRM Users -->
+            <v-window-item value="crm">
+              <v-table class="premium-table">
+                <thead>
+                  <tr>
+                    <th class="px-8 text-slate-400 uppercase tracking-widest text-caption font-weight-bold">User Identity</th>
+                    <th class="text-slate-400 uppercase tracking-widest text-caption font-weight-bold">Last Activity</th>
+                    <th class="text-slate-400 uppercase tracking-widest text-caption font-weight-bold">Engagement</th>
+                    <th class="px-8 text-slate-400 uppercase tracking-widest text-caption font-weight-bold">Member Since</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="user in crmUserReport" :key="user.id" class="table-row-premium">
                     <td class="px-8 py-4">
                       <div class="d-flex align-center">
                         <v-avatar :color="user.status === 'active' ? 'primary' : 'slate-300'" size="36" class="mr-4 text-caption font-weight-black">
@@ -402,6 +444,9 @@ const listingsReport = ref<any[]>([])
 const userReport = ref<any[]>([])
 const inquiryReport = ref<any[]>([])
 const viewingReport = ref<any[]>([])
+const crmUserReport = computed(() => {
+  return userReport.value.filter((u: any) => !['admin', 'agent'].includes(u.role || ''))
+})
 
 const formatNumber = (num: number) => {
   return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')

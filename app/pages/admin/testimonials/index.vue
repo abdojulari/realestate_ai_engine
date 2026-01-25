@@ -8,14 +8,24 @@
             Manage client testimonials and reviews
           </p>
         </div>
-        <v-btn
-          color="primary"
-          prepend-icon="mdi-plus"
-          href="/testimonials/submit"
-          target="_blank"
-        >
-          Preview Form
-        </v-btn>
+        <div class="d-flex gap-2">
+          <v-btn
+            color="primary"
+            prepend-icon="mdi-plus"
+            :href="testimonialFormUrl"
+            target="_blank"
+          >
+            Preview Form
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            color="primary"
+            prepend-icon="mdi-content-copy"
+            @click="copyFormLink"
+          >
+            Copy Link
+          </v-btn>
+        </div>
       </v-card-title>
 
       <!-- Filters -->
@@ -301,6 +311,16 @@ const itemsPerPage = ref(20)
 const showViewDialog = ref(false)
 const selectedTestimonial = ref<Testimonial | null>(null)
 
+const config = useRuntimeConfig()
+const siteUrl = computed(() => {
+  if (config.public.siteUrl) return config.public.siteUrl
+  return process.client ? window.location.origin : ''
+})
+const testimonialFormUrl = computed(() => {
+  const base = siteUrl.value ? siteUrl.value.replace(/\/$/, '') : ''
+  return base ? `${base}/testimonials/submit` : '/testimonials/submit'
+})
+
 const pagination = ref({
   page: 1,
   pages: 1,
@@ -437,6 +457,21 @@ const bulkApprove = async () => {
 const viewTestimonial = (testimonial: Testimonial) => {
   selectedTestimonial.value = testimonial
   showViewDialog.value = true
+}
+
+const copyFormLink = async () => {
+  const link = testimonialFormUrl.value
+  try {
+    await navigator.clipboard.writeText(link)
+  } catch (e) {
+    console.error('Failed to copy testimonial link:', e)
+    const textArea = document.createElement('textarea')
+    textArea.value = link
+    document.body.appendChild(textArea)
+    textArea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textArea)
+  }
 }
 
 // Utility functions

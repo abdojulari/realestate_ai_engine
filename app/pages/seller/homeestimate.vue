@@ -134,6 +134,25 @@
                           prepend-inner-icon="mdi-ruler-square"
                         />
                       </v-col>
+                      <v-col cols="12" md="4">
+                        <v-text-field
+                          v-model.number="forms.propertyDetails.yearBuilt"
+                          type="number"
+                          label="Year Built"
+                          variant="underlined"
+                          prepend-inner-icon="mdi-calendar"
+                          :rules="yearBuiltRules"
+                        />
+                      </v-col>
+                      <v-col cols="12" md="8">
+                        <v-text-field
+                          v-model="forms.propertyDetails.lotSize"
+                          label="Lot Size"
+                          variant="underlined"
+                          placeholder="e.g. 40 x 120 ft"
+                          :rules="lotSizeRules"
+                        />
+                      </v-col>
                     </v-row>
                   </v-form>
                 </div>
@@ -191,6 +210,14 @@
                       </v-col>
                       <v-col cols="12">
                         <v-text-field v-model="forms.contact.email" label="Professional Email" type="email" variant="underlined" />
+                      </v-col>
+                      <v-col cols="12">
+                        <v-text-field
+                          v-model="forms.contact.phone"
+                          label="Phone Number"
+                          variant="underlined"
+                          :rules="phoneRules"
+                        />
                       </v-col>
                       <v-col cols="12">
                         <v-select v-model="forms.contact.timeframe" :items="sellingTimeframes" label="Selling Intent" variant="underlined" />
@@ -256,17 +283,17 @@
             <div class="d-flex flex-column gap-4">
               <div class="guide-item d-flex gap-4">
                 <v-icon icon="mdi-chart-areaspline" color="primary" />
-                <div class="text-caption">Real-time local sales data integration.</div>
+                <div class="text-caption text-grey">Real-time local sales data integration.</div>
               </div>
               <div class="guide-item d-flex gap-4">
                 <v-icon icon="mdi-camera-outline" color="primary" />
-                <div class="text-caption">Virtual assessment options available.</div>
+                <div class="text-caption text-grey">Virtual assessment options available.</div>
               </div>
             </div>
           </v-card>
 
           <v-card class="agent-card rounded-xl overflow-hidden shadow-lg">
-            <v-img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=800&auto=format&fit=crop" height="200" cover />
+            <v-img src="/images/about/abdul.JPG" height="200" cover />
             <v-card-text class="pa-6">
               <div class="text-overline text-primary mb-1">Local Lead Expert</div>
               <div class="text-h6 font-weight-bold mb-1">Abdul Ojulari</div>
@@ -340,9 +367,9 @@ const showSuccessDialog = ref(false)
 const showProcessDialog = ref(false)
 
 const forms = reactive({
-  propertyDetails: { valid: false, address: '', postalCode: '', propertyType: 'single_family', beds: 3, baths: 2, sqft: 1500 },
+  propertyDetails: { valid: false, address: '', postalCode: '', propertyType: 'single_family', beds: 3, baths: 2, sqft: 1500, yearBuilt: 2000, lotSize: '' },
   features: { valid: false, condition: 'good', selectedFeatures: [], additionalInfo: '' },
-  contact: { valid: false, firstName: '', lastName: '', email: '', timeframe: '3_months' }
+  contact: { valid: false, firstName: '', lastName: '', email: '', phone: '', timeframe: '3_months' }
 })
 
 const valuationProcess = [
@@ -382,6 +409,14 @@ const propertyTypes = [
   { title: 'Luxury Condo', value: 'condo' }
 ]
 
+const currentYear = new Date().getFullYear()
+const yearBuiltRules = [
+  (v: number) => !!v || 'Required',
+  (v: number) => v >= 1800 && v <= currentYear || `Year must be between 1800 and ${currentYear}`
+]
+const lotSizeRules = [(v: string) => !!v || 'Required']
+const phoneRules = [(v: string) => !!v || 'Required']
+
 const propertyConditions = [
   { title: 'Pristine', value: 'excellent' },
   { title: 'Well Maintained', value: 'good' },
@@ -399,11 +434,43 @@ const sellingTimeframes = [
 
 const submitEstimate = async () => {
   submitting.value = true
-  // Mock API delay
-  setTimeout(() => {
-    submitting.value = false
+  try {
+    await $fetch('/api/estimates', {
+      method: 'POST',
+      body: {
+        property: {
+          address: forms.propertyDetails.address,
+          postalCode: forms.propertyDetails.postalCode,
+          propertyType: forms.propertyDetails.propertyType,
+          beds: forms.propertyDetails.beds,
+          baths: forms.propertyDetails.baths,
+          sqft: forms.propertyDetails.sqft,
+          yearBuilt: forms.propertyDetails.yearBuilt,
+          lotSize: forms.propertyDetails.lotSize
+        },
+        features: {
+          condition: forms.features.condition,
+          selectedFeatures: forms.features.selectedFeatures,
+          renovations: [],
+          additionalInfo: forms.features.additionalInfo
+        },
+        contact: {
+          firstName: forms.contact.firstName,
+          lastName: forms.contact.lastName,
+          email: forms.contact.email,
+          phone: forms.contact.phone,
+          timeframe: forms.contact.timeframe,
+          contactPreference: false
+        }
+      }
+    })
     showSuccessDialog.value = true
-  }, 2000)
+  } catch (error) {
+    console.error('Estimate submission failed:', error)
+    alert('Failed to submit estimate. Please try again.')
+  } finally {
+    submitting.value = false
+  }
 }
 
 definePageMeta({ layout: 'default' })

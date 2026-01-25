@@ -23,7 +23,7 @@
 
 import fetch from 'node-fetch'
 
-const API_BASE = 'http://localhost:3000'
+const API_BASE = process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000'
 
 // ============================================
 // UTILITY FUNCTIONS

@@ -21,6 +21,8 @@ export default defineNitroPlugin((nitroApp) => {
 })
 
 function startAlertScheduler() {
+  const config = useRuntimeConfig()
+  const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
   // Clear any existing interval
   if (alertInterval) {
     clearInterval(alertInterval)
@@ -32,7 +34,7 @@ function startAlertScheduler() {
       console.log('⏰ Running scheduled property alert check...')
       
       // Call the alert processing endpoint
-      const response = await fetch('http://localhost:3000/api/alerts/run-due', {
+      const response = await fetch(`${siteUrl}/api/alerts/run-due`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'

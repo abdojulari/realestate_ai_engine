@@ -116,6 +116,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: '/api',
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || '',
       facebookAppId: process.env.FACEBOOK_APP_ID,
     },
     smtpUsername: process.env.SMTP_USERNAME || '',

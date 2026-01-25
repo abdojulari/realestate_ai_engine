@@ -242,6 +242,7 @@
 /**
  * ARCHITECTURAL LOGIC: PRESERVED
  */
+import { api } from '~/utils/api'
 interface SyncFilters {
   city?: string
   minPrice?: number
@@ -288,11 +289,8 @@ const startSync = async () => {
   alert.value.message = ''
   
   try {
-    const response = await $fetch('/api/admin/crea/sync', {
-      method: 'POST',
-      body: {
-        filters: syncFilters.value
-      }
+    const response = await api.post('/api/admin/crea/sync', {
+      filters: syncFilters.value
     })
 
     lastSyncResult.value = {

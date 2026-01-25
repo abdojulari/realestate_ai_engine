@@ -549,7 +549,7 @@ const fetchStatus = async () => {
 
 const fetchSettings = async () => {
   try {
-    const data = await $fetch<Settings>('/api/admin/settings/pillar9-sync')
+    const data = await api.get<Settings>('/api/admin/settings/pillar9-sync')
     settings.value = {
       autoSyncEnabled: data.autoSyncEnabled,
       autoSyncTime: data.autoSyncTime,

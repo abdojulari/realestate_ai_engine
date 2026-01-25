@@ -98,6 +98,8 @@ export default defineEventHandler(async (event) => {
 
 // Run property search with filters
 async function runPropertySearch(filters: any, city?: string) {
+  const config = useRuntimeConfig()
+  const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
   const queryParams = new URLSearchParams()
   
   // Add filters
@@ -130,7 +132,7 @@ async function runPropertySearch(filters: any, city?: string) {
   queryParams.append('limit', '1000')
   
   // Make API request
-  const response = await fetch(`http://localhost:3000/api/properties?${queryParams.toString()}`)
+  const response = await fetch(`${siteUrl}/api/properties?${queryParams.toString()}`)
   const data = await response.json()
   
   return data.properties || []
@@ -138,6 +140,8 @@ async function runPropertySearch(filters: any, city?: string) {
 
 // Send alert email to user
 async function sendAlertEmail(user: any, alert: any, properties: any[]) {
+  const config = useRuntimeConfig()
+  const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOSTNAME,
     port: parseInt(process.env.SMTP_PORT || '587'),
@@ -182,7 +186,7 @@ async function sendAlertEmail(user: any, alert: any, properties: any[]) {
           </div>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.NUXT_PUBLIC_SITE_URL}/buyer/alerts" 
+            <a href="${siteUrl}/buyer/alerts" 
                style="background: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px;">
               Manage Your Alerts
             </a>

@@ -19,7 +19,13 @@ export default defineEventHandler(async (event) => {
       { email: { contains: search, mode: 'insensitive' } }
     ]
   }
-  if (role) where.role = role
+  if (role) {
+    if (role === 'crm') {
+      where.role = { notIn: ['admin', 'agent'] }
+    } else {
+      where.role = role
+    }
+  }
 
   const users = await prisma.user.findMany({
     where,

@@ -304,11 +304,14 @@ const notifications = ref<any[]>([])
 
 // Navigation menu items (badge is dynamic for Users)
 const userBadge = ref<number | undefined>(undefined)
+const crmBadge = ref<number | undefined>(undefined)
 const menuItems = computed(() => [
   { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/admin' },
   { title: 'Site', icon: 'mdi-home', to: '/' },
   { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', badge: userBadge.value ? String(userBadge.value) : undefined },
+  { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/users?crm=1', badge: crmBadge.value ? String(crmBadge.value) : undefined },
   { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties' },
+  { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma' },
   { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync' },
   { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync' },
   { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter' },
@@ -381,6 +384,7 @@ async function loadHeaderData() {
     const data: any = await api.get('/api/admin/notifications')
     notifications.value = data.notifications || []
     userBadge.value = await api.get('/api/admin/users').then((arr: any) => arr?.length || 0)
+    crmBadge.value = await api.get('/api/admin/users?role=crm').then((arr: any) => arr?.length || 0)
   } catch (e) {
     console.error('Header data load failed:', e)
     // Fallback to auth store on error

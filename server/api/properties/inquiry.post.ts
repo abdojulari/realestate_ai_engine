@@ -167,7 +167,8 @@ async function sendInquiryEmail({
     const propertyCity = propertyInfo.city || ''
     const propertyPrice = propertyInfo.price ? `$${propertyInfo.price.toLocaleString()}` : 'Price not available'
     const mlsNumber = propertyInfo.mlsNumber || 'N/A'
-    const propertyUrl = propertySnapshot?.url || `${process.env.SITE_URL || 'https://your-site.com'}/property/${property.id}`
+    const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+    const propertyUrl = propertySnapshot?.url || `${siteUrl}/property/${property.id}`
 
     const emailSubject = `New Property Inquiry: ${propertyTitle}`
     

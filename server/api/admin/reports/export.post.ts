@@ -20,6 +20,9 @@ export default defineEventHandler(async (event) => {
       case 'users':
         data = await getUsersData(dateRange, customRange)
         break
+      case 'crm':
+        data = await getUsersData(dateRange, customRange, 'crm')
+        break
       case 'inquiries':
         data = await getInquiriesData(dateRange, customRange)
         break
@@ -85,13 +88,21 @@ async function getListingsData(dateRange: string, customRange?: any) {
   }))
 }
 
-async function getUsersData(dateRange: string, customRange?: any) {
+async function getUsersData(dateRange: string, customRange?: any, role?: string) {
   const where: any = {}
   
   if (dateRange !== 'all') {
     const dateFilter = getDateFilter(dateRange, customRange)
     if (dateFilter) {
       where.createdAt = dateFilter
+    }
+  }
+
+  if (role) {
+    if (role === 'crm') {
+      where.role = { notIn: ['admin', 'agent'] }
+    } else {
+      where.role = role
     }
   }
 

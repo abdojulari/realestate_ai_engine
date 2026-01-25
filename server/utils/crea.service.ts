@@ -38,6 +38,7 @@ interface CreaProperty {
     Order: number
   }>
   ModificationTimestamp: string
+  StatusChangeTimestamp?: string
   OriginalEntryTimestamp: string
   ListingURL: string
   
@@ -246,40 +247,48 @@ class CreaService {
       filterConditions.push(`BedroomsTotal ge ${filters.beds}`)
     }
 
-    // For non-province specific queries, add residential-only filters
-    // But keep them simple to avoid 400 errors
+    const buildEndpoint = (conditions: string[]) => {
+      const queryParts: string[] = []
+      if (conditions.length > 0) {
+        queryParts.push(`$filter=${encodeURIComponent(conditions.join(' and '))}`)
+      }
+      const topLimit = filters.$top || 100
+      queryParts.push(`$top=${topLimit}`)
+      const queryString = queryParts.join('&')
+      return `/odata/v1/Property${queryString ? `?${queryString}` : ''}`
+    }
+
+    // Preferred filter set (includes commercial exclusions and optional $filter)
+    const preferredConditions = [...filterConditions]
     if (!filters.province) {
-      // Only add the most essential commercial exclusions
-      filterConditions.push("PropertySubType ne 'Office'")
-      filterConditions.push("PropertySubType ne 'Commercial'")
-      filterConditions.push("PropertySubType ne 'Industrial'")
+      preferredConditions.push("PropertySubType ne 'Office'")
+      preferredConditions.push("PropertySubType ne 'Commercial'")
+      preferredConditions.push("PropertySubType ne 'Industrial'")
+      if (filters.$filter) {
+        preferredConditions.push(filters.$filter)
+      }
     }
 
-    // Handle direct $filter parameter (for backward compatibility)
-    if (filters.$filter && !filters.province) {
-      filterConditions.push(filters.$filter)
+    // Fallback filter set (basic filters only)
+    const fallbackConditions = [...filterConditions]
+
+    try {
+      const endpoint = buildEndpoint(preferredConditions)
+      console.log('CREA API Query:', endpoint)
+      const response: CreaApiResponse = await this.makeCreaRequest(endpoint)
+      console.log(`CREA returned ${response.value?.length || 0} properties`)
+      return (response.value as CreaProperty[]) || []
+    } catch (error: any) {
+      const message = error?.message || ''
+      if (message.includes('400')) {
+        const fallbackEndpoint = buildEndpoint(fallbackConditions)
+        console.warn('CREA query failed with 400, retrying with fallback filters:', fallbackEndpoint)
+        const response: CreaApiResponse = await this.makeCreaRequest(fallbackEndpoint)
+        console.log(`CREA returned ${response.value?.length || 0} properties (fallback)`)
+        return (response.value as CreaProperty[]) || []
+      }
+      throw error
     }
-
-    // Build OData query string manually to avoid URL encoding of $ characters
-    const queryParts: string[] = []
-    
-    // Combine all filter conditions
-    if (filterConditions.length > 0) {
-      queryParts.push(`$filter=${encodeURIComponent(filterConditions.join(' and '))}`)
-    }
-
-    // Handle $top parameter
-    const topLimit = filters.$top || 100
-    queryParts.push(`$top=${topLimit}`)
-    
-    const queryString = queryParts.join('&')
-    const endpoint = `/odata/v1/Property${queryString ? `?${queryString}` : ''}`
-
-    console.log('CREA API Query:', endpoint)
-    const response: CreaApiResponse = await this.makeCreaRequest(endpoint)
-    
-    console.log(`CREA returned ${response.value?.length || 0} properties`)
-    return (response.value as CreaProperty[]) || []
   }
 
   // Get total count of properties from CREA
@@ -311,7 +320,8 @@ class CreaService {
 
   async getPropertyById(listingKey: string): Promise<CreaProperty | null> {
     try {
-      const property: CreaProperty = await this.makeCreaRequest(`/odata/v1/Property/${listingKey}?$expand=Media`)
+      const safeKey = encodeURIComponent(listingKey)
+      const property: CreaProperty = await this.makeCreaRequest(`/odata/v1/Property/${safeKey}?$expand=Media`)
       return property
     } catch (error) {
       console.error('Error fetching CREA property:', error)
@@ -520,6 +530,13 @@ class CreaService {
     // Log image count
     console.log(`📸 Property ${creaProp.ListingKey}: ${images.length} images`)
 
+    const normalizeDate = (value?: string | null) => {
+      if (!value) return null
+      const trimmed = value.replace(/^"+|"+$/g, '')
+      const date = new Date(trimmed)
+      return isNaN(date.getTime()) ? null : date.toISOString()
+    }
+
     // Build features object
     const features = {
       // Existing features
@@ -567,6 +584,9 @@ class CreaService {
       waterBodyName: creaProp.waterBodyName,
       cityRegion: creaProp.cityRegion,
       directions: creaProp.directions,
+
+      // Status timing (for CMA sold date)
+      statusChangeTimestamp: normalizeDate(creaProp.StatusChangeTimestamp),
       
       // Detailed Measurements (Priority 5)
       buildingAreaTotal: creaProp.buildingAreaTotal,

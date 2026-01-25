@@ -80,6 +80,8 @@ export async function sendNewsletterBatch(
   }
 ): Promise<{ success: number; failed: number; errors: any[] }> {
   const results = { success: 0, failed: 0, errors: [] as any[] }
+  const config = useRuntimeConfig()
+  const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || '').replace(/\/$/, '')
 
   // Send emails in batches to avoid rate limits
   const batchSize = 50
@@ -96,7 +98,10 @@ export async function sendNewsletterBatch(
             .replace(/\{email\}/g, subscriber.email)
 
           // Add unsubscribe link
-          const unsubscribeLink = `${process.env.APP_URL}/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
+          const baseUrl = siteUrl || process.env.APP_URL || ''
+          const unsubscribeLink = baseUrl
+            ? `${baseUrl}/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
+            : `/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
           personalizedContent += `<br><br><small><a href="${unsubscribeLink}">Unsubscribe</a></small>`
 
           const sent = await sendEmail({

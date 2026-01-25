@@ -226,7 +226,7 @@ onMounted(async () => {
     const pageData = await $fetch('/api/content/page/about')
     const items: any[] = pageData?.items || []
     
-    const heroTitleItem = items.find(i => i.key === 'about.hero.title' || i.key === 'about-title')
+    const heroTitleItem = items.find(i => i.key === 'about.hero.title')
     const heroSubtitleItem = items.find(i => i.key === 'about.hero.subtitle' || i.key === 'about-subtitle')
     const profileImageItem = items.find(i => i.key === 'about.hero.image' || i.key === 'about-image')
     
@@ -234,7 +234,7 @@ onMounted(async () => {
     if (heroSubtitleItem?.content) heroSubtitle.value = heroSubtitleItem.content
     if (profileImageItem?.content) profileImage.value = profileImageItem.content
     
-    const storyTitleItem = items.find(i => i.key === 'about.story.title')
+    const storyTitleItem = items.find(i => i.key === 'about.story.title' || i.key === 'about-title')
     const storyContentItem = items.find(i => i.key === 'about.story.content' || i.key === 'about-body')
     if (storyTitleItem?.content) storyTitle.value = storyTitleItem.content
     if (storyContentItem?.content) storyContent.value = storyContentItem.content
@@ -253,6 +253,11 @@ onMounted(async () => {
 
     const statItems = items.filter(i => i.key.startsWith('about.stats.'))
     stats.value = statItems.map(item => ({ key: item.key, value: item.content, label: item.title }))
+
+    const ctaTitleItem = items.find(i => i.key === 'about.cta.title')
+    const ctaSubtitleItem = items.find(i => i.key === 'about.cta.subtitle')
+    if (ctaTitleItem?.content) ctaTitle.value = ctaTitleItem.content
+    if (ctaSubtitleItem?.content) ctaSubtitle.value = ctaSubtitleItem.content
 
   } catch (error) {
     console.error('Error loading about content:', error)

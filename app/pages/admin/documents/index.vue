@@ -184,11 +184,20 @@
             </div>
 
             <!-- OCR Results -->
-            <div v-if="ocrText" class="pa-4">
+            <div class="pa-4">
               <v-divider class="mb-2" />
               <div class="text-caption font-weight-bold mb-2">EXTRACTED TEXT:</div>
+              <v-select
+                v-model="ocrPage"
+                :items="Array.from({length: totalPages}, (_, i) => ({ title: `Page ${i + 1}`, value: i + 1 }))"
+                label="OCR Page"
+                variant="outlined"
+                density="compact"
+                class="mb-3"
+                :disabled="totalPages === 0"
+              />
               <div class="text-caption" style="max-height: 200px; overflow-y: auto; word-break: break-word;">
-                {{ ocrText }}
+                {{ ocrText || 'No OCR results yet.' }}
               </div>
             </div>
           </div>
@@ -532,15 +541,15 @@
             :disabled="converting"
           />
 
-          <div v-if="converterFile.length > 0" class="mt-4 pa-4 bg-grey-lighten-4 rounded">
+          <div v-if="converterFile" class="mt-4 pa-4 bg-grey-lighten-4 rounded">
             <div class="d-flex align-center">
               <v-icon icon="mdi-file-document" class="mr-2" />
               <div class="flex-grow-1">
-                <div class="font-weight-medium">{{ converterFile[0]?.name }}</div>
-                <div class="text-caption">{{ formatFileSize(converterFile[0]?.size || 0) }}</div>
+                <div class="font-weight-medium">{{ converterFile.name }}</div>
+                <div class="text-caption">{{ formatFileSize(converterFile.size || 0) }}</div>
               </div>
               <v-chip size="small" color="primary" variant="flat">
-                {{ getFileExtension(converterFile[0]?.name || '') }}
+                {{ getFileExtension(converterFile.name || '') }}
               </v-chip>
             </div>
           </div>
@@ -553,7 +562,7 @@
             variant="flat" 
             @click="convertFileToPdf" 
             :loading="converting"
-            :disabled="converterFile.length === 0"
+            :disabled="!converterFile"
           >
             Convert to PDF
           </v-btn>
@@ -617,8 +626,9 @@ const uploadedSignatureFile = ref<File[]>([])
 const uploadedSignaturePreview = ref('')
 const selectedSavedSignature = ref<number | null>(null)
 const signaturePage = ref(1)
-const converterFile = ref<File[]>([])
+const converterFile = ref<File | null>(null)
 const converting = ref(false)
+const ocrPage = ref(1)
 
 // Font families
 const fontFamilies = [
@@ -760,6 +770,7 @@ const openEditor = async (doc: any) => {
   scale.value = 1.0
   signaturePage.value = 1
   textPage.value = 1
+  ocrPage.value = 1
   textElements.value = []
   signatureElements.value = []
   
@@ -1273,19 +1284,20 @@ const addWatermark = async () => {
 
 // OCR
 const runOCR = async () => {
-  if (!canvasRefs.has(currentPage.value)) return
+  const page = ocrPage.value || currentPage.value
+  if (!canvasRefs.has(page)) return
 
   ocrLoading.value = true
   ocrText.value = ''
   try {
-    const canvas = canvasRefs.get(currentPage.value)
+    const canvas = canvasRefs.get(page)
     if (!canvas) return
     
     const worker = await createWorker('eng')
     const { data: { text } } = await worker.recognize(canvas)
     ocrText.value = text
     await worker.terminate()
-    showSnackbar('OCR completed', 'success')
+    showSnackbar(`OCR completed for page ${page}`, 'success')
   } catch (err) {
     console.error('OCR error:', err)
     showSnackbar('OCR failed', 'error')
@@ -1470,11 +1482,11 @@ const getFileExtension = (filename: string) => {
 
 // File Converter
 const convertFileToPdf = async () => {
-  if (converterFile.value.length === 0) return
+  if (!converterFile.value) return
 
   converting.value = true
   try {
-    const file = converterFile.value[0]
+    const file = converterFile.value
     if (!file) {
       throw new Error('No file selected')
     }
@@ -1512,7 +1524,7 @@ const convertFileToPdf = async () => {
       showSnackbar('File converted to PDF successfully!', 'success')
       await loadDocuments()
       showConverterDialog.value = false
-      converterFile.value = []
+      converterFile.value = null
       
       if (response.document) {
         openEditor(response.document)

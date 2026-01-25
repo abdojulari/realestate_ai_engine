@@ -13,6 +13,7 @@ export default defineEventHandler(async (event) => {
   const items = all
     .map((b: any) => ({ ...b, metadata: parseMeta(b.metadata) }))
     .filter((b: any) => (b.metadata?.section || 'general') === page)
+    .filter((b: any) => b.metadata?.published !== false)
 
   return { page, items }
 })
