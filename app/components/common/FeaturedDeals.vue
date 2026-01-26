@@ -1,12 +1,12 @@
 <template>
   <v-container fluid class="featured-deals bg-white">
     <!-- Location Badge -->
-    <!-- <div v-if="userCity" class="location-badge mb-4">
+    <div v-if="userCity" class="location-badge mb-4">
       <v-chip color="primary" variant="tonal" size="small">
         <v-icon start size="small">mdi-map-marker</v-icon>
         Homes near {{ userCity }}
       </v-chip>
-    </div> -->
+    </div>
 
     <!-- Loading State -->
     <div v-if="loading" class="d-flex justify-center py-8">
@@ -63,7 +63,16 @@
     <!-- No Properties -->
     <div v-else class="text-center py-8 text-grey">
       <v-icon size="48" class="mb-2">mdi-home-search</v-icon>
-      <p>No featured properties available</p>
+      <p>No properties available in {{ userCity || 'your area' }}</p>
+      <v-btn 
+        variant="outlined" 
+        color="primary" 
+        size="small" 
+        class="mt-4"
+        to="/properties"
+      >
+        Browse All Properties
+      </v-btn>
     </div>
   </v-container>
 </template>
@@ -85,11 +94,10 @@ const fetchedProperties = ref<Property[]>([])
 const userCity = ref<string>('')
 const userProvince = ref<string>('Alberta')
 
-// Featured homes criteria: Single family (house), $400K - $4M
+// Featured homes criteria: Residential properties, $200K - $5M
 const FEATURED_CRITERIA = {
-  type: 'house',
-  minPrice: 400000,
-  maxPrice: 4000000,
+  minPrice: 200000,
+  maxPrice: 5000000,
   status: 'for_sale',
   limit: 12
 }
@@ -97,11 +105,11 @@ const FEATURED_CRITERIA = {
 // Use provided items or fetched properties
 const displayProperties = computed(() => {
   if (props.items && props.items.length > 0) {
-    // Filter provided items by criteria
+    // Filter provided items by criteria (residential only)
     return props.items.filter(p => 
-      p.type === 'house' &&
       p.price >= FEATURED_CRITERIA.minPrice &&
-      p.price <= FEATURED_CRITERIA.maxPrice
+      p.price <= FEATURED_CRITERIA.maxPrice &&
+      ['house', 'condo', 'townhouse', 'multi-family', 'land'].includes(p.type?.toLowerCase() || '')
     ).slice(0, 12)
   }
   return fetchedProperties.value
@@ -150,50 +158,94 @@ async function fetchFeaturedProperties() {
   try {
     await detectLocation()
     
+    // Fetch properties from user's city ONLY
     const params = new URLSearchParams({
       city: userCity.value,
-      type: FEATURED_CRITERIA.type,
       minPrice: FEATURED_CRITERIA.minPrice.toString(),
       maxPrice: FEATURED_CRITERIA.maxPrice.toString(),
       status: FEATURED_CRITERIA.status,
-      limit: FEATURED_CRITERIA.limit.toString(),
-      sortBy: 'newest'
+      limit: FEATURED_CRITERIA.limit.toString()
     })
+    
+    console.log('🏠 Fetching featured properties for city:', userCity.value)
     
     const response = await $fetch<any>(`/api/properties?${params}`)
     let properties = Array.isArray(response) ? response : response?.properties || []
     
-    // If not enough in user's city, expand search to province
-    if (properties.length < 6) {
-      const provinceParams = new URLSearchParams({
-        province: userProvince.value,
-        type: FEATURED_CRITERIA.type,
-        minPrice: FEATURED_CRITERIA.minPrice.toString(),
-        maxPrice: FEATURED_CRITERIA.maxPrice.toString(),
-        status: FEATURED_CRITERIA.status,
-        limit: FEATURED_CRITERIA.limit.toString(),
-        sortBy: 'popular'
-      })
+    console.log(`🏠 Found ${properties.length} properties in ${userCity.value}`)
+    
+    // If no properties in user's city, try nearby major cities in the same province
+    if (properties.length === 0 && userCity.value) {
+      const nearbyCities = getNearbyCities(userCity.value, userProvince.value)
       
-      const provinceResponse = await $fetch<any>(`/api/properties?${provinceParams}`)
-      const provinceProperties = Array.isArray(provinceResponse) ? provinceResponse : provinceResponse?.properties || []
-      
-      // Merge, prioritizing local properties
-      const existingIds = new Set(properties.map((p: Property) => p.id))
-      for (const p of provinceProperties) {
-        if (!existingIds.has(p.id) && properties.length < 12) {
-          properties.push(p)
+      for (const nearbyCity of nearbyCities) {
+        if (properties.length >= 6) break
+        
+        const nearbyParams = new URLSearchParams({
+          city: nearbyCity,
+          minPrice: FEATURED_CRITERIA.minPrice.toString(),
+          maxPrice: FEATURED_CRITERIA.maxPrice.toString(),
+          status: FEATURED_CRITERIA.status,
+          limit: '6'
+        })
+        
+        const nearbyResponse = await $fetch<any>(`/api/properties?${nearbyParams}`)
+        const nearbyProperties = Array.isArray(nearbyResponse) ? nearbyResponse : nearbyResponse?.properties || []
+        
+        if (nearbyProperties.length > 0) {
+          console.log(`🏠 Found ${nearbyProperties.length} properties in nearby city: ${nearbyCity}`)
+          // Update userCity to reflect where we found properties
+          userCity.value = nearbyCity
+          properties = nearbyProperties
+          break
         }
       }
     }
     
     fetchedProperties.value = properties
+    console.log(`🏠 Final featured properties: ${properties.length}`)
   } catch (error) {
     console.error('Failed to fetch featured properties:', error)
     fetchedProperties.value = []
   } finally {
     loading.value = false
   }
+}
+
+// Get nearby major cities based on user's location
+function getNearbyCities(city: string, province: string): string[] {
+  const cityLower = city.toLowerCase()
+  
+  // Alberta major cities and their neighbors
+  const albertaCities: Record<string, string[]> = {
+    'edmonton': ['St. Albert', 'Sherwood Park', 'Spruce Grove', 'Leduc', 'Fort Saskatchewan'],
+    'calgary': ['Airdrie', 'Cochrane', 'Okotoks', 'Chestermere', 'Strathmore'],
+    'red deer': ['Sylvan Lake', 'Lacombe', 'Blackfalds', 'Innisfail'],
+    'lethbridge': ['Coaldale', 'Taber', 'Picture Butte'],
+    'grande prairie': ['Clairmont', 'Sexsmith', 'Beaverlodge'],
+    'fort mcmurray': ['Wood Buffalo'],
+    'medicine hat': ['Redcliff', 'Brooks'],
+  }
+  
+  // If user is in a major city, return its suburbs
+  if (albertaCities[cityLower]) {
+    return albertaCities[cityLower]
+  }
+  
+  // If user is in a suburb, return the major city first
+  for (const [majorCity, suburbs] of Object.entries(albertaCities)) {
+    if (suburbs.some(s => s.toLowerCase() === cityLower)) {
+      return [majorCity.charAt(0).toUpperCase() + majorCity.slice(1), ...suburbs.filter(s => s.toLowerCase() !== cityLower)]
+    }
+  }
+  
+  // Default: return major Alberta cities
+  if (province.toLowerCase() === 'alberta') {
+    return ['Edmonton', 'Calgary', 'Red Deer', 'Lethbridge']
+  }
+  
+  // For other provinces, just return empty (no fallback)
+  return []
 }
 
 // Responsive items per slide

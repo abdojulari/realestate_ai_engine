@@ -1,0 +1,190 @@
+import { defineEventHandler, readBody, createError } from 'h3'
+import { PrismaClient } from '@prisma/client'
+import { creaService } from '../../utils/crea.service'
+
+const prisma = new PrismaClient()
+
+/**
+ * Generic CREA sync endpoint that accepts any Canadian province
+ * 
+ * Body parameters:
+ *   - province: The province to sync (e.g., "Ontario", "Alberta")
+ *   - limit: Maximum number of properties to fetch (default: 100)
+ *   - batchSize: Processing batch size (default: 10)
+ *   - includeAgentData: Whether to fetch agent data (default: true)
+ */
+export default defineEventHandler(async (event) => {
+  const body = await readBody(event)
+  const { 
+    province = 'Alberta', 
+    city = null,
+    limit = 100, 
+    batchSize = 10, 
+    includeAgentData = true 
+  } = body
+
+  const locationLabel = city ? `${city}, ${province}` : province
+
+  try {
+    console.log(`🍁 Starting ${locationLabel} CREA sync with agent data (limit: ${limit})`)
+    
+    // Fetch properties from CREA with province and optional city filter
+    const filters: any = {
+      province: province,
+      $top: limit
+    }
+    
+    // Add city filter if specified
+    if (city) {
+      filters.city = city
+    }
+    
+    const creaProperties = await creaService.getProperties(filters)
+    console.log(`Found ${creaProperties.length} ${province} CREA properties`)
+
+    const syncStats = {
+      total: creaProperties.length,
+      created: 0,
+      updated: 0,
+      skipped: 0,
+      errors: 0,
+      errorDetails: [] as string[],
+      agentDataFetched: 0,
+      agentDataErrors: 0,
+      province: province
+    }
+
+    // Process properties in batches
+    const totalBatches = Math.ceil(creaProperties.length / batchSize)
+    
+    for (let i = 0; i < creaProperties.length; i += batchSize) {
+      const batch = creaProperties.slice(i, i + batchSize)
+      const currentBatch = Math.floor(i / batchSize) + 1
+      
+      console.log(`[${province}] Processing batch ${currentBatch}/${totalBatches} (${batch.length} properties)`)
+      
+      for (const creaProp of batch) {
+        try {
+          let agentData = undefined
+          
+          // ALWAYS fetch individual property to get Media (images)
+          // The bulk fetch doesn't include Media, only individual fetch does
+          let propertyWithMedia = creaProp
+          
+          try {
+            console.log(`Fetching full property data for ${creaProp.ListingKey}...`)
+            const propertyWithAgents = await creaService.getPropertyWithAgentDetails(creaProp.ListingKey)
+            
+            if (propertyWithAgents.property) {
+              // Use the property with Media from individual fetch
+              propertyWithMedia = propertyWithAgents.property
+              
+              if (includeAgentData) {
+                agentData = {
+                  listingAgent: propertyWithAgents.listingAgent,
+                  listingOffice: propertyWithAgents.listingOffice,
+                  coListingAgents: propertyWithAgents.coListingAgents,
+                  coListingOffices: propertyWithAgents.coListingOffices
+                }
+                syncStats.agentDataFetched++
+                console.log(`Agent: ${agentData.listingAgent?.MemberFullName || 'No agent'} @ ${agentData.listingOffice?.OfficeName || 'No office'}`)
+              }
+            } else {
+              console.warn(`Property ${creaProp.ListingKey} not found when fetching details`)
+            }
+          } catch (fetchError: any) {
+            console.warn(`Failed to fetch property data for ${creaProp.ListingKey}:`, fetchError.message)
+            if (includeAgentData) syncStats.agentDataErrors++
+          }
+
+          // Transform property WITH Media data
+          const transformedProperty = creaService.transformToLocalProperty(propertyWithMedia, agentData)
+          
+          // Skip if transformer returned null (likely commercial property)
+          if (!transformedProperty) {
+            console.log(`SKIPPING property ${creaProp.ListingKey} - filtered out by transformer (likely commercial)`)
+            syncStats.skipped++
+            continue
+          }
+          
+          // Check if property already exists
+          const existingProperty = await prisma.property.findFirst({
+            where: {
+              source: 'crea',
+              externalId: creaProp.ListingKey
+            }
+          })
+
+          // Remove relation fields that shouldn't be in the create/update data
+          const { user, agent, isSaved, ...propertyData } = transformedProperty as any
+
+          // Debug: Log images being saved
+          const imageCount = Array.isArray(propertyData.images) ? propertyData.images.length : 0
+          if (imageCount === 0) {
+            console.warn(`Property ${creaProp.ListingKey} has 0 images - Media in API: ${creaProp.Media?.length || 0}`)
+          }
+
+          if (existingProperty) {
+            // Update existing property
+            await prisma.property.update({
+              where: { id: existingProperty.id },
+              data: {
+                ...propertyData,
+                lastSyncAt: new Date(),
+                // Preserve local data
+                views: existingProperty.views,
+                createdAt: existingProperty.createdAt
+              }
+            })
+            syncStats.updated++
+            console.log(`Updated: ${transformedProperty.title}`)
+          } else {
+            // Create new property
+            await prisma.property.create({
+              data: {
+                ...propertyData,
+                lastSyncAt: new Date()
+              }
+            })
+            syncStats.created++
+            console.log(`Created: ${transformedProperty.title}`)
+          }
+          
+        } catch (error: any) {
+          console.error(`Error processing property ${creaProp.ListingKey}:`, error.message)
+          syncStats.errors++
+          syncStats.errorDetails.push(`Property ${creaProp.ListingKey}: ${error.message}`)
+        }
+      }
+      
+      // Small delay between batches
+      if (i + batchSize < creaProperties.length) {
+        console.log('Waiting 1 second before next batch...')
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+    }
+
+    console.log(`${province} CREA sync with agent data completed!`)
+    
+    return {
+      success: true,
+      province: province,
+      total: syncStats.total,
+      created: syncStats.created,
+      updated: syncStats.updated,
+      skipped: syncStats.skipped,
+      errors: syncStats.errors,
+      agentDataFetched: syncStats.agentDataFetched,
+      agentDataErrors: syncStats.agentDataErrors,
+      errorDetails: syncStats.errorDetails,
+      message: `${province} sync completed: ${syncStats.created} created, ${syncStats.updated} updated, ${syncStats.skipped} skipped, ${syncStats.errors} errors. Agent data: ${syncStats.agentDataFetched} fetched, ${syncStats.agentDataErrors} errors.`
+    }
+    
+  } catch (error: any) {
+    console.error(`${province} CREA sync failed:`, error)
+    throw createError({
+      statusCode: 500,
+      statusMessage: `${province} sync failed: ${error.message}`
+    })
+  }
+})

@@ -247,6 +247,7 @@
     <v-dialog
       v-model="showContactDialog"
       max-width="600"
+      scrollable
     >
       <InquiryForm
         v-if="selectedProperty"
@@ -254,6 +255,7 @@
         :agent="selectedProperty.agent"
         @submit="handleInquiry"
         @schedule="handleSchedule"
+        @close="showContactDialog = false"
       />
     </v-dialog>
   </div>

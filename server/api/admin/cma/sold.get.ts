@@ -118,19 +118,23 @@ export default defineEventHandler(async (event) => {
           })
         }
       } catch (error) {
-        console.warn('Failed to backfill sold date:', property.externalId, error)
+        // Silently handle - property may not exist in CREA anymore
       }
     }
+
+    // Use statusChangeTimestamp if available, otherwise fall back to updatedAt
+    const effectiveSoldDate = soldDate || (property.updatedAt ? new Date(property.updatedAt).toISOString() : null)
 
     return {
       ...property,
       features,
-      soldDate: soldDate || null
+      soldDate: effectiveSoldDate
     }
   }))
 
   const filtered = shouldFilterBySoldDate
     ? enriched.filter((property: any) => {
+        // Use soldDate for filtering (which now falls back to updatedAt)
         if (!property.soldDate) return false
         const d = new Date(property.soldDate)
         if (isNaN(d.getTime())) return false

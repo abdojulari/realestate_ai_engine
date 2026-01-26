@@ -49,16 +49,9 @@ export default defineEventHandler(async (event) => {
 
   // RESIDENTIAL ONLY FILTER - Exclude commercial/industrial properties at database level
   const residentialTypes = ['house', 'condo', 'townhouse', 'multi-family', 'land', 'other']
-  const commercialTypes = [
-    'commercial', 'industrial', 'office', 'retail', 'business', 'warehouse', 'manufacturing',
-    'store', 'shop', 'plaza', 'mall', 'medical', 'professional', 'mixed-use', 'mixed use'
-  ]
   
-  // Always filter to residential properties only
-  where.type = { 
-    in: residentialTypes,
-    not: { in: commercialTypes }
-  }
+  // Always filter to residential properties only (using valid Prisma syntax)
+  where.type = { in: residentialTypes }
 
   // Source filtering - combine both manual and CREA by default
   const sourceFilter = []
@@ -95,10 +88,13 @@ export default defineEventHandler(async (event) => {
   if (beds) where.beds = { gte: parseInt(beds as string) }
   if (bedsExact) where.beds = parseInt(bedsExact as string) // Exact match for AI search
   if (baths) where.baths = { gte: parseFloat(baths as string) }
-  if (type) where.type = type
-  if (status) where.status = status
+  // Only filter by type if it's a valid residential type
+  if (type && residentialTypes.includes((type as string).toLowerCase())) {
+    where.type = { equals: type as string, mode: 'insensitive' }
+  }
+  if (status) where.status = { equals: status as string, mode: 'insensitive' }
   if (city) where.city = { contains: city as string, mode: 'insensitive' }
-  if (province) where.province = province
+  if (province) where.province = { contains: province as string, mode: 'insensitive' }
 
   // Location filter (search in city, address, or postal code)
   if (location && !city) {
@@ -683,8 +679,7 @@ export default defineEventHandler(async (event) => {
       features: typeof property.features === 'string' ? JSON.parse(property.features) : property.features,
       agent: property.user,
       isMLS: property.source === 'crea',
-      isBuilder: property.source === 'manual',
-      neighborhood: property.neighborhood?.neighborhood || null
+      isBuilder: property.source === 'manual'
     }))
     
     // Apply same filtering logic to get true total

@@ -8,39 +8,53 @@ interface CreaTokenResponse {
 }
 
 interface CreaProperty {
+  // Core Listing Identifiers
   ListingKey: string
   ListingId: string
+  ListingURL: string
+  OriginatingSystemName?: string
+  
+  // Property Classification
   PropertySubType: string
   PropertyType?: string
-  BusinessType?: string
-  StructureType?: string
+  BusinessType?: string | string[]
+  StructureType?: string | string[]
   PropertyClass?: string
   PropertyUse?: string
-  CurrentUse?: string
-  PossibleUse?: string
-  ExistingLeaseType?: string
+  CurrentUse?: string | string[]
+  PossibleUse?: string | string[]
+  CommonInterest?: string
+  
+  // Pricing & Lease Information
   ListPrice: number | null
-  BedroomsTotal: number | null
-  BathroomsTotalInteger: number | null
-  LivingArea: number | null
-  LivingAreaUnits: string | null
+  LeaseAmount?: number | null
+  LeaseAmountFrequency?: string
+  LeasePerUnit?: string
+  PricePerUnit?: string
+  TotalActualRent?: number | null
+  ExistingLeaseType?: string | string[]
+  
+  // Association/HOA Details
+  AssociationFee?: number | null
+  AssociationFeeFrequency?: string
+  AssociationName?: string
+  AssociationFeeIncludes?: string[]
+  
+  // Status & Timestamps
   StandardStatus: string
-  UnparsedAddress: string
-  City: string
-  StateOrProvince: string
-  PostalCode: string
-  Latitude: number
-  Longitude: number
-  PublicRemarks: string
-  Media: Array<{
-    MediaURL: string
-    PreferredPhotoYN: boolean
-    Order: number
-  }>
-  ModificationTimestamp: string
   StatusChangeTimestamp?: string
   OriginalEntryTimestamp: string
-  ListingURL: string
+  ModificationTimestamp: string
+  AvailabilityDate?: string
+  PhotosChangeTimestamp?: string
+  
+  // Listing Details
+  PublicRemarks: string
+  Inclusions?: string
+  DocumentsAvailable?: string[]
+  InternetEntireListingDisplayYN?: boolean
+  InternetAddressDisplayYN?: boolean
+  PhotosCount?: number
   
   // Agent and Office Relationships
   ListAgentKey: string
@@ -51,71 +65,153 @@ interface CreaProperty {
   CoListOfficeKey?: string
   CoListOfficeKey2?: string
   CoListOfficeKey3?: string
+  ListAOR?: string
+  ListAORKey?: string
   
-  YearBuilt: number | null
-  ParkingTotal: number | null
-  Heating: string[]
-  Cooling: string[]
-  Appliances: string[]
-  SecurityFeatures: string[]
-  BuildingFeatures: string[]
-  ExteriorFeatures: string[]
-  InteriorFeatures: string[]
-  LotFeatures: string[]
-  
-  // Residential-specific fields from CREA
-  view?: string[]
-  lotSizeArea?: number | null
-  lotSizeDimensions?: string | null
-  LotSizeUnits?: string | null
-  poolFeatures?: string[]
-  waterfrontFeatures?: string[]
-  frontageLengthNumeric?: number | null
-  FrontageLengthNumericUnits?: string | null
-  fencing?: string[]
-  buildingAreaTotal?: number | null
-  BuildingAreaUnits?: string | null
-  aboveGradeFinishedArea?: number | null
-  AboveGradeFinishedAreaUnits?: string | null
-  AboveGradeFinishedAreaSource?: string | null
-  belowGradeFinishedArea?: number | null
-  BelowGradeFinishedAreaUnits?: string | null
-  BelowGradeFinishedAreaSource?: string | null
-  fireplacesTotal?: number | null
-  fireplaceYN?: boolean | null
-  fireplaceFeatures?: string[]
-  architecturalStyle?: string[]
-  foundationDetails?: string[]
-  basement?: string[]
-  propertyCondition?: string[]
-  roof?: string[]
-  constructionMaterials?: string[]
-  stories?: number | null
-  propertyAttachedYN?: boolean | null
-  accessibilityFeatures?: string[]
-  bedroomsAboveGrade?: number | null
-  bedroomsBelowGrade?: number | null
-  cityRegion?: string | null
-  directions?: string | null
-  roadSurfaceType?: string[]
-  utilities?: string[]
-  waterSource?: string[]
-  sewer?: string[]
-  electric?: string[]
-  irrigationSource?: string[]
-  zoning?: string | null
-  zoningDescription?: string | null
-  taxAnnualAmount?: number | null
-  taxYear?: number | null
-  parcelNumber?: string | null
+  // Location - Address Components
+  UnparsedAddress: string
+  StreetNumber?: string | null
+  StreetName?: string | null
   StreetDirPrefix?: string | null
   StreetDirSuffix?: string | null
-  streetName?: string | null
-  streetNumber?: string | null
   StreetSuffix?: string | null
-  unitNumber?: string | null
+  UnitNumber?: string | null
+  City: string
+  CityRegion?: string | null
+  StateOrProvince: string
+  PostalCode: string
   Country?: string | null
-  waterBodyName?: string | null
+  SubdivisionName?: string
+  Directions?: string | null
+  
+  // Location - Coordinates
+  Latitude: number
+  Longitude: number
+  MapCoordinateVerifiedYN?: boolean
+  GeocodeManualYN?: boolean
+  
+  // Property Size & Dimensions
+  LotSizeArea?: number | null
+  LotSizeDimensions?: string | null
+  LotSizeUnits?: string | null
+  LotFeatures?: string[]
+  BuildingAreaTotal?: number | null
+  BuildingAreaUnits?: string | null
+  LivingArea: number | null
+  LivingAreaUnits: string | null
+  LivingAreaSource?: string
+  LivingAreaMinimum?: number | null
+  LivingAreaMaximum?: number | null
+  AboveGradeFinishedArea?: number | null
+  AboveGradeFinishedAreaUnits?: string | null
+  AboveGradeFinishedAreaSource?: string | null
+  AboveGradeFinishedAreaMinimum?: number | null
+  AboveGradeFinishedAreaMaximum?: number | null
+  BelowGradeFinishedArea?: number | null
+  BelowGradeFinishedAreaUnits?: string | null
+  BelowGradeFinishedAreaSource?: string | null
+  BelowGradeFinishedAreaMinimum?: number | null
+  BelowGradeFinishedAreaMaximum?: number | null
+  FrontageLengthNumeric?: number | null
+  FrontageLengthNumericUnits?: string | null
+  
+  // Building Details
+  YearBuilt: number | null
+  Stories?: number | null
+  NumberOfBuildings?: number | null
+  NumberOfUnitsTotal?: number | null
+  PropertyAttachedYN?: boolean | null
+  ArchitecturalStyle?: string[]
+  ConstructionMaterials?: string[]
+  FoundationDetails?: string[]
+  Roof?: string[]
+  PropertyCondition?: string[]
+  Basement?: string[]
+  
+  // Rooms & Bedrooms
+  BedroomsTotal: number | null
+  BedroomsAboveGrade?: number | null
+  BedroomsBelowGrade?: number | null
+  BathroomsTotalInteger: number | null
+  BathroomsPartial?: number | null
+  Rooms?: Array<{
+    RoomKey: string
+    ListingId: string
+    ListingKey: string
+    ModificationTimestamp: string
+    RoomDescription?: string
+    RoomDimensions?: string
+    RoomLength?: number
+    RoomLevel?: string
+    RoomWidth?: number
+    RoomLengthWidthUnits?: string
+    RoomType?: string
+  }>
+  
+  // Interior Features
+  Appliances?: string[]
+  Flooring?: string[]
+  InteriorFeatures?: string[]
+  FireplacesTotal?: number | null
+  FireplaceYN?: boolean | null
+  FireplaceFeatures?: string[]
+  AccessibilityFeatures?: string[]
+  SecurityFeatures?: string[]
+  OtherEquipment?: string[]
+  
+  // Exterior Features
+  ExteriorFeatures?: string[]
+  BuildingFeatures?: string[]
+  Fencing?: string[]
+  PoolFeatures?: string[]
+  
+  // Parking
+  ParkingTotal: number | null
+  ParkingFeatures?: string[]
+  
+  // Climate Control
+  Heating?: string[]
+  Cooling?: string[]
+  
+  // Utilities
+  Utilities?: string[]
+  WaterSource?: string[]
+  Sewer?: string[]
+  Electric?: string[]
+  IrrigationSource?: string[]
+  
+  // Views & Water Features
+  View?: string[]
+  WaterfrontFeatures?: string[]
+  WaterBodyName?: string | null
+  
+  // Land & Road
+  RoadSurfaceType?: string[]
+  CommunityFeatures?: string[]
+  AnchorsCoTenants?: string
+  
+  // Legal & Tax Information
+  Zoning?: string | null
+  ZoningDescription?: string | null
+  TaxAnnualAmount?: number | null
+  TaxYear?: number | null
+  TaxBlock?: string
+  TaxLot?: string
+  ParcelNumber?: string | null
+  
+  // Media
+  Media?: Array<{
+    MediaKey?: string
+    MediaURL: string
+    PreferredPhotoYN: boolean
+    Order: number
+    LongDescription?: string
+    ModificationTimestamp?: string
+    ResourceRecordId?: string
+    ResourceRecordKey?: string
+    ResourceName?: string
+    MediaCategory?: string
+  }>
 }
 
 interface CreaMember {
@@ -220,6 +316,15 @@ class CreaService {
 
     // Build filter conditions array
     const filterConditions: string[] = []
+    
+    // ALWAYS filter to Active listings only (unless explicitly requesting sold)
+    if (filters.includeSold) {
+      // Include both active and sold
+      filterConditions.push("(StandardStatus eq 'Active' or StandardStatus eq 'Sold')")
+    } else {
+      // Default: Only active listings
+      filterConditions.push("StandardStatus eq 'Active'")
+    }
 
     // Handle province filter (simplified approach for Alberta sync)
     if (filters.province) {
@@ -295,8 +400,15 @@ class CreaService {
   async getPropertiesCount(filters: any = {}): Promise<number> {
     const filterConditions: string[] = []
 
+    // Always filter to Active listings only (consistent with getProperties)
+    filterConditions.push("StandardStatus eq 'Active'")
+
     if (filters.province) {
       filterConditions.push(`StateOrProvince eq '${filters.province}'`)
+    }
+    
+    if (filters.city) {
+      filterConditions.push(`City eq '${filters.city}'`)
     }
 
     const queryParts: string[] = []
@@ -432,21 +544,28 @@ class CreaService {
    * Map CREA PropertySubType to our system property types with enhanced commercial detection
    */
   private mapPropertyType(subType: string, additionalFields?: {
-    businessType?: string
-    structureType?: string
-    currentUse?: string
+    businessType?: string | string[]
+    structureType?: string | string[]
+    currentUse?: string | string[]
     propertyClass?: string
   }): string {
     if (!subType) return 'house'
     
     const type = subType.toLowerCase()
     
+    // Helper to flatten arrays or strings into array of strings
+    const toStringArray = (val: string | string[] | undefined): string[] => {
+      if (!val) return []
+      if (Array.isArray(val)) return val
+      return [val]
+    }
+    
     // ENHANCED COMMERCIAL DETECTION - Check all available fields
     const allFields = [
       subType,
-      additionalFields?.businessType,
-      additionalFields?.structureType, 
-      additionalFields?.currentUse,
+      ...toStringArray(additionalFields?.businessType),
+      ...toStringArray(additionalFields?.structureType), 
+      ...toStringArray(additionalFields?.currentUse),
       additionalFields?.propertyClass
     ].filter((f): f is string => Boolean(f) && typeof f === 'string').map(f => f.toLowerCase())
     
@@ -496,6 +615,7 @@ class CreaService {
     coListingOffices?: CreaOffice[]
   }): Omit<Property, 'id' | 'createdAt' | 'updatedAt'> | null {
     // Extract property type using enhanced commercial detection
+    // Handle BusinessType, StructureType, CurrentUse which can be string or array
     const type = this.mapPropertyType(creaProp.PropertySubType || creaProp.PropertyType || '', {
       businessType: creaProp.BusinessType,
       structureType: creaProp.StructureType,
@@ -513,11 +633,12 @@ class CreaService {
       return null // Return null to indicate this should be filtered out
     }
 
-    // Extract status
+    // Extract status - CREA uses "A - ACTIVE" format
     let status = 'for_sale' // default
-    if (creaProp.StandardStatus?.toLowerCase() === 'active') {
+    const creaStatus = creaProp.StandardStatus?.toLowerCase() || ''
+    if (creaStatus.includes('active') || creaStatus === 'a - active') {
       status = 'for_sale'
-    } else if (creaProp.StandardStatus?.toLowerCase() === 'sold') {
+    } else if (creaStatus.includes('sold') || creaStatus.includes('closed')) {
       status = 'sold'
     }
 
@@ -532,96 +653,182 @@ class CreaService {
 
     const normalizeDate = (value?: string | null) => {
       if (!value) return null
-      const trimmed = value.replace(/^"+|"+$/g, '')
+      // Remove surrounding quotes (handles multiple layers and escaped quotes)
+      let trimmed = value.replace(/^["'\\]+|["'\\]+$/g, '')
+      // Also handle cases like \"date\" where backslash-quote is used
+      trimmed = trimmed.replace(/\\"/g, '').replace(/\\'/g, '')
       const date = new Date(trimmed)
-      return isNaN(date.getTime()) ? null : date.toISOString()
+      if (isNaN(date.getTime())) {
+        return null
+      }
+      return date.toISOString()
     }
 
-    // Build features object
+    const normalizedStatusDate = normalizeDate(creaProp.StatusChangeTimestamp)
+
+
+    // Helper to normalize array fields (CREA sometimes returns string or array)
+    const toArray = (val: string | string[] | undefined | null): string[] => {
+      if (!val) return []
+      if (Array.isArray(val)) return val
+      return [val]
+    }
+
+    // Build comprehensive features object with ALL CREA fields
     const features = {
-      // Existing features
+      // ===== TIMESTAMPS (Critical for CMA) =====
+      statusChangeTimestamp: normalizedStatusDate,
+      originalEntryTimestamp: normalizeDate(creaProp.OriginalEntryTimestamp),
+      modificationTimestamp: normalizeDate(creaProp.ModificationTimestamp),
+      availabilityDate: normalizeDate(creaProp.AvailabilityDate),
+      photosChangeTimestamp: normalizeDate(creaProp.PhotosChangeTimestamp),
+      
+      // ===== LISTING DETAILS =====
+      listingUrl: creaProp.ListingURL,
+      listingId: creaProp.ListingId,
+      originatingSystemName: creaProp.OriginatingSystemName,
+      inclusions: creaProp.Inclusions,
+      documentsAvailable: creaProp.DocumentsAvailable || [],
+      internetEntireListingDisplayYN: creaProp.InternetEntireListingDisplayYN,
+      internetAddressDisplayYN: creaProp.InternetAddressDisplayYN,
+      photosCount: creaProp.PhotosCount,
+      commonInterest: creaProp.CommonInterest,
+      listAOR: creaProp.ListAOR,
+      
+      // ===== PROPERTY CLASSIFICATION =====
+      propertySubType: creaProp.PropertySubType,
+      propertyType: creaProp.PropertyType,
+      businessType: toArray(creaProp.BusinessType),
+      structureType: toArray(creaProp.StructureType),
+      propertyClass: creaProp.PropertyClass,
+      propertyUse: creaProp.PropertyUse,
+      currentUse: toArray(creaProp.CurrentUse),
+      possibleUse: toArray(creaProp.PossibleUse),
+      
+      // ===== PRICING & LEASE =====
+      leaseAmount: creaProp.LeaseAmount,
+      leaseAmountFrequency: creaProp.LeaseAmountFrequency,
+      leasePerUnit: creaProp.LeasePerUnit,
+      pricePerUnit: creaProp.PricePerUnit,
+      totalActualRent: creaProp.TotalActualRent,
+      existingLeaseType: toArray(creaProp.ExistingLeaseType),
+      
+      // ===== ASSOCIATION/HOA =====
+      associationFee: creaProp.AssociationFee,
+      associationFeeFrequency: creaProp.AssociationFeeFrequency,
+      associationName: creaProp.AssociationName,
+      associationFeeIncludes: creaProp.AssociationFeeIncludes || [],
+      
+      // ===== CLIMATE CONTROL =====
       heating: creaProp.Heating || [],
       cooling: creaProp.Cooling || [],
+      
+      // ===== INTERIOR FEATURES =====
       appliances: creaProp.Appliances || [],
-      security: creaProp.SecurityFeatures || [],
-      building: creaProp.BuildingFeatures || [],
-      exterior: creaProp.ExteriorFeatures || [],
+      flooring: creaProp.Flooring || [],
       interior: creaProp.InteriorFeatures || [],
-      lot: creaProp.LotFeatures || [],
-      yearBuilt: creaProp.YearBuilt,
+      security: creaProp.SecurityFeatures || [],
+      otherEquipment: creaProp.OtherEquipment || [],
+      accessibilityFeatures: creaProp.AccessibilityFeatures || [],
+      
+      // ===== FIREPLACE =====
+      fireplacesTotal: creaProp.FireplacesTotal,
+      fireplaceYN: creaProp.FireplaceYN,
+      fireplaceFeatures: creaProp.FireplaceFeatures || [],
+      
+      // ===== EXTERIOR & BUILDING =====
+      exterior: creaProp.ExteriorFeatures || [],
+      building: creaProp.BuildingFeatures || [],
+      fencing: creaProp.Fencing || [],
+      poolFeatures: creaProp.PoolFeatures || [],
+      
+      // ===== PARKING =====
       parking: creaProp.ParkingTotal,
-      listingUrl: creaProp.ListingURL,
+      parkingFeatures: creaProp.ParkingFeatures || [],
       
-      // Lot & Land Details (Priority 1)
-      lotSizeArea: creaProp.lotSizeArea,
-      lotSizeDimensions: creaProp.lotSizeDimensions,
+      // ===== LOT & LAND =====
+      lot: creaProp.LotFeatures || [],
+      lotSizeArea: creaProp.LotSizeArea,
+      lotSizeDimensions: creaProp.LotSizeDimensions,
       lotSizeUnits: creaProp.LotSizeUnits,
-      roadSurfaceType: creaProp.roadSurfaceType || [],
+      roadSurfaceType: creaProp.RoadSurfaceType || [],
+      frontageLengthNumeric: creaProp.FrontageLengthNumeric,
+      frontageLengthNumericUnits: creaProp.FrontageLengthNumericUnits,
       
-      // Building Characteristics (Priority 2)
-      stories: creaProp.stories,
-      architecturalStyle: creaProp.architecturalStyle || [],
-      propertyCondition: creaProp.propertyCondition || [],
-      basement: creaProp.basement || [],
-      foundationDetails: creaProp.foundationDetails || [],
-      fireplacesTotal: creaProp.fireplacesTotal,
-      fireplaceYN: creaProp.fireplaceYN,
-      fireplaceFeatures: creaProp.fireplaceFeatures || [],
-      roof: creaProp.roof || [],
-      constructionMaterials: creaProp.constructionMaterials || [],
-      propertyAttachedYN: creaProp.propertyAttachedYN,
+      // ===== BUILDING CHARACTERISTICS =====
+      yearBuilt: creaProp.YearBuilt,
+      stories: creaProp.Stories,
+      numberOfBuildings: creaProp.NumberOfBuildings,
+      numberOfUnitsTotal: creaProp.NumberOfUnitsTotal,
+      propertyAttachedYN: creaProp.PropertyAttachedYN,
+      architecturalStyle: creaProp.ArchitecturalStyle || [],
+      constructionMaterials: creaProp.ConstructionMaterials || [],
+      foundationDetails: creaProp.FoundationDetails || [],
+      roof: creaProp.Roof || [],
+      propertyCondition: creaProp.PropertyCondition || [],
+      basement: creaProp.Basement || [],
       
-      // Utilities & Infrastructure (Priority 3)
-      utilities: creaProp.utilities || [],
-      waterSource: creaProp.waterSource || [],
-      sewer: creaProp.sewer || [],
-      electric: creaProp.electric || [],
-      irrigationSource: creaProp.irrigationSource || [],
+      // ===== ROOM DETAILS =====
+      bedroomsAboveGrade: creaProp.BedroomsAboveGrade,
+      bedroomsBelowGrade: creaProp.BedroomsBelowGrade,
+      bathroomsPartial: creaProp.BathroomsPartial,
+      rooms: creaProp.Rooms || [],
       
-      // Enhanced Location Features (Priority 4)
-      view: creaProp.view || [],
-      waterfrontFeatures: creaProp.waterfrontFeatures || [],
-      waterBodyName: creaProp.waterBodyName,
-      cityRegion: creaProp.cityRegion,
-      directions: creaProp.directions,
-
-      // Status timing (for CMA sold date)
-      statusChangeTimestamp: normalizeDate(creaProp.StatusChangeTimestamp),
-      
-      // Detailed Measurements (Priority 5)
-      buildingAreaTotal: creaProp.buildingAreaTotal,
+      // ===== DETAILED MEASUREMENTS =====
+      buildingAreaTotal: creaProp.BuildingAreaTotal,
       buildingAreaUnits: creaProp.BuildingAreaUnits,
-      aboveGradeFinishedArea: creaProp.aboveGradeFinishedArea,
+      livingAreaUnits: creaProp.LivingAreaUnits,
+      livingAreaSource: creaProp.LivingAreaSource,
+      livingAreaMinimum: creaProp.LivingAreaMinimum,
+      livingAreaMaximum: creaProp.LivingAreaMaximum,
+      aboveGradeFinishedArea: creaProp.AboveGradeFinishedArea,
       aboveGradeFinishedAreaUnits: creaProp.AboveGradeFinishedAreaUnits,
       aboveGradeFinishedAreaSource: creaProp.AboveGradeFinishedAreaSource,
-      belowGradeFinishedArea: creaProp.belowGradeFinishedArea,
+      aboveGradeFinishedAreaMinimum: creaProp.AboveGradeFinishedAreaMinimum,
+      aboveGradeFinishedAreaMaximum: creaProp.AboveGradeFinishedAreaMaximum,
+      belowGradeFinishedArea: creaProp.BelowGradeFinishedArea,
       belowGradeFinishedAreaUnits: creaProp.BelowGradeFinishedAreaUnits,
       belowGradeFinishedAreaSource: creaProp.BelowGradeFinishedAreaSource,
-      livingAreaUnits: creaProp.LivingAreaUnits,
+      belowGradeFinishedAreaMinimum: creaProp.BelowGradeFinishedAreaMinimum,
+      belowGradeFinishedAreaMaximum: creaProp.BelowGradeFinishedAreaMaximum,
       
-      // Additional Features
-      poolFeatures: creaProp.poolFeatures || [],
-      fencing: creaProp.fencing || [],
-      frontageLengthNumeric: creaProp.frontageLengthNumeric,
-      frontageLengthNumericUnits: creaProp.FrontageLengthNumericUnits,
-      accessibilityFeatures: creaProp.accessibilityFeatures || [],
-      bedroomsAboveGrade: creaProp.bedroomsAboveGrade,
-      bedroomsBelowGrade: creaProp.bedroomsBelowGrade,
+      // ===== UTILITIES =====
+      utilities: creaProp.Utilities || [],
+      waterSource: creaProp.WaterSource || [],
+      sewer: creaProp.Sewer || [],
+      electric: creaProp.Electric || [],
+      irrigationSource: creaProp.IrrigationSource || [],
       
-      // Legal/Property Information
-      zoning: creaProp.zoning,
-      zoningDescription: creaProp.zoningDescription,
-      taxAnnualAmount: creaProp.taxAnnualAmount,
-      taxYear: creaProp.taxYear,
-      parcelNumber: creaProp.parcelNumber,
+      // ===== VIEWS & WATER =====
+      view: creaProp.View || [],
+      waterfrontFeatures: creaProp.WaterfrontFeatures || [],
+      waterBodyName: creaProp.WaterBodyName,
       
-      // Enhanced Address Components
+      // ===== LOCATION FEATURES =====
+      cityRegion: creaProp.CityRegion,
+      directions: creaProp.Directions,
+      subdivisionName: creaProp.SubdivisionName,
+      communityFeatures: creaProp.CommunityFeatures || [],
+      anchorsCoTenants: creaProp.AnchorsCoTenants,
+      mapCoordinateVerifiedYN: creaProp.MapCoordinateVerifiedYN,
+      geocodeManualYN: creaProp.GeocodeManualYN,
+      
+      // ===== LEGAL & TAX =====
+      zoning: creaProp.Zoning,
+      zoningDescription: creaProp.ZoningDescription,
+      taxAnnualAmount: creaProp.TaxAnnualAmount,
+      taxYear: creaProp.TaxYear,
+      taxBlock: creaProp.TaxBlock,
+      taxLot: creaProp.TaxLot,
+      parcelNumber: creaProp.ParcelNumber,
+      
+      // ===== ADDRESS COMPONENTS =====
       streetDirPrefix: creaProp.StreetDirPrefix,
       streetDirSuffix: creaProp.StreetDirSuffix,
-      streetName: creaProp.streetName,
-      streetNumber: creaProp.streetNumber,
+      streetName: creaProp.StreetName,
+      streetNumber: creaProp.StreetNumber,
       streetSuffix: creaProp.StreetSuffix,
-      unitNumber: creaProp.unitNumber,
+      unitNumber: creaProp.UnitNumber,
       country: creaProp.Country,
     }
 
@@ -649,22 +856,22 @@ class CreaService {
       mlsNumber: creaProp.ListingId,
       
       // Enhanced Residential Fields (now in schema)
-      lotSizeArea: creaProp.lotSizeArea,
-      lotSizeDimensions: creaProp.lotSizeDimensions,
+      lotSizeArea: creaProp.LotSizeArea,
+      lotSizeDimensions: creaProp.LotSizeDimensions,
       lotSizeUnits: creaProp.LotSizeUnits,
-      stories: creaProp.stories,
+      stories: creaProp.Stories,
       yearBuilt: creaProp.YearBuilt,
-      propertyCondition: creaProp.propertyCondition?.[0] || null, // Take first condition
-      cityRegion: creaProp.cityRegion,
-      waterBodyName: creaProp.waterBodyName,
-      zoning: creaProp.zoning,
-      zoningDescription: creaProp.zoningDescription,
-      taxAnnualAmount: creaProp.taxAnnualAmount,
-      taxYear: creaProp.taxYear,
-      parcelNumber: creaProp.parcelNumber,
-      streetName: creaProp.streetName,
-      streetNumber: creaProp.streetNumber,
-      unitNumber: creaProp.unitNumber,
+      propertyCondition: creaProp.PropertyCondition?.[0] || null, // Take first condition
+      cityRegion: creaProp.CityRegion,
+      waterBodyName: creaProp.WaterBodyName,
+      zoning: creaProp.Zoning,
+      zoningDescription: creaProp.ZoningDescription,
+      taxAnnualAmount: creaProp.TaxAnnualAmount,
+      taxYear: creaProp.TaxYear,
+      parcelNumber: creaProp.ParcelNumber,
+      streetName: creaProp.StreetName,
+      streetNumber: creaProp.StreetNumber,
+      unitNumber: creaProp.UnitNumber,
       
       // Store raw agent and office data for detailed display
       listingAgentData: agentData?.listingAgent ? {

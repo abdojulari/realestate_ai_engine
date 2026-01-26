@@ -152,13 +152,30 @@
             <div class="text-subtitle-1 mb-2">{{ property.title }}</div>
             <div class="text-body-2 text-grey mb-2">{{ property.address }}</div>
 
-            <div class="d-flex align-center text-body-2 text-grey">
+            <div class="d-flex align-center text-body-2 text-grey mb-2">
               <v-icon size="small" class="mr-1">mdi-bed</v-icon>
               <span class="mr-3">{{ property.beds }}</span>
               <v-icon size="small" class="mr-1">mdi-shower</v-icon>
               <span class="mr-3">{{ property.baths }}</span>
               <v-icon size="small" class="mr-1">mdi-ruler-square</v-icon>
               <span>{{ property.sqft }} sqft</span>
+            </div>
+            
+            <!-- Additional Info -->
+            <div class="d-flex align-center flex-wrap text-caption text-grey" style="gap: 8px;">
+              <v-chip v-if="property.features?.yearBuilt" size="x-small" variant="outlined" color="grey">
+                Built {{ property.features.yearBuilt }}
+              </v-chip>
+              <v-chip v-if="property.features?.parking" size="x-small" variant="outlined" color="grey">
+                <v-icon size="x-small" class="mr-1">mdi-car</v-icon>
+                {{ property.features.parking }}
+              </v-chip>
+              <v-chip v-if="property.mlsNumber" size="x-small" variant="outlined" color="blue-grey">
+                MLS: {{ property.mlsNumber }}
+              </v-chip>
+              <v-chip v-if="property.source === 'crea'" size="x-small" variant="tonal" color="info">
+                CREA
+              </v-chip>
             </div>
           </v-card-text>
 
@@ -318,12 +335,12 @@
 import { ref, onMounted } from 'vue'
 
 // Helper function to safely get auth headers
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> | undefined => {
   if (process.client) {
     const token = localStorage.getItem('token')
-    return token ? { 'Authorization': `Bearer ${token}` } : {}
+    return token ? { 'Authorization': `Bearer ${token}` } : undefined
   }
-  return {}
+  return undefined
 }
 
 const loading = ref(false)

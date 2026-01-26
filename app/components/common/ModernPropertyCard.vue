@@ -90,6 +90,16 @@
         </span>
       </div>
       
+      <!-- Extra Features -->
+      <div v-if="hasExtraFeatures" class="extra-features d-flex align-center flex-wrap mb-2" style="gap: 4px;">
+        <v-chip v-if="property.features?.yearBuilt" size="x-small" variant="outlined" color="grey-darken-1">
+          {{ property.features.yearBuilt }}
+        </v-chip>
+        <v-chip v-if="property.features?.parking" size="x-small" variant="outlined" color="grey-darken-1">
+          <v-icon size="x-small" class="mr-1">mdi-car</v-icon>{{ property.features.parking }}
+        </v-chip>
+      </div>
+      
       <v-btn 
         variant="outlined" 
         color="grey-darken-3" 
@@ -127,6 +137,7 @@
 </template>
 
 <script setup lang="ts">
+import { ref, watch, computed } from 'vue'
 import { formatPrice } from '../../../utils/formatters'
 import type { Property } from '~/types'
 
@@ -179,6 +190,11 @@ const getTypeColor = (type: string) => {
   return colors[type as keyof typeof colors] || 'grey'
 }
 
+// Check if property has extra features to display
+const hasExtraFeatures = computed(() => {
+  const f = props.property?.features
+  return f && (f.yearBuilt || f.parking || f.stories)
+})
 </script>
 
 <style scoped>

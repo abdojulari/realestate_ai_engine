@@ -25,6 +25,7 @@ export default defineEventHandler(async (event) => {
     '/api/admin/content/sections',
     // CREA sync endpoints (for scripts and scheduled tasks - uses CREA API credentials)
     '/api/crea/sync-alberta',
+    '/api/crea/sync-province',
     '/api/crea/sync-with-agents',
     '/api/crea/count',
     // Service worker endpoints for scheduled CREA sync

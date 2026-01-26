@@ -210,12 +210,12 @@
     </v-row>
 
     <!-- Dialogs -->
-    <v-dialog v-model="showContactDialog" max-width="550" persistent transition="dialog-bottom-transition">
+    <v-dialog v-model="showContactDialog" max-width="550" persistent scrollable transition="dialog-bottom-transition">
       <InquiryForm
         v-if="contactProperty"
         :property-id="contactProperty.id"
         :agent="contactProperty.agent"
-        class="rounded-xl overflow-hidden"
+        class="rounded-xl"
         @submit="handleInquiry"
         @schedule="handleSchedule"
         @close="showContactDialog = false"

@@ -7,7 +7,7 @@
  * This script performs a complete, clean sync:
  * 1. Optionally purges all CREA properties from database
  * 2. Gets total count from CREA
- * 3. Syncs all properties with fresh images
+ * 3. Syncs all properties with fresh images (supports all provinces)
  * 4. Cleans up any properties with broken images
  * 5. Verifies final database state
  * 
@@ -15,15 +15,39 @@
  *   node scripts/holistic-sync.mjs [options]
  * 
  * Options:
- *   --purge       Delete all CREA properties before sync
- *   --cleanup     Only run cleanup (skip sync)
- *   --verify      Only verify database state
- *   --help        Show this help
+ *   --purge           Delete all CREA properties before sync
+ *   --cleanup         Only run cleanup (skip sync)
+ *   --verify          Only verify database state
+ *   --province=NAME   Sync specific province (e.g., --province=Ontario)
+ *   --all             Sync all Canadian provinces (default)
+ *   --help            Show this help
+ * 
+ * Examples:
+ *   node scripts/holistic-sync.mjs --purge              # Purge and sync Alberta (default)
+ *   node scripts/holistic-sync.mjs --purge --all        # Purge and sync ALL provinces
+ *   node scripts/holistic-sync.mjs --province=Ontario   # Sync only Ontario
  */
 
 import fetch from 'node-fetch'
 
 const API_BASE = process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000'
+
+// All Canadian provinces/territories
+const ALL_PROVINCES = [
+  'Alberta',
+  'British Columbia',
+  'Manitoba',
+  'New Brunswick',
+  'Newfoundland and Labrador',
+  'Nova Scotia',
+  'Ontario',
+  'Prince Edward Island',
+  'Quebec',
+  'Saskatchewan',
+  'Northwest Territories',
+  'Nunavut',
+  'Yukon'
+]
 
 // ============================================
 // UTILITY FUNCTIONS
@@ -43,11 +67,41 @@ async function testImageUrl(url) {
 
 function parseArgs() {
   const args = process.argv.slice(2)
+  
+  // Parse province argument (--province=Ontario or --province Ontario)
+  let province = null
+  const provinceArg = args.find(a => a.startsWith('--province=') || a.startsWith('-P='))
+  if (provinceArg) {
+    province = provinceArg.split('=')[1]
+  } else {
+    const provinceIndex = args.indexOf('--province')
+    if (provinceIndex !== -1 && args[provinceIndex + 1]) {
+      province = args[provinceIndex + 1]
+    }
+  }
+  
+  // Parse city argument (--city=Edmonton or --city Edmonton)
+  let city = null
+  const cityArg = args.find(a => a.startsWith('--city=') || a.startsWith('-C='))
+  if (cityArg) {
+    city = cityArg.split('=')[1]
+  } else {
+    const cityIndex = args.indexOf('--city')
+    if (cityIndex !== -1 && args[cityIndex + 1]) {
+      city = args[cityIndex + 1]
+    }
+  }
+  
+  const syncAll = args.includes('--all') || args.includes('-a')
+  
   return {
     purge: args.includes('--purge') || args.includes('-p'),
     cleanup: args.includes('--cleanup') || args.includes('-c'),
     verify: args.includes('--verify') || args.includes('-v'),
-    help: args.includes('--help') || args.includes('-h')
+    help: args.includes('--help') || args.includes('-h'),
+    province: province,
+    city: city,
+    syncAll: syncAll
   }
 }
 
@@ -57,19 +111,43 @@ HOLISTIC CREA SYNC
 ==================
 
 A complete sync solution that ensures all properties have valid images.
+Now supports syncing ALL Canadian provinces and specific cities!
 
 Usage:
   node scripts/holistic-sync.mjs [options]
 
 Options:
-  --purge, -p     Delete all CREA properties before syncing (fresh start)
-  --cleanup, -c   Only cleanup broken images (skip sync)
-  --verify, -v    Only verify database state (no changes)
-  --help, -h      Show this help message
+  --purge, -p              Delete all CREA properties before syncing (fresh start)
+  --cleanup, -c            Only cleanup broken images (skip sync)
+  --verify, -v             Only verify database state (no changes)
+  --province=NAME          Sync a specific province (e.g., --province=Ontario)
+  --city=NAME, -C=NAME     Sync a specific city (e.g., --city=Edmonton)
+  --all, -a                Sync ALL Canadian provinces (slower but complete)
+  --help, -h               Show this help message
+
+Available Provinces:
+  Alberta, British Columbia, Manitoba, New Brunswick, 
+  Newfoundland and Labrador, Nova Scotia, Ontario, 
+  Prince Edward Island, Quebec, Saskatchewan,
+  Northwest Territories, Nunavut, Yukon
 
 Examples:
-  # Full purge and sync (recommended for clean slate)
+  # Sync Alberta only (default)
   node scripts/holistic-sync.mjs --purge
+
+  # Sync specific city (e.g., Edmonton)
+  node scripts/holistic-sync.mjs --city=Edmonton
+
+  # Sync multiple cities
+  node scripts/holistic-sync.mjs --city=Edmonton
+  node scripts/holistic-sync.mjs --city=Calgary
+  node scripts/holistic-sync.mjs --city="St. Albert"
+
+  # Sync ALL provinces (Canada-wide)
+  node scripts/holistic-sync.mjs --purge --all
+
+  # Sync specific province
+  node scripts/holistic-sync.mjs --province=Ontario
 
   # Just cleanup broken images
   node scripts/holistic-sync.mjs --cleanup
@@ -112,20 +190,26 @@ async function purgeDatabase() {
 // STEP 2: GET CREA COUNT
 // ============================================
 
-async function getCreaCount() {
+async function getCreaCount(province = 'Alberta', city = null) {
+  const locationLabel = city ? `${city}, ${province}` : province
   console.log('\n========================================')
-  console.log('STEP 2: GETTING CREA PROPERTY COUNT')
+  console.log(`STEP 2: GETTING CREA PROPERTY COUNT (${locationLabel})`)
   console.log('========================================\n')
   
   try {
-    const response = await fetch(`${API_BASE}/api/crea/count?province=Alberta`)
+    let url = `${API_BASE}/api/crea/count?province=${encodeURIComponent(province)}`
+    if (city) {
+      url += `&city=${encodeURIComponent(city)}`
+    }
+    
+    const response = await fetch(url)
     if (!response.ok) {
       console.log('Count endpoint not available')
       return null
     }
     
     const result = await response.json()
-    console.log(`Total Alberta properties in CREA: ${result.count}`)
+    console.log(`Total ${locationLabel} properties in CREA: ${result.count}`)
     return result.count
   } catch (error) {
     console.log('Could not get count:', error.message)
@@ -137,9 +221,10 @@ async function getCreaCount() {
 // STEP 3: SYNC PROPERTIES
 // ============================================
 
-async function syncProperties(totalInCrea) {
+async function syncProperties(totalInCrea, province = 'Alberta', city = null) {
+  const locationLabel = city ? `${city}, ${province}` : province
   console.log('\n========================================')
-  console.log('STEP 3: SYNCING PROPERTIES')
+  console.log(`STEP 3: SYNCING PROPERTIES (${locationLabel})`)
   console.log('========================================\n')
   
   let totalSynced = 0
@@ -153,30 +238,39 @@ async function syncProperties(totalInCrea) {
   const processingBatchSize = 10
   const maxBatches = totalInCrea ? Math.ceil(totalInCrea / batchSize) + 50 : 500
 
-  console.log(`Starting sync (estimated ${maxBatches} batches)...\n`)
+  console.log(`Starting sync for ${locationLabel} (estimated ${maxBatches} batches)...\n`)
 
   while (true) {
     const startTime = Date.now()
     
-    const response = await fetch(`${API_BASE}/api/crea/sync-alberta`, {
+    // Use the new sync-province endpoint that accepts any province and city
+    const requestBody = {
+      province: province,
+      limit: batchSize,
+      batchSize: processingBatchSize,
+      includeAgentData: true
+    }
+    
+    // Add city filter if specified
+    if (city) {
+      requestBody.city = city
+    }
+    
+    const response = await fetch(`${API_BASE}/api/crea/sync-province`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        limit: batchSize,
-        batchSize: processingBatchSize,
-        includeAgentData: true
-      }),
+      body: JSON.stringify(requestBody),
     })
 
     if (!response.ok) {
-      console.error(`Batch ${currentBatch} failed:`, response.status)
+      console.error(`[${province}] Batch ${currentBatch} failed:`, response.status)
       break
     }
 
     const result = await response.json()
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
     
-    console.log(`Batch ${currentBatch}: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped (${elapsed}s)`)
+    console.log(`[${province}] Batch ${currentBatch}: ${result.created} created, ${result.updated} updated, ${result.skipped} skipped (${elapsed}s)`)
     
     totalCreated += result.created
     totalUpdated += result.updated
@@ -185,7 +279,7 @@ async function syncProperties(totalInCrea) {
     totalSynced += result.created + result.updated
 
     if (result.created === 0 && result.updated === 0) {
-      console.log('\nSync complete - no more new properties')
+      console.log(`\n${province} sync complete - no more new properties`)
       break
     }
     
@@ -199,7 +293,7 @@ async function syncProperties(totalInCrea) {
     await new Promise(r => setTimeout(r, 1000))
   }
 
-  return { totalSynced, totalCreated, totalUpdated, totalSkipped, totalErrors, batches: currentBatch - 1 }
+  return { totalSynced, totalCreated, totalUpdated, totalSkipped, totalErrors, batches: currentBatch - 1, province }
 }
 
 // ============================================
@@ -301,10 +395,25 @@ async function main() {
     return
   }
   
+  // Determine which provinces to sync
+  let provincesToSync = ['Alberta'] // Default
+  if (options.syncAll) {
+    provincesToSync = ALL_PROVINCES
+  } else if (options.province) {
+    provincesToSync = [options.province]
+  }
+  
+  // City filter (optional)
+  const cityFilter = options.city || null
+  
   console.log('==========================================')
   console.log('    HOLISTIC CREA SYNC                   ')
   console.log('==========================================')
   console.log(`Mode: ${options.verify ? 'VERIFY' : options.cleanup ? 'CLEANUP' : options.purge ? 'PURGE + SYNC' : 'SYNC'}`)
+  console.log(`Provinces: ${provincesToSync.length === ALL_PROVINCES.length ? 'ALL CANADA' : provincesToSync.join(', ')}`)
+  if (cityFilter) {
+    console.log(`City: ${cityFilter}`)
+  }
   
   const startTime = Date.now()
   
@@ -327,8 +436,44 @@ async function main() {
       await purgeDatabase()
     }
     
-    const totalInCrea = await getCreaCount()
-    const syncResult = await syncProperties(totalInCrea)
+    // Aggregate stats across all provinces
+    const aggregateStats = {
+      totalSynced: 0,
+      totalCreated: 0,
+      totalUpdated: 0,
+      totalSkipped: 0,
+      totalErrors: 0,
+      totalBatches: 0,
+      provinceResults: []
+    }
+    
+    // Sync each province
+    for (const province of provincesToSync) {
+      const locationLabel = cityFilter ? `${cityFilter}, ${province}` : province
+      console.log(`\n${'='.repeat(50)}`)
+      console.log(`SYNCING: ${locationLabel.toUpperCase()}`)
+      console.log('='.repeat(50))
+      
+      const totalInCrea = await getCreaCount(province, cityFilter)
+      const syncResult = await syncProperties(totalInCrea, province, cityFilter)
+      
+      aggregateStats.totalSynced += syncResult.totalSynced
+      aggregateStats.totalCreated += syncResult.totalCreated
+      aggregateStats.totalUpdated += syncResult.totalUpdated
+      aggregateStats.totalSkipped += syncResult.totalSkipped
+      aggregateStats.totalErrors += syncResult.totalErrors
+      aggregateStats.totalBatches += syncResult.batches
+      aggregateStats.provinceResults.push({
+        province,
+        ...syncResult
+      })
+      
+      // Delay between provinces to avoid rate limiting
+      if (provincesToSync.indexOf(province) < provincesToSync.length - 1) {
+        console.log('\nWaiting 5 seconds before next province...')
+        await new Promise(r => setTimeout(r, 5000))
+      }
+    }
     
     // Always cleanup after sync
     await cleanupBrokenImages()
@@ -343,12 +488,20 @@ async function main() {
     console.log('    FINAL SUMMARY                        ')
     console.log('==========================================')
     console.log(`Total time: ${totalTime} minutes`)
-    console.log(`Properties synced: ${syncResult.totalSynced}`)
-    console.log(`  - Created: ${syncResult.totalCreated}`)
-    console.log(`  - Updated: ${syncResult.totalUpdated}`)
-    console.log(`  - Skipped: ${syncResult.totalSkipped}`)
-    console.log(`  - Errors: ${syncResult.totalErrors}`)
-    console.log(`Batches processed: ${syncResult.batches}`)
+    console.log(`Provinces synced: ${provincesToSync.length}`)
+    console.log(`Total properties synced: ${aggregateStats.totalSynced}`)
+    console.log(`  - Created: ${aggregateStats.totalCreated}`)
+    console.log(`  - Updated: ${aggregateStats.totalUpdated}`)
+    console.log(`  - Skipped: ${aggregateStats.totalSkipped}`)
+    console.log(`  - Errors: ${aggregateStats.totalErrors}`)
+    console.log(`Total batches processed: ${aggregateStats.totalBatches}`)
+    
+    if (provincesToSync.length > 1) {
+      console.log('\nBreakdown by Province:')
+      for (const result of aggregateStats.provinceResults) {
+        console.log(`  ${result.province}: ${result.totalCreated} created, ${result.totalUpdated} updated`)
+      }
+    }
     
   } catch (error) {
     console.error('\nSync failed:', error.message)

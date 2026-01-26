@@ -103,7 +103,7 @@
         {{ property?.title ?? 'Luxury Residence' }}
       </p>
 
-      <div class="features-row d-flex align-center text-caption text-medium-emphasis">
+      <div class="features-row d-flex align-center text-caption text-medium-emphasis mb-2">
         <div class="d-flex align-center mr-4">
           <v-icon size="16" class="mr-1">mdi-bed-outline</v-icon>
           <span class="font-weight-bold">{{ property?.beds ?? 0 }}</span>
@@ -116,6 +116,19 @@
           <v-icon size="16" class="mr-1">mdi-ruler-square</v-icon>
           <span class="font-weight-bold">{{ property?.sqft ?? 0 }} <small>SQFT</small></span>
         </div>
+      </div>
+      
+      <!-- Additional Details -->
+      <div v-if="hasExtraFeatures" class="extra-features d-flex align-center flex-wrap gap-1">
+        <v-chip v-if="property?.features?.yearBuilt" size="x-small" variant="outlined" color="grey-darken-1">
+          {{ property.features.yearBuilt }}
+        </v-chip>
+        <v-chip v-if="property?.features?.parking" size="x-small" variant="outlined" color="grey-darken-1">
+          <v-icon size="x-small" class="mr-1">mdi-car</v-icon>{{ property.features.parking }}
+        </v-chip>
+        <v-chip v-if="property?.features?.stories" size="x-small" variant="outlined" color="grey-darken-1">
+          {{ property.features.stories }} {{ property.features.stories > 1 ? 'Stories' : 'Story' }}
+        </v-chip>
       </div>
     </v-card-text>
 
@@ -159,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import type { Property } from '~/types'
 import { formatPrice } from '../../../utils/formatters'
 
@@ -185,6 +198,12 @@ const onImgError = () => {
     imageSrc.value = '/favicon.ico'
   }
 }
+
+// Check if property has extra features to display
+const hasExtraFeatures = computed(() => {
+  const f = props.property?.features
+  return f && (f.yearBuilt || f.parking || f.stories)
+})
 
 const getStatusColor = (status?: string) => {
   const colors = {

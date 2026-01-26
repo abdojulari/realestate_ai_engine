@@ -1,10 +1,16 @@
 <template>
-  <v-card  color="white">
-    <v-card-title>
-      {{ title }}
+  <v-card color="white" class="inquiry-form-card">
+    <v-card-title class="inquiry-form-title d-flex align-center justify-space-between">
+      <span>{{ title }}</span>
+      <v-btn
+        icon="mdi-close"
+        variant="text"
+        size="small"
+        @click="$emit('close')"
+      />
     </v-card-title>
 
-    <v-card-text>
+    <v-card-text class="inquiry-form-content">
       <!-- Agent Info -->
       <div v-if="showAgent" class="agent-info mb-6">
         <v-row align="center">
@@ -298,7 +304,7 @@ const props = defineProps({
   }
 })
 
-const emit = defineEmits(['submit', 'schedule'])
+const emit = defineEmits(['submit', 'schedule', 'close'])
 
 const form = ref(null)
 const loading = ref(false)
@@ -403,6 +409,24 @@ defineExpose({ reset })
 </script>
 
 <style scoped>
+.inquiry-form-card {
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+}
+
+.inquiry-form-title {
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.inquiry-form-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 24px;
+}
+
 .agent-info {
   background: #f5f5f5;
   border-radius: 8px;
@@ -413,5 +437,16 @@ defineExpose({ reset })
   width: 100%;
   border: 1px solid rgba(0, 0, 0, 0.12);
   border-radius: 4px;
+}
+
+/* Ensure smooth scrolling on mobile */
+@media (max-width: 600px) {
+  .inquiry-form-card {
+    max-height: 85vh;
+  }
+  
+  .inquiry-form-content {
+    -webkit-overflow-scrolling: touch;
+  }
 }
 </style>

@@ -100,6 +100,19 @@
             <div class="p-8">
               <form @submit.prevent="startSync" class="space-y-8">
                 <div class="space-y-6">
+                  <!-- Province Selector -->
+                  <div class="group">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Province / Territory</label>
+                    <select
+                      v-model="syncFilters.province"
+                      class="premium-input cursor-pointer"
+                    >
+                      <option v-for="prov in PROVINCES" :key="prov.value" :value="prov.value">
+                        {{ prov.label }}
+                      </option>
+                    </select>
+                  </div>
+                  
                   <div class="group">
                     <label class="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Target Municipalities</label>
                     <input
@@ -246,7 +259,26 @@ import { api } from '~/utils/api'
 interface SyncFilters {
   city?: string
   minPrice?: number
+  province?: string
 }
+
+// All Canadian provinces/territories
+const PROVINCES = [
+  { value: '', label: 'All Provinces (Canada-wide)' },
+  { value: 'Alberta', label: 'Alberta' },
+  { value: 'British Columbia', label: 'British Columbia' },
+  { value: 'Manitoba', label: 'Manitoba' },
+  { value: 'New Brunswick', label: 'New Brunswick' },
+  { value: 'Newfoundland and Labrador', label: 'Newfoundland and Labrador' },
+  { value: 'Nova Scotia', label: 'Nova Scotia' },
+  { value: 'Ontario', label: 'Ontario' },
+  { value: 'Prince Edward Island', label: 'Prince Edward Island' },
+  { value: 'Quebec', label: 'Quebec' },
+  { value: 'Saskatchewan', label: 'Saskatchewan' },
+  { value: 'Northwest Territories', label: 'Northwest Territories' },
+  { value: 'Nunavut', label: 'Nunavut' },
+  { value: 'Yukon', label: 'Yukon' }
+]
 
 interface SyncResult {
   success: boolean
@@ -325,15 +357,19 @@ const startSync = async () => {
 
 const fetchStats = async () => {
   try {
-    const [creaProps, manualProps] = await Promise.all([
-      $fetch('/api/properties?source=crea&status=for_sale'),
-      $fetch('/api/properties?source=manual&status=for_sale')
+    const [creaResponse, manualResponse] = await Promise.all([
+      $fetch('/api/properties?source=crea&status=for_sale&limit=1') as Promise<any>,
+      $fetch('/api/properties?source=manual&status=for_sale&limit=1') as Promise<any>
     ])
     
+    // Handle paginated response format
+    const creaCount = creaResponse.pagination?.total || creaResponse.properties?.length || 0
+    const manualCount = manualResponse.pagination?.total || manualResponse.properties?.length || 0
+    
     stats.value = {
-      creaProperties: creaProps.length,
-      manualProperties: manualProps.length,
-      lastSync: creaProps.length > 0 ? new Date() : null
+      creaProperties: creaCount,
+      manualProperties: manualCount,
+      lastSync: creaCount > 0 ? new Date() : null
     }
   } catch (error) {
     console.error('Error fetching stats:', error)

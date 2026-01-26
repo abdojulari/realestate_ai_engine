@@ -106,6 +106,7 @@
                   Property Details
                 </div>
                 <v-row>
+                  <!-- Basic Info -->
                   <v-col cols="6" sm="4">
                     <div class="detail-item">
                       <div class="text-caption text-medium-emphasis mb-1">Property Type</div>
@@ -118,46 +119,150 @@
                       <div class="text-body-1 font-weight-medium">{{ property.features.yearBuilt }}</div>
                     </div>
                   </v-col>
-                  <v-col cols="6" sm="4" v-if="property.features?.garage">
+                  <v-col cols="6" sm="4" v-if="property.features?.stories">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Parking</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.garage }} spaces</div>
+                      <div class="text-caption text-medium-emphasis mb-1">Stories</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.features.stories }}</div>
                     </div>
                   </v-col>
-                  <v-col cols="6" sm="4" v-if="property.features?.heating">
+                  
+                  <!-- Parking -->
+                  <v-col cols="6" sm="4" v-if="property.features?.parking">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Parking Spaces</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.features.parking }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.features?.parkingFeatures?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Parking Type</div>
+                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.parkingFeatures) }}</div>
+                    </div>
+                  </v-col>
+                  
+                  <!-- Climate -->
+                  <v-col cols="6" sm="4" v-if="property.features?.heating?.length">
                     <div class="detail-item">
                       <div class="text-caption text-medium-emphasis mb-1">Heating</div>
                       <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.heating) }}</div>
                     </div>
                   </v-col>
-                  <v-col cols="6" sm="4" v-if="property.features?.cooling">
+                  <v-col cols="6" sm="4" v-if="property.features?.cooling?.length">
                     <div class="detail-item">
                       <div class="text-caption text-medium-emphasis mb-1">Cooling</div>
                       <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.cooling) }}</div>
                     </div>
                   </v-col>
-                  <v-col cols="6" sm="4" v-if="property.features?.lotSize">
+                  
+                  <!-- Lot Info -->
+                  <v-col cols="6" sm="4" v-if="property.features?.lotSizeArea">
                     <div class="detail-item">
                       <div class="text-caption text-medium-emphasis mb-1">Lot Size</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.lotSize }} {{ property.features.lotSize > 1 ? 'acres' : 'sqft' }}</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.features.lotSizeArea }} {{ property.features.lotSizeUnits || 'sqft' }}</div>
                     </div>
                   </v-col>
-                  <v-col cols="6" sm="4" v-if="property.features?.basement">
+                  <v-col cols="6" sm="4" v-if="property.features?.lotSizeDimensions">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Lot Dimensions</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.features.lotSizeDimensions }}</div>
+                    </div>
+                  </v-col>
+                  
+                  <!-- Basement -->
+                  <v-col cols="6" sm="4" v-if="property.features?.basement?.length">
                     <div class="detail-item">
                       <div class="text-caption text-medium-emphasis mb-1">Basement</div>
                       <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.basement) }}</div>
                     </div>
                   </v-col>
-                  <v-col cols="6" sm="4" v-if="property.features?.taxes">
+                  
+                  <!-- Fireplace -->
+                  <v-col cols="6" sm="4" v-if="property.features?.fireplacesTotal">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Annual Taxes</div>
-                      <div class="text-body-1 font-weight-medium">${{ formatPrice(property.features.taxes) }} ({{ property.features.taxYear }})</div>
+                      <div class="text-caption text-medium-emphasis mb-1">Fireplaces</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.features.fireplacesTotal }}</div>
                     </div>
                   </v-col>
-                  <v-col cols="6" sm="4" v-if="property.features?.hoaFee">
+                  
+                  <!-- Bathrooms Detail -->
+                  <v-col cols="6" sm="4" v-if="property.features?.bathroomsPartial">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">HOA Fee</div>
-                      <div class="text-body-1 font-weight-medium">${{ formatPrice(property.features.hoaFee) }}/month</div>
+                      <div class="text-caption text-medium-emphasis mb-1">Half Baths</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.features.bathroomsPartial }}</div>
+                    </div>
+                  </v-col>
+                  
+                  <!-- Building Details -->
+                  <v-col cols="6" sm="4" v-if="property.features?.constructionMaterials?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Construction</div>
+                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.constructionMaterials) }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.features?.roof?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Roof</div>
+                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.roof) }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.features?.foundationDetails?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Foundation</div>
+                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.foundationDetails) }}</div>
+                    </div>
+                  </v-col>
+                  
+                  <!-- Tax Info -->
+                  <v-col cols="6" sm="4" v-if="property.features?.taxAnnualAmount">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Annual Taxes</div>
+                      <div class="text-body-1 font-weight-medium">${{ formatPrice(property.features.taxAnnualAmount) }} <span v-if="property.features?.taxYear">({{ property.features.taxYear }})</span></div>
+                    </div>
+                  </v-col>
+                  
+                  <!-- HOA/Association -->
+                  <v-col cols="6" sm="4" v-if="property.features?.associationFee">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">HOA/Condo Fee</div>
+                      <div class="text-body-1 font-weight-medium">${{ formatPrice(property.features.associationFee) }}/{{ property.features.associationFeeFrequency || 'month' }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.features?.associationName">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Association</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.features.associationName }}</div>
+                    </div>
+                  </v-col>
+                  
+                  <!-- Zoning -->
+                  <v-col cols="6" sm="4" v-if="property.features?.zoning">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Zoning</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.features.zoning }}</div>
+                    </div>
+                  </v-col>
+                  
+                  <!-- Subdivision -->
+                  <v-col cols="6" sm="4" v-if="property.features?.subdivisionName">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Subdivision</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.features.subdivisionName }}</div>
+                    </div>
+                  </v-col>
+                  
+                  <!-- MLS Info -->
+                  <v-col cols="6" sm="4" v-if="property.mlsNumber">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">MLS Number</div>
+                      <div class="text-body-1 font-weight-medium">{{ property.mlsNumber }}</div>
+                    </div>
+                  </v-col>
+                  
+                  <!-- Listing Date -->
+                  <v-col cols="6" sm="4" v-if="property.features?.originalEntryTimestamp">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Listed Date</div>
+                      <div class="text-body-1 font-weight-medium">{{ formatListingDate(property.features.originalEntryTimestamp) }}</div>
                     </div>
                   </v-col>
                 </v-row>
@@ -178,7 +283,8 @@
                   <v-icon class="mr-2" color="primary">mdi-star-circle</v-icon>
                   Features & Amenities
                 </div>
-                <!-- The feature blocks remain unchanged -->
+                
+                <!-- Appliances -->
                 <div v-if="property.features?.appliances?.length" class="mb-6">
                   <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
                     <v-icon class="mr-2" size="small" color="primary">mdi-fridge</v-icon>
@@ -188,24 +294,30 @@
                     <v-chip v-for="appliance in property.features.appliances" :key="appliance" variant="tonal" size="default" color="primary">{{ appliance }}</v-chip>
                   </v-chip-group>
                 </div>
-                <div v-if="property.features?.interiorFeatures?.length" class="mb-6">
+                
+                <!-- Interior Features -->
+                <div v-if="property.features?.interior?.length" class="mb-6">
                   <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
                     <v-icon class="mr-2" size="small" color="primary">mdi-home-outline</v-icon>
                     Interior Features
                   </div>
                   <v-chip-group>
-                    <v-chip v-for="feature in property.features.interiorFeatures" :key="feature" variant="tonal" size="default" color="indigo">{{ feature }}</v-chip>
+                    <v-chip v-for="feature in property.features.interior" :key="feature" variant="tonal" size="default" color="indigo">{{ feature }}</v-chip>
                   </v-chip-group>
                 </div>
-                <div v-if="property.features?.exteriorFeatures?.length" class="mb-6">
+                
+                <!-- Exterior Features -->
+                <div v-if="property.features?.exterior?.length" class="mb-6">
                   <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
                     <v-icon class="mr-2" size="small" color="primary">mdi-home-siding</v-icon>
                     Exterior Features
                   </div>
                   <v-chip-group>
-                    <v-chip v-for="feature in property.features.exteriorFeatures" :key="feature" variant="tonal" size="default" color="green">{{ feature }}</v-chip>
+                    <v-chip v-for="feature in property.features.exterior" :key="feature" variant="tonal" size="default" color="green">{{ feature }}</v-chip>
                   </v-chip-group>
                 </div>
+                
+                <!-- Flooring -->
                 <div v-if="property.features?.flooring?.length" class="mb-6">
                   <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
                     <v-icon class="mr-2" size="small" color="primary">mdi-view-grid</v-icon>
@@ -215,6 +327,8 @@
                     <v-chip v-for="floor in property.features.flooring" :key="floor" variant="tonal" size="default" color="brown">{{ floor }}</v-chip>
                   </v-chip-group>
                 </div>
+                
+                <!-- Pool Features -->
                 <div v-if="property.features?.poolFeatures?.length" class="mb-6">
                   <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
                     <v-icon class="mr-2" size="small" color="blue">mdi-pool</v-icon>
@@ -224,7 +338,9 @@
                     <v-chip v-for="pool in property.features.poolFeatures" :key="pool" variant="tonal" size="default" color="blue">{{ pool }}</v-chip>
                   </v-chip-group>
                 </div>
-                <div v-if="property.features?.fireplaceFeatures?.length">
+                
+                <!-- Fireplace Features -->
+                <div v-if="property.features?.fireplaceFeatures?.length" class="mb-6">
                   <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
                     <v-icon class="mr-2" size="small" color="orange">mdi-fireplace</v-icon>
                     Fireplace Features
@@ -233,6 +349,170 @@
                     <v-chip v-for="fireplace in property.features.fireplaceFeatures" :key="fireplace" variant="tonal" size="default" color="orange">{{ fireplace }}</v-chip>
                   </v-chip-group>
                 </div>
+                
+                <!-- Building Features -->
+                <div v-if="property.features?.building?.length" class="mb-6">
+                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
+                    <v-icon class="mr-2" size="small" color="grey-darken-1">mdi-office-building</v-icon>
+                    Building Features
+                  </div>
+                  <v-chip-group>
+                    <v-chip v-for="feature in property.features.building" :key="feature" variant="tonal" size="default" color="grey">{{ feature }}</v-chip>
+                  </v-chip-group>
+                </div>
+                
+                <!-- Lot Features -->
+                <div v-if="property.features?.lot?.length" class="mb-6">
+                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
+                    <v-icon class="mr-2" size="small" color="green-darken-2">mdi-grass</v-icon>
+                    Lot Features
+                  </div>
+                  <v-chip-group>
+                    <v-chip v-for="feature in property.features.lot" :key="feature" variant="tonal" size="default" color="green-darken-1">{{ feature }}</v-chip>
+                  </v-chip-group>
+                </div>
+                
+                <!-- Views -->
+                <div v-if="property.features?.view?.length" class="mb-6">
+                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
+                    <v-icon class="mr-2" size="small" color="cyan">mdi-eye</v-icon>
+                    Views
+                  </div>
+                  <v-chip-group>
+                    <v-chip v-for="view in property.features.view" :key="view" variant="tonal" size="default" color="cyan">{{ view }}</v-chip>
+                  </v-chip-group>
+                </div>
+                
+                <!-- Waterfront Features -->
+                <div v-if="property.features?.waterfrontFeatures?.length" class="mb-6">
+                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
+                    <v-icon class="mr-2" size="small" color="blue-darken-2">mdi-waves</v-icon>
+                    Waterfront Features
+                  </div>
+                  <v-chip-group>
+                    <v-chip v-for="feature in property.features.waterfrontFeatures" :key="feature" variant="tonal" size="default" color="blue-darken-1">{{ feature }}</v-chip>
+                  </v-chip-group>
+                </div>
+                
+                <!-- Security Features -->
+                <div v-if="property.features?.security?.length" class="mb-6">
+                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
+                    <v-icon class="mr-2" size="small" color="red">mdi-shield-home</v-icon>
+                    Security Features
+                  </div>
+                  <v-chip-group>
+                    <v-chip v-for="feature in property.features.security" :key="feature" variant="tonal" size="default" color="red-lighten-1">{{ feature }}</v-chip>
+                  </v-chip-group>
+                </div>
+                
+                <!-- Accessibility Features -->
+                <div v-if="property.features?.accessibilityFeatures?.length" class="mb-6">
+                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
+                    <v-icon class="mr-2" size="small" color="purple">mdi-wheelchair-accessibility</v-icon>
+                    Accessibility Features
+                  </div>
+                  <v-chip-group>
+                    <v-chip v-for="feature in property.features.accessibilityFeatures" :key="feature" variant="tonal" size="default" color="purple-lighten-1">{{ feature }}</v-chip>
+                  </v-chip-group>
+                </div>
+                
+                <!-- Community Features -->
+                <div v-if="property.features?.communityFeatures?.length" class="mb-6">
+                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
+                    <v-icon class="mr-2" size="small" color="teal">mdi-account-group</v-icon>
+                    Community Features
+                  </div>
+                  <v-chip-group>
+                    <v-chip v-for="feature in property.features.communityFeatures" :key="feature" variant="tonal" size="default" color="teal-lighten-1">{{ feature }}</v-chip>
+                  </v-chip-group>
+                </div>
+                
+                <!-- Architectural Style -->
+                <div v-if="property.features?.architecturalStyle?.length" class="mb-6">
+                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
+                    <v-icon class="mr-2" size="small" color="deep-purple">mdi-home-modern</v-icon>
+                    Architectural Style
+                  </div>
+                  <v-chip-group>
+                    <v-chip v-for="style in property.features.architecturalStyle" :key="style" variant="tonal" size="default" color="deep-purple-lighten-1">{{ style }}</v-chip>
+                  </v-chip-group>
+                </div>
+              </v-card-text>
+            </v-card>
+            
+            <!-- Utilities Card -->
+            <v-card class="mb-6 utilities-card" v-if="hasUtilities" flat elevation="2">
+              <v-card-text class="pa-6">
+                <div class="text-h6 mb-6 d-flex align-center">
+                  <v-icon class="mr-2" color="primary">mdi-lightning-bolt</v-icon>
+                  Utilities & Infrastructure
+                </div>
+                <v-row>
+                  <v-col cols="6" sm="4" v-if="property.features?.utilities?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Utilities</div>
+                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.utilities) }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.features?.waterSource?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Water Source</div>
+                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.waterSource) }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.features?.sewer?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Sewer</div>
+                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.sewer) }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.features?.electric?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Electric</div>
+                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.electric) }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.features?.irrigationSource?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Irrigation</div>
+                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.irrigationSource) }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.features?.roadSurfaceType?.length">
+                    <div class="detail-item">
+                      <div class="text-caption text-medium-emphasis mb-1">Road Surface</div>
+                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.roadSurfaceType) }}</div>
+                    </div>
+                  </v-col>
+                </v-row>
+              </v-card-text>
+            </v-card>
+            
+            <!-- Room Details Card -->
+            <v-card class="mb-6 rooms-card" v-if="property.features?.rooms?.length" flat elevation="2">
+              <v-card-text class="pa-6">
+                <div class="text-h6 mb-6 d-flex align-center">
+                  <v-icon class="mr-2" color="primary">mdi-floor-plan</v-icon>
+                  Room Details
+                </div>
+                <v-table density="compact">
+                  <thead>
+                    <tr>
+                      <th>Room</th>
+                      <th>Level</th>
+                      <th>Dimensions</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="room in property.features.rooms" :key="room.RoomKey">
+                      <td class="font-weight-medium">{{ room.RoomType || 'Room' }}</td>
+                      <td>{{ room.RoomLevel || '—' }}</td>
+                      <td>{{ room.RoomDimensions || (room.RoomLength && room.RoomWidth ? `${room.RoomLength} x ${room.RoomWidth}` : '—') }}</td>
+                      <td class="text-caption">{{ room.RoomDescription || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </v-table>
               </v-card-text>
             </v-card>
             <v-card class="mb-6 location-card" flat elevation="2">
@@ -1258,14 +1538,45 @@ const formatArray = (value: string | string[]) => {
 }
 
 const hasFeatures = computed(() => {
-  return property.value.features && 
-    (property.value.features.appliances?.length ||
-     property.value.features.interiorFeatures?.length ||
-     property.value.features.exteriorFeatures?.length ||
-     property.value.features.flooring?.length ||
-     property.value.features.poolFeatures?.length ||
-     property.value.features.fireplaceFeatures?.length)
+  const f = property.value.features
+  if (!f) return false
+  return (
+    f.appliances?.length ||
+    f.interior?.length ||
+    f.exterior?.length ||
+    f.flooring?.length ||
+    f.poolFeatures?.length ||
+    f.fireplaceFeatures?.length ||
+    f.building?.length ||
+    f.lot?.length ||
+    f.view?.length ||
+    f.waterfrontFeatures?.length ||
+    f.security?.length ||
+    f.accessibilityFeatures?.length ||
+    f.communityFeatures?.length ||
+    f.architecturalStyle?.length
+  )
 })
+
+const hasUtilities = computed(() => {
+  const f = property.value.features
+  if (!f) return false
+  return (
+    f.utilities?.length ||
+    f.waterSource?.length ||
+    f.sewer?.length ||
+    f.electric?.length ||
+    f.irrigationSource?.length ||
+    f.roadSurfaceType?.length
+  )
+})
+
+const formatListingDate = (dateStr: string) => {
+  if (!dateStr) return 'N/A'
+  const date = new Date(dateStr)
+  if (isNaN(date.getTime())) return 'N/A'
+  return date.toLocaleDateString('en-CA', { year: 'numeric', month: 'short', day: 'numeric' })
+}
 
 // Save functionality
 const toggleSave = async () => {
@@ -1611,6 +1922,16 @@ const toggleSave = async () => {
 
 /* Schools Card */
 .schools-card {
+  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
+}
+
+/* Utilities Card */
+.utilities-card {
+  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
+}
+
+/* Rooms Card */
+.rooms-card {
   background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
 }
 
