@@ -1,0 +1,17 @@
+{
+  "config": {
+    "inputSize": 23,
+    "outputSize": 3,
+    "hiddenLayers": [
+      64,
+      32,
+      16
+    ],
+    "learningRate": 0.001,
+    "epochs": 150,
+    "batchSize": 32,
+    "validationSplit": 0.2
+  },
+  "trainedAt": "2026-01-27T15:59:36.298Z",
+  "samplesUsed": 0
+}

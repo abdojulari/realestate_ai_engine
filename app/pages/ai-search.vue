@@ -720,58 +720,94 @@ const searchWithAI = async (pageNum = 1) => {
           // Map garage boolean to garage feature
           queryParams.append('features', 'garage')
         } else if (key === 'features' && typeof value === 'object') {
-          // Handle features object - prioritize most important features to avoid over-filtering
-          const priorityFeatures = [
-            'garage', 'basement', 'pool', 'waterfront', 'condo', 'townhouse', 'duplex',
-            'mountainView', 'oceanView', 'newConstruction', 'acreage', 'wellWater', 'septic'
-          ]
+          // Handle features object - ADD ALL FEATURES for comprehensive search
+          // Group features by category for better logging
+          const allFeatures: string[] = []
           
-          const secondaryFeatures = [
-            'modernStyle', 'bungalowStyle', 'largeLot', 'moveInReady', 'singleLevel',
-            'ranchStyle', 'fireplace', 'centralAC'
-          ]
-          
-          // First, add priority features
-          const addedFeatures = []
-          priorityFeatures.forEach(feature => {
-            if (value[feature]) {
+          // Add all detected features to the search
+          Object.entries(value).forEach(([feature, isEnabled]) => {
+            if (isEnabled) {
               queryParams.append('features', feature)
-              addedFeatures.push(feature)
+              allFeatures.push(feature)
             }
           })
           
-          // If we have less than 2 priority features, add some secondary ones (max 2 total)
-          if (addedFeatures.length < 2) {
-            secondaryFeatures.forEach(feature => {
-              if (value[feature] && addedFeatures.length < 2) {
-                queryParams.append('features', feature)
-                addedFeatures.push(feature)
-              }
-            })
-          }
+          console.log('🎯 All features for search:', allFeatures)
+        // ========== ENHANCED RESIDENTIAL FIELD MAPPINGS ==========
+        
+        // Price filters
+        } else if (key === 'minPrice') {
+          queryParams.append('minPrice', String(value))
+        } else if (key === 'maxPrice') {
+          queryParams.append('maxPrice', String(value))
           
-          console.log('🎯 Selected features for search:', addedFeatures)
-        // NEW: Direct mapping for enhanced residential fields
-        } else if (key === 'lotSizeAcres') {
+        // Square footage
+        } else if (key === 'minSqft') {
+          queryParams.append('minSqft', String(value))
+        } else if (key === 'maxSqft') {
+          queryParams.append('maxSqft', String(value))
+          
+        // Lot size
+        } else if (key === 'lotSizeAcres' || key === 'minLotSizeAcres') {
           queryParams.append('lotSizeAcres', String(value))
+        } else if (key === 'maxLotSizeAcres') {
+          queryParams.append('maxLotSizeAcres', String(value))
         } else if (key === 'lotSizeSqFt') {
           queryParams.append('lotSizeSqFt', String(value))
+          
+        // Building characteristics
         } else if (key === 'stories') {
           queryParams.append('stories', String(value))
         } else if (key === 'minYearBuilt') {
           queryParams.append('minYearBuilt', String(value))
+        } else if (key === 'maxYearBuilt') {
+          queryParams.append('maxYearBuilt', String(value))
         } else if (key === 'condition') {
           queryParams.append('condition', String(value))
+          
+        // Zoning and location
         } else if (key === 'zoning') {
           queryParams.append('zoning', String(value))
+        } else if (key === 'location' || key === 'locationType') {
+          // Don't override city dropdown selection
+          if (!selectedCity.value) {
+            queryParams.append('location', String(value))
+          }
+        } else if (key === 'subdivision') {
+          queryParams.append('subdivision', String(value))
+          
+        // HOA/Condo fees
+        } else if (key === 'maxHoaFee') {
+          queryParams.append('maxHoaFee', String(value))
+          
+        // Tax amount
+        } else if (key === 'maxTaxAmount') {
+          queryParams.append('maxTaxAmount', String(value))
+          
+        // Bathrooms
+        } else if (key === 'baths') {
+          queryParams.append('baths', String(value))
+          
+        // Proximity/near
+        } else if (key === 'near') {
+          // Store for potential future use (would need POI integration)
+          console.log('📍 Proximity filter detected:', value)
+          
+        // Multi-level property types as features
         } else if (key === 'multiLevel' || key === 'splitLevel') {
-          // Handle multi-level properties as features
           queryParams.append('features', key)
         } else if (key === 'largeLot' || key === 'smallLot') {
-          // Handle lot size descriptors as features
           queryParams.append('features', key)
+          
+        // Skip internal flags
+        } else if (key === 'bedsMinimum') {
+          // This is handled by beds logic above
+          
+        // Arrays (like 'near' items)
         } else if (Array.isArray(value)) {
           queryParams.append(key, value.join(','))
+          
+        // Catch-all for any other filters
         } else {
           queryParams.append(key, String(value))
         }

@@ -6,10 +6,11 @@ const prisma = new PrismaClient()
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const {
+    // Basic filters
     minPrice,
     maxPrice,
     beds,
-    bedsExact, // New parameter for exact bedroom match
+    bedsExact, // Exact bedroom match for AI search
     baths,
     type,
     status,
@@ -19,14 +20,16 @@ export default defineEventHandler(async (event) => {
     minSqft,
     maxSqft,
     features,
-    source, // New parameter to filter by data source
-    includeCrea = 'true', // Include CREA data by default
-    includeManual = 'true', // Include manual data by default
-    limit = '10', // Default to 10 properties per page
-    page = '1', // Default to page 1
+    source, // Filter by data source (crea, manual)
+    includeCrea = 'true',
+    includeManual = 'true',
+    limit = '10',
+    page = '1',
     
-    // NEW: Enhanced residential search fields
+    // Enhanced residential search fields
     lotSizeAcres,
+    minLotSizeAcres,
+    maxLotSizeAcres,
     lotSizeSqFt,
     stories,
     minYearBuilt,
@@ -40,7 +43,11 @@ export default defineEventHandler(async (event) => {
     streetName,
     unitNumber,
     
-    // Neighborhood filtering
+    // HOA/Condo fees
+    maxHoaFee,
+    
+    // Subdivision/neighborhood
+    subdivision,
     neighborhood,
     neighborhoodId
   } = query
@@ -107,12 +114,18 @@ export default defineEventHandler(async (event) => {
 
   // NEW: Enhanced residential field filters
   
-  // Lot size filters
-  if (lotSizeAcres) {
-    where.lotSizeArea = { gte: parseFloat(lotSizeAcres as string) }
+  // Lot size filters - support both min and max
+  if (lotSizeAcres || minLotSizeAcres || maxLotSizeAcres) {
+    where.lotSizeArea = {}
+    if (lotSizeAcres || minLotSizeAcres) {
+      where.lotSizeArea.gte = parseFloat((lotSizeAcres || minLotSizeAcres) as string)
+    }
+    if (maxLotSizeAcres) {
+      where.lotSizeArea.lte = parseFloat(maxLotSizeAcres as string)
+    }
   }
   if (lotSizeSqFt) {
-    // Convert sq ft to acres if needed or filter by dimensions
+    // Search in lot dimensions string
     where.lotSizeDimensions = { contains: lotSizeSqFt as string }
   }
   
@@ -165,6 +178,17 @@ export default defineEventHandler(async (event) => {
     where.unitNumber = { contains: unitNumber as string, mode: 'insensitive' }
   }
   
+  // Subdivision name search (searches in features JSON or description)
+  if (subdivision) {
+    if (!where.AND) where.AND = []
+    where.AND.push({
+      OR: [
+        { description: { contains: subdivision as string, mode: 'insensitive' } },
+        { address: { contains: subdivision as string, mode: 'insensitive' } }
+      ]
+    })
+  }
+  
   // Neighborhood filtering
   if (neighborhoodId) {
     where.neighborhood = {
@@ -178,217 +202,34 @@ export default defineEventHandler(async (event) => {
       }
     }
   }
+  
+  // HOA/Condo fee filtering - search in description for now
+  // TODO: When we add associationFee to schema, use that instead
+  if (maxHoaFee) {
+    const feeAmount = parseInt(maxHoaFee as string)
+    // For now, we search for properties mentioning low fees or specific amounts
+    // This is a best-effort search since HOA fees are in the features JSON
+    if (feeAmount < 300) {
+      if (!where.AND) where.AND = []
+      where.AND.push({
+        OR: [
+          { description: { contains: 'low fee', mode: 'insensitive' } },
+          { description: { contains: 'low condo fee', mode: 'insensitive' } },
+          { description: { contains: 'no condo fee', mode: 'insensitive' } }
+        ]
+      })
+    }
+  }
 
-  // Features filter - add to database query for proper pagination
+  // Features filter - comprehensive database-level filtering
   let requiredFeatures: string[] = []
   if (features) {
     const featureArray = Array.isArray(features) ? features : [features]
     requiredFeatures = featureArray.map(f => f.toLowerCase().replace(/\s+/g, ''))
     console.log('🔍 Features will be filtered in database query:', requiredFeatures)
     
-    // Add features to the where clause for database-level filtering
     if (requiredFeatures.length > 0) {
-      // For now, use a simple approach - search in description and features JSON
-      const featureConditions = requiredFeatures.map(feature => {
-        if (feature === 'garage') {
-          return {
-            OR: [
-              { description: { contains: 'garage', mode: 'insensitive' } },
-              { description: { contains: 'parking', mode: 'insensitive' } },
-              { description: { contains: 'carport', mode: 'insensitive' } },
-              // For Edmonton 4-bedroom houses, assume garage unless explicitly no garage
-              ...(requiredFeatures.includes('garage') ? [{
-                AND: [
-                  { city: { equals: 'Edmonton', mode: 'insensitive' } },
-                  { type: { equals: 'house', mode: 'insensitive' } },
-                  { beds: { gte: 4 } },
-                  { NOT: { description: { contains: 'no garage', mode: 'insensitive' } } },
-                  { NOT: { description: { contains: 'no parking', mode: 'insensitive' } } },
-                  { NOT: { description: { contains: 'street parking only', mode: 'insensitive' } } }
-                ]
-              }] : [])
-            ]
-          }
-        } else if (feature === 'basement') {
-          return {
-            OR: [
-              { description: { contains: 'basement', mode: 'insensitive' } },
-              { description: { contains: 'lower level', mode: 'insensitive' } },
-              { description: { contains: 'rec room', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'condo') {
-          return {
-            OR: [
-              { description: { contains: 'condo', mode: 'insensitive' } },
-              { description: { contains: 'condominium', mode: 'insensitive' } },
-              { description: { contains: 'apartment', mode: 'insensitive' } },
-              { type: { equals: 'multi-family', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'townhouse') {
-          return {
-            OR: [
-              { description: { contains: 'townhouse', mode: 'insensitive' } },
-              { description: { contains: 'town house', mode: 'insensitive' } },
-              { description: { contains: 'rowhouse', mode: 'insensitive' } },
-              { description: { contains: 'row house', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'duplex') {
-          return {
-            OR: [
-              { description: { contains: 'duplex', mode: 'insensitive' } },
-              { description: { contains: 'semi-detached', mode: 'insensitive' } },
-              { description: { contains: 'semi detached', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'pool') {
-          return {
-            OR: [
-              { description: { contains: 'pool', mode: 'insensitive' } },
-              { description: { contains: 'swimming', mode: 'insensitive' } },
-              { description: { contains: 'hot tub', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'modernstyle') {
-          return {
-            OR: [
-              { description: { contains: 'modern', mode: 'insensitive' } },
-              { description: { contains: 'contemporary', mode: 'insensitive' } },
-              { description: { contains: 'updated', mode: 'insensitive' } },
-              { description: { contains: 'renovated', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'mountainview') {
-          return {
-            OR: [
-              { description: { contains: 'mountain view', mode: 'insensitive' } },
-              { description: { contains: 'mountain', mode: 'insensitive' } },
-              { description: { contains: 'scenic view', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'newconstruction') {
-          return {
-            OR: [
-              { description: { contains: 'new construction', mode: 'insensitive' } },
-              { description: { contains: 'newly built', mode: 'insensitive' } },
-              { description: { contains: 'brand new', mode: 'insensitive' } },
-              { yearBuilt: { gte: 2020 } }
-            ]
-          }
-        } else if (feature === 'ranchstyle') {
-          return {
-            OR: [
-              { description: { contains: 'ranch', mode: 'insensitive' } },
-              { description: { contains: 'bungalow', mode: 'insensitive' } },
-              { description: { contains: 'single level', mode: 'insensitive' } },
-              { description: { contains: 'single story', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'wellwater') {
-          return {
-            OR: [
-              { description: { contains: 'well water', mode: 'insensitive' } },
-              { description: { contains: 'private well', mode: 'insensitive' } },
-              { description: { contains: 'well', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'septic') {
-          return {
-            OR: [
-              { description: { contains: 'septic', mode: 'insensitive' } },
-              { description: { contains: 'septic system', mode: 'insensitive' } },
-              { description: { contains: 'private septic', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'acreage') {
-          return {
-            OR: [
-              { description: { contains: 'acre', mode: 'insensitive' } },
-              { description: { contains: 'acreage', mode: 'insensitive' } },
-              { description: { contains: 'large lot', mode: 'insensitive' } },
-              { lotSizeArea: { gte: 1 } }
-            ]
-          }
-        } else if (feature === 'largelot') {
-          return {
-            OR: [
-              { description: { contains: 'large lot', mode: 'insensitive' } },
-              { description: { contains: 'big lot', mode: 'insensitive' } },
-              { description: { contains: 'spacious lot', mode: 'insensitive' } },
-              { description: { contains: 'oversized lot', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'bungalowstyle') {
-          return {
-            OR: [
-              { description: { contains: 'bungalow', mode: 'insensitive' } },
-              { description: { contains: 'ranch style', mode: 'insensitive' } },
-              { description: { contains: 'single level', mode: 'insensitive' } },
-              { description: { contains: 'single story', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'moveinready') {
-          return {
-            OR: [
-              { description: { contains: 'move-in ready', mode: 'insensitive' } },
-              { description: { contains: 'move in ready', mode: 'insensitive' } },
-              { description: { contains: 'turnkey', mode: 'insensitive' } },
-              { description: { contains: 'ready to move', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'singlelevel') {
-          return {
-            OR: [
-              { description: { contains: 'single level', mode: 'insensitive' } },
-              { description: { contains: 'single story', mode: 'insensitive' } },
-              { description: { contains: 'one level', mode: 'insensitive' } },
-              { description: { contains: 'bungalow', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'rural') {
-          return {
-            OR: [
-              { description: { contains: 'rural', mode: 'insensitive' } },
-              { description: { contains: 'country', mode: 'insensitive' } },
-              { description: { contains: 'countryside', mode: 'insensitive' } },
-              { city: { contains: 'rural', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'barn') {
-          return {
-            OR: [
-              { description: { contains: 'barn', mode: 'insensitive' } },
-              { description: { contains: 'outbuilding', mode: 'insensitive' } },
-              { description: { contains: 'outbuildings', mode: 'insensitive' } },
-              { description: { contains: 'shop', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'fireplace') {
-          return {
-            OR: [
-              { description: { contains: 'fireplace', mode: 'insensitive' } },
-              { description: { contains: 'wood burning', mode: 'insensitive' } },
-              { description: { contains: 'gas fireplace', mode: 'insensitive' } }
-            ]
-          }
-        } else if (feature === 'centralac') {
-          return {
-            OR: [
-              { description: { contains: 'central air', mode: 'insensitive' } },
-              { description: { contains: 'air conditioning', mode: 'insensitive' } },
-              { description: { contains: 'a/c', mode: 'insensitive' } },
-              { description: { contains: 'ac', mode: 'insensitive' } }
-            ]
-          }
-        } else {
-          // Generic feature search in description
-          return {
-            description: { contains: feature, mode: 'insensitive' }
-          }
-        }
-      })
+      const featureConditions = requiredFeatures.map(feature => buildFeatureCondition(feature, requiredFeatures))
       
       // Add all feature conditions to the where clause
       if (featureConditions.length === 1) {
@@ -396,6 +237,215 @@ export default defineEventHandler(async (event) => {
       } else if (featureConditions.length > 1) {
         where.AND = where.AND ? [...where.AND, { AND: featureConditions }] : [{ AND: featureConditions }]
       }
+    }
+  }
+
+  // Helper function to build feature condition
+  function buildFeatureCondition(feature: string, allFeatures: string[]): any {
+    // Comprehensive feature mapping with description search
+    const featureMap: Record<string, { keywords: string[], dbFields?: any[] }> = {
+      // ===== PROPERTY TYPES =====
+      'garage': { keywords: ['garage', 'parking', 'carport', 'car garage'] },
+      'basement': { keywords: ['basement', 'lower level', 'rec room', 'finished basement', 'walkout'] },
+      'condo': { keywords: ['condo', 'condominium', 'apartment', 'flat', 'highrise'] },
+      'townhouse': { keywords: ['townhouse', 'town house', 'rowhouse', 'row house', 'attached'] },
+      'duplex': { keywords: ['duplex', 'semi-detached', 'semi detached', 'side by side'] },
+      'triplex': { keywords: ['triplex', 'tri-plex'] },
+      'fourplex': { keywords: ['fourplex', 'four-plex', 'quadplex'] },
+      'mobilehome': { keywords: ['mobile home', 'manufactured', 'modular'] },
+      
+      // ===== EXTERIOR FEATURES =====
+      'pool': { keywords: ['pool', 'swimming', 'inground pool', 'in-ground'] },
+      'hottub': { keywords: ['hot tub', 'jacuzzi', 'spa'] },
+      'deck': { keywords: ['deck', 'wooden deck', 'composite deck'] },
+      'patio': { keywords: ['patio', 'stone patio', 'paver'] },
+      'outdoorkitchen': { keywords: ['outdoor kitchen', 'bbq', 'built-in grill'] },
+      'porch': { keywords: ['porch', 'veranda', 'screened porch', 'covered porch'] },
+      'balcony': { keywords: ['balcony', 'terrace', 'rooftop'] },
+      'pergola': { keywords: ['pergola', 'gazebo', 'arbor'] },
+      'fencedyard': { keywords: ['fenced', 'fence', 'privacy fence', 'fenced yard'] },
+      'sprinklersystem': { keywords: ['sprinkler', 'irrigation', 'sprinkler system'] },
+      'landscaped': { keywords: ['landscaped', 'landscaping', 'professional landscaping'] },
+      'garden': { keywords: ['garden', 'raised beds', 'vegetable garden'] },
+      'firepit': { keywords: ['fire pit', 'firepit', 'outdoor fireplace'] },
+      'shed': { keywords: ['shed', 'storage shed', 'garden shed'] },
+      
+      // ===== INTERIOR FEATURES =====
+      'fireplace': { keywords: ['fireplace', 'wood burning', 'gas fireplace', 'electric fireplace'] },
+      'vaultedceiling': { keywords: ['vaulted ceiling', 'high ceiling', 'cathedral ceiling'] },
+      'skylights': { keywords: ['skylight', 'skylights', 'natural light'] },
+      'crownmolding': { keywords: ['crown molding', 'crown moulding', 'decorative molding'] },
+      'smarthome': { keywords: ['smart home', 'home automation', 'smart thermostat', 'nest'] },
+      'securitysystem': { keywords: ['security system', 'alarm', 'security cameras'] },
+      'stonecounters': { keywords: ['granite', 'quartz', 'marble counters', 'stone counters'] },
+      'stainlessappliances': { keywords: ['stainless steel', 'stainless appliances', 'ss appliances'] },
+      'kitchenisland': { keywords: ['island', 'kitchen island', 'center island'] },
+      'doubleoven': { keywords: ['double oven', 'wall oven', 'built-in oven'] },
+      'gasstove': { keywords: ['gas stove', 'gas range', 'gas cooktop'] },
+      'wetbar': { keywords: ['wet bar', 'bar area', 'built-in bar'] },
+      'soakertub': { keywords: ['soaker tub', 'jetted tub', 'jacuzzi tub', 'spa tub'] },
+      'doublesink': { keywords: ['double sink', 'double vanity', 'his and hers'] },
+      'walkinshower': { keywords: ['walk-in shower', 'walk in shower', 'glass shower'] },
+      'centralvacuum': { keywords: ['central vacuum', 'central vac', 'built-in vacuum'] },
+      'watersoftener': { keywords: ['water softener', 'soft water'] },
+      
+      // ===== ROOM TYPES =====
+      'homeoffice': { keywords: ['home office', 'office', 'study', 'den', 'work from home'] },
+      'bonusroom': { keywords: ['bonus room', 'flex room', 'flex space'] },
+      'mudroom': { keywords: ['mudroom', 'mud room', 'entry room'] },
+      'laundryroom': { keywords: ['laundry room', 'laundry', 'utility room'] },
+      'mastersuite': { keywords: ['master suite', 'primary suite', 'ensuite', 'en-suite'] },
+      'walkincloset': { keywords: ['walk-in closet', 'walk in closet', 'large closet'] },
+      'formaldining': { keywords: ['formal dining', 'dining room', 'separate dining'] },
+      'familyroom': { keywords: ['family room', 'rec room', 'recreation room', 'great room'] },
+      'openconcept': { keywords: ['open concept', 'open floor plan', 'open living'] },
+      'pantry': { keywords: ['pantry', 'butler pantry', 'walk-in pantry'] },
+      'winecellar': { keywords: ['wine cellar', 'wine room', 'wine storage'] },
+      'homegym': { keywords: ['gym', 'home gym', 'exercise room', 'fitness'] },
+      'hometheater': { keywords: ['theater', 'theatre', 'media room', 'home theater'] },
+      'sunroom': { keywords: ['sunroom', 'sun room', 'conservatory', 'florida room'] },
+      'workshop': { keywords: ['workshop', 'craft room'] },
+      
+      // ===== FLOORING =====
+      'hardwoodfloors': { keywords: ['hardwood', 'hardwood floor', 'wood floor', 'oak floor'] },
+      'tilefloors': { keywords: ['tile', 'tile floor', 'ceramic', 'porcelain'] },
+      'carpetfloors': { keywords: ['carpet', 'carpeted', 'wall to wall'] },
+      'laminatefloors': { keywords: ['laminate', 'laminate floor'] },
+      'vinylfloors': { keywords: ['vinyl', 'vinyl plank', 'lvp', 'luxury vinyl'] },
+      'heatedfloors': { keywords: ['heated floor', 'floor heating', 'warm floor', 'in-floor'] },
+      
+      // ===== HEATING & COOLING =====
+      'centralac': { keywords: ['central air', 'central ac', 'air conditioning', 'a/c'] },
+      'airconditioning': { keywords: ['air conditioning', 'air conditioned', 'a/c', 'ac'] },
+      'forcedair': { keywords: ['forced air', 'forced-air', 'central heating'] },
+      'radientheat': { keywords: ['radiant heat', 'radiant floor', 'in-floor heating'] },
+      'heatpump': { keywords: ['heat pump', 'mini split', 'ductless'] },
+      'geothermal': { keywords: ['geothermal', 'ground source'] },
+      'gasheat': { keywords: ['natural gas', 'gas heat', 'gas furnace'] },
+      
+      // ===== VIEWS =====
+      'mountainview': { keywords: ['mountain view', 'mountain', 'rocky mountain', 'scenic'] },
+      'oceanview': { keywords: ['ocean view', 'sea view', 'oceanfront', 'ocean front'] },
+      'lakeview': { keywords: ['lake view', 'lakeview', 'lakefront', 'lake front'] },
+      'riverview': { keywords: ['river view', 'riverfront', 'creek view'] },
+      'cityview': { keywords: ['city view', 'downtown view', 'skyline', 'cityscape'] },
+      'golfview': { keywords: ['golf view', 'golf course view', 'overlooks golf'] },
+      'parkview': { keywords: ['park view', 'ravine', 'green space'] },
+      'panoramicview': { keywords: ['panoramic', '360 view', 'unobstructed view'] },
+      'waterfront': { keywords: ['waterfront', 'water front', 'on the water', 'beachfront'] },
+      
+      // ===== UTILITIES =====
+      'wellwater': { keywords: ['well water', 'private well', 'drilled well'] },
+      'municipalwater': { keywords: ['municipal water', 'city water', 'public water'] },
+      'septic': { keywords: ['septic', 'septic system', 'septic tank'] },
+      'municipalsewer': { keywords: ['municipal sewer', 'city sewer', 'public sewer'] },
+      'naturalgas': { keywords: ['natural gas', 'gas hookup', 'gas line'] },
+      'solarpanels': { keywords: ['solar panel', 'solar power', 'solar energy', 'photovoltaic'] },
+      'evcharger': { keywords: ['ev charger', 'electric vehicle', 'car charger', 'ev charging'] },
+      'generator': { keywords: ['generator', 'backup generator', 'emergency power'] },
+      
+      // ===== CONSTRUCTION & STYLE =====
+      'newconstruction': { keywords: ['new construction', 'newly built', 'brand new', 'never lived'], dbFields: [{ yearBuilt: { gte: new Date().getFullYear() - 3 } }] },
+      'renovated': { keywords: ['renovated', 'recently renovated', 'fully renovated', 'updated'] },
+      'moveinready': { keywords: ['move-in ready', 'move in ready', 'turnkey', 'ready to move'] },
+      'custombuilt': { keywords: ['custom built', 'custom home', 'custom build'] },
+      'needswork': { keywords: ['needs work', 'fixer upper', 'fixer-upper', 'handyman', 'tlc'] },
+      'modernstyle': { keywords: ['modern', 'contemporary', 'modern design'] },
+      'ranchstyle': { keywords: ['ranch', 'ranch style', 'rancher'] },
+      'bungalowstyle': { keywords: ['bungalow', 'bungalow style'] },
+      'colonialstyle': { keywords: ['colonial', 'colonial style'] },
+      'victorianstyle': { keywords: ['victorian', 'victorian style'] },
+      'craftsmanstyle': { keywords: ['craftsman', 'arts and crafts'] },
+      'traditionalstyle': { keywords: ['traditional', 'traditional style'] },
+      'farmhousestyle': { keywords: ['farmhouse', 'farm house', 'country style'] },
+      'splitlevel': { keywords: ['split level', 'split-level', 'bi-level'] },
+      'singlelevel': { keywords: ['single level', 'single story', 'one level', 'one story', 'bungalow'] },
+      'twostory': { keywords: ['two story', 'two storey', '2 story', '2-story'] },
+      
+      // ===== CONSTRUCTION MATERIALS =====
+      'brickexterior': { keywords: ['brick', 'brick home', 'brick exterior', 'all brick'] },
+      'stuccoexterior': { keywords: ['stucco', 'stucco exterior'] },
+      'stoneexterior': { keywords: ['stone', 'stone exterior', 'stone facade'] },
+      'woodexterior': { keywords: ['wood siding', 'cedar siding', 'wood exterior'] },
+      'loghome': { keywords: ['log home', 'log cabin', 'log house'] },
+      
+      // ===== ROOF =====
+      'metalroof': { keywords: ['metal roof', 'steel roof', 'tin roof'] },
+      'shingleroof': { keywords: ['shingle', 'asphalt shingle', 'architectural shingle'] },
+      'newroof': { keywords: ['new roof', 'recent roof', 'roof replaced'] },
+      
+      // ===== RURAL & ACREAGE =====
+      'acreage': { keywords: ['acre', 'acreage', 'large acreage'], dbFields: [{ lotSizeArea: { gte: 1 } }] },
+      'largelot': { keywords: ['large lot', 'big lot', 'oversized lot', 'spacious lot'] },
+      'smalllot': { keywords: ['small lot', 'compact lot', 'city lot'] },
+      'rural': { keywords: ['rural', 'country', 'countryside', 'country living'] },
+      'private': { keywords: ['private', 'privacy', 'secluded', 'private property'] },
+      'horseproperty': { keywords: ['horse property', 'equestrian', 'horse facilities'] },
+      'barn': { keywords: ['barn', 'horse barn', 'livestock barn'] },
+      'outbuilding': { keywords: ['outbuilding', 'outbuildings', 'quonset', 'shop'] },
+      'hobbyfarm': { keywords: ['hobby farm', 'small farm', 'farmstead'] },
+      'pond': { keywords: ['pond', 'dugout', 'water feature'] },
+      
+      // ===== COMMUNITY FEATURES =====
+      'gatedcommunity': { keywords: ['gated', 'gated community', 'secure community'] },
+      'golfcommunity': { keywords: ['golf community', 'golf course community'] },
+      'seniorcommunity': { keywords: ['55+', 'adult community', 'senior community', 'retirement'] },
+      'familyfriendly': { keywords: ['family friendly', 'family-friendly', 'good for families'] },
+      'quietneighborhood': { keywords: ['quiet', 'peaceful', 'quiet neighborhood', 'quiet street'] },
+      'culdesac': { keywords: ['cul-de-sac', 'cul de sac', 'dead end'] },
+      'cornerlot': { keywords: ['corner lot'] },
+      'maturetrees': { keywords: ['mature trees', 'treed lot', 'wooded'] },
+      'walkable': { keywords: ['walkable', 'walk score', 'walking distance'] },
+      'bikefriendly': { keywords: ['bike friendly', 'bike path', 'cycling'] },
+      
+      // ===== ACCESSIBILITY =====
+      'wheelchairaccessible': { keywords: ['wheelchair accessible', 'wheelchair', 'ada compliant', 'accessible'] },
+      'mainfloorliving': { keywords: ['main floor bedroom', 'main floor living', 'bedroom on main'] },
+      'elevator': { keywords: ['elevator', 'lift', 'residential elevator'] },
+      
+      // ===== PARKING =====
+      'heatedgarage': { keywords: ['heated garage'] },
+      'oversizedgarage': { keywords: ['oversized garage', 'large garage', 'extra large garage'] },
+      'rvparking': { keywords: ['rv parking', 'boat parking', 'rv pad'] },
+      'coveredparking': { keywords: ['covered parking', 'carport'] },
+      'undergroundparking': { keywords: ['underground parking', 'parkade'] },
+      
+      // ===== SPECIAL =====
+      'investmentproperty': { keywords: ['investment', 'rental property', 'income property', 'revenue'] },
+      'tenantinplace': { keywords: ['tenant', 'rented', 'currently rented'] },
+      'petfriendly': { keywords: ['pet friendly', 'pets allowed', 'dog friendly'] },
+      'furnished': { keywords: ['furnished', 'fully furnished'] },
+    }
+    
+    // Find matching keywords for this feature
+    const normalizedFeature = feature.toLowerCase().replace(/\s+/g, '')
+    const config = featureMap[normalizedFeature]
+    
+    if (config) {
+      const orConditions: any[] = config.keywords.map(keyword => ({
+        description: { contains: keyword, mode: 'insensitive' }
+      }))
+      
+      // Add any database field conditions
+      if (config.dbFields) {
+        orConditions.push(...config.dbFields)
+      }
+      
+      return { OR: orConditions }
+    }
+    
+    // Fallback: generic description search with the feature name
+    // Also try common variations
+    const variations = [
+      feature,
+      feature.replace(/([A-Z])/g, ' $1').trim().toLowerCase(), // camelCase to spaces
+      feature.replace(/-/g, ' '), // kebab-case to spaces
+    ]
+    
+    return {
+      OR: [...new Set(variations)].map(v => ({
+        description: { contains: v, mode: 'insensitive' }
+      }))
     }
   }
 

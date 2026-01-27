@@ -102,7 +102,7 @@
                 {{ Math.abs(stats.listingGrowth) }}%
               </div>
             </div>
-            <div class="text-h3 font-weight-black text-slate-800 tracking-tighter mb-1">{{ stats.totalListings }}</div>
+            <div class="stat-value-large">{{ formatCompact(stats.totalListings) }}</div>
             <div class="text-caption font-weight-bold text-slate-400 uppercase tracking-widest">Active Listings</div>
           </v-card>
         </v-col>
@@ -119,7 +119,7 @@
                 {{ Math.abs(stats.userGrowth) }}%
               </div>
             </div>
-            <div class="text-h3 font-weight-black text-slate-800 tracking-tighter mb-1">{{ stats.totalUsers }}</div>
+            <div class="stat-value-large">{{ formatCompact(stats.totalUsers) }}</div>
             <div class="text-caption font-weight-bold text-slate-400 uppercase tracking-widest">Network Growth</div>
           </v-card>
         </v-col>
@@ -136,7 +136,7 @@
                 {{ Math.abs(stats.viewGrowth) }}%
               </div>
             </div>
-            <div class="text-h3 font-weight-black text-slate-800 tracking-tighter mb-1">{{ stats.totalViews }}</div>
+            <div class="stat-value-large">{{ formatCompact(stats.totalViews) }}</div>
             <div class="text-caption font-weight-bold text-slate-400 uppercase tracking-widest">Total Impressions</div>
           </v-card>
         </v-col>
@@ -153,8 +153,150 @@
                 {{ Math.abs(stats.revenueGrowth) }}%
               </div>
             </div>
-            <div class="text-h3 font-weight-black text-slate-800 tracking-tighter mb-1">${{ formatNumber(stats.totalRevenue) }}</div>
-            <div class="text-caption font-weight-bold text-slate-400 uppercase tracking-widest">Gross Revenue</div>
+            <div class="stat-value-large">${{ formatCompact(stats.totalRevenue) }}</div>
+            <div class="text-caption font-weight-bold text-slate-400 uppercase tracking-widest">Sold Volume</div>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <!-- AI PREDICTIONS SECTION -->
+      <v-row class="mb-8">
+        <v-col cols="12">
+          <v-card class="premium-card ai-section">
+            <div class="p-6 border-b border-slate-100 d-flex align-center justify-space-between">
+              <div class="d-flex align-center">
+                <div class="ai-icon-wrapper mr-4">
+                  <v-icon color="white" size="24">mdi-brain</v-icon>
+                </div>
+                <div>
+                  <h3 class="text-subtitle-1 font-weight-bold text-slate-800 uppercase tracking-wide">AI Market Forecast</h3>
+                  <p class="text-caption text-slate-500 mb-0">TensorFlow.js powered predictions</p>
+                </div>
+              </div>
+              <div class="d-flex gap-2">
+                <v-btn
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  :loading="loadingPrediction"
+                  @click="loadPrediction"
+                >
+                  <v-icon start size="16">mdi-refresh</v-icon>
+                  Refresh
+                </v-btn>
+                <v-btn
+                  size="small"
+                  variant="flat"
+                  color="primary"
+                  :loading="training"
+                  @click="trainModel"
+                >
+                  <v-icon start size="16">mdi-cog</v-icon>
+                  Train Model
+                </v-btn>
+              </div>
+            </div>
+            <v-card-text class="p-6">
+              <v-row v-if="prediction.hasPrediction">
+                <!-- Predicted Sales -->
+                <v-col cols="12" md="4">
+                  <div class="prediction-card">
+                    <div class="d-flex justify-space-between align-center mb-3">
+                      <span class="text-caption font-weight-bold text-slate-400 uppercase">Predicted Sales</span>
+                      <v-chip 
+                        size="x-small" 
+                        :color="prediction.changes.soldChange >= 0 ? 'success' : 'error'"
+                        variant="flat"
+                      >
+                        {{ prediction.changes.soldChange >= 0 ? '+' : '' }}{{ prediction.changes.soldChange }}%
+                      </v-chip>
+                    </div>
+                    <div class="text-h4 font-weight-black text-slate-800">{{ prediction.prediction.soldCount }}</div>
+                    <div class="text-caption text-slate-500">properties in next 3 months</div>
+                  </div>
+                </v-col>
+                
+                <!-- Predicted Avg Price -->
+                <v-col cols="12" md="4">
+                  <div class="prediction-card">
+                    <div class="d-flex justify-space-between align-center mb-3">
+                      <span class="text-caption font-weight-bold text-slate-400 uppercase">Predicted Avg Price</span>
+                      <v-chip 
+                        size="x-small" 
+                        :color="prediction.changes.priceChange >= 0 ? 'success' : 'error'"
+                        variant="flat"
+                      >
+                        {{ prediction.changes.priceChange >= 0 ? '+' : '' }}{{ prediction.changes.priceChange }}%
+                      </v-chip>
+                    </div>
+                    <div class="text-h4 font-weight-black text-slate-800">${{ formatCompact(prediction.prediction.avgPrice) }}</div>
+                    <div class="text-caption text-slate-500">average sold price forecast</div>
+                  </div>
+                </v-col>
+                
+                <!-- Predicted Inventory -->
+                <v-col cols="12" md="4">
+                  <div class="prediction-card">
+                    <div class="d-flex justify-space-between align-center mb-3">
+                      <span class="text-caption font-weight-bold text-slate-400 uppercase">Predicted Inventory</span>
+                      <v-chip 
+                        size="x-small" 
+                        :color="prediction.changes.inventoryChange >= 0 ? 'warning' : 'success'"
+                        variant="flat"
+                      >
+                        {{ prediction.changes.inventoryChange >= 0 ? '+' : '' }}{{ prediction.changes.inventoryChange }}%
+                      </v-chip>
+                    </div>
+                    <div class="text-h4 font-weight-black text-slate-800">{{ formatCompact(prediction.prediction.inventory) }}</div>
+                    <div class="text-caption text-slate-500">active listings expected</div>
+                  </div>
+                </v-col>
+              </v-row>
+              
+              <div v-else class="text-center py-8">
+                <v-icon size="48" color="slate-300" class="mb-4">mdi-robot-confused</v-icon>
+                <div class="text-body-1 text-slate-600 mb-2">{{ prediction.error || 'No predictions available' }}</div>
+                <v-btn color="primary" variant="tonal" size="small" @click="trainModel" :loading="training">
+                  Train Model to Generate Predictions
+                </v-btn>
+              </div>
+              
+              <!-- Model Info -->
+              <div v-if="prediction.hasPrediction" class="mt-4 pt-4 border-t border-slate-100">
+                <div class="d-flex justify-space-between text-caption text-slate-400">
+                  <span>Model trained: {{ prediction.modelInfo?.trainedAt ? formatDate(new Date(prediction.modelInfo.trainedAt)) : 'Unknown' }}</span>
+                  <span>Confidence: {{ prediction.prediction.confidence }}%</span>
+                  <span>Data range: {{ prediction.modelInfo?.dataRange }}</span>
+                </div>
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+
+      <!-- MARKET INSIGHTS -->
+      <v-row v-if="marketInsights.length > 0" class="mb-8">
+        <v-col cols="12">
+          <v-card class="premium-card">
+            <div class="p-6 border-b border-slate-100 d-flex align-center">
+              <v-icon color="amber" class="mr-3">mdi-lightbulb</v-icon>
+              <h3 class="text-subtitle-1 font-weight-bold text-slate-800 uppercase tracking-wide">Market Insights</h3>
+            </div>
+            <v-card-text class="p-6">
+              <div class="d-flex flex-wrap gap-3">
+                <v-chip
+                  v-for="(insight, idx) in marketInsights"
+                  :key="idx"
+                  size="small"
+                  variant="tonal"
+                  color="primary"
+                  class="font-weight-medium"
+                >
+                  <v-icon start size="14">mdi-arrow-right</v-icon>
+                  {{ insight }}
+                </v-chip>
+              </div>
+            </v-card-text>
           </v-card>
         </v-col>
       </v-row>
@@ -395,6 +537,45 @@
         </v-card-text>
       </v-card>
     </v-container>
+
+    <!-- Global Snackbar Notifications -->
+    <v-snackbar
+      v-model="snackbar.show"
+      :color="snackbar.color"
+      :timeout="snackbar.timeout"
+      location="top right"
+      rounded="lg"
+      class="mt-4"
+    >
+      <div class="d-flex align-center">
+        <v-icon 
+          v-if="snackbar.color === 'success'" 
+          class="mr-2"
+        >mdi-check-circle</v-icon>
+        <v-icon 
+          v-else-if="snackbar.color === 'error'" 
+          class="mr-2"
+        >mdi-alert-circle</v-icon>
+        <v-icon 
+          v-else-if="snackbar.color === 'warning'" 
+          class="mr-2"
+        >mdi-alert</v-icon>
+        <v-icon 
+          v-else 
+          class="mr-2"
+        >mdi-information</v-icon>
+        <span>{{ snackbar.message }}</span>
+      </div>
+      <template #actions>
+        <v-btn
+          variant="text"
+          size="small"
+          @click="snackbar.show = false"
+        >
+          Close
+        </v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
@@ -403,7 +584,7 @@ import { ref, computed, onMounted, watch, reactive } from 'vue'
 import EChart from '~/components/charts/EChart.vue'
 
 // Helper function to safely get auth headers
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
     const token = localStorage.getItem('token')
     return token ? { 'Authorization': `Bearer ${token}` } : {}
@@ -420,6 +601,35 @@ const customRange = ref({
 })
 const activeTab = ref('listings')
 const exporting = ref('')
+
+// ML State
+const loadingPrediction = ref(false)
+const training = ref(false)
+const prediction = ref<any>({
+  hasPrediction: false,
+  error: null,
+  prediction: { soldCount: 0, avgPrice: 0, inventory: 0, confidence: 0 },
+  changes: { soldChange: 0, priceChange: 0, inventoryChange: 0 },
+  modelInfo: null
+})
+const marketInsights = ref<string[]>([])
+
+// Snackbar state for notifications
+const snackbar = ref({
+  show: false,
+  message: '',
+  color: 'success',
+  timeout: 5000
+})
+
+const showNotification = (message: string, color: 'success' | 'error' | 'info' | 'warning' = 'success', timeout = 5000) => {
+  snackbar.value = {
+    show: true,
+    message,
+    color,
+    timeout
+  }
+}
 
 const dateRanges = [
   { title: 'Last 7 Days', value: 'last_7_days' },
@@ -449,7 +659,23 @@ const crmUserReport = computed(() => {
 })
 
 const formatNumber = (num: number) => {
-  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')
+  if (!num) return '0'
+  return Math.round(num).toLocaleString()
+}
+
+// Format large numbers compactly (e.g., 4.9B, 530M, 50K)
+const formatCompact = (num: number) => {
+  if (!num) return '0'
+  if (num >= 1000000000) {
+    return (num / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B'
+  }
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M'
+  }
+  if (num >= 1000) {
+    return (num / 1000).toFixed(0) + 'K'
+  }
+  return Math.round(num).toLocaleString()
 }
 
 const formatDate = (date: Date) => {
@@ -598,8 +824,73 @@ const exportReport = async (format: string) => {
 
 // --- END OF ORIGINAL LOGIC PRESERVATION ---
 
+// --- ML FUNCTIONS ---
+
+const loadPrediction = async () => {
+  loadingPrediction.value = true
+  try {
+    const response: any = await $fetch('/api/ml/predict', {
+      headers: getAuthHeaders()
+    })
+    prediction.value = response
+  } catch (error) {
+    console.error('Error loading prediction:', error)
+    prediction.value = { hasPrediction: false, error: 'Failed to load prediction' }
+  } finally {
+    loadingPrediction.value = false
+  }
+}
+
+const loadAnalytics = async () => {
+  try {
+    const response: any = await $fetch('/api/ml/analytics', {
+      headers: getAuthHeaders()
+    })
+    if (response.success && response.insights) {
+      marketInsights.value = response.insights
+    }
+  } catch (error) {
+    console.error('Error loading analytics:', error)
+  }
+}
+
+const trainModel = async () => {
+  training.value = true
+  try {
+    const response: any = await $fetch('/api/ml/train', {
+      method: 'POST',
+      headers: getAuthHeaders()
+    })
+    
+    if (response.success) {
+      showNotification(
+        `Model trained! ${response.stats.samplesUsed} samples, ${response.stats.epochs} epochs, Loss: ${response.stats.finalLoss?.toFixed(4)}, Time: ${response.stats.trainingTime}`,
+        'success',
+        8000
+      )
+      
+      // Reload prediction with new model
+      await loadPrediction()
+    }
+  } catch (error: any) {
+    console.error('Error training model:', error)
+    showNotification(
+      `Training failed: ${error.data?.statusMessage || error.message || 'Unknown error'}`,
+      'error',
+      8000
+    )
+  } finally {
+    training.value = false
+  }
+}
+
+// --- END ML FUNCTIONS ---
+
 onMounted(() => {
   updateReports()
+  // Load ML data
+  loadPrediction()
+  loadAnalytics()
 })
 
 watch([dateRange, customRange], () => {
@@ -634,6 +925,37 @@ definePageMeta({
   box-shadow: 0 4px 25px rgba(0, 0, 0, 0.03) !important;
 }
 
+/* AI Section */
+.ai-section {
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%) !important;
+  border: 1px solid #bae6fd !important;
+}
+
+.ai-icon-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.prediction-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 20px;
+  height: 100%;
+  transition: all 0.2s ease;
+}
+
+.prediction-card:hover {
+  border-color: #6366f1;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+}
+
 /* Luxury Stats Cards */
 .luxury-stat-card {
   background: white !important;
@@ -644,6 +966,9 @@ definePageMeta({
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
 }
 
 .luxury-stat-card:hover {
@@ -659,6 +984,16 @@ definePageMeta({
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.stat-value-large {
+  font-size: 2.5rem;
+  font-weight: 900;
+  color: #1e293b;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 4px;
+  white-space: nowrap;
 }
 
 .growth-pill {

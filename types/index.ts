@@ -60,6 +60,8 @@ export interface Property {
   externalId?: string | null // CREA ListingKey for MLS properties
   mlsNumber?: string | null // MLS listing number
   lastSyncAt?: string | null // Last time synced from CREA
+  originalEntryTimestamp?: string | Date | null // When listing was first entered
+  daysOnMarket?: number | null // Days since originalEntryTimestamp
   
   // Enhanced Residential Fields (from schema)
   lotSizeArea?: number | null

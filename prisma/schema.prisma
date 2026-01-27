@@ -50,57 +50,59 @@ model User {
 }
 
 model Property {
-  id                   Int                   @id @default(autoincrement())
-  title                String
-  description          String
-  price                Float
-  beds                 Int
-  baths                Float
-  sqft                 Float
-  type                 String
-  status               String
-  address              String
-  city                 String
-  province             String
-  postalCode           String
-  latitude             Float?
-  longitude            Float?
-  features             Json?
-  images               Json
-  userId               Int?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  views                Int                   @default(0)
-  cityRegion           String?
-  externalId           String?
-  lastSyncAt           DateTime?
-  lotSizeArea          Float?
-  lotSizeDimensions    String?
-  lotSizeUnits         String?
-  mlsNumber            String?
-  parcelNumber         String?
-  propertyCondition    String?
-  source               String                @default("manual")
-  stories              Int?
-  streetName           String?
-  streetNumber         String?
-  taxAnnualAmount      Float?
-  taxYear              Int?
-  unitNumber           String?
-  waterBodyName        String?
-  yearBuilt            Int?
-  zoning               String?
-  zoningDescription    String?
-  coListingAgentsData  Json?
-  coListingOfficesData Json?
-  listingAgentData     Json?
-  listingOfficeData    Json?
-  user                 User?                 @relation(fields: [userId], references: [id])
-  inquiries            PropertyInquiry[]
-  neighborhood         PropertyNeighborhood?
-  propertyViews        PropertyView[]
-  savedBy              SavedProperty[]
-  viewingRequests      ViewingRequest[]
+  id                     Int                   @id @default(autoincrement())
+  title                  String
+  description            String
+  price                  Float
+  beds                   Int
+  baths                  Float
+  sqft                   Float
+  type                   String
+  status                 String
+  address                String
+  city                   String
+  province               String
+  postalCode             String
+  latitude               Float?
+  longitude              Float?
+  features               Json?
+  images                 Json
+  userId                 Int?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+  views                  Int                   @default(0)
+  cityRegion             String?
+  externalId             String?
+  lastSyncAt             DateTime?
+  lotSizeArea            Float?
+  lotSizeDimensions      String?
+  lotSizeUnits           String?
+  mlsNumber              String?
+  parcelNumber           String?
+  propertyCondition      String?
+  source                 String                @default("manual")
+  stories                Int?
+  streetName             String?
+  streetNumber           String?
+  taxAnnualAmount        Float?
+  taxYear                Int?
+  unitNumber             String?
+  waterBodyName          String?
+  yearBuilt              Int?
+  zoning                 String?
+  zoningDescription      String?
+  coListingAgentsData    Json?
+  coListingOfficesData   Json?
+  listingAgentData       Json?
+  listingOfficeData      Json?
+  originalEntryTimestamp DateTime?             // From CREA OriginalEntryTimestamp
+  daysOnMarket           Int?                  // Calculated: today - originalEntryTimestamp
+  user                   User?                 @relation(fields: [userId], references: [id])
+  inquiries              PropertyInquiry[]
+  neighborhood           PropertyNeighborhood?
+  propertyViews          PropertyView[]
+  savedBy                SavedProperty[]
+  viewingRequests        ViewingRequest[]
 
   @@unique([source, externalId])
 }

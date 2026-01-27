@@ -873,6 +873,14 @@ class CreaService {
       streetNumber: creaProp.StreetNumber,
       unitNumber: creaProp.UnitNumber,
       
+      // Days on Market calculation from OriginalEntryTimestamp
+      originalEntryTimestamp: creaProp.OriginalEntryTimestamp 
+        ? new Date(creaProp.OriginalEntryTimestamp) 
+        : null,
+      daysOnMarket: creaProp.OriginalEntryTimestamp 
+        ? Math.floor((Date.now() - new Date(creaProp.OriginalEntryTimestamp).getTime()) / (1000 * 60 * 60 * 24))
+        : null,
+      
       // Store raw agent and office data for detailed display
       listingAgentData: agentData?.listingAgent ? {
         memberKey: agentData.listingAgent.MemberKey,
