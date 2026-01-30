@@ -179,6 +179,8 @@
           <PropertyMap
             :properties="properties"
             :selected-property="selectedProperty"
+            :latitude="mapCenter.latitude"
+            :longitude="mapCenter.longitude"
             @bounds-updated="handleBoundsUpdate"
             @marker-click="selectProperty"
           />
@@ -256,6 +258,7 @@ const contactProperty = ref<Property | null>(null)
 const currentPage = ref(1)
 const itemsPerPage = 100
 const selectedCity = ref('')
+const selectedCityCoordinates = ref<{ latitude: number; longitude: number } | null>(null)
 const selectedNeighborhoodId = ref<number | null>(null)
 const selectedNeighborhoodInfo = ref<any>(null)
 const totalProperties = ref(0)
@@ -299,6 +302,31 @@ const getSortOrder = (sortValue: string) => {
 
 const totalPagesComputed = computed(() => totalPages.value || Math.ceil(totalProperties.value / itemsPerPage))
 const paginatedProperties = computed(() => properties.value)
+
+// Compute map center based on selected city/neighborhood or default to Edmonton
+const mapCenter = computed(() => {
+  // Priority 1: Selected neighborhood coordinates
+  if (selectedNeighborhoodInfo.value?.coordinates) {
+    return {
+      latitude: selectedNeighborhoodInfo.value.coordinates.latitude,
+      longitude: selectedNeighborhoodInfo.value.coordinates.longitude
+    }
+  }
+  // Priority 2: Selected city coordinates
+  if (selectedCityCoordinates.value) {
+    return {
+      latitude: selectedCityCoordinates.value.latitude,
+      longitude: selectedCityCoordinates.value.longitude
+    }
+  }
+  // Priority 3: First property's coordinates
+  const first = properties.value[0]
+  if (first?.latitude && first?.longitude) {
+    return { latitude: first.latitude, longitude: first.longitude }
+  }
+  // Default: Edmonton, Alberta
+  return { latitude: 53.5461, longitude: -113.4938 }
+})
 
 const handleSearch = async (searchParams: PropertyFilter, showLoadingState: boolean = true, page?: number) => {
   const targetPage = page !== undefined ? page : currentPage.value
@@ -369,9 +397,14 @@ const handleSchedule = async () => { showContactDialog.value = false }
 const handleCitySelected = (city: City | null) => {
   if (city) {
     selectedCity.value = city.name
+    selectedCityCoordinates.value = city.coordinates || null
     filters.value.city = city.name
     currentPage.value = 1
     handleSearch(filters.value)
+  } else {
+    selectedCity.value = ''
+    selectedCityCoordinates.value = null
+    filters.value.city = ''
   }
 }
 
@@ -388,6 +421,7 @@ const handleNeighborhoodSelected = (neighborhood: any) => {
 
 const clearLocationSelection = () => {
   selectedCity.value = ''
+  selectedCityCoordinates.value = null
   selectedNeighborhoodId.value = null
   selectedNeighborhoodInfo.value = null
   filters.value.city = ''
@@ -398,6 +432,7 @@ const clearLocationSelection = () => {
 
 const clearCitySelection = () => {
   selectedCity.value = ''
+  selectedCityCoordinates.value = null
   filters.value.city = ''
   currentPage.value = 1
   handleSearch(filters.value)

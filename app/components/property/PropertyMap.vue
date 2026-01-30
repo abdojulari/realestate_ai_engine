@@ -128,7 +128,7 @@
 
 <script setup lang="ts">
 import type { Map } from 'leaflet'
-import { onUnmounted } from 'vue'
+import { onUnmounted, watch } from 'vue'
 
 const props = defineProps({
   title: {
@@ -185,7 +185,7 @@ const map = ref<Map | null>(null)
 const mapRef = ref<any>(null)
 const zoom = ref(12)
 const mapType = ref<'map' | 'satellite' | 'terrain'>('map')
-const defaultCenter: [number, number] = [56.7268, -111.3800] // Fort McMurray
+const defaultCenter: [number, number] = [53.5461, -113.4938] // Edmonton, Alberta
 const center = computed<[number, number]>(() => {
   if (typeof props.latitude === 'number' && typeof props.longitude === 'number') {
     return [props.latitude, props.longitude]
@@ -356,6 +356,20 @@ function isValidLatLng(val: any): val is [number, number] {
 const onResize = () => { try { map.value?.invalidateSize?.() } catch {} }
 onMounted(() => { if (typeof window !== 'undefined') window.addEventListener('resize', onResize) })
 onUnmounted(() => { if (typeof window !== 'undefined') window.removeEventListener('resize', onResize) })
+
+// Watch for latitude/longitude changes and recenter the map
+watch(
+  () => [props.latitude, props.longitude],
+  ([newLat, newLng]) => {
+    if (typeof newLat === 'number' && typeof newLng === 'number' && isFinite(newLat) && isFinite(newLng)) {
+      const leafletMap = map.value || mapRef.value?.leafletObject
+      if (leafletMap && typeof leafletMap.setView === 'function') {
+        leafletMap.setView([newLat, newLng], zoom.value)
+      }
+    }
+  },
+  { immediate: false }
+)
 
 // Load nearby places
 // const loadNearbyPlaces = async () => {

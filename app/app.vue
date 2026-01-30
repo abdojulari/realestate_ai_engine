@@ -8,6 +8,7 @@
 
 <script setup lang="ts">
 // Minimal setup without layout-shifting features
+
 </script>
 
 <style>

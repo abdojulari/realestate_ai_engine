@@ -18,24 +18,26 @@ model User {
   role                 String            @default("user")
   provider             String?
   providerId           String?
-  avatar               String?
-  bio                  String?
-  timezone             String?           @default("America/New_York")
-  language             String?           @default("English")
-  emailNotifications   Boolean           @default(true)
-  pushNotifications    Boolean           @default(true)
-  smsNotifications     Boolean           @default(false)
-  twoFactorEnabled     Boolean           @default(false)
-  twoFactorSecret      String?
-  twoFactorCode        String?
-  twoFactorCodeExpiry  DateTime?
-  lastLoginAt          DateTime?
-  loginCount           Int               @default(0)
   createdAt            DateTime          @default(now())
   updatedAt            DateTime          @updatedAt
   consentDate          DateTime?
   consentIpAddress     String?
   marketingConsent     Boolean           @default(false)
+  avatar               String?
+  bio                  String?
+  emailNotifications   Boolean           @default(true)
+  language             String?           @default("English")
+  lastLoginAt          DateTime?
+  loginCount           Int               @default(0)
+  pushNotifications    Boolean           @default(true)
+  smsNotifications     Boolean           @default(false)
+  timezone             String?           @default("America/New_York")
+  twoFactorCode        String?
+  twoFactorCodeExpiry  DateTime?
+  twoFactorEnabled     Boolean           @default(false)
+  twoFactorSecret      String?
+  activityLogs         ActivityLog[]
+  documents            Document[]
   homeEstimates        HomeEstimate[]
   properties           Property[]
   propertyAlerts       PropertyAlert[]
@@ -43,10 +45,8 @@ model User {
   propertyViews        PropertyView[]
   savedProperties      SavedProperty[]
   savedSearches        SavedSearch[]
-  viewingRequests      ViewingRequest[]
-  activityLogs         ActivityLog[]
-  documents            Document[]
   signatures           Signature[]
+  viewingRequests      ViewingRequest[]
 }
 
 model Property {
@@ -95,8 +95,8 @@ model Property {
   coListingOfficesData   Json?
   listingAgentData       Json?
   listingOfficeData      Json?
-  originalEntryTimestamp DateTime?             // From CREA OriginalEntryTimestamp
-  daysOnMarket           Int?                  // Calculated: today - originalEntryTimestamp
+  daysOnMarket           Int?
+  originalEntryTimestamp DateTime?
   user                   User?                 @relation(fields: [userId], references: [id])
   inquiries              PropertyInquiry[]
   neighborhood           PropertyNeighborhood?
@@ -321,111 +321,111 @@ model ActivityLog {
 }
 
 model Document {
-  id               Int       @id @default(autoincrement())
+  id               Int      @id @default(autoincrement())
   userId           Int
   name             String
   originalName     String
   type             String
   fileSize         Int
   filePath         String
-  status           String    @default("draft")
-  isSigned         Boolean   @default(false)
+  status           String   @default("draft")
+  isSigned         Boolean  @default(false)
   signatureData    Json?
-  watermarkApplied Boolean   @default(false)
+  watermarkApplied Boolean  @default(false)
   metadata         Json?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([status])
 }
 
 model Signature {
-  id          Int      @id @default(autoincrement())
-  userId      Int
-  name        String
-  type        String
-  signatureData String @db.Text
-  isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            Int      @id @default(autoincrement())
+  userId        Int
+  name          String
+  type          String
+  signatureData String
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
 
 model NewsletterSubscriber {
-  id                  Int                  @id @default(autoincrement())
-  email               String               @unique
-  firstName           String?
-  lastName            String?
-  status              String               @default("active") // active, unsubscribed, bounced
-  source              String               @default("website") // website, manual, import
-  tags                Json?
-  metadata            Json?
-  subscribedAt        DateTime             @default(now())
-  unsubscribedAt      DateTime?
-  ipAddress           String?
-  userAgent           String?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  sentNewsletters     SentNewsletter[]
+  id              Int              @id @default(autoincrement())
+  email           String           @unique
+  firstName       String?
+  lastName        String?
+  status          String           @default("active")
+  source          String           @default("website")
+  tags            Json?
+  metadata        Json?
+  subscribedAt    DateTime         @default(now())
+  unsubscribedAt  DateTime?
+  ipAddress       String?
+  userAgent       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  sentNewsletters SentNewsletter[]
 
   @@index([email, status])
   @@index([status, subscribedAt])
 }
 
 model NewsletterTemplate {
-  id                  Int                  @id @default(autoincrement())
-  name                String               @unique
-  subject             String
-  content             String               @db.Text
-  plainTextContent    String?              @db.Text
-  previewText         String?
-  category            String?              // market-update, property-showcase, tips, announcement
-  tags                Json?
-  isActive            Boolean              @default(true)
-  attachments         Json?                // Array of attachment metadata {name, path, type, size}
-  variables           Json?                // Available template variables
-  designSettings      Json?                // Styling, colors, fonts
-  createdBy           Int?
-  lastModifiedBy      Int?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  newsletters         Newsletter[]
+  id               Int          @id @default(autoincrement())
+  name             String       @unique
+  subject          String
+  content          String
+  plainTextContent String?
+  previewText      String?
+  category         String?
+  tags             Json?
+  isActive         Boolean      @default(true)
+  attachments      Json?
+  variables        Json?
+  designSettings   Json?
+  createdBy        Int?
+  lastModifiedBy   Int?
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  newsletters      Newsletter[]
 
   @@index([category, isActive])
 }
 
 model Newsletter {
-  id                  Int                  @id @default(autoincrement())
-  name                String
-  templateId          Int?
-  subject             String
-  content             String               @db.Text
-  plainTextContent    String?              @db.Text
-  previewText         String?
-  status              String               @default("draft") // draft, scheduled, sending, sent, cancelled
-  frequency           String?              // once, daily, weekly, monthly
-  scheduledFor        DateTime?
-  sentAt              DateTime?
-  recipientCount      Int                  @default(0)
-  openCount           Int                  @default(0)
-  clickCount          Int                  @default(0)
-  bounceCount         Int                  @default(0)
-  unsubscribeCount    Int                  @default(0)
-  attachments         Json?                // Array of attachment metadata
-  tags                Json?
-  targetFilters       Json?                // Filters for recipient targeting
-  abTestConfig        Json?                // A/B testing configuration
-  automationSettings  Json?                // Automation rules and triggers
-  createdBy           Int?
-  lastModifiedBy      Int?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  template            NewsletterTemplate?  @relation(fields: [templateId], references: [id])
-  sentNewsletters     SentNewsletter[]
+  id                 Int                 @id @default(autoincrement())
+  name               String
+  templateId         Int?
+  subject            String
+  content            String
+  plainTextContent   String?
+  previewText        String?
+  status             String              @default("draft")
+  frequency          String?
+  scheduledFor       DateTime?
+  sentAt             DateTime?
+  recipientCount     Int                 @default(0)
+  openCount          Int                 @default(0)
+  clickCount         Int                 @default(0)
+  bounceCount        Int                 @default(0)
+  unsubscribeCount   Int                 @default(0)
+  attachments        Json?
+  tags               Json?
+  targetFilters      Json?
+  abTestConfig       Json?
+  automationSettings Json?
+  createdBy          Int?
+  lastModifiedBy     Int?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  template           NewsletterTemplate? @relation(fields: [templateId], references: [id])
+  sentNewsletters    SentNewsletter[]
 
   @@index([status, scheduledFor])
   @@index([frequency, status])
@@ -433,23 +433,23 @@ model Newsletter {
 }
 
 model SentNewsletter {
-  id                  Int                     @id @default(autoincrement())
-  newsletterId        Int
-  subscriberId        Int
-  status              String                  @default("sent") // sent, opened, clicked, bounced, failed
-  sentAt              DateTime                @default(now())
-  openedAt            DateTime?
-  clickedAt           DateTime?
-  bouncedAt           DateTime?
-  bounceReason        String?
-  unsubscribedAt      DateTime?
-  ipAddress           String?
-  userAgent           String?
-  metadata            Json?                   // tracking data, errors, etc
-  createdAt           DateTime                @default(now())
-  updatedAt           DateTime                @updatedAt
-  newsletter          Newsletter              @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
-  subscriber          NewsletterSubscriber    @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
+  id             Int                  @id @default(autoincrement())
+  newsletterId   Int
+  subscriberId   Int
+  status         String               @default("sent")
+  sentAt         DateTime             @default(now())
+  openedAt       DateTime?
+  clickedAt      DateTime?
+  bouncedAt      DateTime?
+  bounceReason   String?
+  unsubscribedAt DateTime?
+  ipAddress      String?
+  userAgent      String?
+  metadata       Json?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+  newsletter     Newsletter           @relation(fields: [newsletterId], references: [id], onDelete: Cascade)
+  subscriber     NewsletterSubscriber @relation(fields: [subscriberId], references: [id], onDelete: Cascade)
 
   @@index([newsletterId, status])
   @@index([subscriberId])
@@ -457,25 +457,25 @@ model SentNewsletter {
 }
 
 model NewsletterAutomation {
-  id                  Int                  @id @default(autoincrement())
-  name                String
-  description         String?
-  triggerType         String               // time-based, event-based
-  frequency           String?              // daily, weekly, monthly (for time-based)
-  dayOfWeek           Int?                 // 0-6 for weekly
-  dayOfMonth          Int?                 // 1-31 for monthly
-  timeOfDay           String?              // HH:MM format
-  timezone            String               @default("America/New_York")
-  templateId          Int?
-  subject             String?
-  targetFilters       Json?                // Recipient filtering rules
-  isActive            Boolean              @default(true)
-  lastRun             DateTime?
-  nextRun             DateTime?
-  runCount            Int                  @default(0)
-  createdBy           Int?
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  id            Int       @id @default(autoincrement())
+  name          String
+  description   String?
+  triggerType   String
+  frequency     String?
+  dayOfWeek     Int?
+  dayOfMonth    Int?
+  timeOfDay     String?
+  timezone      String    @default("America/New_York")
+  templateId    Int?
+  subject       String?
+  targetFilters Json?
+  isActive      Boolean   @default(true)
+  lastRun       DateTime?
+  nextRun       DateTime?
+  runCount      Int       @default(0)
+  createdBy     Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([isActive, nextRun])
   @@index([triggerType, frequency])

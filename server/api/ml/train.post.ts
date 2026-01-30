@@ -39,7 +39,6 @@ export default defineEventHandler(async (event) => {
         province: true,
         createdAt: true,
         updatedAt: true,
-        daysOnMarket: true,
         originalEntryTimestamp: true
       },
       orderBy: { createdAt: 'asc' }
@@ -55,20 +54,26 @@ export default defineEventHandler(async (event) => {
     }
     
     // Transform to RawPropertyData format
-    const rawData: RawPropertyData[] = properties.map(p => ({
-      id: p.id,
-      price: p.price || 0,
-      status: p.status || 'unknown',
-      type: p.type || undefined,
-      beds: p.beds || undefined,
-      baths: p.baths || undefined,
-      sqft: p.sqft || undefined,
-      city: p.city || undefined,
-      province: p.province || undefined,
-      createdAt: p.createdAt,
-      updatedAt: p.updatedAt,
-      daysOnMarket: p.daysOnMarket || undefined
-    }))
+    // Calculate daysOnMarket from originalEntryTimestamp (days since original listing)
+    const now = new Date()
+    const rawData: RawPropertyData[] = properties.map(p => {
+      const listingDate = p.originalEntryTimestamp || p.createdAt
+      const daysOnMarket = Math.floor((now.getTime() - listingDate.getTime()) / (1000 * 60 * 60 * 24))
+      return {
+        id: p.id,
+        price: p.price || 0,
+        status: p.status || 'unknown',
+        type: p.type || undefined,
+        beds: p.beds || undefined,
+        baths: p.baths || undefined,
+        sqft: p.sqft || undefined,
+        city: p.city || undefined,
+        province: p.province || undefined,
+        createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
+        daysOnMarket: daysOnMarket > 0 ? daysOnMarket : undefined
+      }
+    })
     
     // Step 2: Aggregate into monthly metrics
     console.log('[ML API] Aggregating monthly metrics...')
