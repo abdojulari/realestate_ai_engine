@@ -127,6 +127,8 @@ export default defineNuxtConfig({
     agentEmail: process.env.AGENT_EMAIL || 'real4ojulari@gmail.com',
     opencageApiKey: process.env.OPENCAGE_API_KEY,
     geminiApiKey: process.env.GEMINI_API_KEY,
+    groqApiKey: process.env.GROQ_API_KEY || '',
+    groqApiUrl: process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1',
     facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
     alertSchedulerSecret: process.env.ALERT_SCHEDULER_SECRET || process.env.CRON_SECRET || 'change-me-in-production',
     // Pillar9/Matrix API Configuration

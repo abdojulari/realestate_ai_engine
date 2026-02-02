@@ -281,6 +281,7 @@ const isAdmin = computed(() => auth.isAdmin)
 const powerSearchItems = [
   { title: 'MLS Search', to: '/map-search', icon: 'mdi-map-search' },
   { title: 'AI Search', to: '/ai-search', icon: 'mdi-brain' },
+  { title: 'AI Concierge', to: '/chat', icon: 'mdi-chat-processing-outline' },
   { title: 'Market Overview', to: '/market-overview', icon: 'mdi-chart-line' }
 ]
 

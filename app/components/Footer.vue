@@ -115,6 +115,7 @@ const isMapSearchPage = computed(() => route.name === 'map-search')
 
 const footerLinks = [
   { title: 'About Us', to: '/about' },
+  { title: 'FAQs', to: '/faq' },
   { title: 'Terms of Service', to: '/terms' },
   { title: 'Privacy Policy', to: '/privacy' },
   { title: 'Contact Us', to: '/contact' }

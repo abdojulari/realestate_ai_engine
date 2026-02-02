@@ -39,6 +39,8 @@ export default defineEventHandler(async (event) => {
     '/api/admin/pillar9/sync',
     // Public features that don't require authentication
     '/api/ai/parse-property-query',
+    '/api/chat',
+    '/api/chat/lead',
     '/api/news/feed',
     '/api/stats',
     // Newsletter subscription (public - no login required)

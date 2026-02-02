@@ -555,3 +555,19 @@ model BlogTag {
 
   @@index([slug])
 }
+
+model ChatLead {
+  id              Int      @id @default(autoincrement())
+  name            String
+  email           String
+  phone           String?
+  message         String?
+  conversationLog Json?
+  source          String   @default("chat_widget")
+  status          String   @default("new")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+}

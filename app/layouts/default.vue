@@ -6,6 +6,7 @@
     </main>
     <Footer />
     <CookieConsent />
+    <ChatLauncher />
   </div>
 </template>
 
@@ -13,6 +14,7 @@
 import Header from '~/components/Header.vue'
 import Footer from '~/components/Footer.vue'
 import CookieConsent from '~/components/CookieConsent.vue'
+import ChatLauncher from '~/components/chat/ChatLauncher.vue'
 
 </script>
 
