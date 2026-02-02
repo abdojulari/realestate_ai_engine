@@ -1,4 +1,4 @@
-import { defineEventHandler, readBody } from 'h3'
+import { createError, defineEventHandler, readBody } from 'h3'
 import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
@@ -52,6 +52,11 @@ async function getMyPublication(): Promise<string | null> {
     })
     
     const data = await response.json()
+    if (!response.ok) {
+      const message = data?.errors?.[0]?.message || data?.message || 'Hashnode API error'
+      console.error('[Hashnode] Publication lookup failed:', response.status, message, data?.errors || data)
+      return null
+    }
     return data?.data?.me?.publications?.edges?.[0]?.node?.id || null
   } catch (error) {
     console.error('[Hashnode] Error fetching publication:', error)
@@ -100,17 +105,27 @@ async function createHashnodePost(input: HashnodePublicationInput): Promise<{ id
     })
     
     const data = await response.json()
-    
-    if (data.errors) {
-      console.error('[Hashnode] API errors:', data.errors)
-      return null
+
+    if (!response.ok || data.errors) {
+      const message = data?.errors?.[0]?.message || data?.message || 'Hashnode API error'
+      console.error('[Hashnode] API errors:', response.status, message, data?.errors || data)
+      throw createError({
+        statusCode: 502,
+        statusMessage: `Hashnode API error: ${message}`
+      })
     }
     
     const post = data?.data?.publishPost?.post
     return post ? { id: post.id, url: post.url } : null
-  } catch (error) {
+  } catch (error: any) {
+    if (error?.statusCode) {
+      throw error
+    }
     console.error('[Hashnode] Error publishing post:', error)
-    return null
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Hashnode API error while publishing'
+    })
   }
 }
 
@@ -153,10 +168,25 @@ async function updateHashnodePost(postId: string, input: Partial<HashnodePublica
     })
     
     const data = await response.json()
-    return !data.errors
-  } catch (error) {
+
+    if (!response.ok || data.errors) {
+      const message = data?.errors?.[0]?.message || data?.message || 'Hashnode API error'
+      console.error('[Hashnode] API errors:', response.status, message, data?.errors || data)
+      throw createError({
+        statusCode: 502,
+        statusMessage: `Hashnode API error: ${message}`
+      })
+    }
+    return true
+  } catch (error: any) {
+    if (error?.statusCode) {
+      throw error
+    }
     console.error('[Hashnode] Error updating post:', error)
-    return false
+    throw createError({
+      statusCode: 502,
+      statusMessage: 'Hashnode API error while updating'
+    })
   }
 }
 
@@ -188,6 +218,9 @@ export default defineEventHandler(async (event) => {
   }
   
   try {
+    const config = useRuntimeConfig()
+    const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+
     // Fetch the post
     const post = await prisma.blogPost.findUnique({
       where: { id: postId },
@@ -215,6 +248,24 @@ export default defineEventHandler(async (event) => {
     
     // Prepare content (convert HTML to Markdown if needed)
     const contentMarkdown = post.content
+
+    const coverImageCandidate = post.coverImage
+      ? (post.coverImage.startsWith('http')
+          ? post.coverImage
+          : `${siteUrl}${post.coverImage.startsWith('/') ? '' : '/'}${post.coverImage}`)
+      : undefined
+    const coverImageUrl = (() => {
+      if (!coverImageCandidate) return undefined
+      try {
+        const parsed = new URL(coverImageCandidate)
+        if (!['http:', 'https:'].includes(parsed.protocol)) return undefined
+        if (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') return undefined
+        if (parsed.protocol !== 'https:') return undefined
+        return coverImageCandidate
+      } catch {
+        return undefined
+      }
+    })()
     
     // Prepare tags
     const tags = ((post.tags as string[]) || []).map(tag => ({
@@ -230,7 +281,7 @@ export default defineEventHandler(async (event) => {
         title: post.title,
         contentMarkdown,
         slug: post.slug,
-        coverImageURL: post.coverImage || undefined,
+        coverImageURL: coverImageUrl,
         subtitle: post.excerpt || undefined,
         publicationId
       })
@@ -244,7 +295,7 @@ export default defineEventHandler(async (event) => {
         title: post.title,
         contentMarkdown,
         slug: post.slug,
-        coverImageURL: post.coverImage || undefined,
+        coverImageURL: coverImageUrl,
         tags,
         subtitle: post.excerpt || undefined,
         publicationId
