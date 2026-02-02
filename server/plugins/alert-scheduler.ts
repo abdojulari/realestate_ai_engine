@@ -23,6 +23,7 @@ export default defineNitroPlugin((nitroApp) => {
 function startAlertScheduler() {
   const config = useRuntimeConfig()
   const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+  const schedulerSecret = config.alertSchedulerSecret
   // Clear any existing interval
   if (alertInterval) {
     clearInterval(alertInterval)
@@ -37,7 +38,8 @@ function startAlertScheduler() {
       const response = await fetch(`${siteUrl}/api/alerts/run-due`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...(schedulerSecret ? { 'x-alert-scheduler-secret': schedulerSecret } : {})
         }
       })
       

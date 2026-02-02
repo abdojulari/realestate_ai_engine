@@ -291,6 +291,7 @@ const clientServiceItems = [
 ]
 
 const menuItems = [
+  { title: 'Blog', to: '/blog', icon: 'mdi-post-outline' },
   { title: 'News and Resources', to: '/news', icon: 'mdi-newspaper' },
   { title: 'About Abdul', to: '/about', icon: 'mdi-information' },
   { title: 'Contact', to: '/contact', icon: 'mdi-email' }

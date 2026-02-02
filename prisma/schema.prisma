@@ -47,6 +47,7 @@ model User {
   savedSearches        SavedSearch[]
   signatures           Signature[]
   viewingRequests      ViewingRequest[]
+  blogPosts            BlogPost[]
 }
 
 model Property {
@@ -479,4 +480,78 @@ model NewsletterAutomation {
 
   @@index([isActive, nextRun])
   @@index([triggerType, frequency])
+}
+
+// Blog System Models
+model BlogCategory {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
+  slug        String     @unique
+  description String?
+  color       String?    @default("#1976D2")
+  icon        String?    @default("mdi-folder")
+  parentId    Int?
+  sortOrder   Int        @default(0)
+  isActive    Boolean    @default(true)
+  postCount   Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  parent      BlogCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    BlogCategory[] @relation("CategoryHierarchy")
+  posts       BlogPost[]
+
+  @@index([slug])
+  @@index([isActive, sortOrder])
+}
+
+model BlogPost {
+  id              Int           @id @default(autoincrement())
+  title           String
+  slug            String        @unique
+  excerpt         String?       @db.Text
+  content         String        @db.Text
+  contentHtml     String?       @db.Text
+  coverImage      String?
+  coverImageAlt   String?
+  authorId        Int?
+  categoryId      Int?
+  tags            Json?         // Array of tag strings
+  status          String        @default("draft") // draft, published, scheduled, archived
+  publishedAt     DateTime?
+  scheduledAt     DateTime?
+  isFeatured      Boolean       @default(false)
+  allowComments   Boolean       @default(true)
+  views           Int           @default(0)
+  readTime        Int?          // Estimated reading time in minutes
+  metaTitle       String?
+  metaDescription String?       @db.Text
+  metaKeywords    Json?         // Array of keyword strings
+  canonicalUrl    String?
+  ogImage         String?
+  hashnodeId      String?       // Hashnode post ID for sync
+  hashnodeUrl     String?       // Published URL on Hashnode
+  syncToHashnode  Boolean       @default(false)
+  lastSyncedAt    DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  author          User?         @relation(fields: [authorId], references: [id])
+  category        BlogCategory? @relation(fields: [categoryId], references: [id])
+
+  @@index([slug])
+  @@index([status, publishedAt])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([isFeatured, status])
+  @@index([tags])
+}
+
+model BlogTag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  slug      String   @unique
+  postCount Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([slug])
 }

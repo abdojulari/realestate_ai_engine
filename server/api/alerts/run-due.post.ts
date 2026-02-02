@@ -1,4 +1,4 @@
-import { defineEventHandler } from 'h3'
+import { createError, defineEventHandler, getHeader, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import nodemailer from 'nodemailer'
 
@@ -6,6 +6,16 @@ const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
+    const config = useRuntimeConfig()
+    const schedulerSecret = config.alertSchedulerSecret
+    const query = getQuery(event)
+    const headerSecret = getHeader(event, 'x-alert-scheduler-secret')
+    const providedSecret = headerSecret || query.secret
+
+    if (!schedulerSecret || providedSecret !== schedulerSecret) {
+      throw createError({ statusCode: 401, message: 'Unauthorized' })
+    }
+
     // Find all alerts that are due to run
     const dueAlerts = await prisma.propertyAlert.findMany({
       where: {

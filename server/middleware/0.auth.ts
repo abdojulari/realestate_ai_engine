@@ -43,7 +43,9 @@ export default defineEventHandler(async (event) => {
     '/api/stats',
     // Newsletter subscription (public - no login required)
     '/api/newsletter/subscribe',
-    '/api/newsletter/unsubscribe'
+    '/api/newsletter/unsubscribe',
+    // Alert scheduler endpoint (protected by secret in handler)
+    '/api/alerts/run-due'
   ]
 
   // Skip auth for non-API routes (pages, assets, etc.)
@@ -63,7 +65,8 @@ export default defineEventHandler(async (event) => {
     url.startsWith('/api/content') ||
     url.startsWith('/api/testimonials') ||
     url.startsWith('/api/team') ||
-    url.startsWith('/api/neighborhoods')
+    url.startsWith('/api/neighborhoods') ||
+    url.startsWith('/api/blog')
   )) {
     return
   }

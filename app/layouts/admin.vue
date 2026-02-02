@@ -311,6 +311,7 @@ const menuItems = computed(() => [
   { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', badge: userBadge.value ? String(userBadge.value) : undefined },
   { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/users?crm=1', badge: crmBadge.value ? String(crmBadge.value) : undefined },
   { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties' },
+  { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog' },
   { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma' },
   { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync' },
   { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync' },

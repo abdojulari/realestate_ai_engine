@@ -128,6 +128,7 @@ export default defineNuxtConfig({
     opencageApiKey: process.env.OPENCAGE_API_KEY,
     geminiApiKey: process.env.GEMINI_API_KEY,
     facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
+    alertSchedulerSecret: process.env.ALERT_SCHEDULER_SECRET || process.env.CRON_SECRET || 'change-me-in-production',
     // Pillar9/Matrix API Configuration
     pillar9ClientId: process.env.PILLAR9_CLIENT_ID || '',
     pillar9ClientSecret: process.env.PILLAR9_CLIENT_SECRET || '',
