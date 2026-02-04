@@ -202,7 +202,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { formatDate } from '~/utils/formatters'
+import { formatDate } from '/utils/formatters'
 
 // Helper function to safely get auth headers
 const getAuthHeaders = () => {
