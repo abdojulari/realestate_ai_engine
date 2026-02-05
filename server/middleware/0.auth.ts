@@ -43,6 +43,8 @@ export default defineEventHandler(async (event) => {
     '/api/chat/lead',
     '/api/news/feed',
     '/api/stats',
+    // Site settings (public - for home page template selection)
+    '/api/settings/home-template',
     // Newsletter subscription (public - no login required)
     '/api/newsletter/subscribe',
     '/api/newsletter/unsubscribe',

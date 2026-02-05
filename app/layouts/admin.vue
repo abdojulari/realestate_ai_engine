@@ -308,6 +308,7 @@ const crmBadge = ref<number | undefined>(undefined)
 const menuItems = computed(() => [
   { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/admin' },
   { title: 'Site', icon: 'mdi-home', to: '/' },
+  { title: 'Site Management', icon: 'mdi-palette', to: '/admin/site-management' },
   { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', badge: userBadge.value ? String(userBadge.value) : undefined },
   { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/users?crm=1', badge: crmBadge.value ? String(crmBadge.value) : undefined },
   { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties' },
