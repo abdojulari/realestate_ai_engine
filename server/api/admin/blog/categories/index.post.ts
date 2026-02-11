@@ -20,7 +20,7 @@ function generateSlug(name: string): string {
 export default defineEventHandler(async (event) => {
   const user = event.context.user
   
-  if (!user || user.role !== 'admin') {
+  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
     throw createError({
       statusCode: 403,
       statusMessage: 'Admin access required'

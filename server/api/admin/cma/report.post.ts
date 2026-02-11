@@ -1,9 +1,13 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { requireFeature, FEATURES } from '../../../utils/license'
 import { sendEmail } from '../../../utils/email'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
+  
+  // Check license for CMA report feature
+  await requireFeature(FEATURES.CMA_REPORT, event)
 
   const body = await readBody(event)
   const { subject, comps, stats, methodology, clientEmail, clientName, action } = body

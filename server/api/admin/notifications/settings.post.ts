@@ -6,7 +6,7 @@ const prisma = new PrismaClient()
 export default defineEventHandler(async (event) => {
   const user = (event as any).context?.user
   if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  if (user.role !== 'admin' && user.role !== 'agent') throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+  if (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'agent') throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
 
   const body = await readBody(event)
   const enabled = typeof body.enabled === 'boolean' ? String(body.enabled) : undefined

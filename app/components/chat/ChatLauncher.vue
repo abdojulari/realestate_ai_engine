@@ -41,15 +41,20 @@ import { ref, computed } from 'vue'
 import { useDisplay } from 'vuetify'
 import { useRoute } from 'vue-router'
 import ChatWidget from '~/components/chat/ChatWidget.vue'
+import { useLicense, FEATURES } from '~/composables/useLicense'
 
 const dialog = ref(false)
 const { smAndDown } = useDisplay()
 const route = useRoute()
+const { canUseChatbot, hasFullAccess } = useLicense()
 
 const isVisible = computed(() => {
   const path = route.path || ''
   if (path.startsWith('/auth')) return false
   if (path.startsWith('/admin')) return false
+  // Hide chatbot for users without chatbot access (non-Gold+ tiers)
+  // Admin and Platinum users always see it
+  if (!canUseChatbot.value && !hasFullAccess.value) return false
   return true
 })
 </script>

@@ -1,12 +1,12 @@
 <template>
   <header class="site-header">
     <div class="header-container">
-      <!-- Logo -->
+      <!-- Logo (tenant branding when from control plane) -->
       <div class="logo-section">
         <NuxtLink to="/" class="logo-link">
             <img 
-                src="/images/logos/logo.png" 
-                alt="Logo" 
+                :src="tenantLogo" 
+                :alt="tenantName || 'Logo'" 
                 class="logo-image"
             />
         </NuxtLink>
@@ -271,19 +271,39 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useAuthStore } from '~/stores/auth'
+import { useLicense, FEATURES } from '~/composables/useLicense'
 
 const mobileMenuOpen = ref(false)
 const auth = useAuthStore()
+const { licenseInfo, canUseChatbot, canUseAISearch, hasFullAccess } = useLicense()
+const tenantLogo = computed(() => licenseInfo.value?.logoUrl || '/images/logos/logo.png')
+const tenantName = computed(() => licenseInfo.value?.displayName || '')
 
 const isAuthenticated = computed(() => auth.isAuthenticated)
 const isAdmin = computed(() => auth.isAdmin)
 
-const powerSearchItems = [
-  { title: 'MLS Search', to: '/map-search', icon: 'mdi-map-search' },
-  { title: 'AI Search', to: '/ai-search', icon: 'mdi-brain' },
-  { title: 'AI Concierge', to: '/chat', icon: 'mdi-chat-processing-outline' },
-  { title: 'Market Overview', to: '/market-overview', icon: 'mdi-chart-line' }
+// All power search items with their required feature
+const allPowerSearchItems = [
+  { title: 'MLS Search', to: '/map-search', icon: 'mdi-map-search', feature: null },
+  { title: 'AI Search', to: '/ai-search', icon: 'mdi-brain', feature: FEATURES.AI_SEARCH },
+  { title: 'AI Concierge', to: '/chat', icon: 'mdi-chat-processing-outline', feature: FEATURES.CHATBOT },
+  { title: 'Market Overview', to: '/market-overview', icon: 'mdi-chart-line', feature: null }
 ]
+
+// Filtered power search items based on user's tier
+const powerSearchItems = computed(() => {
+  // Admin and Platinum users see everything
+  if (hasFullAccess.value) {
+    return allPowerSearchItems
+  }
+  
+  return allPowerSearchItems.filter(item => {
+    if (!item.feature) return true
+    if (item.feature === FEATURES.CHATBOT) return canUseChatbot.value
+    if (item.feature === FEATURES.AI_SEARCH) return canUseAISearch.value
+    return true
+  })
+})
 
 const clientServiceItems = [
   { title: 'Buy', to: '/buying', icon: 'mdi-home-search' },

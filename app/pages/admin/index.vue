@@ -90,8 +90,8 @@
                 >
                   <template v-slot:prepend>
                     <v-avatar
-                      :color="user.role === 'admin' ? '#121212' : '#f4f1ea'"
-                      :class="user.role === 'admin' ? 'text-white' : 'text-primary'"
+                      :color="user.role === 'admin' || user.role === 'super_admin' ? '#121212' : '#f4f1ea'"
+                      :class="user.role === 'admin' || user.role === 'super_admin' ? 'text-white' : 'text-primary'"
                       size="48"
                       class="mr-4 elevation-1 font-weight-bold"
                     >

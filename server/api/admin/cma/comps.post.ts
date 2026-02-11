@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { requireFeature, FEATURES } from '../../../utils/license'
 
 const prisma = new PrismaClient()
 
@@ -154,6 +155,9 @@ function extractPropertyFeatures(property: any): Set<string> {
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
+  
+  // Check license for CMA feature
+  await requireFeature(FEATURES.CMA, event)
 
   const body = await readBody(event)
   const subject: Subject = body?.subject || {}

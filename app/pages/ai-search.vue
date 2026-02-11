@@ -1,23 +1,26 @@
 <template>
   <div class="ai-search-page">
-    <!-- Hero Section with Premium Blur Background -->
-    <section class="hero-section text-white py-16 relative overflow-hidden">
-      <div class="hero-blur-bg"></div>
-      <v-container class="relative z-10">
-        <v-row align="center" justify="center" class="text-center">
-          <v-col cols="12" md="10" lg="8">
-            <div class="ai-chip mb-6 mx-auto">
-              <v-icon size="small" class="mr-2">mdi-sparkles</v-icon>
-              NEXT-GEN REAL ESTATE SEARCH
-            </div>
-            <h1 class="premium-title mb-6">Find Your Future with <span class="gradient-text">Intelligence</span></h1>
-            <p class="text-h6 font-weight-light opacity-80 mb-0 px-md-16">
-              Skip the traditional filters. Describe your dream lifestyle in plain English and let our neural engine curate the perfect match.
-            </p>
-          </v-col>
-        </v-row>
-      </v-container>
-    </section>
+    <!-- License Gate - Check if AI Search feature is available -->
+    <FeatureGate :feature="FEATURES.AI_SEARCH" :show-upgrade-prompt="true">
+      <!-- Feature Available: Show AI Search Interface -->
+      <!-- Hero Section with Premium Blur Background -->
+      <section class="hero-section text-white py-16 relative overflow-hidden">
+        <div class="hero-blur-bg"></div>
+        <v-container class="relative z-10">
+          <v-row align="center" justify="center" class="text-center">
+            <v-col cols="12" md="10" lg="8">
+              <div class="ai-chip mb-6 mx-auto">
+                <v-icon size="small" class="mr-2">mdi-sparkles</v-icon>
+                NEXT-GEN REAL ESTATE SEARCH
+              </div>
+              <h1 class="premium-title mb-6">Find Your Future with <span class="gradient-text">Intelligence</span></h1>
+              <p class="text-h6 font-weight-light opacity-80 mb-0 px-md-16">
+                Skip the traditional filters. Describe your dream lifestyle in plain English and let our neural engine curate the perfect match.
+              </p>
+            </v-col>
+          </v-row>
+        </v-container>
+      </section>
 
     <!-- Main Interface -->
     <v-container class="mt-n12 pb-16 relative z-20">
@@ -570,10 +573,14 @@
       :confirm-text="alertConfirmText"
       @confirm="closeAlert"
     />
+    </FeatureGate>
   </div>
 </template>
 
 <script setup lang="ts">
+import FeatureGate from '~/components/FeatureGate.vue'
+import { FEATURES } from '~/composables/useLicense'
+
 const searchQuery = ref('')
 const searching = ref(false)
 const searchResults = ref<any[]>([])

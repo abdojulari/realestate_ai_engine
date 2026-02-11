@@ -49,7 +49,11 @@ export default defineEventHandler(async (event) => {
     '/api/newsletter/subscribe',
     '/api/newsletter/unsubscribe',
     // Alert scheduler endpoint (protected by secret in handler)
-    '/api/alerts/run-due'
+    '/api/alerts/run-due',
+    // License endpoint (internal use, no auth required)
+    '/api/license',
+    // User provisioning from SaaS control plane (uses API key auth)
+    '/api/users/provision'
   ]
 
   // Skip auth for non-API routes (pages, assets, etc.)

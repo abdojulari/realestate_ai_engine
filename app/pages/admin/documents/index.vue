@@ -30,6 +30,24 @@
           </v-col>
         </v-row>
 
+        <!-- Contract & Legal info (plan-gated) -->
+        <v-card v-if="canUseDocumentsLegalReview" variant="tonal" color="primary" class="mb-6 legal-info-card" rounded="xl">
+          <v-card-text class="d-flex align-center flex-wrap gap-4">
+            <div class="d-flex align-center">
+              <v-avatar color="primary" variant="flat" size="48" class="mr-3">
+                <v-icon icon="mdi-gavel" size="28" />
+              </v-avatar>
+              <div>
+                <div class="text-subtitle-1 font-weight-bold">Contract & Legal</div>
+                <div class="text-caption text-medium-emphasis">Review terms, get AI advice, and set email reminders for important dates like financing deadlines.</div>
+              </div>
+            </div>
+            <div class="legal-info-steps text-caption">
+              <span class="font-weight-medium">1.</span> Upload PDF → <span class="font-weight-medium">2.</span> Legal Review (AI analysis) → <span class="font-weight-medium">3.</span> Legal Advise (summary + set reminders)
+            </div>
+          </v-card-text>
+        </v-card>
+
         <v-row>
           <!-- Document Stats -->
           <v-col cols="12" md="4" v-for="stat in stats" :key="stat.title">
@@ -91,6 +109,18 @@
                 </td>
                 <td class="text-center text-caption">{{ formatFileSize(doc.fileSize) }}</td>
                 <td class="text-right">
+                  <template v-if="canUseDocumentsLegalReview && doc.type === 'pdf'">
+                    <v-tooltip text="Run AI legal review (terms, dates, red flags)">
+                      <template #activator="{ props }">
+                        <v-btn icon="mdi-gavel" variant="text" size="small" v-bind="props" @click="runLegalReview(doc)" :loading="legalReviewLoading && legalReviewDocId === doc.id" />
+                      </template>
+                    </v-tooltip>
+                    <v-tooltip text="View legal summary and set date alerts">
+                      <template #activator="{ props }">
+                        <v-btn icon="mdi-file-document-outline" variant="text" size="small" v-bind="props" @click="openLegalAdvise(doc)" />
+                      </template>
+                    </v-tooltip>
+                  </template>
                   <v-btn icon="mdi-pencil-outline" variant="text" size="small" @click="openEditor(doc)" />
                   <v-btn icon="mdi-download-outline" variant="text" size="small" @click="downloadDocument(doc)" />
                   <v-btn icon="mdi-delete-outline" variant="text" color="error" size="small" @click="confirmDelete(doc)" />
@@ -139,7 +169,6 @@
           </v-btn-group>
 
           <!-- Tools -->
-        
           <v-btn variant="tonal" prepend-icon="mdi-file-convert" class="mr-2 text-body-2" @click="showConverterDialog = true">
             Convert to PDF
           </v-btn>
@@ -152,12 +181,51 @@
         <div class="flex-grow-1 d-flex editor-content" style="overflow: hidden;">
           <!-- Left Sidebar -->
           <div class="glass-sidebar left-sidebar">
+            <!-- Contract & Legal Pane (PDF only, plan-gated) -->
+            <div v-if="canUseDocumentsLegalReview && activeDoc?.type === 'pdf'" class="legal-pane">
+              <div class="legal-pane-header">
+                <v-icon icon="mdi-gavel" size="24" class="legal-pane-icon" />
+                <span class="legal-pane-title">Contract & Legal</span>
+              </div>
+              <p class="legal-pane-copy text-caption">
+                Review terms, get AI advice, and set email reminders for important dates like financing deadlines.
+              </p>
+              <div class="legal-pane-actions">
+                <v-btn
+                  block
+                  color="primary"
+                  variant="flat"
+                  prepend-icon="mdi-gavel"
+                  size="small"
+                  class="mb-2"
+                  @click="runLegalReview(activeDoc, ocrText)"
+                  :loading="legalReviewLoading && legalReviewDocId === activeDoc?.id"
+                >
+                  Legal Review
+                </v-btn>
+                <v-btn
+                  block
+                  variant="tonal"
+                  prepend-icon="mdi-file-document-outline"
+                  size="small"
+                  class="mb-2"
+                  @click="openLegalAdvise(activeDoc)"
+                >
+                  Legal Advise
+                </v-btn>
+                <p class="text-caption text-grey mt-2 mb-0">
+                  After review, open Legal Advise to see red flags, summary, and set date reminders.
+                </p>
+              </div>
+            </div>
+
             <v-list density="compact" nav class="sidebar-list">
               <v-list-subheader>TOOLS</v-list-subheader>
               <v-list-item prepend-icon="mdi-format-text" title="Add Text" @click="startAddingText" />
               <v-list-item prepend-icon="mdi-signature" title="Add Signature" @click="openSignatureDialog" />
               <v-list-item prepend-icon="mdi-watermark" title="Watermark" @click="addWatermark" :loading="processing" />
-              <v-list-item prepend-icon="mdi-text-box-search-outline" title="OCR Extract" @click="runOCR" :disabled="ocrLoading" />
+              <v-list-item prepend-icon="mdi-text-box-search-outline" title="OCR Extract (Page)" @click="runOCR" :disabled="ocrLoading" />
+              <v-list-item prepend-icon="mdi-file-document-multiple" title="OCR All Pages" @click="runOCRAllPages" :disabled="ocrLoading" />
               <v-list-item prepend-icon="mdi-magnify" title="Search PDF" @click="showSearchDialog = true" />
               <v-list-item prepend-icon="mdi-file-convert" title="Convert to PDF" @click="showConverterDialog = true" />
             </v-list>
@@ -570,6 +638,77 @@
       </v-card>
     </v-dialog>
 
+    <!-- Legal Advise Dialog -->
+    <v-dialog v-model="showLegalAdviseDialog" max-width="720" scrollable persistent>
+      <v-card rounded="xl" class="premium-dialog">
+        <v-card-title class="d-flex align-center dialog-title">
+          <v-icon icon="mdi-gavel" class="mr-2" />
+          Legal Advise – {{ legalAdviseDoc?.originalName }}
+          <v-spacer />
+          <v-btn icon="mdi-close" variant="text" size="small" @click="showLegalAdviseDialog = false" />
+        </v-card-title>
+        <v-card-text class="legal-advise-body">
+          <p class="text-caption text-grey mb-4">AI-powered summary of red flags, important dates, and impact for buyer/seller. Set email reminders so you never miss deadlines.</p>
+          <div v-if="legalReviewLoading" class="text-center py-8">
+            <v-progress-circular indeterminate color="primary" />
+            <p class="mt-2 text-body-2">Loading review...</p>
+          </div>
+          <template v-else-if="!legalReviewData?.review">
+            <p class="text-body-2 text-grey">No legal review yet. Click <strong>Legal Review</strong> in the sidebar or table first to analyze terms, conditions, and important dates.</p>
+          </template>
+          <template v-else>
+            <div class="mb-4">
+              <h3 class="text-subtitle-1 font-weight-bold mb-2">Red flags</h3>
+              <ul v-if="(legalReviewData.review.redFlags || []).length" class="legal-list">
+                <li v-for="(item, i) in legalReviewData.review.redFlags" :key="i">{{ item }}</li>
+              </ul>
+              <p v-else class="text-caption text-grey">None identified.</p>
+            </div>
+            <div class="mb-4">
+              <h3 class="text-subtitle-1 font-weight-bold mb-2">Important notes</h3>
+              <ul v-if="(legalReviewData.review.importantNotes || []).length" class="legal-list">
+                <li v-for="(item, i) in legalReviewData.review.importantNotes" :key="i">{{ item }}</li>
+              </ul>
+              <p v-else class="text-caption text-grey">None.</p>
+            </div>
+            <div class="mb-4">
+              <h3 class="text-subtitle-1 font-weight-bold mb-2">Important dates</h3>
+              <ul v-if="(legalReviewData.review.importantDates || []).length" class="legal-list">
+                <li v-for="(d, i) in legalReviewData.review.importantDates" :key="i">
+                  <strong>{{ d.label }}</strong>: {{ d.date }}{{ d.context ? ` – ${d.context}` : '' }}
+                </li>
+              </ul>
+              <p v-else class="text-caption text-grey">None extracted.</p>
+            </div>
+            <div class="mb-4">
+              <h3 class="text-subtitle-1 font-weight-bold mb-2">Legal summary</h3>
+              <p class="text-body-2" style="white-space: pre-wrap;">{{ legalReviewData.review.legalSummary }}</p>
+            </div>
+            <div class="mb-4">
+              <h3 class="text-subtitle-1 font-weight-bold mb-2">Buyer impact</h3>
+              <p class="text-body-2" style="white-space: pre-wrap;">{{ legalReviewData.review.buyerImpact }}</p>
+            </div>
+            <div class="mb-4">
+              <h3 class="text-subtitle-1 font-weight-bold mb-2">Seller impact</h3>
+              <p class="text-body-2" style="white-space: pre-wrap;">{{ legalReviewData.review.sellerImpact }}</p>
+            </div>
+
+            <v-divider class="my-4" />
+            <h3 class="text-subtitle-1 font-weight-bold mb-3">Set automation alerts for important dates</h3>
+            <p class="text-caption text-grey mb-3">Reminders will be emailed to you and super admins before each date.</p>
+            <div v-for="(item, i) in dateAlertItems" :key="i" class="d-flex align-center mb-2">
+              <v-checkbox v-model="item.enabled" hide-details density="compact" class="mr-2 flex-grow-0" />
+              <span class="flex-grow-1">{{ item.label }} – {{ item.date }}</span>
+              <v-text-field v-model.number="item.daysBefore" type="number" min="1" max="30" density="compact" hide-details style="width: 80px;" suffix="days before" />
+            </div>
+            <v-btn color="primary" variant="flat" class="mt-3" :loading="savingAlerts" :disabled="!legalAdviseDoc" @click="saveDateAlerts">
+              Set automation alerts
+            </v-btn>
+          </template>
+        </v-card-text>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000">
       {{ snackbarText }}
@@ -671,6 +810,16 @@ const documentToDelete = ref<any>(null)
 const snackbar = ref(false)
 const snackbarText = ref('')
 const snackbarColor = ref('success')
+
+// Legal Review (feature-gated)
+const { canUseDocumentsLegalReview } = useLicense()
+const legalReviewLoading = ref(false)
+const legalReviewDocId = ref<number | null>(null)
+const showLegalAdviseDialog = ref(false)
+const legalAdviseDoc = ref<any>(null)
+const legalReviewData = ref<{ review: any; dateAlerts: any[] } | null>(null)
+const dateAlertItems = ref<Array<{ label: string; date: string; enabled: boolean; daysBefore: number }>>([])
+const savingAlerts = ref(false)
 
 // Refs management
 const setCanvasRef = (el: any, pageNum: number) => {
@@ -796,7 +945,7 @@ const openEditor = async (doc: any) => {
 }
 
 const loadPdfDocument = async (arrayBuffer: ArrayBuffer) => {
-  currentPdfDoc = await PDFDocument.load(arrayBuffer)
+  currentPdfDoc = await PDFDocument.load(arrayBuffer, { ignoreEncryption: true })
   
   const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer })
   pdfDocument = await loadingTask.promise
@@ -1282,7 +1431,7 @@ const addWatermark = async () => {
   }
 }
 
-// OCR
+// OCR (single page)
 const runOCR = async () => {
   const page = ocrPage.value || currentPage.value
   if (!canvasRefs.has(page)) return
@@ -1292,12 +1441,38 @@ const runOCR = async () => {
   try {
     const canvas = canvasRefs.get(page)
     if (!canvas) return
-    
+
     const worker = await createWorker('eng')
     const { data: { text } } = await worker.recognize(canvas)
     ocrText.value = text
     await worker.terminate()
     showSnackbar(`OCR completed for page ${page}`, 'success')
+  } catch (err) {
+    console.error('OCR error:', err)
+    showSnackbar('OCR failed', 'error')
+  } finally {
+    ocrLoading.value = false
+  }
+}
+
+// OCR all pages – use for legal review on scanned/image PDFs
+const runOCRAllPages = async () => {
+  if (!totalPages.value || totalPages.value === 0) return
+  ocrLoading.value = true
+  ocrText.value = ''
+  try {
+    const worker = await createWorker('eng')
+    const parts: string[] = []
+    for (let p = 1; p <= totalPages.value; p++) {
+      const canvas = canvasRefs.get(p)
+      if (canvas) {
+        const { data: { text } } = await worker.recognize(canvas)
+        if (text?.trim()) parts.push(`--- Page ${p} ---\n${text.trim()}`)
+      }
+    }
+    await worker.terminate()
+    ocrText.value = parts.join('\n\n')
+    showSnackbar(`OCR completed for ${totalPages.value} page(s). Use Legal Review to analyze.`, 'success')
   } catch (err) {
     console.error('OCR error:', err)
     showSnackbar('OCR failed', 'error')
@@ -1478,6 +1653,83 @@ const showSnackbar = (message: string, color: string = 'success') => {
 
 const getFileExtension = (filename: string) => {
   return filename.split('.').pop()?.toUpperCase() || ''
+}
+
+// Legal Review: run AI analysis (PDF only). Pass OCR text when available for scanned docs.
+async function runLegalReview(doc: any, extractedText?: string) {
+  if (doc.type !== 'pdf') return
+  legalReviewLoading.value = true
+  legalReviewDocId.value = doc.id
+  try {
+    const body: Record<string, unknown> = {}
+    if (extractedText && extractedText.trim().length >= 50) {
+      body.extractedText = extractedText.trim()
+    }
+    const res: any = await $fetch(`/api/admin/documents/${doc.id}/legal-review`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body,
+    })
+    if (res.success && res.review) {
+      // Show results immediately in the Legal Advise dialog
+      legalAdviseDoc.value = doc
+      legalReviewData.value = { review: res.review, dateAlerts: res.dateAlerts || [] }
+      const dates = res.review.importantDates || []
+      dateAlertItems.value = dates.map((d: any) => ({ label: d.label || 'Date', date: d.date || '', enabled: true, daysBefore: 2 }))
+      showLegalAdviseDialog.value = true
+      showSnackbar('Legal review complete!', 'success')
+    }
+  } catch (e: any) {
+    showSnackbar(e.data?.statusMessage || e.message || 'Legal review failed', 'error')
+  } finally {
+    legalReviewLoading.value = false
+    legalReviewDocId.value = null
+  }
+}
+
+// Legal Advise: open dialog and load review + date alerts
+async function openLegalAdvise(doc: any) {
+  legalAdviseDoc.value = doc
+  showLegalAdviseDialog.value = true
+  legalReviewData.value = null
+  legalReviewLoading.value = true
+  try {
+    const res: any = await $fetch(`/api/admin/documents/${doc.id}/legal-review`, {
+      headers: getAuthHeaders(),
+    })
+    if (res.success && res.review) {
+      legalReviewData.value = { review: res.review, dateAlerts: res.dateAlerts || [] }
+      const dates = res.review.importantDates || []
+      dateAlertItems.value = dates.map((d: any) => ({ label: d.label || 'Date', date: d.date || '', enabled: true, daysBefore: 2 }))
+    } else {
+      legalReviewData.value = { review: null, dateAlerts: [] }
+    }
+  } catch {
+    legalReviewData.value = null
+  } finally {
+    legalReviewLoading.value = false
+  }
+}
+
+// Save date alerts (reminders)
+async function saveDateAlerts() {
+  if (!legalAdviseDoc.value || !dateAlertItems.value.length) return
+  const alerts = dateAlertItems.value
+    .filter((item) => item.enabled && item.date)
+    .map((item) => ({ label: item.label, dueDate: item.date, daysBefore: item.daysBefore }))
+  savingAlerts.value = true
+  try {
+    await $fetch(`/api/admin/documents/${legalAdviseDoc.value.id}/legal-review/alerts`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: { alerts },
+    })
+    showSnackbar('Date alerts set. You and super admins will receive email reminders.', 'success')
+  } catch (e: any) {
+    showSnackbar(e.data?.statusMessage || e.message || 'Failed to set alerts', 'error')
+  } finally {
+    savingAlerts.value = false
+  }
 }
 
 // File Converter
@@ -2129,5 +2381,59 @@ onMounted(async () => {
   border: 1px solid rgba(0, 0, 0, 0.08);
   min-height: 80px;
   border-radius: 8px;
+}
+
+.legal-advise-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.legal-list {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+}
+.legal-list li {
+  margin-bottom: 0.25rem;
+}
+
+/* Contract & Legal pane (editor sidebar) */
+.legal-pane {
+  padding: 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.08), rgba(25, 118, 210, 0.04));
+  border: 1px solid rgba(25, 118, 210, 0.2);
+  border-radius: 12px;
+}
+.legal-pane-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.legal-pane-icon {
+  color: rgb(var(--v-theme-primary));
+}
+.legal-pane-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+.legal-pane-copy {
+  color: rgba(0, 0, 0, 0.7);
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+.legal-pane-actions .v-btn {
+  text-transform: none;
+}
+
+/* Contract & Legal info card (dashboard) */
+.legal-info-card {
+  border: 1px solid rgba(25, 118, 210, 0.2);
+}
+.legal-info-steps {
+  flex: 1;
+  min-width: 280px;
+  opacity: 0.9;
 }
 </style>

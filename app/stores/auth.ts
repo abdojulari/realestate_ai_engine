@@ -19,7 +19,8 @@ export const useAuthStore = defineStore('auth', {
       
       return true
     },
-    isAdmin: (state) => state.user?.role === 'admin',
+    isSuperAdmin: (state) => state.user?.role === 'super_admin',
+    isAdmin: (state) => state.user?.role === 'admin' || state.user?.role === 'super_admin',
     isAgent: (state) => state.user?.role === 'agent',
     isTokenExpired: (state) => {
       if (!state.tokenExpiry) return false

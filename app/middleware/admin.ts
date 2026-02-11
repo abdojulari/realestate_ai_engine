@@ -43,8 +43,8 @@ export default defineNuxtRouteMiddleware(async (to) => {
       })
     }
 
-    // Check if user is an admin
-    if (auth.user.role !== 'admin') {
+    // Check if user is an admin or super_admin
+    if (auth.user.role !== 'admin' && auth.user.role !== 'super_admin') {
       // User exists but is not admin, redirect to home
       return navigateTo('/')
     }

@@ -1,6 +1,10 @@
 import { defineEventHandler, readBody, createError } from 'h3'
+import { requireFeature, FEATURES } from '../../utils/license'
 
 export default defineEventHandler(async (event) => {
+  // Check license for AI search feature
+  await requireFeature(FEATURES.AI_SEARCH, event)
+  
   const { query } = await readBody(event)
   
   if (!query || typeof query !== 'string') {

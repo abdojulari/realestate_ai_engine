@@ -9,14 +9,16 @@ interface Pillar9TokenResponse {
 
 interface Pillar9Property {
   ListingId: string  // Primary identifier in Matrix API
-  MlsStatus: string // 'A' = Active, 'S' = Sold, 'P' = Pending
+  ListingKeyNumeric?: number  // Used for Media API (ResourceRecordKeyNumeric)
+  MlsStatus: string // 'A' = Active, 'S' = Sold, 'P' = Pending, 'LEAS', 'W', 'X', 'T', 'I'
   PropertySubType?: string
   PropertyType?: string
   ListPrice: number | null
   ClosePrice?: number | null
   BedroomsTotal: number | null
   BathroomsTotalInteger: number | null
-  LivingArea: number | null
+  LivingArea?: number | null
+  LivingAreaSF?: number | null  // Matrix API field name
   LivingAreaUnits?: string | null
   UnparsedAddress: string
   City: string
@@ -52,12 +54,15 @@ interface Pillar9Property {
   
   // Lot Details
   LotSizeArea?: number | null
+  LotSizeAcres?: number | null  // Matrix API field name
   LotSizeDimensions?: string | null
   LotSizeUnits?: string | null
-  
+
   // Building Details
   Stories?: number | null
+  StoriesTotal?: number | null  // Matrix API field name
   BuildingAreaTotal?: number | null
+  BuildingAreaTotalSF?: number | null  // Matrix API field name
   BuildingAreaUnits?: string | null
   ArchitecturalStyle?: string[]
   FoundationDetails?: string[]
@@ -193,20 +198,33 @@ class Pillar9Service {
   }
 
   /**
-   * Make authenticated request to Matrix Web API
+   * Make authenticated request to Matrix Web API with 401 retry (token refresh)
    */
-  private async makeApiRequest<T>(query: string): Promise<T> {
-    const token = await this.getToken()
-    const url = `https://${this.apiHost}${this.apiPath}${query}`
+  private async makeApiRequest<T>(query: string, pathOverride?: string): Promise<T> {
+    const basePath = pathOverride ?? this.apiPath
+    const url = `https://${this.apiHost}${basePath}${query}`
 
-    console.log('📡 Pillar9 API Request:', url)
+    const doRequest = async (token: string): Promise<Response> => {
+      return fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json'
+        }
+      })
+    }
 
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json'
-      }
-    })
+    let token = await this.getToken()
+    let response = await doRequest(token)
+
+    // On 401, refresh token and retry once
+    if (response.status === 401) {
+      console.log('🔐 Pillar9: 401 received, refreshing token and retrying...')
+      this.accessToken = null
+      this.tokenExpiresAt = 0
+      await new Promise((r) => setTimeout(r, 1000))
+      token = await this.getToken()
+      response = await doRequest(token)
+    }
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -216,84 +234,91 @@ class Pillar9Service {
     return response.json()
   }
 
+  /** MLS status codes supported by Matrix API */
+  /** Matrix API accepts A,P,S,W,X,T,I (LEAS is not a valid enum value) */
+  static readonly MLS_STATUSES = ['A', 'P', 'S', 'W', 'X', 'T', 'I'] as const
+
+  getMlsStatuses(): readonly string[] {
+    return Pillar9Service.MLS_STATUSES
+  }
+
   /**
    * Fetch properties from Pillar9/Matrix API
-   * @param filters - Filter options including status (Active, Sold, Pending)
+   * Use cityCode (4-digit) to batch by city and avoid "too many results". When cityCode is set, no default minPrice is applied.
    */
   async getProperties(filters: {
-    status?: 'A' | 'S' | 'P' | 'all' // Active, Sold, Pending, or all
+    status?: 'A' | 'P' | 'S' | 'LEAS' | 'W' | 'X' | 'T' | 'I' | 'all'
+    /** 4-digit city code (e.g. '0046' = Calgary). When set, filter is applied in API and no default minPrice is used. */
+    cityCode?: string
     city?: string
     minPrice?: number
     maxPrice?: number
     province?: string
     limit?: number
+    skip?: number
     select?: string[]
   } = {}): Promise<Pillar9Property[]> {
     const filterConditions: string[] = []
 
-    // Handle status filter - MlsStatus: 'A' = Active, 'S' = Sold, 'P' = Pending
     if (filters.status && filters.status !== 'all') {
       filterConditions.push(`MlsStatus eq '${filters.status}'`)
     } else if (!filters.status) {
-      // Default to Active listings only
       filterConditions.push("MlsStatus eq 'A'")
     }
 
-    // Province filter (StateOrProvince)
-    if (filters.province) {
+    // Only add province filter when not filtering by city (city codes are Alberta-specific; Matrix may not support StateOrProvince in filter)
+    if (filters.province && !filters.cityCode) {
       filterConditions.push(`StateOrProvince eq '${filters.province}'`)
     }
 
-    // Note: City field in Matrix API is a CODE (e.g., "0046"), not a name (e.g., "Edmonton")
-    // City filtering by name is not supported - we would need a city code lookup table
-    // For now, we skip city filtering in the API query
+    // City filter by code (Matrix API uses codes e.g. 0046 = Calgary)
+    if (filters.cityCode) {
+      filterConditions.push(`City eq '${filters.cityCode}'`)
+    }
 
-    // Price filters - IMPORTANT: Matrix API requires restrictive filters to reduce result count
-    // The API has strict limits - even 400k returns "too many results"
-    // Default to 2M+ like the working test script, or use user-provided values
-    if (filters.minPrice) {
+    // Price filters: when cityCode is set we don't add default minPrice so we get all in that city
+    if (filters.minPrice != null) {
       filterConditions.push(`ListPrice ge ${filters.minPrice}`)
-    } else {
-      // Default to high minimum price (2M) - API requires very restrictive filters
+    } else if (!filters.cityCode) {
       filterConditions.push(`ListPrice ge 2000000`)
     }
-    if (filters.maxPrice) {
+    if (filters.maxPrice != null) {
       filterConditions.push(`ListPrice le ${filters.maxPrice}`)
     }
 
-    // Build query
     const queryParts: string[] = []
-    
     if (filterConditions.length > 0) {
       queryParts.push(`$filter=${encodeURIComponent(filterConditions.join(' and '))}`)
     }
 
-    // Limit results
-    const limit = filters.limit || 100
+    const limit = Math.min(filters.limit ?? 200, 200)
     queryParts.push(`$top=${limit}`)
-
-    // Select specific fields if provided
-    if (filters.select && filters.select.length > 0) {
-      queryParts.push(`$select=${encodeURIComponent(filters.select.join(','))}`)
+    if (filters.skip != null && filters.skip > 0) {
+      queryParts.push(`$skip=${filters.skip}`)
     }
 
-    const query = queryParts.length > 0 ? `?${queryParts.join('&')}` : ''
+    // Must match test_matrix_api.js MINIMAL_FIELDS exactly - Matrix API rejects unknown property names
+    const defaultSelect = [
+      'ListingId', 'ListingKeyNumeric', 'MlsStatus',
+      'ListPrice', 'BedroomsTotal', 'BathroomsTotalInteger',
+      'UnparsedAddress', 'City', 'PostalCode',
+      'LivingAreaSF', 'YearBuilt', 'PropertyType',
+      'ListAgentFullName', 'ListOfficeName',
+      'PhotosCount', 'DaysOnMarket', 'ModificationTimestamp'
+    ]
+    const select = filters.select?.length ? filters.select : defaultSelect
+    queryParts.push(`$select=${encodeURIComponent(select.join(','))}`)
 
+    const query = `?${queryParts.join('&')}`
     const response: Pillar9ApiResponse = await this.makeApiRequest(query)
-    
     let properties = response.value || []
-    
-    // Post-filter by city if specified (API doesn't support city filter directly)
-    if (filters.city && properties.length > 0) {
+
+    if (filters.city && !filters.cityCode && properties.length > 0) {
       const cityLower = filters.city.toLowerCase()
-      properties = properties.filter(p => 
-        p.City?.toLowerCase().includes(cityLower)
-      )
-      console.log(`📦 Pillar9: Filtered to ${properties.length} properties in ${filters.city}`)
-    } else {
-      console.log(`📦 Pillar9: Retrieved ${properties.length} properties`)
+      properties = properties.filter(p => p.City?.toLowerCase().includes(cityLower))
     }
-    
+
+    console.log(`📦 Pillar9: Retrieved ${properties.length} properties`)
     return properties
   }
 
@@ -313,30 +338,33 @@ class Pillar9Service {
   }
 
   /**
-   * Fetch property images/media
+   * Fetch property images/media from Matrix Media endpoint (ResourceRecordKeyNumeric = ListingKeyNumeric)
    */
-  async getPropertyMedia(listingKey: string): Promise<string[]> {
+  async getPropertyMedia(listingKeyNumeric: number | string): Promise<string[]> {
     try {
-      // Matrix API typically includes media in property response or has separate endpoint
-      const query = `('${listingKey}')/Media`
-      const response: any = await this.makeApiRequest(query)
-      
-      if (response.value && Array.isArray(response.value)) {
-        return response.value
-          .filter((m: any) => m.MediaURL)
-          .sort((a: any, b: any) => (a.Order || 0) - (b.Order || 0))
-          .map((m: any) => m.MediaURL)
-      }
-      
-      return []
+      const filter = `ResourceRecordKeyNumeric eq ${listingKeyNumeric}`
+      const query = `?$filter=${encodeURIComponent(filter)}`
+      const response: any = await this.makeApiRequest(query, '/MatrixWebAPI/local/Media')
+      const list = response.value || []
+      const urls = list
+        .slice(0, 30)
+        .sort((a: any, b: any) => (a.Order ?? 0) - (b.Order ?? 0))
+        .map((m: any) => {
+          const paths = m.MediaPath as Array<{ MediaSize?: number; MediaUrl?: string }> | undefined
+          if (!paths?.length) return null
+          const preferred = paths.find((p: any) => p.MediaSize === 3 || p.MediaSize === 7)?.MediaUrl ?? paths[0]?.MediaUrl
+          return preferred
+        })
+        .filter(Boolean)
+      return urls
     } catch (error) {
-      console.warn(`⚠️ Failed to fetch media for property ${listingKey}:`, error)
+      console.warn(`⚠️ Pillar9: Failed to fetch media for listing ${listingKeyNumeric}:`, (error as Error).message)
       return []
     }
   }
 
   /**
-   * Map Pillar9 status to local status
+   * Map Pillar9/Matrix MlsStatus to local status (all statuses captured)
    */
   private mapStatus(mlsStatus: string): string {
     switch (mlsStatus?.toUpperCase()) {
@@ -349,6 +377,21 @@ class Pillar9Service {
       case 'P':
       case 'PENDING':
         return 'pending'
+      case 'LEAS':
+      case 'LEASED':
+        return 'leased'
+      case 'W':
+      case 'WITHDRAWN':
+        return 'withdrawn'
+      case 'X':
+      case 'EXPIRED':
+        return 'expired'
+      case 'T':
+      case 'TERMINATED':
+        return 'terminated'
+      case 'I':
+      case 'INCOMPLETE':
+        return 'incomplete'
       default:
         return 'for_sale'
     }
@@ -394,7 +437,8 @@ class Pillar9Service {
     
     // Skip properties with no bedrooms and no living area (likely commercial)
     const hasNoBedrooms = !p9Prop.BedroomsTotal || p9Prop.BedroomsTotal === 0
-    const hasNoLivingArea = !p9Prop.LivingArea || p9Prop.LivingArea === 0
+    const livingArea = p9Prop.LivingAreaSF ?? p9Prop.LivingArea
+    const hasNoLivingArea = !livingArea || livingArea === 0
     
     if (hasNoBedrooms && hasNoLivingArea && type === 'house') {
       console.log(`🏢 Pillar9: Skipping likely commercial property: ${p9Prop.ListingId}`)
@@ -418,16 +462,16 @@ class Pillar9Service {
       yearBuilt: p9Prop.YearBuilt,
       parking: p9Prop.ParkingTotal,
       garageSpaces: p9Prop.GarageSpaces,
-      lotSizeArea: p9Prop.LotSizeArea,
+      lotSizeArea: p9Prop.LotSizeAcres ?? p9Prop.LotSizeArea,
       lotSizeDimensions: p9Prop.LotSizeDimensions,
       lotSizeUnits: p9Prop.LotSizeUnits,
-      stories: p9Prop.Stories,
+      stories: p9Prop.StoriesTotal ?? p9Prop.Stories,
       architecturalStyle: p9Prop.ArchitecturalStyle || [],
       basement: p9Prop.Basement || [],
       foundationDetails: p9Prop.FoundationDetails || [],
       roof: p9Prop.Roof || [],
       constructionMaterials: p9Prop.ConstructionMaterials || [],
-      buildingAreaTotal: p9Prop.BuildingAreaTotal,
+      buildingAreaTotal: p9Prop.BuildingAreaTotalSF ?? p9Prop.BuildingAreaTotal,
       buildingAreaUnits: p9Prop.BuildingAreaUnits,
       utilities: p9Prop.Utilities || [],
       waterSource: p9Prop.WaterSource || [],
@@ -457,12 +501,12 @@ class Pillar9Service {
       price,
       beds: p9Prop.BedroomsTotal || 0,
       baths: p9Prop.BathroomsTotalInteger || 0,
-      sqft: p9Prop.LivingArea || 0,
+      sqft: (p9Prop.LivingAreaSF ?? p9Prop.LivingArea) || 0,
       type,
       status,
       address: p9Prop.UnparsedAddress,
       city: p9Prop.City,
-      province: p9Prop.StateOrProvince,
+      province: p9Prop.StateOrProvince || 'AB',
       postalCode: p9Prop.PostalCode || '',
       latitude: p9Prop.Latitude || null,
       longitude: p9Prop.Longitude || null,
@@ -471,14 +515,14 @@ class Pillar9Service {
       views: 0,
       userId: null as any,
       source: 'pillar9' as const,
-      externalId: p9Prop.ListingId,
+      externalId: (p9Prop.ListingKeyNumeric != null ? String(p9Prop.ListingKeyNumeric) : null) ?? p9Prop.ListingId,
       mlsNumber: p9Prop.ListingId,
       
       // Enhanced fields
-      lotSizeArea: p9Prop.LotSizeArea || null,
-      lotSizeDimensions: p9Prop.LotSizeDimensions || null,
-      lotSizeUnits: p9Prop.LotSizeUnits || null,
-      stories: p9Prop.Stories || null,
+      lotSizeArea: (p9Prop.LotSizeAcres ?? p9Prop.LotSizeArea) ?? null,
+      lotSizeDimensions: p9Prop.LotSizeDimensions ?? null,
+      lotSizeUnits: p9Prop.LotSizeUnits ?? null,
+      stories: (p9Prop.StoriesTotal ?? p9Prop.Stories) ?? null,
       yearBuilt: p9Prop.YearBuilt || null,
       streetName: p9Prop.StreetName || null,
       streetNumber: p9Prop.StreetNumber || null,
@@ -509,6 +553,35 @@ class Pillar9Service {
       coListingAgentsData: [],
       coListingOfficesData: [],
     }
+  }
+
+  /**
+   * Alberta city codes (Matrix API) for batch sync - avoids "too many results"
+   */
+  getAlbertaCityCodes(): string[] {
+    return [
+      '0046', '0047', '0100', '0102', '0114', '0134', '0141', '0264', '0265', '0380',
+      '0150', '0152', '0154', '0156', '0159', '0161', '0165', '0167', '0170', '0172',
+      '0201', '0203', '0205', '0125', '0145', '0168', '0182', '0184', '0187', '0190',
+      '0192', '0195', '0197', '0199', '0200', '0202', '0204', '0206', '0208', '0210',
+      '0212', '0214', '0216', '0218', '0220', '0222', '0224', '0226', '0228', '0230',
+      '0232', '0234', '0236', '0238', '0240', '0242', '0244', '0246', '0248', '0250',
+      '0252', '0254', '0256', '0258', '0300', '0302', '0304', '0306', '0308', '0310',
+      '0312', '0314', '0316', '0318', '0320', '0322', '0324', '0326', '0328', '0330',
+      '0332', '0334', '0336', '0338', '0340', '0342', '0344', '0346', '0348', '0350',
+      '0352', '0354', '0356', '0358', '0360', '0362', '0364', '0366', '0368', '0370',
+      '0372', '0374', '0376', '0378', '0381', '0383', '0385', '0387', '0389', '0391',
+      '0393', '0395', '0397', '0399', '0401', '0403', '0405', '0407', '0409', '0411',
+      '0413', '0415', '0417', '0419', '0421', '0423', '0425', '0427', '0429', '0431',
+      '0433', '0435', '0437', '0439', '0441', '0443', '0445', '0447', '0449', '0451',
+      '0453', '0455', '0457', '0459', '0461', '0463', '0465', '0467', '0469', '0471',
+      '0473', '0475', '0477', '0479', '0481', '0483', '0485', '0487', '0489', '0491',
+      '0493', '0495', '0497', '0499', '0501', '0503', '0505', '0507', '0509', '0511',
+      '0513', '0515', '0517', '0519', '0521', '0523', '0525', '0527', '0529', '0531',
+      '0533', '0535', '0537', '0539', '0541', '0543', '0545', '0547', '0549', '0551',
+      '0553', '0555', '0557', '0559', '0561', '0563', '0565', '0567', '0569', '0571',
+      '0573', '0575', '0577', '0579', '0581', '0583', '0585', '0587', '0589', '0591'
+    ]
   }
 
   /**

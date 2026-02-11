@@ -10,6 +10,7 @@
 import { defineEventHandler, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../utils/auth'
+import { requireFeature, FEATURES } from '../../utils/license'
 import { aggregateMonthlyMetrics, prepareTrainingData } from '../../ml/dataPrep'
 import { trainModel, saveModel, DEFAULT_CONFIG } from '../../ml/model'
 import type { RawPropertyData } from '../../ml/dataPrep'
@@ -19,6 +20,9 @@ const prisma = new PrismaClient()
 export default defineEventHandler(async (event) => {
   // Only admins can train the model
   await requireAdmin(event)
+  
+  // Check license for ML training feature
+  await requireFeature(FEATURES.ML_TRAINING, event)
   
   console.log('[ML API] Starting model training...')
   

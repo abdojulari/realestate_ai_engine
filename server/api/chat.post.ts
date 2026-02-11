@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { realEstateFaqs, type FAQ } from '../data/realEstateFaqs'
+import { requireFeature, FEATURES } from '../utils/license'
 
 const prisma = new PrismaClient()
 
@@ -28,6 +29,9 @@ const CITY_ALIASES: Array<{ name: string; aliases: string[] }> = [
 ]
 
 export default defineEventHandler(async (event) => {
+  // Check license for chatbot feature
+  await requireFeature(FEATURES.CHATBOT, event)
+  
   const body = await readBody(event)
   const message = typeof body?.message === 'string' ? body.message.trim() : ''
 

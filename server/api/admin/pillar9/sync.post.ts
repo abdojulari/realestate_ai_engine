@@ -1,15 +1,74 @@
-import { defineEventHandler, readBody, createError } from 'h3'
+import { defineEventHandler, readBody, createError, getHeader } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { pillar9Service } from '../../../utils/pillar9.service'
 import { requireAdmin } from '../../../utils/auth'
 
 const prisma = new PrismaClient()
 
-export default defineEventHandler(async (event) => {
-  // Verify admin access
+/** Allow request if sync secret is configured and provided (for cron). Otherwise require admin. */
+async function requireAdminOrSyncSecret(event: any) {
+  const config = useRuntimeConfig()
+  const secret = config.pillar9SyncSecret as string | undefined
+  if (secret && secret.length > 0) {
+    const keyHeader = getHeader(event, 'x-pillar9-sync-key')
+    const authHeader = getHeader(event, 'authorization')
+    const provided = keyHeader ?? (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null)
+    if (provided === secret) return
+  }
   await requireAdmin(event)
+}
 
-  // Initialize service with runtime config
+const BATCH_LIMIT = 200
+const DELAY_BETWEEN_BATCHES_MS = 2500
+const DELAY_BETWEEN_MEDIA_MS = 350
+const MAX_RETRIES_ON_401 = 3
+/** Retry 429 until success so we never record rate-limit as error. */
+const MAX_RETRIES_ON_429 = 30
+const DELAY_ON_429_BASE_MS = 10000
+const MAX_MEDIA_RETRIES_ON_429 = 6
+const DELAY_MEDIA_429_MS = 5000
+
+/** Fetch media with retry on 429; returns [] on final failure (no error thrown). */
+async function getPropertyMediaWithRetry(
+  listingKeyNumeric: number,
+  delayFn: (ms: number) => Promise<void>
+): Promise<string[]> {
+  let lastErr: Error | null = null
+  for (let r = 0; r <= MAX_MEDIA_RETRIES_ON_429; r++) {
+    try {
+      return await pillar9Service.getPropertyMedia(listingKeyNumeric)
+    } catch (e: any) {
+      lastErr = e
+      const msg = e?.message ?? String(e)
+      if (msg.includes('429') && r < MAX_MEDIA_RETRIES_ON_429) {
+        const wait = DELAY_MEDIA_429_MS * (r + 1)
+        await delayFn(wait)
+        continue
+      }
+      break
+    }
+  }
+  return []
+}
+
+/** Map MLS status code to stats key */
+function statusToKey(s: string): string {
+  const map: Record<string, string> = {
+    A: 'active',
+    P: 'pending',
+    S: 'sold',
+    LEAS: 'leased',
+    W: 'withdrawn',
+    X: 'expired',
+    T: 'terminated',
+    I: 'incomplete'
+  }
+  return map[s] ?? 'other'
+}
+
+export default defineEventHandler(async (event) => {
+  await requireAdminOrSyncSecret(event)
+
   const config = useRuntimeConfig()
   pillar9Service.initConfig({
     clientId: config.pillar9ClientId,
@@ -18,16 +77,25 @@ export default defineEventHandler(async (event) => {
     apiHost: config.pillar9ApiHost
   })
 
-  const body = await readBody(event)
-  const { 
+  const body = await readBody(event).catch(() => ({}))
+  const {
     filters = {},
     syncSold = false,
     syncPending = false,
-    deduplicateWithCrea = true
+    /** Sync all MLS statuses (A,P,S,LEAS,W,X,T,I). Default true for full data. */
+    syncAllStatuses = true,
+    /** Override: only sync these statuses. Ignored if syncAllStatuses is true. */
+    syncStatuses = [] as string[],
+    deduplicateWithCrea = true,
+    /** Fetch images from Media API when not on property. Slower but complete. */
+    includeMedia = true,
+    /** City codes to sync (e.g. ['0046','0047']). Empty = all Alberta cities. */
+    cityCodes = [] as string[],
+    /** Delay (ms) between API batches. Default 2500 to avoid 429. */
+    delayBetweenBatchesMs = DELAY_BETWEEN_BATCHES_MS
   } = body
 
   try {
-    // Check if Pillar9 is configured
     const configStatus = pillar9Service.getConfigStatus()
     if (!configStatus.configured) {
       throw createError({
@@ -36,7 +104,16 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    console.log('🏠 Starting Pillar9 property sync...', { filters, syncSold, syncPending })
+    const statusesToSync: string[] = syncAllStatuses
+      ? [...pillar9Service.getMlsStatuses()]
+      : ['A', ...(syncSold ? ['S'] : []), ...(syncPending ? ['P'] : []), ...syncStatuses]
+
+    const citiesToSync = cityCodes.length > 0 ? cityCodes : pillar9Service.getAlbertaCityCodes()
+
+    const byStatus: Record<string, { created: number; updated: number }> = {}
+    for (const s of statusesToSync) {
+      byStatus[statusToKey(s)] = { created: 0, updated: 0 }
+    }
 
     let syncStats = {
       total: 0,
@@ -46,131 +123,175 @@ export default defineEventHandler(async (event) => {
       duplicates: 0,
       errors: 0,
       errorDetails: [] as string[],
-      byStatus: {
-        active: { created: 0, updated: 0 },
-        sold: { created: 0, updated: 0 },
-        pending: { created: 0, updated: 0 }
-      }
+      byStatus
     }
 
-    // Define statuses to sync
-    const statusesToSync: Array<'A' | 'S' | 'P'> = ['A'] // Always sync active
-    if (syncSold) statusesToSync.push('S')
-    if (syncPending) statusesToSync.push('P')
+    console.log('🏠 Starting Pillar9 property sync (city-code batching)...', {
+      statuses: statusesToSync,
+      cities: citiesToSync.length,
+      includeMedia,
+      deduplicateWithCrea
+    })
 
-    // Fetch and process properties for each status
-    for (const status of statusesToSync) {
-      const statusName = status === 'A' ? 'Active' : status === 'S' ? 'Sold' : 'Pending'
-      console.log(`\n📊 Fetching ${statusName} properties from Pillar9...`)
+    const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
-      try {
-        const properties = await pillar9Service.getProperties({
-          status,
-          city: filters.city,
-          minPrice: filters.minPrice,
-          maxPrice: filters.maxPrice,
-          province: filters.province || 'AB', // Default to Alberta
-          limit: filters.limit || 100
-        })
+    for (const cityCode of citiesToSync) {
+      for (const status of statusesToSync) {
+        let skip = 0
+        let hasMore = true
 
-        console.log(`📦 Found ${properties.length} ${statusName} properties`)
-        syncStats.total += properties.length
+        while (hasMore) {
+          let retries401 = 0
+          let retries429 = 0
+          let success = false
+          let properties: Awaited<ReturnType<typeof pillar9Service.getProperties>> = []
 
-        // Process each property
-        for (const p9Prop of properties) {
-          try {
-            const transformedProperty = pillar9Service.transformToLocalProperty(p9Prop)
-            
-            // Skip if transformer returned null (likely commercial)
-            if (!transformedProperty) {
-              console.log(`🏢 Skipping property ${p9Prop.ListingId} - filtered out (likely commercial)`)
-              syncStats.skipped++
-              continue
-            }
-
-            // Check for duplicates with CREA if enabled
-            if (deduplicateWithCrea && transformedProperty.mlsNumber) {
-              const existingCrea = await prisma.property.findFirst({
-                where: {
-                  source: 'crea',
-                  mlsNumber: transformedProperty.mlsNumber
-                }
+          while (!success) {
+            try {
+              properties = await pillar9Service.getProperties({
+                status: status as 'A' | 'P' | 'S' | 'LEAS' | 'W' | 'X' | 'T' | 'I',
+                cityCode,
+                province: filters.province || 'AB',
+                limit: BATCH_LIMIT,
+                skip,
+                minPrice: filters.minPrice,
+                maxPrice: filters.maxPrice
               })
-
-              if (existingCrea) {
-                console.log(`🔄 Duplicate found in CREA: ${transformedProperty.mlsNumber} - skipping`)
-                syncStats.duplicates++
-                continue
+              success = true
+            } catch (batchError: any) {
+              const msg = batchError?.message ?? String(batchError)
+              if (msg.includes('401') && retries401 < MAX_RETRIES_ON_401) {
+                retries401++
+                console.log(`🔐 Pillar9: 401 on batch, retry ${retries401}/${MAX_RETRIES_ON_401}...`)
+                await delay(1000)
+              } else if (msg.includes('429') && retries429 < MAX_RETRIES_ON_429) {
+                retries429++
+                const backoffMs = Math.min(DELAY_ON_429_BASE_MS * retries429, 120000)
+                console.log(`⏳ Pillar9: 429 rate limit, waiting ${backoffMs / 1000}s then retry ${retries429}/${MAX_RETRIES_ON_429}...`)
+                await delay(backoffMs)
+              } else {
+                console.error(`❌ Batch error city=${cityCode} status=${status} skip=${skip}:`, msg)
+                syncStats.errors++
+                syncStats.errorDetails.push(`Batch city ${cityCode} status ${status}: ${msg}`)
+                hasMore = false
+                break
               }
             }
+          }
 
-            // Remove relation fields that shouldn't be in the create/update data
-            const { user, agent, isSaved, ...propertyData } = transformedProperty as any
+          if (!success || properties.length === 0) {
+              hasMore = false
+              break
+            }
 
-            // Check if property already exists in Pillar9 source
-            const existingProperty = await prisma.property.findFirst({
-              where: {
-                source: 'pillar9',
-                externalId: p9Prop.ListingKey
-              }
-            })
+            syncStats.total += properties.length
 
-            const statusKey = status === 'A' ? 'active' : status === 'S' ? 'sold' : 'pending'
+            for (const p9Prop of properties) {
+              try {
+                let transformedProperty = pillar9Service.transformToLocalProperty(p9Prop)
+                if (!transformedProperty) {
+                  syncStats.skipped++
+                  continue
+                }
 
-            if (existingProperty) {
-              // Update existing property
-              await prisma.property.update({
-                where: { id: existingProperty.id },
-                data: {
+                if (deduplicateWithCrea && transformedProperty.mlsNumber) {
+                  const existingCrea = await prisma.property.findFirst({
+                    where: {
+                      source: 'crea',
+                      mlsNumber: transformedProperty.mlsNumber
+                    }
+                  })
+                  if (existingCrea) {
+                    syncStats.duplicates++
+                    continue
+                  }
+                }
+
+                if (includeMedia && (!transformedProperty.images || (transformedProperty.images as string[]).length === 0) && p9Prop.ListingKeyNumeric != null) {
+                  const mediaUrls = await getPropertyMediaWithRetry(p9Prop.ListingKeyNumeric, delay)
+                  if (mediaUrls.length > 0) {
+                    transformedProperty = { ...transformedProperty, images: mediaUrls }
+                  }
+                  await delay(DELAY_BETWEEN_MEDIA_MS)
+                }
+
+                const { user, agent, isSaved, ...propertyData } = transformedProperty as any
+                const externalId = p9Prop.ListingKeyNumeric != null ? String(p9Prop.ListingKeyNumeric) : p9Prop.ListingId
+
+                const existingProperty = await prisma.property.findFirst({
+                  where: {
+                    source: 'pillar9',
+                    externalId
+                  }
+                })
+
+                const statusKey = statusToKey(status)
+                const data = {
                   ...propertyData,
                   lastSyncAt: new Date(),
-                  // Preserve local data
-                  views: existingProperty.views,
-                  createdAt: existingProperty.createdAt
+                  ...(existingProperty
+                    ? { views: existingProperty.views, createdAt: existingProperty.createdAt }
+                    : {})
                 }
-              })
-              syncStats.updated++
-              syncStats.byStatus[statusKey].updated++
-            } else {
-              // Create new property
-              await prisma.property.create({
-                data: {
-                  ...propertyData,
-                  lastSyncAt: new Date()
+
+                let saved = false
+                for (let attempt = 1; attempt <= 2 && !saved; attempt++) {
+                  try {
+                    if (existingProperty) {
+                      await prisma.property.update({
+                        where: { id: existingProperty.id },
+                        data
+                      })
+                      syncStats.updated++
+                      if (syncStats.byStatus[statusKey]) {
+                        syncStats.byStatus[statusKey].updated++
+                      }
+                    } else {
+                      await prisma.property.create({
+                        data: { ...propertyData, lastSyncAt: new Date() }
+                      })
+                      syncStats.created++
+                      if (syncStats.byStatus[statusKey]) {
+                        syncStats.byStatus[statusKey].created++
+                      }
+                    }
+                    saved = true
+                  } catch (saveError: any) {
+                    if (attempt === 1) {
+                      await delay(1000)
+                    } else {
+                      syncStats.errors++
+                      syncStats.errorDetails.push(`Property ${p9Prop.ListingId}: ${saveError.message}`)
+                    }
+                  }
                 }
-              })
-              syncStats.created++
-              syncStats.byStatus[statusKey].created++
+              } catch (propError: any) {
+                syncStats.errors++
+                syncStats.errorDetails.push(`Property ${p9Prop.ListingId}: ${propError.message}`)
+              }
             }
-          } catch (propError: any) {
-            console.error(`❌ Error processing property ${p9Prop.ListingId}:`, propError.message)
-            syncStats.errors++
-            syncStats.errorDetails.push(`Property ${p9Prop.ListingId}: ${propError.message}`)
+
+          if (properties.length < BATCH_LIMIT) {
+            hasMore = false
+          } else {
+            skip += BATCH_LIMIT
           }
+
+          await delay(delayBetweenBatchesMs)
         }
-      } catch (statusError: any) {
-        console.error(`❌ Error fetching ${statusName} properties:`, statusError.message)
-        syncStats.errors++
-        syncStats.errorDetails.push(`${statusName} fetch failed: ${statusError.message}`)
       }
     }
 
-    // Mark stale Pillar9 properties as inactive (properties not updated in 7 days)
     const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const staleProperties = await prisma.property.updateMany({
       where: {
         source: 'pillar9',
-        lastSyncAt: {
-          lt: cutoffDate
-        },
+        lastSyncAt: { lt: cutoffDate },
         status: 'for_sale'
       },
-      data: {
-        status: 'sold'
-      }
+      data: { status: 'sold' }
     })
 
-    // Save sync timestamp to settings
     await prisma.setting.upsert({
       where: { key: 'pillar9_last_sync' },
       update: { value: new Date().toISOString() },

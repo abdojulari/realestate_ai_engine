@@ -15,7 +15,7 @@ model User {
   lastName             String
   phone                String?
   preferredContactTime String?
-  role                 String            @default("user")
+  role                 String            @default("user") // super_admin, admin, user
   provider             String?
   providerId           String?
   createdAt            DateTime          @default(now())
@@ -36,6 +36,17 @@ model User {
   twoFactorCodeExpiry  DateTime?
   twoFactorEnabled     Boolean           @default(false)
   twoFactorSecret      String?
+  
+  // Subscription tier for admins (basic, silver, gold, platinum)
+  // Only applicable when role is "admin"
+  subscriptionTier     String?
+  
+  // Admin relationship - users belong to an admin
+  // When a user signs up under an admin's domain, they are linked here
+  adminId              Int?
+  admin                User?             @relation("AdminUsers", fields: [adminId], references: [id])
+  users                User[]            @relation("AdminUsers")
+  
   activityLogs         ActivityLog[]
   documents            Document[]
   homeEstimates        HomeEstimate[]
@@ -48,6 +59,8 @@ model User {
   signatures           Signature[]
   viewingRequests      ViewingRequest[]
   blogPosts            BlogPost[]
+  
+  @@index([adminId])
 }
 
 model Property {
@@ -337,9 +350,42 @@ model Document {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  legalReview      DocumentLegalReview?
+  dateAlerts       DocumentDateAlert[]
 
   @@index([userId, createdAt])
   @@index([status])
+}
+
+model DocumentLegalReview {
+  id                Int      @id @default(autoincrement())
+  documentId        Int      @unique
+  redFlags          Json     // string[]
+  importantNotes    Json     // string[]
+  importantDates    Json     // { label: string, date: string (ISO), context?: string }[]
+  legalSummary      String   @db.Text
+  buyerImpact       String   @db.Text
+  sellerImpact      String   @db.Text
+  partyRepresenting String?  // 'buyer' | 'seller'
+  reviewedAt        DateTime @default(now())
+  createdAt         DateTime @default(now())
+  document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+}
+
+model DocumentDateAlert {
+  id          Int       @id @default(autoincrement())
+  documentId  Int
+  label       String
+  dueDate     DateTime
+  daysBefore  Int       @default(2)
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@index([dueDate, sentAt])
 }
 
 model Signature {

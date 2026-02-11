@@ -26,10 +26,25 @@ export default defineNuxtConfig({
   build: {
     transpile: ['leaflet', '@vue-leaflet/vue-leaflet', 'vuetify', 'vue-echarts', 'echarts']
   },
+  routeRules: {
+    '/admin/documents': { ssr: false },
+  },
+  nitro: {
+    // Prevent 413 Payload Too Large on POST requests (default limit can be low)
+    bodyLimit: '50mb',
+  },
   vite: {
     optimizeDeps: {
-      include: ['echarts', 'vue-echarts']
-    }
+      include: [
+        'echarts',
+        'vue-echarts',
+        'pdf-lib',
+        'pdfjs-dist',
+        'mammoth',
+        'signature_pad',
+        'tesseract.js',
+      ],
+    },
   },
   
   typescript: {
@@ -136,6 +151,8 @@ export default defineNuxtConfig({
     pillar9ClientSecret: process.env.PILLAR9_CLIENT_SECRET || '',
     pillar9TokenHost: process.env.PILLAR9_TOKEN_HOST || 'pillarnine.clareityiam.net',
     pillar9ApiHost: process.env.PILLAR9_API_HOST || 'abrls.matrixwebapi.com',
+    /** Secret for cron/unauthenticated sync (e.g. PILLAR9_SYNC_SECRET or CRON_SECRET). If set, POST with X-Pillar9-Sync-Key or Bearer token bypasses admin auth. */
+    pillar9SyncSecret: process.env.PILLAR9_SYNC_SECRET || process.env.CRON_SECRET || '',
   },
   alias: {
     '~': '/Users/abdul.ojulari/Frontends/suhani/app',

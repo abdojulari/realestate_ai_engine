@@ -55,7 +55,7 @@ export async function requireAuth(event: any) {
 export async function requireAdmin(event: any) {
   const user = await requireAuth(event)
   
-  if (user.role !== 'admin') {
+  if (user.role !== 'admin' && user.role !== 'super_admin') {
     throw createError({
       statusCode: 403,
       statusMessage: 'Admin access required'
@@ -63,4 +63,11 @@ export async function requireAdmin(event: any) {
   }
   
   return user
+}
+
+/**
+ * Check if a user has admin privileges (admin or super_admin)
+ */
+export function isAdminRole(role: string): boolean {
+  return role === 'admin' || role === 'super_admin'
 }

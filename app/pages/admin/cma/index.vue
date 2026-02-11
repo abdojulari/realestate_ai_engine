@@ -1,12 +1,13 @@
 <template>
-  <v-container fluid class="pa-6">
-    <v-row class="mb-6">
-      <v-col cols="12" md="8">
-        <h1 class="text-h4 font-weight-bold">CMA - Sold Comparables</h1>
-        <p class="text-subtitle-2 text-medium-emphasis">
-          Filter sold listings and compare against subject properties.
-        </p>
-      </v-col>
+  <FeatureGate :feature="FEATURES.CMA" :show-upgrade-prompt="true">
+    <v-container fluid class="pa-6">
+      <v-row class="mb-6">
+        <v-col cols="12" md="8">
+          <h1 class="text-h4 font-weight-bold">CMA - Sold Comparables</h1>
+          <p class="text-subtitle-2 text-medium-emphasis">
+            Filter sold listings and compare against subject properties.
+          </p>
+        </v-col>
       <v-col cols="12" md="4" class="d-flex justify-end align-center">
         <v-btn
           v-if="comparables.length > 0"
@@ -116,24 +117,27 @@
         </v-card>
       </v-col>
 
-      <v-col cols="12" lg="8">
-        <v-card class="pa-4 mb-6" elevation="0">
+      <v-col cols="12" lg="8" class="cma-tables-col">
+        <v-card class="pa-4 mb-6 cma-sold-card" elevation="0">
           <div class="d-flex align-center justify-space-between mb-4">
             <div class="text-subtitle-1 font-weight-bold">Sold Properties</div>
             <div class="text-caption text-medium-emphasis">
               {{ soldPagination.total }} total
             </div>
           </div>
-          <v-data-table
-            :headers="soldHeaders"
-            :items="soldProperties"
-            :loading="loadingSold"
-            :items-per-page="soldPagination.limit"
-            :page="soldPagination.page"
-            :items-length="soldPagination.total"
-            class="elevation-0"
-            @update:page="updateSoldPage"
-          >
+          <div class="cma-data-table-wrapper">
+            <v-data-table
+              :headers="soldHeaders"
+              :items="soldProperties"
+              :loading="loadingSold"
+              :items-per-page="soldPagination.limit"
+              :page="soldPagination.page"
+              :items-length="soldPagination.total"
+              class="elevation-0 cma-sold-table"
+              height="400"
+              fixed-header
+              @update:page="updateSoldPage"
+            >
             <template #item.price="{ item }">
               ${{ formatCurrency(item.price) }}
             </template>
@@ -149,6 +153,7 @@
               </div>
             </template>
           </v-data-table>
+          </div>
         </v-card>
 
         <!-- Valuation Summary Card -->
@@ -310,11 +315,14 @@
       {{ snackbar.message }}
     </v-snackbar>
   </v-container>
+  </FeatureGate>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { api } from '~/utils/api'
+import FeatureGate from '~/components/FeatureGate.vue'
+import { FEATURES } from '~/composables/useLicense'
 
 definePageMeta({
   layout: 'admin',
@@ -674,5 +682,20 @@ onMounted(async () => {
 
 ul {
   list-style-type: disc;
+}
+
+/* CMA layout: prevent right-side cutoff and ensure table scrolls properly */
+.cma-tables-col {
+  min-width: 0; /* Allow flex shrink; prevents overflow from pushing content */
+  overflow: visible;
+}
+
+.cma-data-table-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.cma-sold-table {
+  min-width: 600px;
 }
 </style>

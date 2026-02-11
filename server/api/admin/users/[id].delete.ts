@@ -49,10 +49,18 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Prevent deletion of super_admin users
+  if (userToDelete.role === 'super_admin') {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'Cannot delete super admin users'
+    })
+  }
+
   // Optional: Prevent deletion of the last admin user
   if (userToDelete.role === 'admin') {
     const adminCount = await prisma.user.count({
-      where: { role: 'admin' }
+      where: { role: { in: ['admin', 'super_admin'] } }
     })
     
     if (adminCount <= 1) {

@@ -201,7 +201,7 @@
     </v-app-bar>
 
     <!-- Main Content -->
-    <v-main>
+    <v-main class="admin-main-content">
       <slot />
     </v-main>
 
@@ -274,6 +274,7 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
+import { useLicense, FEATURES } from '~/composables/useLicense'
 import { formatTime } from '../../utils/formatters'
 import { useRouter, useRoute } from 'vue-router'
 // @ts-ignore
@@ -283,6 +284,19 @@ import { api } from '~/utils/api'
 const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
+
+// License-based feature access
+const { 
+  fetchLicense, 
+  hasFeature, 
+  currentTier, 
+  tierDisplayName,
+  canUseCMA,
+  canUseForecast,
+  canUseNewsletter,
+  canUseCREASync,
+  canUsePillar9Sync
+} = useLicense()
 
 // State
 const drawer = ref(true)
@@ -303,25 +317,53 @@ const user = ref<any>({
 const notifications = ref<any[]>([])
 
 // Navigation menu items (badge is dynamic for Users)
+// Items are filtered based on license tier
 const userBadge = ref<number | undefined>(undefined)
 const crmBadge = ref<number | undefined>(undefined)
-const menuItems = computed(() => [
-  { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/admin' },
-  { title: 'Site', icon: 'mdi-home', to: '/' },
-  { title: 'Site Management', icon: 'mdi-palette', to: '/admin/site-management' },
-  { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', badge: userBadge.value ? String(userBadge.value) : undefined },
-  { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/users?crm=1', badge: crmBadge.value ? String(crmBadge.value) : undefined },
-  { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties' },
-  { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog' },
-  { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma' },
-  { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync' },
-  { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync' },
-  { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter' },
-  { title: 'Content', icon: 'mdi-file-document', to: '/admin/content' },
-  { title: 'Documents', icon: 'mdi-file-document', to: '/admin/documents' },
-  { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports' },
- 
-])
+
+// All menu items with license requirements
+const allMenuItems = [
+  { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/admin', requiresFeature: null },
+  { title: 'Site', icon: 'mdi-home', to: '/', requiresFeature: null },
+  { title: 'Site Management', icon: 'mdi-palette', to: '/admin/site-management', requiresFeature: null },
+  { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', requiresFeature: null, getBadge: () => userBadge.value },
+  { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/users?crm=1', requiresFeature: null, getBadge: () => crmBadge.value },
+  { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties', requiresFeature: null },
+  { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null },
+  { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma', requiresFeature: FEATURES.CMA, tier: 'silver' },
+  { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync', requiresFeature: FEATURES.CREA_SYNC, tier: 'platinum' },
+  { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync', requiresFeature: FEATURES.PILLAR9_SYNC, tier: 'platinum' },
+  { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter', requiresFeature: FEATURES.NEWSLETTER, tier: 'basic' },
+  { title: 'Content', icon: 'mdi-file-document', to: '/admin/content', requiresFeature: null },
+  { title: 'Documents', icon: 'mdi-file-document', to: '/admin/documents', requiresFeature: null },
+  { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports', requiresFeature: FEATURES.FORECAST, tier: 'platinum' },
+]
+
+// Filter menu items based on license
+const menuItems = computed(() => {
+  // Super admin always sees all menu items
+  if (auth.user?.role === 'super_admin') {
+    return allMenuItems.map(item => ({
+      title: item.title,
+      icon: item.icon,
+      to: item.to,
+      badge: item.getBadge ? (item.getBadge() ? String(item.getBadge()) : undefined) : undefined
+    }))
+  }
+  return allMenuItems
+    .filter(item => {
+      // Always show items without feature requirements
+      if (!item.requiresFeature) return true
+      // Check if user has the required feature
+      return hasFeature(item.requiresFeature as any)
+    })
+    .map(item => ({
+      title: item.title,
+      icon: item.icon,
+      to: item.to,
+      badge: item.getBadge ? (item.getBadge() ? String(item.getBadge()) : undefined) : undefined
+    }))
+})
 
 // Computed
 const currentPageTitle = computed(() => {
@@ -457,6 +499,12 @@ onMounted(async () => {
 
 .user-menu-list .v-list-item--active {
   background-color: rgba(var(--v-theme-primary), 0.12);
+}
+
+/* Ensure main content area uses full width and scrolls; prevents right-side cutoff */
+.admin-main-content {
+  overflow-x: auto;
+  min-width: 0;
 }
 
 /* Avatar placeholder with gradient */

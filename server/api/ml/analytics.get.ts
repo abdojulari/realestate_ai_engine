@@ -10,6 +10,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../utils/auth'
+import { requireFeature, FEATURES } from '../../utils/license'
 import { calculateAnalytics } from '../../ml/analytics'
 import type { RawPropertyData } from '../../ml/dataPrep'
 
@@ -24,6 +25,9 @@ const CACHE_TTL = 30 * 60 * 1000 // 30 minutes
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
+  
+  // Check license for ML analytics feature
+  await requireFeature(FEATURES.ML_ANALYTICS, event)
   
   const query = getQuery(event)
   const forceRefresh = query.refresh === 'true'

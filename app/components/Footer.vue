@@ -3,11 +3,16 @@
     <div class="footer-container">
       <div v-if="!isMapSearchPage" class="footer-main">
         <v-row>
-          <!-- Brand & Contact -->
+          <!-- Brand & Contact (tenant branding when from control plane) -->
           <v-col cols="12" md="4" class="mb-8 mb-md-0">
             <div class="footer-brand mb-6">
-              <span class="text-h4 font-weight-black tracking-tighter">AO<span class="text-primary">.</span></span>
-              <p class="premium-tagline mt-2">ALBERTA ONE REAL ESTATE</p>
+              <template v-if="tenantLogoUrl">
+                <img :src="tenantLogoUrl" :alt="tenantDisplayName || 'Logo'" class="footer-tenant-logo" />
+              </template>
+              <template v-else>
+                <span class="text-h4 font-weight-black tracking-tighter">AO<span class="text-primary">.</span></span>
+              </template>
+              <p class="premium-tagline mt-2">{{ tenantDisplayName || 'ALBERTA ONE REAL ESTATE' }}</p>
             </div>
             
             <div class="contact-group">
@@ -96,7 +101,7 @@
         
         <div class="d-flex flex-column flex-md-row justify-space-between align-center py-6 border-t">
           <p class="copyright-text">
-            © {{ new Date().getFullYear() }} <span class="font-weight-bold">HomesByAbdulOjulari</span>. 
+            © {{ new Date().getFullYear() }} <span class="font-weight-bold">{{ tenantDisplayName || 'HomesByAbdulOjulari' }}</span>.
             All rights reserved.
           </p>
           <p class="copyright-text mt-2 mt-md-0">
@@ -110,8 +115,11 @@
 
 <script setup lang="ts">
 const route = useRoute()
+const { licenseInfo } = useLicense()
 
 const isMapSearchPage = computed(() => route.name === 'map-search')
+const tenantDisplayName = computed(() => licenseInfo.value?.displayName || '')
+const tenantLogoUrl = computed(() => licenseInfo.value?.logoUrl || '')
 
 const footerLinks = [
   { title: 'About Us', to: '/about' },
@@ -192,6 +200,12 @@ const handleSubscribe = async () => {
 }
 
 /* --- Premium Labels --- */
+.footer-tenant-logo {
+  max-height: 48px;
+  width: auto;
+  object-fit: contain;
+}
+
 .premium-label {
   font-size: 0.7rem;
   font-weight: 800;

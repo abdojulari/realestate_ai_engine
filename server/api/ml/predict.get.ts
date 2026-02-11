@@ -10,6 +10,7 @@
 import { defineEventHandler, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../utils/auth'
+import { requireFeature, FEATURES } from '../../utils/license'
 import { aggregateMonthlyMetrics, prepareForPrediction } from '../../ml/dataPrep'
 import { loadModel, predict, modelExists } from '../../ml/model'
 import type { RawPropertyData } from '../../ml/dataPrep'
@@ -27,6 +28,9 @@ const CACHE_TTL = 60 * 60 * 1000 // 1 hour
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
+  
+  // Check license for forecast feature
+  await requireFeature(FEATURES.FORECAST, event)
   
   // Check cache
   if (predictionCache && Date.now() - predictionCache.timestamp < CACHE_TTL) {

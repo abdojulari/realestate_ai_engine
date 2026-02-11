@@ -1,14 +1,15 @@
 <template>
-  <div class="premium-reports-wrapper bg-[#F8FAFC] min-h-screen">
-    <!-- PREMIUM TOP BAR -->
-    <div class="header-glass sticky top-0 z-50 px-8 py-4 border-b border-slate-200 backdrop-blur-md bg-white/80">
-      <div class="max-w-[1600px] mx-auto d-flex align-center">
-        <div>
-          <div class="flex items-center space-x-2 mb-0">
-            <span class="text-[10px] uppercase tracking-[0.3em] font-bold text-primary">Intelligence & Data</span>
+  <FeatureGate :feature="FEATURES.FORECAST" :show-upgrade-prompt="true">
+    <div class="premium-reports-wrapper bg-[#F8FAFC] min-h-screen">
+      <!-- PREMIUM TOP BAR -->
+      <div class="header-glass sticky top-0 z-50 px-8 py-4 border-b border-slate-200 backdrop-blur-md bg-white/80">
+        <div class="max-w-[1600px] mx-auto d-flex align-center">
+          <div>
+            <div class="flex items-center space-x-2 mb-0">
+              <span class="text-[10px] uppercase tracking-[0.3em] font-bold text-primary">Intelligence & Data</span>
+            </div>
+            <h1 class="text-h4 font-serif text-slate-900 font-weight-bold">Reports & Analytics</h1>
           </div>
-          <h1 class="text-h4 font-serif text-slate-900 font-weight-bold">Reports & Analytics</h1>
-        </div>
         <v-spacer />
         <div class="d-flex align-center gap-3">
           <v-btn
@@ -577,11 +578,14 @@
       </template>
     </v-snackbar>
   </div>
+  </FeatureGate>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch, reactive } from 'vue'
 import EChart from '~/components/charts/EChart.vue'
+import FeatureGate from '~/components/FeatureGate.vue'
+import { FEATURES } from '~/composables/useLicense'
 
 // Helper function to safely get auth headers
 const getAuthHeaders = (): Record<string, string> => {

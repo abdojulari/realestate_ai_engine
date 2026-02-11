@@ -1,36 +1,39 @@
 <template>
   <div class="chat-page">
-    <!-- Hero -->
-    <section class="chat-hero">
-      <v-container class="py-12">
-        <v-row align="center">
-          <v-col cols="12" md="7">
-            <div class="hero-badge mb-6">
-              <v-icon size="16" class="mr-2">mdi-chat-processing-outline</v-icon>
-              AI REAL ESTATE CONCIERGE
-            </div>
-            <h1 class="hero-title mb-4">Ask anything about buying, selling, or listings</h1>
-            <p class="hero-subtitle">
-              Get instant answers from curated FAQ knowledge and relevant listing data. When you show intent,
-              we will invite you to connect with a licensed advisor.
-            </p>
-          </v-col>
-          <v-col cols="12" md="5">
-            <div class="hero-card">
-              <div class="hero-card-icon">
-                <v-icon size="32">mdi-home-city-outline</v-icon>
+    <!-- License Gate - Check if chatbot feature is available -->
+    <FeatureGate :feature="FEATURES.CHATBOT" :show-upgrade-prompt="true">
+      <!-- Feature Available: Show Chat Interface -->
+      <!-- Hero -->
+      <section class="chat-hero">
+        <v-container class="py-12">
+          <v-row align="center">
+            <v-col cols="12" md="7">
+              <div class="hero-badge mb-6">
+                <v-icon size="16" class="mr-2">mdi-chat-processing-outline</v-icon>
+                AI REAL ESTATE CONCIERGE
               </div>
-              <div class="hero-card-title">What you can ask</div>
-              <ul class="hero-list">
-                <li>How much can I afford monthly?</li>
-                <li>Show me 3-bed homes in Edmonton</li>
-                <li>What is the selling process?</li>
-              </ul>
-            </div>
-          </v-col>
-        </v-row>
-      </v-container>
-    </section>
+              <h1 class="hero-title mb-4">Ask anything about buying, selling, or listings</h1>
+              <p class="hero-subtitle">
+                Get instant answers from curated FAQ knowledge and relevant listing data. When you show intent,
+                we will invite you to connect with a licensed advisor.
+              </p>
+            </v-col>
+            <v-col cols="12" md="5">
+              <div class="hero-card">
+                <div class="hero-card-icon">
+                  <v-icon size="32">mdi-home-city-outline</v-icon>
+                </div>
+                <div class="hero-card-title">What you can ask</div>
+                <ul class="hero-list">
+                  <li>How much can I afford monthly?</li>
+                  <li>Show me 3-bed homes in Edmonton</li>
+                  <li>What is the selling process?</li>
+                </ul>
+              </div>
+            </v-col>
+          </v-row>
+        </v-container>
+      </section>
 
     <!-- Chat Interface -->
     <v-container class="py-10">
@@ -65,11 +68,14 @@
         </v-col>
       </v-row>
     </v-container>
+    </FeatureGate>
   </div>
- </template>
+</template>
 
 <script setup lang="ts">
 import ChatWidget from '~/components/chat/ChatWidget.vue'
+import FeatureGate from '~/components/FeatureGate.vue'
+import { FEATURES } from '~/composables/useLicense'
 
 useHead({
   title: 'AI Concierge Chat - Real Estate',
