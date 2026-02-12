@@ -121,6 +121,11 @@
                       </template>
                     </v-tooltip>
                   </template>
+                  <v-tooltip text="Email document to a CRM contact">
+                    <template #activator="{ props }">
+                      <v-btn icon="mdi-email-outline" variant="text" size="small" v-bind="props" @click="openEmailDialog(doc)" />
+                    </template>
+                  </v-tooltip>
                   <v-btn icon="mdi-pencil-outline" variant="text" size="small" @click="openEditor(doc)" />
                   <v-btn icon="mdi-download-outline" variant="text" size="small" @click="downloadDocument(doc)" />
                   <v-btn icon="mdi-delete-outline" variant="text" color="error" size="small" @click="confirmDelete(doc)" />
@@ -709,6 +714,125 @@
       </v-card>
     </v-dialog>
 
+    <!-- Email Document Dialog -->
+    <v-dialog v-model="showEmailDialog" max-width="600" scrollable>
+      <v-card rounded="xl" class="premium-dialog">
+        <v-card-title class="d-flex align-center dialog-title">
+          <v-icon icon="mdi-email-send-outline" class="mr-2" />
+          Email Document
+          <v-spacer />
+          <v-btn icon="mdi-close" variant="text" size="small" @click="showEmailDialog = false" />
+        </v-card-title>
+        <v-card-text>
+          <p class="text-caption text-grey mb-4">
+            Send <strong>{{ emailDoc?.originalName }}</strong> as an attachment to a CRM contact.
+          </p>
+
+          <!-- Contact Search -->
+          <v-text-field
+            v-model="contactSearchQuery"
+            label="Search contacts by name or email"
+            variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-magnify"
+            clearable
+            class="mb-2"
+            @update:model-value="debouncedContactSearch"
+          />
+
+          <!-- Contact List -->
+          <div v-if="contactSearchLoading" class="text-center py-4">
+            <v-progress-circular indeterminate size="24" color="primary" />
+            <span class="ml-2 text-caption">Searching contacts...</span>
+          </div>
+          <v-list
+            v-else-if="contactResults.length > 0"
+            density="compact"
+            class="contact-results-list mb-4"
+            max-height="240"
+            style="overflow-y: auto;"
+          >
+            <v-list-item
+              v-for="contact in contactResults"
+              :key="contact.email"
+              :class="{ 'selected-contact': selectedContact?.email === contact.email }"
+              @click="selectContact(contact)"
+              class="contact-item"
+              rounded="lg"
+            >
+              <template #prepend>
+                <v-avatar size="36" :color="selectedContact?.email === contact.email ? 'primary' : 'grey-lighten-3'" class="mr-3">
+                  <v-icon :color="selectedContact?.email === contact.email ? 'white' : 'grey'" icon="mdi-account" size="20" />
+                </v-avatar>
+              </template>
+              <v-list-item-title class="font-weight-medium">{{ contact.name || contact.email }}</v-list-item-title>
+              <v-list-item-subtitle>
+                {{ contact.email }}
+                <v-chip size="x-small" variant="tonal" class="ml-2">{{ contact.source }}</v-chip>
+              </v-list-item-subtitle>
+              <template #append>
+                <v-icon v-if="selectedContact?.email === contact.email" icon="mdi-check-circle" color="primary" />
+              </template>
+            </v-list-item>
+          </v-list>
+          <div v-else-if="contactSearchQuery && !contactSearchLoading" class="text-caption text-grey text-center py-3">
+            No contacts found. You can enter an email manually below.
+          </div>
+
+          <v-divider class="my-3" />
+
+          <!-- Selected / Manual Entry -->
+          <v-text-field
+            v-model="emailRecipient"
+            label="Recipient email *"
+            variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-email-outline"
+            :rules="[v => !!v || 'Email is required', v => /.+@.+\..+/.test(v) || 'Must be a valid email']"
+            class="mb-2"
+          />
+          <v-text-field
+            v-model="emailRecipientName"
+            label="Recipient name (optional)"
+            variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-account-outline"
+            class="mb-2"
+          />
+          <v-text-field
+            v-model="emailSubject"
+            label="Subject (optional)"
+            variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-format-title"
+            :placeholder="`Document: ${emailDoc?.originalName || ''}`"
+            class="mb-2"
+          />
+          <v-textarea
+            v-model="emailMessage"
+            label="Message (optional)"
+            variant="outlined"
+            rows="3"
+            placeholder="Please find the attached document for your review."
+          />
+        </v-card-text>
+        <v-card-actions class="pa-6 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="showEmailDialog = false" :disabled="sendingEmail">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            prepend-icon="mdi-send"
+            @click="sendDocumentEmail"
+            :loading="sendingEmail"
+            :disabled="!emailRecipient || !/.+@.+\..+/.test(emailRecipient)"
+          >
+            Send Email
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000">
       {{ snackbarText }}
@@ -820,6 +944,20 @@ const legalAdviseDoc = ref<any>(null)
 const legalReviewData = ref<{ review: any; dateAlerts: any[] } | null>(null)
 const dateAlertItems = ref<Array<{ label: string; date: string; enabled: boolean; daysBefore: number }>>([])
 const savingAlerts = ref(false)
+
+// Email Document state
+const showEmailDialog = ref(false)
+const emailDoc = ref<any>(null)
+const contactSearchQuery = ref('')
+const contactSearchLoading = ref(false)
+const contactResults = ref<Array<{ email: string; name: string; source: string; phone?: string }>>([])
+const selectedContact = ref<{ email: string; name: string; source: string } | null>(null)
+const emailRecipient = ref('')
+const emailRecipientName = ref('')
+const emailSubject = ref('')
+const emailMessage = ref('')
+const sendingEmail = ref(false)
+let contactSearchTimeout: ReturnType<typeof setTimeout> | null = null
 
 // Refs management
 const setCanvasRef = (el: any, pageNum: number) => {
@@ -1894,6 +2032,77 @@ const convertTextToPdf = async (text: string): Promise<ArrayBuffer> => {
   return pdfBytes.buffer as ArrayBuffer
 }
 
+// ─── Email Document ───
+
+function openEmailDialog(doc: any) {
+  emailDoc.value = doc
+  contactSearchQuery.value = ''
+  contactResults.value = []
+  selectedContact.value = null
+  emailRecipient.value = ''
+  emailRecipientName.value = ''
+  emailSubject.value = ''
+  emailMessage.value = ''
+  showEmailDialog.value = true
+  // Load initial contacts (recent)
+  searchContacts('')
+}
+
+function selectContact(contact: { email: string; name: string; source: string }) {
+  selectedContact.value = contact
+  emailRecipient.value = contact.email
+  emailRecipientName.value = contact.name
+}
+
+function debouncedContactSearch(val: string | null) {
+  if (contactSearchTimeout) clearTimeout(contactSearchTimeout)
+  contactSearchTimeout = setTimeout(() => {
+    searchContacts(val || '')
+  }, 300)
+}
+
+async function searchContacts(query: string) {
+  contactSearchLoading.value = true
+  try {
+    const res: any = await $fetch('/api/admin/contacts/search', {
+      headers: getAuthHeaders(),
+      params: { q: query, limit: 20 },
+    })
+    contactResults.value = res.contacts || []
+  } catch (e) {
+    console.error('Contact search error:', e)
+    contactResults.value = []
+  } finally {
+    contactSearchLoading.value = false
+  }
+}
+
+async function sendDocumentEmail() {
+  if (!emailDoc.value || !emailRecipient.value) return
+
+  sendingEmail.value = true
+  try {
+    const res: any = await $fetch(`/api/admin/documents/${emailDoc.value.id}/email`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: {
+        recipientEmail: emailRecipient.value,
+        recipientName: emailRecipientName.value,
+        subject: emailSubject.value,
+        message: emailMessage.value,
+      },
+    })
+    if (res.success) {
+      showSnackbar(`Document emailed to ${emailRecipient.value}`, 'success')
+      showEmailDialog.value = false
+    }
+  } catch (e: any) {
+    showSnackbar(e.data?.statusMessage || e.message || 'Failed to send email', 'error')
+  } finally {
+    sendingEmail.value = false
+  }
+}
+
 onMounted(async () => {
   await Promise.all([loadDocuments(), loadSignatures()])
 })
@@ -2435,5 +2644,26 @@ onMounted(async () => {
   flex: 1;
   min-width: 280px;
   opacity: 0.9;
+}
+
+/* Email Document Dialog - contact list */
+.contact-results-list {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  background: rgba(249, 250, 251, 0.6);
+}
+
+.contact-item {
+  transition: all 0.2s ease;
+  margin: 2px 4px;
+}
+
+.contact-item:hover {
+  background: rgba(25, 118, 210, 0.06) !important;
+}
+
+.selected-contact {
+  background: rgba(25, 118, 210, 0.1) !important;
+  border-left: 3px solid rgb(var(--v-theme-primary));
 }
 </style>

@@ -358,7 +358,7 @@
                   <tr v-for="listing in listingsReport" :key="listing.id" class="table-row-premium">
                     <td class="px-8 py-4">
                       <div class="d-flex align-center">
-                        <v-img :src="listing.image" width="70" height="50" cover class="rounded-lg mr-4 border border-slate-200" />
+                        <v-img :src="listing.image" width="64" height="44" cover class="rounded-lg mr-4 border border-slate-200 property-thumb" />
                         <div>
                           <div class="font-weight-black text-slate-800">{{ listing.title }}</div>
                           <div class="text-caption font-mono text-primary font-weight-bold">${{ formatNumber(listing.price) }}</div>
@@ -485,7 +485,7 @@
                   <tr v-for="inquiry in inquiryReport" :key="inquiry.id" class="table-row-premium">
                     <td class="px-8 py-4">
                       <div class="d-flex align-center">
-                        <v-img :src="inquiry.property.image" width="50" height="35" cover class="rounded mr-3" />
+                        <v-img :src="inquiry.property.image" width="64" height="44" cover class="rounded-lg mr-4 border border-slate-200 property-thumb" />
                         <span class="text-caption font-weight-bold">{{ inquiry.property.title }}</span>
                       </div>
                     </td>
@@ -516,7 +516,7 @@
                   <tr v-for="viewing in viewingReport" :key="viewing.id" class="table-row-premium">
                     <td class="px-8 py-4">
                       <div class="d-flex align-center">
-                        <v-img :src="viewing.property.image" width="50" height="35" cover class="rounded mr-3" />
+                        <v-img :src="viewing.property.image" width="64" height="44" cover class="rounded-lg mr-4 border border-slate-200 property-thumb" />
                         <span class="text-caption font-weight-bold">{{ viewing.property.title }}</span>
                       </div>
                     </td>
@@ -1047,5 +1047,16 @@ definePageMeta({
   text-transform: uppercase;
   letter-spacing: 0.1em;
   padding-bottom: 16px !important;
+}
+
+/* Uniform property thumbnails */
+.property-thumb {
+  min-width: 64px;
+  max-width: 64px;
+  min-height: 44px;
+  max-height: 44px;
+  flex-shrink: 0;
+  object-fit: cover;
+  background: #f1f5f9;
 }
 </style>

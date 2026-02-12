@@ -91,6 +91,42 @@ function safeParse(raw: string): any {
   try { return JSON.parse(cleaned) } catch { return null }
 }
 
+// --------------- Date normalization ---------------
+
+/** Pre-process extracted text to normalize fragmented AREA form dates.
+ *  e.g. "November\t28\t25" → "November 28, 2025"
+ *       "3\tp\tNovember\t03\t25" → "3 p.m. on November 03, 2025"
+ */
+function normalizeDatesInText(text: string): string {
+  const months = '(?:January|February|March|April|May|June|July|August|September|October|November|December)'
+
+  // Pattern: Month\tDD\tYY  →  Month DD, 20YY
+  text = text.replace(
+    new RegExp(`(${months})\\s*\\t\\s*(\\d{1,2})\\s*\\t\\s*(\\d{2})(?!\\d)`, 'g'),
+    (_m, month, day, yr) => `${month} ${day}, 20${yr}`
+  )
+
+  // Pattern: DD\tMonth\tYY  →  Month DD, 20YY  (less common but possible)
+  text = text.replace(
+    new RegExp(`(?<![\\d])(\\d{1,2})\\s*\\t\\s*(${months})\\s*\\t\\s*(\\d{2})(?!\\d)`, 'g'),
+    (_m, day, month, yr) => `${month} ${day}, 20${yr}`
+  )
+
+  // Pattern: N\tp\t → N p.m. (time fragments before dates)
+  text = text.replace(
+    /(\d{1,2})\s*\t\s*p(?:\.?m\.?)?\s*(?:\t|\s*on\s*)/gi,
+    (_m, hour) => `${hour} p.m. on `
+  )
+
+  // Pattern: N\ta\t → N a.m. (time fragments)
+  text = text.replace(
+    /(\d{1,2})\s*\t\s*a(?:\.?m\.?)?\s*(?:\t|\s*on\s*)/gi,
+    (_m, hour) => `${hour} a.m. on `
+  )
+
+  return text
+}
+
 // --------------- Chunked legal review ---------------
 
 const EXTRACT_SYSTEM = `You are a legal assistant extracting key information from a section of a Canadian real estate contract.
@@ -100,7 +136,15 @@ Respond with valid JSON only — no markdown, no explanation. Use this structure
   "importantNotes": ["key things to note"],
   "importantDates": [{"label": "description", "date": "YYYY-MM-DD", "context": "brief context"}]
 }
-If a date year is unclear, assume the current or next calendar year. If a field has nothing relevant in this section, return an empty array.`
+
+CRITICAL DATE PARSING RULES:
+- This is an Alberta (AREA) real estate form. Dates appear as tab-separated fragments, e.g. "November\\t28\\t25" means November 28, 2025.
+- The form pre-prints "20" before a blank for the year, so a two-digit number like "25" at the end of a date means the year 2025 (i.e. prefix with "20").
+- Times may appear as separate tokens like "9\\tp" meaning 9 p.m., often on a line before or after the date tokens.
+- Common patterns: "Month\\tDD\\tYY", "DD\\tMonth\\tYY", or "Month DD, 20YY". Always output full ISO dates as YYYY-MM-DD.
+- Look for dates near keywords like "Completion Day", "Condition Day", "deposit", "signed and dated", "on or before".
+- If the year is truly absent, assume the year that makes sense for the transaction context. Do NOT default to the current calendar year if a two-digit year is provided — always interpret it as 20XX.
+If a field has nothing relevant in this section, return an empty array.`
 
 const SUMMARIZE_SYSTEM = `You are a legal assistant writing a final legal review of a Canadian real estate contract.
 You will receive consolidated extracted facts (red flags, notes, dates) from the full document.
@@ -124,8 +168,10 @@ async function runGroqLegalReview(
     ? ` The user represents the ${partyRepresenting}.`
     : ''
 
-  const chunks = chunkText(documentText, CHUNK_SIZE)
-  console.log(`[legal-review] Document: ${documentText.length} chars → ${chunks.length} chunk(s)`)
+  // Normalize fragmented AREA form dates before chunking
+  const normalizedText = normalizeDatesInText(documentText)
+  const chunks = chunkText(normalizedText, CHUNK_SIZE)
+  console.log(`[legal-review] Document: ${documentText.length} chars → normalized ${normalizedText.length} chars → ${chunks.length} chunk(s)`)
 
   // Phase 1 — extract facts from each chunk (sequential to avoid rate limits)
   const allRedFlags: string[] = []

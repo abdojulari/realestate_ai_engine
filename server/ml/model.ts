@@ -168,21 +168,27 @@ export async function trainModel(
   }
   
   // Train
+  // verbose: 0 disables the built-in ProgbarLogger which crashes in
+  // Nitro/Nuxt server runtime (cannot read 'tick' of undefined).
+  // Our custom onEpochEnd callback above still logs progress.
   const history = await model.fit(xs, ys, {
     epochs: actualConfig.epochs,
     batchSize: actualConfig.batchSize,
     validationSplit: actualConfig.validationSplit,
     shuffle: true,
+    verbose: 0,
     callbacks
   })
   
-  // Extract history
-  const trainingHistory = {
-    loss: history.history.loss as number[],
-    val_loss: history.history.val_loss as number[],
-    mae: history.history.mae as number[],
-    val_mae: history.history.val_mae as number[]
-  }
+  // Extract history — metric keys vary across tfjs-node versions
+  // (e.g. "mae" vs "mean_absolute_error"), so resolve defensively.
+  const h = history.history
+  const loss = (h.loss ?? []) as number[]
+  const val_loss = (h.val_loss ?? []) as number[]
+  const mae = (h.mae ?? h.mean_absolute_error ?? []) as number[]
+  const val_mae = (h.val_mae ?? h.val_mean_absolute_error ?? []) as number[]
+
+  const trainingHistory = { loss, val_loss, mae, val_mae }
   
   // Save model
   await saveModel(model, actualConfig)
@@ -196,8 +202,8 @@ export async function trainModel(
   return {
     success: true,
     epochs: actualConfig.epochs,
-    finalLoss: trainingHistory.loss[trainingHistory.loss.length - 1],
-    finalMae: trainingHistory.mae[trainingHistory.mae.length - 1],
+    finalLoss: loss.length > 0 ? loss[loss.length - 1] : 0,
+    finalMae: mae.length > 0 ? mae[mae.length - 1] : 0,
     history: trainingHistory,
     trainingTime,
     modelPath: MODEL_PATH
