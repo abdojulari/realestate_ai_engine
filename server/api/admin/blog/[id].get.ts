@@ -1,5 +1,7 @@
 import { defineEventHandler, getRouterParams } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -8,9 +10,13 @@ const prisma = new PrismaClient()
  * GET /api/admin/blog/:id
  * 
  * Returns full post data including drafts for admin editing
+ * Tenant-scoped: admin sees own posts, super_admin sees all
  */
 export default defineEventHandler(async (event) => {
-  const { id } = getRouterParams(event)
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+
+  const { id } = getRouterParams(event) as { id: string }
   const postId = parseInt(id)
   
   if (!postId) {
@@ -21,8 +27,8 @@ export default defineEventHandler(async (event) => {
   }
   
   try {
-    const post = await prisma.blogPost.findUnique({
-      where: { id: postId },
+    const post = await prisma.blogPost.findFirst({
+      where: { id: postId, ...tenantFilter },
       include: {
         category: true,
         author: {

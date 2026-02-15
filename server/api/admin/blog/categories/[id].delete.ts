@@ -1,23 +1,21 @@
 import { defineEventHandler, getRouterParams } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter, requireTenantAccess } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 /**
  * Delete Blog Category
  * DELETE /api/admin/blog/categories/:id
+ * 
+ * Tenant-scoped: verifies ownership before deletion
  */
 export default defineEventHandler(async (event) => {
-  const user = event.context.user
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
   
-  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Admin access required'
-    })
-  }
-  
-  const { id } = getRouterParams(event)
+  const { id } = getRouterParams(event) as { id: string }
   const categoryId = parseInt(id)
   
   if (!categoryId) {
@@ -28,8 +26,9 @@ export default defineEventHandler(async (event) => {
   }
   
   try {
-    const existing = await prisma.blogCategory.findUnique({
-      where: { id: categoryId },
+    // Fetch existing category with tenant scoping
+    const existing = await prisma.blogCategory.findFirst({
+      where: { id: categoryId, ...tenantFilter },
       include: {
         _count: { select: { posts: true } }
       }
@@ -41,6 +40,9 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Category not found'
       })
     }
+    
+    // Verify tenant access
+    requireTenantAccess(user, existing.adminId)
     
     if (existing._count.posts > 0) {
       throw createError({

@@ -264,7 +264,7 @@
 <script setup lang="ts">
 // Nuxt 4 auto-imports: ref, computed, onMounted, definePageMeta, navigateTo
 import { propertyService } from '~/services/property.service'
-import { formatDateTime, formatDate } from '../../../utils/formatters'
+import { formatDateTime, formatDate } from '~/utils/formatters'
 import type { Property, ViewingRequest, SavedSearch } from '~/types'
 
 // State

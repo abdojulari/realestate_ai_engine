@@ -3,33 +3,33 @@
     <div class="footer-container">
       <div v-if="!isMapSearchPage" class="footer-main">
         <v-row>
-          <!-- Brand & Contact (tenant branding when from control plane) -->
+          <!-- Brand & Contact (from TenantSettings DB) -->
           <v-col cols="12" md="4" class="mb-8 mb-md-0">
             <div class="footer-brand mb-6">
-              <template v-if="tenantLogoUrl">
-                <img :src="tenantLogoUrl" :alt="tenantDisplayName || 'Logo'" class="footer-tenant-logo" />
+              <template v-if="logoUrl && logoUrl !== '/images/logos/logo.png'">
+                <img :src="logoUrl" :alt="businessName || 'Logo'" class="footer-tenant-logo" />
               </template>
               <template v-else>
                 <span class="text-h4 font-weight-black tracking-tighter">AO<span class="text-primary">.</span></span>
               </template>
-              <p class="premium-tagline mt-2">{{ tenantDisplayName || 'ALBERTA ONE REAL ESTATE' }}</p>
+              <p class="premium-tagline mt-2">{{ tagline || businessName }}</p>
             </div>
             
             <div class="contact-group">
-              <div class="contact-item">
+              <div v-if="phone" class="contact-item">
                 <span class="premium-label">Direct</span>
-                <a href="tel:+16475637235" class="contact-link">+1 (647) 563 7235</a>
+                <a :href="`tel:${phone.replace(/[^+\d]/g, '')}`" class="contact-link">{{ phone }}</a>
               </div>
-              <div class="contact-item">
+              <div v-if="contactEmail" class="contact-item">
                 <span class="premium-label">Inquiries</span>
-                <a href="mailto:abdul.ojulari@exprealty.com" class="contact-link">abdul.ojulari@exprealty.com</a>
+                <a :href="`mailto:${contactEmail}`" class="contact-link">{{ contactEmail }}</a>
               </div>
             </div>
 
-            <div class="mt-8">
+            <div v-if="brokerageLogoUrl" class="mt-8">
               <img 
-                src="/images/avatars/exp.png" 
-                alt="eXp Realty Logo" 
+                :src="brokerageLogoUrl" 
+                :alt="brokerageName || 'Brokerage Logo'" 
                 class="brand-logo grayscale" 
                 width="120" 
               />
@@ -46,12 +46,12 @@
             </ul>
           </v-col>
 
-          <!-- Social Presence -->
-          <v-col cols="6" md="2">
+          <!-- Social Presence (from TenantSettings DB) -->
+          <v-col v-if="socialLinks.length" cols="6" md="2">
             <h3 class="premium-label mb-6">Presence</h3>
             <ul class="footer-links-list">
               <li v-for="social in socialLinks" :key="social.name">
-                <a :href="social.link" target="_blank" class="footer-nav-link">
+                <a :href="social.url" target="_blank" class="footer-nav-link">
                   {{ social.name }}
                 </a>
               </li>
@@ -70,7 +70,7 @@
                 type="email" 
                 placeholder="Your email address" 
                 class="premium-footer-input"
-                :disabled="loading"
+                :disabled="subscribeLoading"
                 required
               />
               <v-btn 
@@ -79,7 +79,7 @@
                 size="small" 
                 class="ml-2"
                 type="submit"
-                :loading="loading"
+                :loading="subscribeLoading"
               ></v-btn>
             </form>
             <transition name="fade">
@@ -91,21 +91,19 @@
         </v-row>
       </div>
 
-      <!-- Legal & Copyright -->
+      <!-- Legal & Copyright (from TenantSettings DB) -->
       <div class="footer-bottom">
-        <div class="legal-disclaimer">
-          <p class="disclaimer-text mb-6">
-            For listings in Canada, the trademarks REALTOR®, REALTORS®, and the REALTOR® logo are controlled by The Canadian Real Estate Association (CREA) and identify real estate professionals who are members of CREA. The trademarks MLS®, Multiple Listing Service® and the associated logos are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA. Used under license.
-          </p>
+        <div v-if="footerDisclaimer" class="legal-disclaimer">
+          <p class="disclaimer-text mb-6">{{ footerDisclaimer }}</p>
         </div>
         
         <div class="d-flex flex-column flex-md-row justify-space-between align-center py-6 border-t">
           <p class="copyright-text">
-            © {{ new Date().getFullYear() }} <span class="font-weight-bold">{{ tenantDisplayName || 'HomesByAbdulOjulari' }}</span>.
+            © {{ new Date().getFullYear() }} <span class="font-weight-bold">{{ copyrightName }}</span>.
             All rights reserved.
           </p>
-          <p class="copyright-text mt-2 mt-md-0">
-            Developed by <span class="text-black font-weight-medium"><a href="https://www.linkedin.com/in/abdulojulari/" target="_blank">Abdul Ojulari</a></span>
+          <p v-if="developerName" class="copyright-text mt-2 mt-md-0">
+            Developed by <span class="text-black font-weight-medium"><a v-if="developerUrl" :href="developerUrl" target="_blank">{{ developerName }}</a><template v-else>{{ developerName }}</template></span>
           </p>
         </div>
       </div>
@@ -115,11 +113,22 @@
 
 <script setup lang="ts">
 const route = useRoute()
-const { licenseInfo } = useLicense()
+const {
+  businessName,
+  tagline,
+  logoUrl,
+  phone,
+  contactEmail,
+  socialLinks,
+  brokerageName,
+  brokerageLogoUrl,
+  footerDisclaimer,
+  copyrightName,
+  developerName,
+  developerUrl,
+} = useTenantSettings()
 
 const isMapSearchPage = computed(() => route.name === 'map-search')
-const tenantDisplayName = computed(() => licenseInfo.value?.displayName || '')
-const tenantLogoUrl = computed(() => licenseInfo.value?.logoUrl || '')
 
 const footerLinks = [
   { title: 'About Us', to: '/about' },
@@ -129,22 +138,16 @@ const footerLinks = [
   { title: 'Contact Us', to: '/contact' }
 ]
 
-const socialLinks = [
-  { icon: 'mdi-facebook', link: 'https://www.facebook.com/realtorabdulojulari', name: 'Facebook' },
-  { icon: 'mdi-instagram', link: 'https://www.instagram.com/homesbyabdul_o/', name: 'Instagram' },
-  { icon: 'mdi-linkedin', link: 'https://www.linkedin.com/in/abdulojulari/', name: 'LinkedIn' }
-]
-
 // Newsletter subscription
 const email = ref('')
-const loading = ref(false)
+const subscribeLoading = ref(false)
 const message = ref('')
 const messageType = ref<'success' | 'error'>('success')
 
 const handleSubscribe = async () => {
-  if (!email.value || loading.value) return
+  if (!email.value || subscribeLoading.value) return
 
-  loading.value = true
+  subscribeLoading.value = true
   message.value = ''
 
   try {
@@ -168,7 +171,7 @@ const handleSubscribe = async () => {
     messageType.value = 'error'
     message.value = error.data?.message || 'An error occurred. Please try again.'
   } finally {
-    loading.value = false
+    subscribeLoading.value = false
     
     // Clear message after 5 seconds
     setTimeout(() => {
@@ -232,7 +235,7 @@ const handleSubscribe = async () => {
   color: #475569;
   text-decoration: none;
   font-size: 0.95rem;
-  line-height: 2.2; /* Increased line-height for premium feel */
+  line-height: 2.2;
   transition: all 0.3s ease;
   display: inline-block;
 }
@@ -349,7 +352,7 @@ const handleSubscribe = async () => {
 
 .disclaimer-text {
   font-size: 0.75rem;
-  line-height: 1.8; /* High line-height for small text block */
+  line-height: 1.8;
   color: #94a3b8;
   max-width: 1000px;
 }

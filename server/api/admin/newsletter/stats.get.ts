@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -7,33 +8,39 @@ export default defineEventHandler(async (event) => {
   try {
     // Verify admin authentication
     const user = await requireAdmin(event)
-
-
+    const tenantFilter = getTenantFilter(user)
 
     // Get subscriber stats
     const subscriberStats = await prisma.newsletterSubscriber.groupBy({
       by: ['status'],
+      where: { ...tenantFilter },
       _count: true
     })
 
-    const totalSubscribers = await prisma.newsletterSubscriber.count()
+    const totalSubscribers = await prisma.newsletterSubscriber.count({
+      where: { ...tenantFilter }
+    })
     const activeSubscribers = await prisma.newsletterSubscriber.count({
-      where: { status: 'active' }
+      where: { status: 'active', ...tenantFilter }
     })
 
     // Get campaign stats
     const campaignStats = await prisma.newsletter.groupBy({
       by: ['status'],
+      where: { ...tenantFilter },
       _count: true
     })
 
-    const totalCampaigns = await prisma.newsletter.count()
+    const totalCampaigns = await prisma.newsletter.count({
+      where: { ...tenantFilter }
+    })
     const sentCampaigns = await prisma.newsletter.count({
-      where: { status: 'sent' }
+      where: { status: 'sent', ...tenantFilter }
     })
 
     // Get recent activity
     const recentSubscribers = await prisma.newsletterSubscriber.findMany({
+      where: { ...tenantFilter },
       take: 5,
       orderBy: { subscribedAt: 'desc' },
       select: {
@@ -47,6 +54,7 @@ export default defineEventHandler(async (event) => {
     })
 
     const recentCampaigns = await prisma.newsletter.findMany({
+      where: { ...tenantFilter },
       take: 5,
       orderBy: { createdAt: 'desc' },
       select: {
@@ -63,20 +71,24 @@ export default defineEventHandler(async (event) => {
     })
 
     // Get template count
-    const totalTemplates = await prisma.newsletterTemplate.count()
+    const totalTemplates = await prisma.newsletterTemplate.count({
+      where: { ...tenantFilter }
+    })
     const activeTemplates = await prisma.newsletterTemplate.count({
-      where: { isActive: true }
+      where: { isActive: true, ...tenantFilter }
     })
 
     // Get automation count
-    const totalAutomations = await prisma.newsletterAutomation.count()
+    const totalAutomations = await prisma.newsletterAutomation.count({
+      where: { ...tenantFilter }
+    })
     const activeAutomations = await prisma.newsletterAutomation.count({
-      where: { isActive: true }
+      where: { isActive: true, ...tenantFilter }
     })
 
     // Calculate engagement metrics
     const sentNewsletters = await prisma.newsletter.findMany({
-      where: { status: 'sent' },
+      where: { status: 'sent', ...tenantFilter },
       select: {
         recipientCount: true,
         openCount: true,

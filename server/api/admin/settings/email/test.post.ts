@@ -6,7 +6,7 @@ import * as nodemailer from 'nodemailer'
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
 
   const emailSettings = await readBody(event)
   const { smtp, fromEmail, fromName } = emailSettings

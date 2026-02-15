@@ -42,25 +42,25 @@
           <v-row class="mb-6">
             <v-col cols="12" sm="6" md="3">
               <v-card variant="outlined" class="text-center pa-4">
-                <div class="text-h4 text-primary font-weight-bold">{{ totalStats.totalCities }}</div>
+                <div class="text-h4 text-primary font-weight-bold">{{ totalStats?.totalCities }}</div>
                 <div class="text-caption text-medium-emphasis">Cities Covered</div>
               </v-card>
             </v-col>
             <v-col cols="12" sm="6" md="3">
               <v-card variant="outlined" class="text-center pa-4">
-                <div class="text-h4 text-success font-weight-bold">{{ totalStats.totalNeighborhoods }}</div>
+                <div class="text-h4 text-success font-weight-bold">{{ totalStats?.totalNeighborhoods }}</div>
                 <div class="text-caption text-medium-emphasis">Neighborhoods</div>
               </v-card>
             </v-col>
             <v-col cols="12" sm="6" md="3">
               <v-card variant="outlined" class="text-center pa-4">
-                <div class="text-h4 text-info font-weight-bold">{{ formatNumber(totalStats.totalProperties) }}</div>
+                <div class="text-h4 text-info font-weight-bold">{{ formatNumber(totalStats?.totalProperties ?? 0) }}</div>
                 <div class="text-caption text-medium-emphasis">Total Properties</div>
               </v-card>
             </v-col>
             <v-col cols="12" sm="6" md="3">
               <v-card variant="outlined" class="text-center pa-4">
-                <div class="text-h4 text-warning font-weight-bold">{{ formatPrice(totalStats.avgPrice) }}</div>
+                <div class="text-h4 text-warning font-weight-bold">{{ formatPrice(totalStats?.avgPrice ?? 0) }}</div>
                 <div class="text-caption text-medium-emphasis">Avg Price</div>
               </v-card>
             </v-col>
@@ -161,15 +161,15 @@
                 </v-card-title>
                 <div class="d-flex justify-space-between mb-2">
                   <span>Highest Average:</span>
-                  <span class="font-weight-bold text-warning">{{ formatPrice(totalStats.maxAvgPrice) }}</span>
+                  <span class="font-weight-bold text-warning">{{ formatPrice(totalStats?.maxAvgPrice ?? 0) }}</span>
                 </div>
                 <div class="d-flex justify-space-between mb-2">
                   <span>Lowest Average:</span>
-                  <span class="font-weight-bold text-success">{{ formatPrice(totalStats.minAvgPrice) }}</span>
+                  <span class="font-weight-bold text-success">{{ formatPrice(totalStats?.minAvgPrice ?? 0) }}</span>
                 </div>
                 <div class="d-flex justify-space-between">
                   <span>Market Average:</span>
-                  <span class="font-weight-bold text-primary">{{ formatPrice(totalStats.avgPrice) }}</span>
+                  <span class="font-weight-bold text-primary">{{ formatPrice(totalStats?.avgPrice ?? 0) }}</span>
                 </div>
               </v-card>
             </v-col>
@@ -281,7 +281,7 @@ const loadData = async () => {
     }
     
     // Group neighborhoods by city and calculate statistics
-    const cityGroups = response.neighborhoods.reduce((acc, neighborhood) => {
+    const cityGroups = response.neighborhoods.reduce((acc: Record<string, any[]>, neighborhood: any) => {
       const city = neighborhood.city
       if (!acc[city]) {
         acc[city] = []
@@ -291,9 +291,9 @@ const loadData = async () => {
     }, {} as Record<string, any[]>)
     
     // Calculate city statistics
-    const cityStatsData: CityStats[] = Object.entries(cityGroups).map(([city, neighborhoods]) => {
-      const propertyCounts = neighborhoods.map(n => n.propertyCount || 0)
-      const avgPrices = neighborhoods.map(n => n.averagePrice || 0).filter(p => p > 0)
+    const cityStatsData: CityStats[] = Object.entries(cityGroups).map(([city, neighborhoods]: [string, any[]]) => {
+      const propertyCounts = neighborhoods.map((n: any) => n.propertyCount || 0)
+      const avgPrices = neighborhoods.map((n: any) => n.averagePrice || 0).filter((p: number) => p > 0)
       
       return {
         city,

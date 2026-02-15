@@ -1,19 +1,22 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
-// GET is public for service worker scheduler - no auth required
-// POST endpoint still requires admin auth
 export default defineEventHandler(async (event) => {
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
   try {
-    // Get auto-sync settings
+    // Get auto-sync settings scoped to tenant
     const settings = await prisma.setting.findMany({
       where: {
         key: {
           in: ['crea_auto_sync_enabled', 'crea_auto_sync_time']
-        }
+        },
+        ...tenantFilter
       }
     })
 

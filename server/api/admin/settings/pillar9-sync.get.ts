@@ -1,12 +1,16 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
-// GET is public for service worker scheduler - no auth required
 export default defineEventHandler(async (event) => {
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+
   try {
-    // Get Pillar9 auto-sync settings
+    // Get Pillar9 auto-sync settings scoped to tenant
     const settings = await prisma.setting.findMany({
       where: {
         key: {
@@ -19,7 +23,8 @@ export default defineEventHandler(async (event) => {
             'pillar9_default_province',
             'pillar9_last_sync'
           ]
-        }
+        },
+        ...tenantFilter
       }
     })
 

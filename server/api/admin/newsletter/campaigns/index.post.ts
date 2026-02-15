@@ -1,11 +1,13 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter, getAdminIdForCreate } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    const tenantFilter = getTenantFilter(user)
     const body = await readBody(event)
     const {
       name,
@@ -29,10 +31,10 @@ export default defineEventHandler(async (event) => {
 
     let recipientCount = 0
     if (targetFilters && Object.keys(targetFilters).length > 0) {
-      const where: any = { status: 'active' }
+      const where: any = { status: 'active', ...tenantFilter }
       recipientCount = await prisma.newsletterSubscriber.count({ where })
     } else {
-      recipientCount = await prisma.newsletterSubscriber.count({ where: { status: 'active' } })
+      recipientCount = await prisma.newsletterSubscriber.count({ where: { status: 'active', ...tenantFilter } })
     }
 
     const campaign = await prisma.newsletter.create({
@@ -51,7 +53,8 @@ export default defineEventHandler(async (event) => {
         tags: tags || null,
         targetFilters: targetFilters || null,
         automationSettings: automationSettings || null,
-        createdBy: user.id
+        createdBy: user.id,
+        adminId: getAdminIdForCreate(user)
       }
     })
 

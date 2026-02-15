@@ -194,7 +194,7 @@
 import { ref, onMounted } from 'vue'
 import { formatDate } from '~/utils/formatters'
 
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
     const token = localStorage.getItem('token')
     return token ? { 'Authorization': `Bearer ${token}` } : {}
@@ -220,7 +220,7 @@ const statusOptions = [
   { title: 'Bounced', value: 'bounced' }
 ]
 
-const headers = [
+const headers: any[] = [
   { title: 'Email', key: 'email', sortable: false },
   { title: 'Status', key: 'status', sortable: false },
   { title: 'Source', key: 'source', sortable: false },

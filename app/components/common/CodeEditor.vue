@@ -62,7 +62,8 @@ const initializeEditor = async () => {
 
   try {
     // Dynamic imports for client-side only
-    const { EditorView, basicSetup } = await import('@codemirror/view')
+    // @ts-ignore - basicSetup import
+    const { EditorView, basicSetup } = await import('@codemirror/view') as any
     const { EditorState } = await import('@codemirror/state')
     const { html } = await import('@codemirror/lang-html')
     const { css } = await import('@codemirror/lang-css')
@@ -101,7 +102,7 @@ const initializeEditor = async () => {
             outlineOffset: '-2px'
           }
         }),
-        EditorView.updateListener.of((update) => {
+        EditorView.updateListener.of((update: any) => {
           if (update.docChanged) {
             const value = update.state.doc.toString()
             emit('update:modelValue', value)
@@ -137,8 +138,8 @@ const formatCode = () => {
         .replace(/></g, '>\n<')
         .replace(/^\s+|\s+$/gm, '')
         .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0)
+        .map((line: any) => line.trim())
+        .filter((line: any) => line.length > 0)
         .join('\n')
     }
     
@@ -150,8 +151,8 @@ const formatCode = () => {
         .replace(/;/g, ';\n  ')
         .replace(/^\s+|\s+$/gm, '')
         .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0)
+        .map((line: any) => line.trim())
+        .filter((line: any) => line.length > 0)
         .join('\n')
     }
     

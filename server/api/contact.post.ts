@@ -1,8 +1,15 @@
 import { defineEventHandler, readBody } from 'h3'
+import { PrismaClient } from '@prisma/client'
 import nodemailer from 'nodemailer'
+import { resolveTenantFromRequest } from '../utils/tenant'
+
+const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<{ firstName:string; lastName:string; email:string; phone?:string; message:string }>(event)
+
+  // Resolve tenant
+  const adminId = await resolveTenantFromRequest(event)
 
   const runtime = useRuntimeConfig()
 
@@ -17,6 +24,24 @@ export default defineEventHandler(async (event) => {
   })
 
   const from = process.env.SMTP_SENDER || process.env.SMTP_USERNAME
+
+  // Try to save as a ChatLead for the tenant
+  try {
+    await prisma.chatLead.create({
+      data: {
+        name: `${body.firstName} ${body.lastName}`.trim(),
+        email: body.email,
+        phone: body.phone || null,
+        message: body.message,
+        source: 'contact_form',
+        status: 'new',
+        ...(adminId ? { adminId } : {})
+      }
+    })
+  } catch (err) {
+    console.error('Failed to save contact as lead:', err)
+    // Don't fail the request if lead save fails
+  }
 
   await transporter.sendMail({
     from,

@@ -131,7 +131,7 @@ async function testContentManagement() {
 
     // Read content
     const readContent = await prisma.contentBlock.findUnique({
-      where: { key: content.key }
+      where: { key: content.key } as any
     })
     if (readContent) {
       console.log('✓ Content read successful')

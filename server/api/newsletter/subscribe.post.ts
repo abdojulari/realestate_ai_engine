@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { resolveTenantFromRequest } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -14,14 +15,17 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Resolve tenant
+    const adminId = await resolveTenantFromRequest(event)
+
     // Get IP and user agent for tracking
     const headers = getHeaders(event)
     const ipAddress = headers['x-forwarded-for'] || headers['x-real-ip'] || 'unknown'
     const userAgent = headers['user-agent'] || 'unknown'
 
-    // Check if subscriber already exists
-    const existingSubscriber = await prisma.newsletterSubscriber.findUnique({
-      where: { email: email.toLowerCase() }
+    // Check if subscriber already exists for this tenant (adminId + email uniqueness)
+    const existingSubscriber = await prisma.newsletterSubscriber.findFirst({
+      where: { email: email.toLowerCase(), ...(adminId ? { adminId } : {}) }
     })
 
     if (existingSubscriber) {
@@ -61,7 +65,8 @@ export default defineEventHandler(async (event) => {
         status: 'active',
         source,
         ipAddress,
-        userAgent
+        userAgent,
+        ...(adminId ? { adminId } : {})
       }
     })
 

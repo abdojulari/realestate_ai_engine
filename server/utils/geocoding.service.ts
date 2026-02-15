@@ -260,7 +260,7 @@ class GeocodingService {
         return null
       }
 
-      const result = geocodeResult.results[0]
+      const result = geocodeResult.results[0]!
       const neighborhoodData = this.extractNeighborhood(result)
 
       // Find or create neighborhood

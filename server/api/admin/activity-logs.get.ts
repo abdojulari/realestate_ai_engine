@@ -1,20 +1,37 @@
+import { defineEventHandler, getQuery, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../utils/auth'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
+  const user = await requireAdmin(event)
+
   try {
-    // Get query parameters
     const query = getQuery(event)
     const page = parseInt(query.page as string) || 1
     const limit = parseInt(query.limit as string) || 50
     const skip = (page - 1) * limit
 
+    // ActivityLog has userId, not adminId.
+    // For admin: scope to the admin's own activity + their team members' activity.
+    // For super_admin: no filter (sees all).
+    let userIdFilter: any = {}
+    if (user.role !== 'super_admin') {
+      const teamMembers = await prisma.user.findMany({
+        where: { adminId: user.id },
+        select: { id: true }
+      })
+      const teamIds = [user.id, ...teamMembers.map(m => m.id)]
+      userIdFilter = { userId: { in: teamIds } }
+    }
+
     // Get total count
-    const total = await prisma.activityLog.count()
+    const total = await prisma.activityLog.count({ where: userIdFilter })
 
     // Get activity logs with user information
     const activities = await prisma.activityLog.findMany({
+      where: userIdFilter,
       skip,
       take: limit,
       orderBy: {
@@ -33,12 +50,13 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    // Calculate stats
+    // Calculate stats (scoped to tenant)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
     const todayActivities = await prisma.activityLog.count({
       where: {
+        ...userIdFilter,
         createdAt: {
           gte: today
         }
@@ -48,6 +66,7 @@ export default defineEventHandler(async (event) => {
     const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000)
     const activeUsers = await prisma.activityLog.findMany({
       where: {
+        ...userIdFilter,
         createdAt: {
           gte: last24h
         }
@@ -60,6 +79,7 @@ export default defineEventHandler(async (event) => {
 
     const securityEvents = await prisma.activityLog.count({
       where: {
+        ...userIdFilter,
         action: {
           in: ['login', 'logout', 'password_change', '2fa_enabled', '2fa_disabled']
         }
@@ -89,4 +109,3 @@ export default defineEventHandler(async (event) => {
     })
   }
 })
-

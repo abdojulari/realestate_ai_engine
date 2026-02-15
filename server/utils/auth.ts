@@ -32,7 +32,9 @@ export async function requireAuth(event: any) {
         email: true,
         firstName: true,
         lastName: true,
-        role: true
+        role: true,
+        adminId: true,
+        subscriptionTier: true,
       }
     })
 

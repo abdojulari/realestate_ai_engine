@@ -2,6 +2,7 @@ import { defineEventHandler, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { realEstateFaqs, type FAQ } from '../data/realEstateFaqs'
 import { requireFeature, FEATURES } from '../utils/license'
+import { getPublicTenantFilter } from '../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -32,6 +33,7 @@ export default defineEventHandler(async (event) => {
   // Check license for chatbot feature
   await requireFeature(FEATURES.CHATBOT, event)
   
+  const tenantFilter = await getPublicTenantFilter(event)
   const body = await readBody(event)
   const message = typeof body?.message === 'string' ? body.message.trim() : ''
 
@@ -47,7 +49,7 @@ export default defineEventHandler(async (event) => {
 
   const matchedFAQs = findRelevantFAQs(realEstateFaqs, message, 4)
   const properties = intent === 'property'
-    ? await fetchRelevantProperties(message)
+    ? await fetchRelevantProperties(message, tenantFilter)
     : []
 
   const context = buildContext({
@@ -239,7 +241,7 @@ function extractMLS(normalizedQuery: string): string | null {
   return null
 }
 
-async function fetchRelevantProperties(message: string) {
+async function fetchRelevantProperties(message: string, chatTenantFilter: { adminId?: number } = {}) {
   const normalized = normalizeText(message)
   const city = extractCity(normalized)
   const typeFilter = extractPropertyType(normalized)
@@ -249,6 +251,7 @@ async function fetchRelevantProperties(message: string) {
   const mlsNumber = extractMLS(normalized)
 
   const where: any = {
+    ...chatTenantFilter,
     status: 'for_sale',
     type: { in: RESIDENTIAL_TYPES }
   }

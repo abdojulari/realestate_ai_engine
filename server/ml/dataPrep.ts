@@ -95,8 +95,8 @@ export function aggregateMonthlyMetrics(properties: RawPropertyData[]): MonthlyM
   
   monthlyGroups.forEach((props, key) => {
     const [yearStr, monthStr] = key.split('-')
-    const year = parseInt(yearStr)
-    const month = parseInt(monthStr)
+    const year = parseInt(yearStr!)
+    const month = parseInt(monthStr!)
     
     // Filter sold properties
     const soldProps = props.filter(p => p.status?.toLowerCase() === 'sold')
@@ -198,7 +198,7 @@ function calculateYoYGrowth(
   metrics: MonthlyMetrics[], 
   index: number
 ): { [key: string]: number } {
-  const current = metrics[index]
+  const current = metrics[index]!
   
   // Find same month last year
   const lastYear = metrics.find(m => 
@@ -333,7 +333,7 @@ export function prepareTrainingData(
   
   // Standard sliding window approach for sufficient data
   for (let i = lookbackMonths - 1; i < metrics.length - forecastMonths; i++) {
-    const current = metrics[i]
+    const current = metrics[i]!
     
     // Build feature vector
     const rolling3 = calculateRollingFeatures(metrics, i, 3)
@@ -409,15 +409,15 @@ function normalizeData(
     }
   }
   
-  const numFeatures = features[0].length
-  const numLabels = labels[0].length
+  const numFeatures = features[0]!.length
+  const numLabels = labels[0]!.length
   
   // Calculate means and stds for features
   const featureMeans: number[] = []
   const featureStds: number[] = []
   
   for (let j = 0; j < numFeatures; j++) {
-    const column = features.map(row => row[j])
+    const column = features.map(row => row[j]!)
     featureMeans.push(ss.mean(column))
     featureStds.push(ss.standardDeviation(column) || 1) // Avoid division by zero
   }
@@ -427,18 +427,18 @@ function normalizeData(
   const labelStds: number[] = []
   
   for (let j = 0; j < numLabels; j++) {
-    const column = labels.map(row => row[j])
+    const column = labels.map(row => row[j]!)
     labelMeans.push(ss.mean(column))
     labelStds.push(ss.standardDeviation(column) || 1)
   }
   
   // Normalize
   const normalizedFeatures = features.map(row =>
-    row.map((val, j) => (val - featureMeans[j]) / featureStds[j])
+    row.map((val, j) => (val - featureMeans[j]!) / featureStds[j]!)
   )
   
   const normalizedLabels = labels.map(row =>
-    row.map((val, j) => (val - labelMeans[j]) / labelStds[j])
+    row.map((val, j) => (val - labelMeans[j]!) / labelStds[j]!)
   )
   
   return {
@@ -464,7 +464,7 @@ export function prepareForPrediction(
   }
   
   const i = metrics.length - 1
-  const current = metrics[i]
+  const current = metrics[i]!
   
   const rolling3 = calculateRollingFeatures(metrics, i, 3)
   const rolling6 = calculateRollingFeatures(metrics, i, 6)
@@ -486,7 +486,7 @@ export function prepareForPrediction(
   
   // Normalize using stored normalization params
   return featureVector.map((val, j) => 
-    (val - normalization.featureMeans[j]) / normalization.featureStds[j]
+    (val - normalization.featureMeans[j]!) / normalization.featureStds[j]!
   )
 }
 
@@ -498,6 +498,6 @@ export function denormalizePredictions(
   normalization: PreparedFeatures['normalization']
 ): number[] {
   return predictions.map((val, j) =>
-    val * normalization.labelStds[j] + normalization.labelMeans[j]
+    val * normalization.labelStds[j]! + normalization.labelMeans[j]!
   )
 }

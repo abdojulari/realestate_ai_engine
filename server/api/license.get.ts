@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   
   if (authHeader?.startsWith('Bearer ')) {
     try {
-      const token = authHeader.split(' ')[1]
+      const token = authHeader.split(' ')[1]!
       const secret = process.env.JWT_SECRET || 'fallback-secret'
       const decoded = jwt.verify(token, secret) as { id: number }
       

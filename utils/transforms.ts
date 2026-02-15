@@ -45,12 +45,12 @@ export const buildSearchQuery = (filters: SearchFilters): Record<string, any> =>
     query.type = filters.propertyType
   }
   
-  if (filters.priceMin) {
-    query.priceMin = filters.priceMin
+  if (filters.minPrice) {
+    query.priceMin = filters.minPrice
   }
   
-  if (filters.priceMax) {
-    query.priceMax = filters.priceMax
+  if (filters.maxPrice) {
+    query.priceMax = filters.maxPrice
   }
   
   if (filters.beds) {
@@ -61,12 +61,12 @@ export const buildSearchQuery = (filters: SearchFilters): Record<string, any> =>
     query.baths = filters.baths
   }
   
-  if (filters.sqftMin) {
-    query.sqftMin = filters.sqftMin
+  if (filters.minSqft) {
+    query.sqftMin = filters.minSqft
   }
   
-  if (filters.sqftMax) {
-    query.sqftMax = filters.sqftMax
+  if (filters.maxSqft) {
+    query.sqftMax = filters.maxSqft
   }
   
   return query

@@ -1,5 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter, getAdminIdForCreate } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -9,6 +11,7 @@ const prisma = new PrismaClient()
  * 
  * Creates a new blog post (draft or published)
  * Requires admin authentication
+ * Tenant-scoped: assigns adminId for data isolation
  */
 
 // Helper to generate slug
@@ -28,14 +31,9 @@ function calculateReadTime(content: string): number {
 }
 
 export default defineEventHandler(async (event) => {
-  const user = event.context.user
-  
-  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Admin access required'
-    })
-  }
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+  const adminId = getAdminIdForCreate(user)
   
   const body = await readBody(event)
   
@@ -52,8 +50,8 @@ export default defineEventHandler(async (event) => {
     let slug = body.slug || generateSlug(body.title)
     
     // Check for slug uniqueness
-    const existingPost = await prisma.blogPost.findUnique({
-      where: { slug }
+    const existingPost = await prisma.blogPost.findFirst({
+      where: { slug, adminId: getAdminIdForCreate(user) }
     })
     
     if (existingPost) {
@@ -77,15 +75,16 @@ export default defineEventHandler(async (event) => {
     // Handle tags - ensure they're stored and tracked
     const tags = body.tags || []
     if (tags.length > 0) {
-      // Upsert tags
+      // Upsert tags with tenant scoping
       for (const tagName of tags) {
         const tagSlug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         await prisma.blogTag.upsert({
-          where: { slug: tagSlug },
+          where: { slug: tagSlug } as any,
           create: {
             name: tagName,
             slug: tagSlug,
-            postCount: 1
+            postCount: 1,
+            adminId
           },
           update: {
             postCount: { increment: 1 }
@@ -94,7 +93,20 @@ export default defineEventHandler(async (event) => {
       }
     }
     
-    // Create the post
+    // Validate category belongs to tenant if provided
+    if (body.categoryId) {
+      const category = await prisma.blogCategory.findFirst({
+        where: { id: body.categoryId, ...tenantFilter }
+      })
+      if (!category) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'Category not found or does not belong to your tenant'
+        })
+      }
+    }
+    
+    // Create the post with tenant adminId
     const post = await prisma.blogPost.create({
       data: {
         title: body.title,
@@ -105,6 +117,7 @@ export default defineEventHandler(async (event) => {
         coverImage: body.coverImage || null,
         coverImageAlt: body.coverImageAlt || null,
         authorId: user.id,
+        adminId,
         categoryId: body.categoryId || null,
         tags: tags,
         status,
@@ -145,6 +158,8 @@ export default defineEventHandler(async (event) => {
       post
     }
   } catch (error: any) {
+    if (error.statusCode) throw error
+    
     console.error('[Admin Blog API] Error creating post:', error)
     throw createError({
       statusCode: 500,

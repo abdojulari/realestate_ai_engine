@@ -1,12 +1,16 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getAdminIdForCreate } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  const user = (event as any).context?.user
-  if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  if (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'agent') throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+  const user = await requireAdmin(event)
+
+  // Use the tenant admin ID for scoping notification settings.
+  // Each admin (tenant) has their own notification settings.
+  const adminId = getAdminIdForCreate(user)
 
   const body = await readBody(event)
   const enabled = typeof body.enabled === 'boolean' ? String(body.enabled) : undefined
@@ -16,8 +20,8 @@ export default defineEventHandler(async (event) => {
   async function upsert(key: string, value?: string) {
     if (typeof value === 'undefined') return
     await prisma.setting.upsert({
-      where: { key },
-      create: { key, value },
+      where: { adminId_key: { adminId, key } },
+      create: { adminId, key, value },
       update: { value }
     })
   }
@@ -30,5 +34,3 @@ export default defineEventHandler(async (event) => {
 
   return { success: true }
 })
-
-

@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
       }
       
       // Test first image
-      const firstImage = images[0]
+      const firstImage = images[0]!
       const isValid = await testImageUrl(firstImage)
       
       if (!isValid) {

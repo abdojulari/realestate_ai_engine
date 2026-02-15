@@ -3,6 +3,24 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+/** Upsert a system-level setting (owned by first super_admin) */
+async function upsertSysSetting(key: string, value: string) {
+  const sa = await prisma.user.findFirst({ where: { role: 'super_admin' }, select: { id: true } })
+  const adminId = sa?.id ?? null
+  if (!adminId) {
+    // Fallback: just create without adminId (nullable)
+    const existing = await (prisma.setting as any).findFirst({ where: { key, adminId: null } })
+    if (existing) await prisma.setting.update({ where: { id: existing.id }, data: { value } })
+    else await (prisma.setting as any).create({ data: { key, value } })
+    return
+  }
+  await (prisma.setting as any).upsert({
+    where: { adminId_key: { adminId, key } },
+    update: { value },
+    create: { adminId, key, value },
+  })
+}
+
 export default defineEventHandler(async (event) => {
   // For scheduled syncs, we'll bypass auth check
   // For manual syncs, we'll require admin
@@ -15,11 +33,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Set sync status to running
-    await prisma.setting.upsert({
-      where: { key: 'sync_status' },
-      update: { value: 'running' },
-      create: { key: 'sync_status', value: 'running' }
-    })
+    await upsertSysSetting('sync_status', 'running')
 
     // Start background sync without blocking the response
     // This will run asynchronously
@@ -28,21 +42,13 @@ export default defineEventHandler(async (event) => {
         console.log('🔄 Starting background CREA sync...', { scheduled, filters })
         
         // Update progress
-        await prisma.setting.upsert({
-          where: { key: 'sync_progress' },
-          update: { value: JSON.stringify({ progress: 10, text: 'Connecting to CREA API...' }) },
-          create: { key: 'sync_progress', value: JSON.stringify({ progress: 10, text: 'Connecting to CREA API...' }) }
-        })
+        await upsertSysSetting('sync_progress', JSON.stringify({ progress: 10, text: 'Connecting to CREA API...' }))
         
         // Import CREA service directly
         const { creaService } = await import('../../../utils/crea.service')
 
         // Update progress
-        await prisma.setting.upsert({
-          where: { key: 'sync_progress' },
-          update: { value: JSON.stringify({ progress: 20, text: 'Fetching properties from CREA...' }) },
-          create: { key: 'sync_progress', value: JSON.stringify({ progress: 20, text: 'Fetching properties from CREA...' }) }
-        })
+        await upsertSysSetting('sync_progress', JSON.stringify({ progress: 20, text: 'Fetching properties from CREA...' }))
 
         // Fetch properties from CREA
         const creProperties = await creaService.getProperties(filters)
@@ -57,11 +63,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // Update progress
-        await prisma.setting.upsert({
-          where: { key: 'sync_progress' },
-          update: { value: JSON.stringify({ progress: 30, text: `Processing ${creProperties.length} properties...` }) },
-          create: { key: 'sync_progress', value: JSON.stringify({ progress: 30, text: `Processing ${creProperties.length} properties...` }) }
-        })
+        await upsertSysSetting('sync_progress', JSON.stringify({ progress: 30, text: `Processing ${creProperties.length} properties...` }))
 
         // Process properties in batches to avoid memory issues
         const batchSize = 10
@@ -73,17 +75,10 @@ export default defineEventHandler(async (event) => {
           
           // Update progress
           const progress = 30 + Math.floor((currentBatch / totalBatches) * 60)
-          await prisma.setting.upsert({
-            where: { key: 'sync_progress' },
-            update: { value: JSON.stringify({ 
-              progress, 
-              text: `Processing batch ${currentBatch}/${totalBatches} (${syncStats.created + syncStats.updated} processed)` 
-            }) },
-            create: { key: 'sync_progress', value: JSON.stringify({ 
-              progress, 
-              text: `Processing batch ${currentBatch}/${totalBatches} (${syncStats.created + syncStats.updated} processed)` 
-            }) }
-          })
+          await upsertSysSetting('sync_progress', JSON.stringify({ 
+            progress, 
+            text: `Processing batch ${currentBatch}/${totalBatches} (${syncStats.created + syncStats.updated} processed)` 
+          }))
           
           for (const creaProp of batch) {
             try {
@@ -104,7 +99,7 @@ export default defineEventHandler(async (event) => {
                 } else {
                   console.warn(`⚠️ Property ${creaProp.ListingKey} not found when fetching agent details`)
                 }
-              } catch (agentError) {
+              } catch (agentError: any) {
                 console.warn(`⚠️ Failed to fetch agent data for ${creaProp.ListingKey}:`, agentError.message)
               }
 
@@ -120,20 +115,62 @@ export default defineEventHandler(async (event) => {
               const { user, agent, isSaved, ...propertyData } = transformedProperty as any
               
               // Upsert property
-              const existingProperty = await prisma.property.findFirst({
+              const existingProperty: any = await prisma.property.findFirst({
                 where: { source: 'crea', externalId: creaProp.ListingKey }
               })
 
+              const newPrice = propertyData.price || 0
+
               if (existingProperty) {
-                await prisma.property.update({
+                // Detect price change and record it
+                const oldPrice = existingProperty.price
+                if (oldPrice && newPrice && oldPrice !== newPrice) {
+                  const changeAmt = newPrice - oldPrice
+                  const changePct = parseFloat(((changeAmt / oldPrice) * 100).toFixed(2))
+                  const priceEvent = changeAmt < 0 ? 'price_decrease' : 'price_increase'
+                  try {
+                    await (prisma as any).propertyPriceHistory.create({
+                      data: {
+                        propertyId: existingProperty.id,
+                        price: newPrice,
+                        event: priceEvent,
+                        changeAmt,
+                        changePct,
+                        source: 'crea'
+                      }
+                    })
+                  } catch (_priceErr) {
+                    // Non-critical – don't fail the sync
+                  }
+                }
+
+                await (prisma.property as any).update({
                   where: { id: existingProperty.id },
-                  data: { ...propertyData, lastSyncAt: new Date() }
+                  data: {
+                    ...propertyData,
+                    lastSyncAt: new Date(),
+                    // Preserve firstEntryPrice once set
+                    firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price
+                  }
                 })
                 syncStats.updated++
               } else {
-                await prisma.property.create({
-                  data: { ...propertyData, lastSyncAt: new Date() }
+                const created: any = await (prisma.property as any).create({
+                  data: { ...propertyData, lastSyncAt: new Date(), firstEntryPrice: newPrice }
                 })
+                // Record initial listing price
+                try {
+                  await (prisma as any).propertyPriceHistory.create({
+                    data: {
+                      propertyId: created.id,
+                      price: newPrice,
+                      event: 'listed',
+                      source: 'crea'
+                    }
+                  })
+                } catch (_priceErr) {
+                  // Non-critical
+                }
                 syncStats.created++
               }
             } catch (error) {
@@ -147,29 +184,17 @@ export default defineEventHandler(async (event) => {
         }
         
         // Final progress update
-        await prisma.setting.upsert({
-          where: { key: 'sync_progress' },
-          update: { value: JSON.stringify({ progress: 100, text: 'Sync completed!' }) },
-          create: { key: 'sync_progress', value: JSON.stringify({ progress: 100, text: 'Sync completed!' }) }
-        })
+        await upsertSysSetting('sync_progress', JSON.stringify({ progress: 100, text: 'Sync completed!' }))
 
         // Store sync results
-        await prisma.setting.upsert({
-          where: { key: 'last_sync_result' },
-          update: { value: JSON.stringify(syncStats) },
-          create: { key: 'last_sync_result', value: JSON.stringify(syncStats) }
-        })
+        await upsertSysSetting('last_sync_result', JSON.stringify(syncStats))
 
         // Set sync status to completed
-        await prisma.setting.upsert({
-          where: { key: 'sync_status' },
-          update: { value: 'completed' },
-          create: { key: 'sync_status', value: 'completed' }
-        })
+        await upsertSysSetting('sync_status', 'completed')
         
         console.log('✅ Background CREA sync completed:', syncStats)
         
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Background sync failed:', error)
         
         // Store error result
@@ -182,17 +207,9 @@ export default defineEventHandler(async (event) => {
           error: error.message
         }
         
-        await prisma.setting.upsert({
-          where: { key: 'last_sync_result' },
-          update: { value: JSON.stringify(errorResult) },
-          create: { key: 'last_sync_result', value: JSON.stringify(errorResult) }
-        })
+        await upsertSysSetting('last_sync_result', JSON.stringify(errorResult))
 
-        await prisma.setting.upsert({
-          where: { key: 'sync_status' },
-          update: { value: 'error' },
-          create: { key: 'sync_status', value: 'error' }
-        })
+        await upsertSysSetting('sync_status', 'error')
       }
     })
 

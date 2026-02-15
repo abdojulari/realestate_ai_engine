@@ -1,26 +1,22 @@
 import { createPersistedState } from 'pinia-plugin-persistedstate'
+import type { Pinia } from 'pinia'
 
 export default defineNuxtPlugin(() => {
   const { $pinia } = useNuxtApp()
   
-  $pinia.use(createPersistedState({
+  ;($pinia as Pinia).use(createPersistedState({
     storage: {
-      getItem: (key: string) => {
+      getItem: (key: string): string | null => {
         if (process.client) {
           return localStorage.getItem(key)
         }
         return null
       },
-      setItem: (key: string, value: string) => {
+      setItem: (key: string, value: string): void => {
         if (process.client) {
           localStorage.setItem(key, value)
         }
-      },
-      removeItem: (key: string) => {
-        if (process.client) {
-          localStorage.removeItem(key)
-        }
       }
-    }
+    } as any
   }))
 })

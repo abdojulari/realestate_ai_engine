@@ -320,6 +320,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+// @ts-ignore
 import { api } from '~/utils/api'
 import FeatureGate from '~/components/FeatureGate.vue'
 import { FEATURES } from '~/composables/useLicense'

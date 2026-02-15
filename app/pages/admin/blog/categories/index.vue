@@ -221,6 +221,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+// @ts-ignore
 import { api } from '~/utils/api'
 
 definePageMeta({
@@ -365,7 +366,7 @@ const deleteCategory = async () => {
   deleting.value = true
   
   try {
-    await api.del(`/api/admin/blog/categories/${categoryToDelete.value.id}`)
+    await api.delete(`/api/admin/blog/categories/${categoryToDelete.value.id}`)
     showSnackbar('Category deleted', 'success')
     deleteDialog.value = false
     fetchCategories()

@@ -255,6 +255,7 @@
 /**
  * ARCHITECTURAL LOGIC: PRESERVED
  */
+// @ts-ignore
 import { api } from '~/utils/api'
 interface SyncFilters {
   city?: string
@@ -330,7 +331,7 @@ const startSync = async () => {
       timestamp: new Date().toISOString()
     }
     
-    syncHistory.value.unshift(lastSyncResult.value)
+    syncHistory.value.unshift(lastSyncResult.value!)
     if (syncHistory.value.length > 10) {
       syncHistory.value = syncHistory.value.slice(0, 10)
     }
@@ -341,7 +342,7 @@ const startSync = async () => {
     }
     
     await fetchStats()
-  } catch (error) {
+  } catch (error: any) {
     console.error('Sync error:', error)
     alert.value = {
       message: `System Failure: ${error.data?.message || error.message}`,
@@ -357,9 +358,10 @@ const startSync = async () => {
 
 const fetchStats = async () => {
   try {
+    const fetchAny = $fetch as (url: string) => Promise<any>
     const [creaResponse, manualResponse] = await Promise.all([
-      $fetch('/api/properties?source=crea&status=for_sale&limit=1') as Promise<any>,
-      $fetch('/api/properties?source=manual&status=for_sale&limit=1') as Promise<any>
+      fetchAny('/api/properties?source=crea&status=for_sale&limit=1'),
+      fetchAny('/api/properties?source=manual&status=for_sale&limit=1'),
     ])
     
     // Handle paginated response format

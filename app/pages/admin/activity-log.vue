@@ -298,6 +298,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+// @ts-ignore
 import { api } from '~/utils/api'
 
 // State

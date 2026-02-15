@@ -21,6 +21,7 @@ export const FEATURES = {
   CREA_SYNC: 'crea_sync',
   PILLAR9_SYNC: 'pillar9_sync',
   DOCUMENTS_LEGAL_REVIEW: 'documents_legal_review',
+  BEST_DEALS: 'best_deals',
 } as const
 
 export type Feature = typeof FEATURES[keyof typeof FEATURES]
@@ -121,6 +122,7 @@ export function useLicense() {
   const canUseCREASync = computed(() => hasFeature(FEATURES.CREA_SYNC))
   const canUsePillar9Sync = computed(() => hasFeature(FEATURES.PILLAR9_SYNC))
   const canUseDocumentsLegalReview = computed(() => hasFeature(FEATURES.DOCUMENTS_LEGAL_REVIEW))
+  const canUseBestDeals = computed(() => hasFeature(FEATURES.BEST_DEALS))
 
   // Check if current plan has any AI features
   const hasAnyAI = computed(() => {
@@ -146,6 +148,7 @@ export function useLicense() {
       [FEATURES.CREA_SYNC]: 'platinum',
       [FEATURES.PILLAR9_SYNC]: 'platinum',
       [FEATURES.DOCUMENTS_LEGAL_REVIEW]: 'silver',
+      [FEATURES.BEST_DEALS]: 'gold',
     }
 
     return featureToTier[feature] || 'platinum'
@@ -195,6 +198,7 @@ export function useLicense() {
     canUseCREASync,
     canUsePillar9Sync,
     canUseDocumentsLegalReview,
+    canUseBestDeals,
     hasAnyAI,
 
     // Constants

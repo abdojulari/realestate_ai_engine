@@ -1,11 +1,13 @@
 import { defineEventHandler, readBody, getRouterParam, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../../utils/auth'
+import { getTenantFilter } from '../../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
   const id = getRouterParam(event, 'id')
   const body = await readBody(event)
@@ -19,6 +21,14 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
+    // Verify ownership before updating
+    const existing = await prisma.emailTemplate.findFirst({
+      where: { id: Number(id), ...tenantFilter }
+    })
+    if (!existing) {
+      throw createError({ statusCode: 404, statusMessage: 'Template not found' })
+    }
+
     const template = await prisma.emailTemplate.update({
       where: {
         id: Number(id)
@@ -37,6 +47,7 @@ export default defineEventHandler(async (event) => {
       template
     }
   } catch (error: any) {
+    if (error.statusCode) throw error
     console.error('❌ Failed to update email template:', error)
     throw createError({
       statusCode: 500,

@@ -1,16 +1,20 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
+    const tenantFilter = await getPublicTenantFilter(event)
+
     // Get city statistics from actual property data
     const cityStats = await prisma.property.groupBy({
       by: ['city'],
       _count: {
         id: true
       },
+      where: { ...tenantFilter },
       orderBy: {
         _count: {
           id: 'desc'
@@ -24,6 +28,7 @@ export default defineEventHandler(async (event) => {
       _count: {
         id: true
       },
+      where: { ...tenantFilter },
       orderBy: {
         _count: {
           id: 'desc'

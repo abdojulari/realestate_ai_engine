@@ -1,19 +1,21 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    const tenantFilter = getTenantFilter(user)
     const id = parseInt(event.context.params?.id || '0')
 
     if (!id) {
       throw createError({ statusCode: 400, message: 'Invalid template ID' })
     }
 
-    const template = await prisma.newsletterTemplate.findUnique({
-      where: { id },
+    const template = await prisma.newsletterTemplate.findFirst({
+      where: { id, ...tenantFilter },
       include: { _count: { select: { newsletters: true } } }
     })
 

@@ -123,7 +123,7 @@
                     </td>
                     <td>${{ property.price.toLocaleString() }}</td>
                     <td>{{ property.views }}</td>
-                    <td>{{ property.inquiries }}</td>
+                    <td>{{ (property as any).inquiries }}</td>
                     <td>
                       <div class="d-flex gap-2">
                         <v-btn
@@ -380,13 +380,13 @@
 import { ref, computed } from 'vue'
 import type { Property, PropertyInquiry } from '~/types'
 import { propertyService } from '~/services/property.service'
-import { formatDate } from '../../../utils/formatters'
+import { formatDate } from '~/utils/formatters'
 import { useProperty } from '~/composables/useProperty'
 
 // State
 const search = ref('')
 const properties = ref<Property[]>([])
-const recentInquiries = ref<PropertyInquiry[]>([])
+const recentInquiries = ref<any[]>([])
 const showAnalyticsDialog = ref(false)
 const showInquiryDialog = ref(false)
 const showDeleteDialog = ref(false)
@@ -432,8 +432,8 @@ const loadData = async () => {
     stats.value = {
       activeListings: propertiesData.filter((p: Property) => p.status === 'active').length,
       totalViews: propertiesData.reduce((sum: number, p: Property) => sum + (p.views || 0), 0),
-      pendingInquiries: inquiriesData.filter((i: PropertyInquiry) => i.status === 'pending').length,
-      scheduledViewings: inquiriesData.filter((i: PropertyInquiry) => i.type === 'viewing' && i.status === 'approved').length
+      pendingInquiries: inquiriesData.filter((i: any) => i.status === 'pending').length,
+      scheduledViewings: inquiriesData.filter((i: any) => i.type === 'viewing' && i.status === 'approved').length
     }
   } catch (error) {
     console.error('Error loading dashboard data:', error)

@@ -1,9 +1,11 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
+  const tenantFilter = await getPublicTenantFilter(event)
   const query = getQuery(event)
   const {
     // Basic filters
@@ -52,7 +54,7 @@ export default defineEventHandler(async (event) => {
     neighborhoodId
   } = query
 
-  const where: any = {}
+  const where: any = { ...tenantFilter }
 
   // RESIDENTIAL ONLY FILTER - Exclude commercial/industrial properties at database level
   const residentialTypes = ['house', 'condo', 'townhouse', 'multi-family', 'land', 'other']

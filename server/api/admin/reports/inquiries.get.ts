@@ -1,13 +1,16 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
   const rows = await prisma.propertyInquiry.findMany({
+    where: tenantFilter,
     orderBy: { createdAt: 'desc' },
     take: 50,
     include: { property: { select: { title: true, images: true } }, user: { select: { firstName: true, lastName: true } } }
@@ -23,5 +26,3 @@ export default defineEventHandler(async (event) => {
     responseTime: ''
   }))
 })
-
-

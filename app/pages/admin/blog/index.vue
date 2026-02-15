@@ -251,8 +251,10 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+// @ts-ignore
 import { api } from '~/utils/api'
-import { formatDate } from '../../../../utils/formatters'
+// @ts-ignore
+import { formatDate } from '~/utils/formatters'
 
 definePageMeta({
   layout: 'admin',
@@ -378,7 +380,7 @@ const deletePost = async () => {
   deleting.value = true
   
   try {
-    await api.del(`/api/admin/blog/${postToDelete.value.id}`)
+    await api.delete(`/api/admin/blog/${postToDelete.value.id}`)
     deleteDialog.value = false
     postToDelete.value = null
     fetchPosts()

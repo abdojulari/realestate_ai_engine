@@ -105,7 +105,7 @@ const loadProperties = async (page = 1) => {
     const apiUrl = `/api/properties?${searchParams.toString()}`
     console.log('🔍 Fetching from API URL:', apiUrl) // Debug log
     
-    const response = await $fetch(apiUrl)
+    const response = await $fetch(apiUrl) as any
     console.log('🔍 API Response type:', typeof response, Array.isArray(response))
     console.log('🔍 API Response keys:', Object.keys(response))
     console.log('🔍 API Response sample:', response.properties?.[0] || response[0]) // Debug the actual response

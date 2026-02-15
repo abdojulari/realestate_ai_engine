@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery, setHeader } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -15,8 +16,11 @@ export default defineEventHandler(async (event) => {
   const limit = Math.min(parseInt(query.limit as string) || 5, 10)
   
   try {
+    const tenantFilter = await getPublicTenantFilter(event)
+
     const posts = await prisma.blogPost.findMany({
       where: {
+        ...tenantFilter,
         status: 'published',
         publishedAt: { lte: new Date() },
         isFeatured: true

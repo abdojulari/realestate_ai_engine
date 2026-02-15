@@ -1,13 +1,16 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
+    const tenantFilter = await getPublicTenantFilter(event)
+
     // Get the active home template setting
-    const setting = await prisma.setting.findUnique({
-      where: { key: 'site.homeTemplate' }
+    const setting = await prisma.setting.findFirst({
+      where: { key: 'site.homeTemplate', ...tenantFilter }
     })
 
     const templateNumber = setting ? parseInt(setting.value) : 1

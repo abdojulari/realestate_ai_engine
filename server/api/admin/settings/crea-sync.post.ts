@@ -1,27 +1,38 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter, getAdminIdForCreate } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+  const adminId = getAdminIdForCreate(user)
 
   const { autoSyncEnabled, autoSyncTime } = await readBody(event)
 
   try {
-    // Store auto-sync settings in the settings table
-    await prisma.setting.upsert({
-      where: { key: 'crea_auto_sync_enabled' },
-      update: { value: String(autoSyncEnabled) },
-      create: { key: 'crea_auto_sync_enabled', value: String(autoSyncEnabled) }
-    })
+    // Helper to upsert scoped to tenant
+    async function upsertSetting(key: string, value: string) {
+      const existing = await prisma.setting.findFirst({
+        where: { key, adminId }
+      })
+      if (existing) {
+        await prisma.setting.update({
+          where: { id: existing.id },
+          data: { value }
+        })
+      } else {
+        await prisma.setting.create({
+          data: { key, value, adminId }
+        })
+      }
+    }
 
-    await prisma.setting.upsert({
-      where: { key: 'crea_auto_sync_time' },
-      update: { value: autoSyncTime },
-      create: { key: 'crea_auto_sync_time', value: autoSyncTime }
-    })
+    // Store auto-sync settings in the settings table
+    await upsertSetting('crea_auto_sync_enabled', String(autoSyncEnabled))
+    await upsertSetting('crea_auto_sync_time', autoSyncTime)
 
     console.log('✅ Auto-sync settings updated:', { autoSyncEnabled, autoSyncTime })
 

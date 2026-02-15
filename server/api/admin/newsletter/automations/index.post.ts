@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../utils/auth'
+import { getAdminIdForCreate } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -8,7 +9,7 @@ function calculateNextRun(frequency: string, dayOfWeek?: number, dayOfMonth?: nu
   const [hours, minutes] = (timeOfDay || '09:00').split(':').map(Number)
   
   const nextRun = new Date(now)
-  nextRun.setHours(hours, minutes, 0, 0)
+  nextRun.setHours(hours!, minutes!, 0, 0)
   
   if (frequency === 'daily') {
     if (nextRun <= now) {
@@ -68,7 +69,8 @@ export default defineEventHandler(async (event) => {
         targetFilters: targetFilters || null,
         isActive,
         nextRun,
-        createdBy: user.id
+        createdBy: user.id,
+        adminId: getAdminIdForCreate(user)
       }
     })
 

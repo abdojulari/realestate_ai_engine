@@ -46,7 +46,7 @@ export default defineEventHandler(async (event) => {
           } else {
             console.warn(`⚠️ Property ${creaProp.ListingKey} not found when fetching agent details`)
           }
-        } catch (agentError) {
+        } catch (agentError: any) {
           console.warn(`⚠️ Failed to fetch agent data for ${creaProp.ListingKey}:`, agentError.message)
         }
 
@@ -69,7 +69,31 @@ export default defineEventHandler(async (event) => {
           }
         })
 
+        const newPrice = propertyData.price || 0
+
         if (existingProperty) {
+          // Detect price change and record it
+          const oldPrice = existingProperty.price
+          if (oldPrice && newPrice && oldPrice !== newPrice) {
+            const changeAmt = newPrice - oldPrice
+            const changePct = parseFloat(((changeAmt / oldPrice) * 100).toFixed(2))
+            const priceEvent = changeAmt < 0 ? 'price_decrease' : 'price_increase'
+            try {
+              await prisma.propertyPriceHistory.create({
+                data: {
+                  propertyId: existingProperty.id,
+                  price: newPrice,
+                  event: priceEvent,
+                  changeAmt,
+                  changePct,
+                  source: 'crea'
+                }
+              })
+            } catch (_priceErr) {
+              // Non-critical – don't fail the sync
+            }
+          }
+
           // Update existing property
           await prisma.property.update({
             where: { id: existingProperty.id },
@@ -78,21 +102,37 @@ export default defineEventHandler(async (event) => {
               lastSyncAt: new Date(),
               // Preserve local data
               views: existingProperty.views,
-              createdAt: existingProperty.createdAt
+              createdAt: existingProperty.createdAt,
+              // Preserve firstEntryPrice once set
+              firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price
             }
           })
           syncStats.updated++
         } else {
-          // Create new property
-          await prisma.property.create({
+          // Create new property – set firstEntryPrice = current price
+          const created = await prisma.property.create({
             data: {
               ...propertyData,
-              lastSyncAt: new Date()
+              lastSyncAt: new Date(),
+              firstEntryPrice: newPrice
             }
           })
+          // Record initial listing
+          try {
+            await prisma.propertyPriceHistory.create({
+              data: {
+                propertyId: created.id,
+                price: newPrice,
+                event: 'listed',
+                source: 'crea'
+              }
+            })
+          } catch (_priceErr) {
+            // Non-critical
+          }
           syncStats.created++
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error(`Error processing CREA property ${creaProp.ListingKey}:`, error)
         syncStats.errors++
         syncStats.errorDetails.push(`Property ${creaProp.ListingKey}: ${error.message}`)
@@ -122,7 +162,7 @@ export default defineEventHandler(async (event) => {
       stalePropertiesMarked: staleProperties.count,
       message: `Sync completed: ${syncStats.created} created, ${syncStats.updated} updated, ${syncStats.errors} errors`
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('CREA sync error:', error)
     throw createError({
       statusCode: 500,

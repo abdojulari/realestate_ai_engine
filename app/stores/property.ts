@@ -12,7 +12,7 @@ export interface PropertyDetails extends Property {
   postalCode?: string
   mlsNumber?: string
   type?: string
-  yearBuilt?: string
+  yearBuilt?: number
   garage?: string
   heating?: string
   cooling?: string
@@ -299,7 +299,7 @@ export const usePropertyStore = defineStore('property', {
       this.lastError = undefined
 
       try {
-        const property = await $fetch(`/api/properties/${id}`)
+        const property = await $fetch(`/api/properties/${id}`) as any
         
         // Cache the property
         this.propertyCache[id] = property
@@ -322,7 +322,7 @@ export const usePropertyStore = defineStore('property', {
       this.isLoadingFeatured = true
       
       try {
-        const properties = await $fetch('/api/properties/featured')
+        const properties = await $fetch('/api/properties/featured') as any
         this.featuredProperties = properties
         
         // Cache featured properties
@@ -449,5 +449,5 @@ export const usePropertyStore = defineStore('property', {
 
   persist: {
     paths: ['favorites', 'recentlyViewed', 'comparisons', 'listingFilters', 'mapCenter', 'mapZoom']
-  }
+  } as any
 })

@@ -1,5 +1,7 @@
 import { defineEventHandler, getRouterParams, readBody } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter, requireTenantAccess } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -9,6 +11,7 @@ const prisma = new PrismaClient()
  * 
  * Updates an existing blog post
  * Requires admin authentication
+ * Tenant-scoped: verifies ownership before update
  */
 
 // Helper to calculate read time
@@ -19,16 +22,10 @@ function calculateReadTime(content: string): number {
 }
 
 export default defineEventHandler(async (event) => {
-  const user = event.context.user
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
   
-  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Admin access required'
-    })
-  }
-  
-  const { id } = getRouterParams(event)
+  const { id } = getRouterParams(event) as { id: string }
   const postId = parseInt(id)
   
   if (!postId) {
@@ -41,9 +38,9 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   
   try {
-    // Fetch existing post
-    const existingPost = await prisma.blogPost.findUnique({
-      where: { id: postId }
+    // Fetch existing post with tenant scoping
+    const existingPost = await prisma.blogPost.findFirst({
+      where: { id: postId, ...tenantFilter }
     })
     
     if (!existingPost) {
@@ -52,6 +49,9 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Blog post not found'
       })
     }
+    
+    // Verify tenant access
+    requireTenantAccess(user, existingPost.adminId)
     
     // Build update data
     const updateData: any = {
@@ -68,7 +68,8 @@ export default defineEventHandler(async (event) => {
       const slugExists = await prisma.blogPost.findFirst({
         where: {
           slug: body.slug,
-          id: { not: postId }
+          id: { not: postId },
+          ...tenantFilter
         }
       })
       
@@ -105,8 +106,20 @@ export default defineEventHandler(async (event) => {
       updateData.coverImageAlt = body.coverImageAlt
     }
     
-    // Handle category change
+    // Handle category change – validate category belongs to tenant
     if (body.categoryId !== undefined && body.categoryId !== existingPost.categoryId) {
+      if (body.categoryId) {
+        const category = await prisma.blogCategory.findFirst({
+          where: { id: body.categoryId, ...tenantFilter }
+        })
+        if (!category) {
+          throw createError({
+            statusCode: 400,
+            statusMessage: 'Category not found or does not belong to your tenant'
+          })
+        }
+      }
+      
       // Decrement old category count
       if (existingPost.categoryId) {
         await prisma.blogCategory.update({
@@ -136,7 +149,7 @@ export default defineEventHandler(async (event) => {
       for (const tagName of removedTags) {
         const tagSlug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         await prisma.blogTag.updateMany({
-          where: { slug: tagSlug },
+          where: { slug: tagSlug, ...tenantFilter },
           data: { postCount: { decrement: 1 } }
         })
       }
@@ -146,11 +159,12 @@ export default defineEventHandler(async (event) => {
       for (const tagName of addedTags) {
         const tagSlug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         await prisma.blogTag.upsert({
-          where: { slug: tagSlug },
+          where: { slug: tagSlug } as any,
           create: {
             name: tagName,
             slug: tagSlug,
-            postCount: 1
+            postCount: 1,
+            adminId: existingPost.adminId
           },
           update: {
             postCount: { increment: 1 }

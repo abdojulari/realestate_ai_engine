@@ -331,7 +331,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 // Helper function to safely get auth headers
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
     const token = localStorage.getItem('token')
     return token ? { 'Authorization': `Bearer ${token}` } : {}
@@ -354,7 +354,7 @@ const isUserFormValid = ref(false)
 const editingUser = ref(false)
 const selectedUser = ref<any>(null)
 
-const filters = ref({
+const filters = ref<{ search: string; role: string | null; status: string | null }>({
   search: '',
   role: null,
   status: null
@@ -494,7 +494,7 @@ const saveUser = async () => {
       const errorData = await response.json().catch(() => ({}))
       throw new Error(errorData.statusMessage || `HTTP ${response.status}`)
     }
-    userForm.value = { firstName: '', lastName: '', email: '', role: '', status: 'active', phone: '', password: '' }
+    userForm.value = { id: undefined, firstName: '', lastName: '', email: '', role: '', status: 'active', phone: '', password: '' }
     editingUser.value = false
     showAddUserDialog.value = false
     await applyFilters()

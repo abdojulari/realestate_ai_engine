@@ -3,6 +3,13 @@
  * Handles Facebook login, page selection, and access token management
  */
 
+declare const FB: any
+declare global {
+  interface Window {
+    fbAsyncInit: (() => void) | undefined
+  }
+}
+
 export const useFacebookAuth = () => {
   const config = useRuntimeConfig()
   const isInitialized = ref(false)

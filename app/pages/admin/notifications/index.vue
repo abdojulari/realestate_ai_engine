@@ -5,6 +5,7 @@
       <v-row class="mb-8 align-center">
         <v-col cols="12" md="7">
           <div class="d-flex align-center mb-2">
+            <v-btn icon="mdi-arrow-left" variant="text" size="small" class="mr-2" to="/admin" />
             <div class="premium-accent-bar mr-4"></div>
             <span class="text-overline letter-spacing-2 text-gold">Communications</span>
           </div>
@@ -28,7 +29,7 @@
             <v-btn variant="tonal" class="premium-btn" @click="markAllRead" prepend-icon="mdi-check-all">
               Mark all read
             </v-btn>
-            <v-btn color="error" variant="text" class="premium-btn" @click="clearDismissed" prepend-icon="mdi-bell-off-outline">
+            <v-btn color="error" variant="text" class="premium-btn" @click="clearAll" prepend-icon="mdi-bell-off-outline">
               Clear
             </v-btn>
           </div>
@@ -108,8 +109,10 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+// @ts-ignore
 import { api } from '~/utils/api'
-import { formatTime } from '~~/utils/formatters'
+// @ts-ignore
+import { formatTime } from '~/utils/formatters'
 
 // --- LOGIC PRESERVED ---
 const notifications = ref<any[]>([])
@@ -163,8 +166,10 @@ async function dismiss(n: any) {
   await load()
 }
 
-async function clearDismissed() {
-  dismissedIds.value = []
+async function clearAll() {
+  // Add every visible notification to the dismissed list
+  const allIds = notifications.value.map((n: any) => n.id)
+  dismissedIds.value = [...new Set([...dismissedIds.value, ...allIds])]
   await saveSettings()
   await load()
 }

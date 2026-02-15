@@ -58,7 +58,7 @@ export default defineEventHandler(async (event) => {
         }
 
         // Run the property search with stored filters
-        const searchResults = await runPropertySearch(alert.parsedFilters, alert.city)
+        const searchResults = await runPropertySearch(alert.parsedFilters, alert.city ?? undefined)
         
         // Filter for NEW properties only (not sent in previous alerts)
         const lastResultIds = alert.lastResults ? (alert.lastResults as any).propertyIds || [] : []

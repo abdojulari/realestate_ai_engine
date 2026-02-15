@@ -44,7 +44,7 @@
               </div>
               <div class="stat-divider"></div>
               <div class="stat-item">
-                <div class="stat-number">{{ totalUsers > 0 ? `${totalUsers}+` : '500+' }}</div>
+                <div class="stat-number">{{ (totalUsers ?? 0) > 0 ? `${totalUsers}+` : '500+' }}</div>
                 <div class="stat-label">Clients</div>
               </div>
               <div class="stat-divider"></div>

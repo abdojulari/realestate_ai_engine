@@ -369,6 +369,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+// @ts-ignore
 import { api } from '~/utils/api'
 
 definePageMeta({
@@ -443,7 +444,7 @@ const generateSlug = () => {
 
 // Format helpers
 const insertFormat = (format: string) => {
-  const textarea = contentEditor.value?.$el?.querySelector('textarea')
+  const textarea = (contentEditor.value as any)?.$el?.querySelector('textarea')
   if (!textarea) return
   
   const start = textarea.selectionStart
@@ -542,7 +543,7 @@ const insertImage = async () => {
     let url = imageUrl.value
     
     if (imageTab.value === 'upload' && inlineImage.value.length > 0) {
-      url = await uploadImage(inlineImage.value[0]) || ''
+      url = await uploadImage(inlineImage.value[0] as File) || ''
     }
     
     if (url) {

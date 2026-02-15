@@ -1,15 +1,17 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    const tenantFilter = getTenantFilter(user)
     const query = getQuery(event)
     const isActive = query.isActive !== undefined ? query.isActive === 'true' : undefined
 
-    const where: any = {}
+    const where: any = { ...tenantFilter }
     if (isActive !== undefined) {
       where.isActive = isActive
     }

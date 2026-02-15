@@ -1,11 +1,12 @@
 import { ref, onMounted, onUnmounted } from 'vue'
+import * as L from 'leaflet'
 import type { Map, Marker, LatLngBounds, LatLng } from 'leaflet'
 
 export function useMap() {
   const map = ref<Map | null>(null)
   const markers = ref<Marker[]>([])
   const bounds = ref<LatLngBounds | null>(null)
-  const center = ref<LatLng>([53.5461, -113.4937]) // Edmonton coordinates
+  const center = ref<LatLng>([53.5461, -113.4937] as L.LatLngExpression as LatLng) // Edmonton coordinates
   const zoom = ref(12)
 
   const initMap = (mapInstance: Map) => {
@@ -15,7 +16,7 @@ export function useMap() {
   const addMarker = (marker: Marker) => {
     markers.value.push(marker)
     if (map.value) {
-      marker.addTo(map.value)
+      marker.addTo(map.value as any)
     }
   }
 
@@ -24,7 +25,7 @@ export function useMap() {
     if (index > -1) {
       markers.value.splice(index, 1)
       if (map.value) {
-        marker.removeFrom(map.value)
+        marker.removeFrom(map.value as any)
       }
     }
   }
@@ -32,7 +33,7 @@ export function useMap() {
   const clearMarkers = () => {
     markers.value.forEach(marker => {
       if (map.value) {
-        marker.removeFrom(map.value)
+        marker.removeFrom(map.value as any)
       }
     })
     markers.value = []
@@ -47,7 +48,7 @@ export function useMap() {
 
   const fitMarkers = () => {
     if (map.value && markers.value.length > 0) {
-      const group = new L.FeatureGroup(markers.value)
+      const group = new L.FeatureGroup(markers.value as any)
       map.value.fitBounds(group.getBounds())
     }
   }

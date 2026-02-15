@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
       data: {
         marketingConsent: true,
         consentDate: new Date(),
-        consentIpAddress: clientIP
+        consentIpAddress: clientIP as any
       }
     })
 

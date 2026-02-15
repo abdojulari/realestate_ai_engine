@@ -2,15 +2,20 @@ import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../utils/auth'
 import { getCached, setCache } from '../../utils/redis'
+import { getTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   // Ensure authenticated user exists and is admin
   const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
-  // Try to get cached dashboard data (5 minute cache)
-  const cacheKey = 'dashboard:stats'
+  // User filter: super_admin sees all users, admin sees only their tenant's users
+  const userFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
+
+  // Use tenant-scoped cache key so each admin gets their own dashboard data
+  const cacheKey = `dashboard:stats:${user.id}`
   const cached = await getCached(cacheKey)
   if (cached) {
     console.log('📊 Serving dashboard stats from cache')
@@ -19,9 +24,14 @@ export default defineEventHandler(async (event) => {
 
   // Stats
   const [totalUsers, totalListings, properties, recentUsers, contentCount, inquiriesCount, viewsToday, creaProperties, manualProperties, lastSyncProperty, estimatesCount, pendingEstimates, recentEstimates] = await Promise.all([
-    prisma.user.count(),
-    prisma.property.count(),
+    prisma.user.count({
+      where: { ...userFilter }
+    }),
+    prisma.property.count({
+      where: { ...tenantFilter }
+    }),
     prisma.property.findMany({
+      where: { ...tenantFilter },
       orderBy: { createdAt: 'desc' },
       take: 5,
       select: {
@@ -34,12 +44,17 @@ export default defineEventHandler(async (event) => {
       }
     }),
     prisma.user.findMany({
+      where: { ...userFilter },
       orderBy: { createdAt: 'desc' },
       take: 5,
       select: { id: true, firstName: true, lastName: true, email: true, role: true, createdAt: true }
     }),
-    prisma.contentBlock.count(),
-    prisma.propertyInquiry.count(),
+    prisma.contentBlock.count({
+      where: { ...tenantFilter }
+    }),
+    prisma.propertyInquiry.count({
+      where: { ...tenantFilter }
+    }),
     prisma.propertyView.count({
       where: {
         createdAt: { gte: new Date(new Date().toDateString()) }
@@ -47,25 +62,29 @@ export default defineEventHandler(async (event) => {
     }),
     // CREA-specific stats
     prisma.property.count({
-      where: { source: 'crea' }
+      where: { source: 'crea', ...tenantFilter }
     }),
     prisma.property.count({
-      where: { source: 'manual' }
+      where: { source: 'manual', ...tenantFilter }
     }),
     prisma.property.findFirst({
-      where: { 
+      where: {
         source: 'crea',
-        lastSyncAt: { not: null }
+        lastSyncAt: { not: null },
+        ...tenantFilter
       },
       orderBy: { lastSyncAt: 'desc' },
       select: { lastSyncAt: true }
     }),
     // Home Estimates stats
-    prisma.homeEstimate.count(),
     prisma.homeEstimate.count({
-      where: { status: 'pending' }
+      where: { ...tenantFilter }
+    }),
+    prisma.homeEstimate.count({
+      where: { status: 'pending', ...tenantFilter }
     }),
     prisma.homeEstimate.findMany({
+      where: { ...tenantFilter },
       orderBy: { createdAt: 'desc' },
       take: 5,
       select: {
@@ -81,7 +100,7 @@ export default defineEventHandler(async (event) => {
   ])
 
   const activeListings = await prisma.property.count({
-    where: { status: { in: ['for_sale', 'for_rent', 'active'] } }
+    where: { status: { in: ['for_sale', 'for_rent', 'active'] }, ...tenantFilter }
   })
 
   // Transform images/features json if stored as string
@@ -124,5 +143,3 @@ export default defineEventHandler(async (event) => {
 
   return dashboardData
 })
-
-

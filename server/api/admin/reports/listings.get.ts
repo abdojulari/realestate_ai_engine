@@ -1,14 +1,17 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
   // For simplicity return latest N properties with basic metrics
   const props = await prisma.property.findMany({
+    where: tenantFilter,
     orderBy: { createdAt: 'desc' },
     take: 50,
     select: {
@@ -29,5 +32,3 @@ export default defineEventHandler(async (event) => {
     listedDate: p.createdAt
   }))
 })
-
-

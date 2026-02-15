@@ -1,11 +1,13 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
   const query = getQuery(event)
   const search = (query.search as string) || ''
@@ -14,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const limit = parseInt((query.limit as string) || '20')
   const offset = (page - 1) * limit
 
-  const where: any = {}
+  const where: any = { ...tenantFilter }
   
   if (search) {
     where.OR = [

@@ -1,5 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter, getAdminIdForCreate } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -8,6 +10,7 @@ const prisma = new PrismaClient()
  * POST /api/admin/blog/categories
  * 
  * Creates a new blog category
+ * Tenant-scoped: assigns adminId for data isolation
  */
 
 function generateSlug(name: string): string {
@@ -18,14 +21,9 @@ function generateSlug(name: string): string {
 }
 
 export default defineEventHandler(async (event) => {
-  const user = event.context.user
-  
-  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Admin access required'
-    })
-  }
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+  const adminId = getAdminIdForCreate(user)
   
   const body = await readBody(event)
   
@@ -40,9 +38,10 @@ export default defineEventHandler(async (event) => {
     // Generate slug
     const slug = body.slug || generateSlug(body.name)
     
-    // Check for existing
+    // Check for existing within tenant scope
     const existing = await prisma.blogCategory.findFirst({
       where: {
+        ...tenantFilter,
         OR: [
           { name: body.name },
           { slug }
@@ -66,7 +65,8 @@ export default defineEventHandler(async (event) => {
         icon: body.icon || 'mdi-folder',
         parentId: body.parentId || null,
         sortOrder: body.sortOrder || 0,
-        isActive: body.isActive !== false
+        isActive: body.isActive !== false,
+        adminId
       }
     })
     

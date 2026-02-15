@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
             syncStats.agentDataFetched++
             
             console.log(`📋 Agent data for ${creaProp.ListingKey}: ${agentData.listingAgent?.MemberFullName || 'No agent'} @ ${agentData.listingOffice?.OfficeName || 'No office'}`)
-          } catch (agentError) {
+          } catch (agentError: any) {
             console.warn(`⚠️ Failed to fetch agent data for ${creaProp.ListingKey}:`, agentError.message)
             syncStats.agentDataErrors++
           }
@@ -51,6 +51,11 @@ export default defineEventHandler(async (event) => {
 
         // Transform property with agent data
         const transformedProperty = creaService.transformToLocalProperty(creaProp, agentData)
+        
+        if (!transformedProperty) {
+          console.log(`🏢 SKIPPING property ${creaProp.ListingKey} - filtered out by transformer`)
+          continue
+        }
         
         // Remove relation fields that shouldn't be in the create/update data
         const { user, agent, isSaved, ...propertyData } = transformedProperty as any
@@ -89,7 +94,7 @@ export default defineEventHandler(async (event) => {
           console.log(`✅ Created: ${transformedProperty.title}`)
         }
         
-      } catch (error) {
+      } catch (error: any) {
         console.error(`❌ Error processing property ${creaProp.ListingKey}:`, error)
         syncStats.errors++
         syncStats.errorDetails.push(`Property ${creaProp.ListingKey}: ${error.message}`)
@@ -104,7 +109,7 @@ export default defineEventHandler(async (event) => {
       message: `Synced ${syncStats.created + syncStats.updated} properties with ${syncStats.agentDataFetched} agent records`
     }
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ CREA sync with agent data failed:', error)
     throw createError({
       statusCode: 500,

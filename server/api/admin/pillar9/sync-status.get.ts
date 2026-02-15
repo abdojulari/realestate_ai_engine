@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
       prisma.property.count({
         where: { source: 'pillar9', status: 'pending' }
       }),
-      prisma.setting.findUnique({
+      prisma.setting.findFirst({
         where: { key: 'pillar9_last_sync' }
       })
     ])

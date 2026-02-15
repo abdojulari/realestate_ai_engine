@@ -79,7 +79,7 @@ export const useProperty = () => {
 
   const updateViewingRequest = async (requestId: number, status: string) => {
     try {
-      await propertyService.updateViewingRequest(requestId, status)
+      await propertyService.updateViewingRequest(requestId, { status } as Partial<ViewingRequest>)
       // Update local state
       const request = viewingRequests.value.find(r => r.id === requestId)
       if (request) {

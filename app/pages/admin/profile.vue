@@ -383,6 +383,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+// @ts-ignore
 import { api } from '~/utils/api'
 import { useAuthStore } from '~/stores/auth'
 

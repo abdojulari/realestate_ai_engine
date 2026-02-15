@@ -145,7 +145,7 @@ export default defineEventHandler(async (event) => {
     }
     
     // Get current metrics for comparison
-    const lastMonth = monthlyMetrics[monthlyMetrics.length - 1]
+    const lastMonth = monthlyMetrics[monthlyMetrics.length - 1]!
     
     // Calculate predicted changes
     const soldChange = lastMonth.soldCount > 0 
@@ -181,7 +181,7 @@ export default defineEventHandler(async (event) => {
       },
       modelInfo: {
         trainedAt: metadata.trainedAt,
-        dataRange: `${monthlyMetrics[0].year}-${monthlyMetrics[0].month} to ${lastMonth.year}-${lastMonth.month}`
+        dataRange: `${monthlyMetrics[0]!.year}-${monthlyMetrics[0]!.month} to ${lastMonth.year}-${lastMonth.month}`
       }
     }
     

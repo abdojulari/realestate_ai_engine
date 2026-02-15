@@ -1,11 +1,13 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../../utils/auth'
+import { getTenantFilter } from '../../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    const tenantFilter = getTenantFilter(user)
     const id = parseInt(event.context.params?.id || '0')
 
     if (!id) {
@@ -15,7 +17,10 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { testMode = false, testEmail } = body
 
-    const campaign = await prisma.newsletter.findUnique({ where: { id } })
+    // Verify tenant ownership of the campaign
+    const campaign = await prisma.newsletter.findFirst({
+      where: { id, ...tenantFilter }
+    })
 
     if (!campaign) {
       throw createError({ statusCode: 404, message: 'Campaign not found' })
@@ -38,7 +43,8 @@ export default defineEventHandler(async (event) => {
       data: { status: 'sending' }
     })
 
-    const where: any = { status: 'active' }
+    // Query subscribers scoped to the same tenant
+    const where: any = { status: 'active', ...tenantFilter }
     if (campaign.targetFilters) {
       // Apply filters here
     }

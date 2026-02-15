@@ -849,7 +849,7 @@
 
 <script setup lang="ts">
 // Helper function to safely get auth headers
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
     const token = localStorage.getItem('token')
     return token ? { 'Authorization': `Bearer ${token}` } : {}

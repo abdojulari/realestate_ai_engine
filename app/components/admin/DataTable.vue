@@ -204,17 +204,19 @@
 </template>
 
 <script setup lang="ts">
+import type { PropType } from 'vue'
+
 const props = defineProps({
   title: {
     type: String,
     required: true
   },
   headers: {
-    type: Array,
+    type: Array as PropType<any[]>,
     required: true
   },
   items: {
-    type: Array,
+    type: Array as PropType<any[]>,
     required: true
   },
   loading: {
@@ -246,7 +248,7 @@ const props = defineProps({
     default: true
   },
   filters: {
-    type: Array,
+    type: Array as PropType<any[]>,
     default: () => []
   }
 })
@@ -258,7 +260,7 @@ const itemsPerPage = ref(10)
 const showFilterPanel = ref(false)
 const showDeleteDialog = ref(false)
 const selectedItem = ref(null)
-const activeFilters = ref({})
+const activeFilters = ref<Record<string, any>>({})
 
 const handleSearch = (value: string) => {
   emit('search', value)
@@ -295,7 +297,7 @@ const exportData = () => {
 // Initialize filters
 onMounted(() => {
   if (props.filters) {
-    props.filters.forEach(filter => {
+    props.filters.forEach((filter: any) => {
       if (filter.type === 'date-range') {
         activeFilters.value[`${filter.key}Start`] = ''
         activeFilters.value[`${filter.key}End`] = ''

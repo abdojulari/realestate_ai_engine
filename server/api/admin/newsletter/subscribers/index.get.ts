@@ -1,11 +1,13 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    const tenantFilter = getTenantFilter(user)
     const query = getQuery(event)
     const page = parseInt(query.page as string) || 1
     const limit = parseInt(query.limit as string) || 50
@@ -13,7 +15,7 @@ export default defineEventHandler(async (event) => {
     const search = query.search as string || undefined
     const skip = (page - 1) * limit
 
-    const where: any = {}
+    const where: any = { ...tenantFilter }
     if (status) {
       where.status = status
     }
@@ -38,6 +40,7 @@ export default defineEventHandler(async (event) => {
 
     const stats = await prisma.newsletterSubscriber.groupBy({
       by: ['status'],
+      where: { ...tenantFilter },
       _count: true
     })
 

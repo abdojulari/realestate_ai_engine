@@ -35,16 +35,16 @@ export const propertyService = {
     if (filters.location) {
       // Extract city from location if no city is provided
       if (!filters.city) {
-        const city = filters.location.includes(',') ? filters.location.split(',')[0].trim() : filters.location
+        const city = filters.location!.includes(',') ? filters.location!.split(',')[0]!.trim() : filters.location
         if (city) params.append('city', city)
       }
-      params.append('location', filters.location)
+      params.append('location', filters.location!)
     }
     if (filters.province) params.append('province', filters.province)
     if (filters.minSqft) params.append('minSqft', filters.minSqft.toString())
     if (filters.maxSqft) params.append('maxSqft', filters.maxSqft.toString())
     if (filters.features && filters.features.length > 0) {
-      filters.features.forEach(feature => params.append('features', feature))
+      filters.features.forEach((feature: any) => params.append('features', feature))
     }
     
     // Pagination controls (allow map to request all properties)
@@ -65,7 +65,7 @@ export const propertyService = {
     const url = queryString ? `/api/properties?${queryString}` : '/api/properties'
     
     console.log('Property search URL:', url) // Debug log
-    const response = await authedFetch(url)
+    const response = await authedFetch<any>(url)
     
     // Handle both old array format and new paginated format
     if (Array.isArray(response)) {
@@ -100,16 +100,16 @@ export const propertyService = {
     if (filters.location) {
       // Extract city from location if no city is provided
       if (!filters.city) {
-        const city = filters.location.includes(',') ? filters.location.split(',')[0].trim() : filters.location
+        const city = filters.location!.includes(',') ? filters.location!.split(',')[0]!.trim() : filters.location
         if (city) params.append('city', city)
       }
-      params.append('location', filters.location)
+      params.append('location', filters.location!)
     }
     if (filters.province) params.append('province', filters.province)
     if (filters.minSqft) params.append('minSqft', filters.minSqft.toString())
     if (filters.maxSqft) params.append('maxSqft', filters.maxSqft.toString())
     if (filters.features && filters.features.length > 0) {
-      filters.features.forEach(feature => params.append('features', feature))
+      filters.features.forEach((feature: any) => params.append('features', feature))
     }
     
     // Pagination controls
@@ -130,7 +130,7 @@ export const propertyService = {
     const url = queryString ? `/api/properties?${queryString}` : '/api/properties'
     
     console.log('Property search with pagination URL:', url) // Debug log
-    const response = await authedFetch(url)
+    const response = await authedFetch<any>(url)
     
     // Handle both old array format and new paginated format
     if (Array.isArray(response)) {

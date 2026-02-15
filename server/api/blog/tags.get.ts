@@ -1,5 +1,6 @@
 import { defineEventHandler, setHeader } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -12,7 +13,10 @@ const prisma = new PrismaClient()
  */
 export default defineEventHandler(async (event) => {
   try {
+    const tenantFilter = await getPublicTenantFilter(event)
+
     const tags = await prisma.blogTag.findMany({
+      where: { ...tenantFilter },
       orderBy: [
         { postCount: 'desc' },
         { name: 'asc' }

@@ -1,18 +1,21 @@
 import { defineEventHandler, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter, getAdminIdForCreate, requireTenantAccess } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  const admin = (event as any).context?.user
-  if (!admin) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
-  if (admin.role !== 'admin' && admin.role !== 'super_admin' && admin.role !== 'agent') throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
   const id = Number((event.context.params as any)?.id)
   if (!Number.isFinite(id)) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
 
-  const p = await prisma.property.findUnique({ where: { id } })
+  const p = await prisma.property.findFirst({ where: { id, ...tenantFilter } })
   if (!p) throw createError({ statusCode: 404, statusMessage: 'Not found' })
+
+  requireTenantAccess(user, p.adminId)
 
   const copy = await prisma.property.create({
     data: {
@@ -33,11 +36,10 @@ export default defineEventHandler(async (event) => {
       features: p.features as any,
       images: p.images as any,
       userId: p.userId,
+      adminId: getAdminIdForCreate(user),
       views: 0
     }
   })
 
   return copy
 })
-
-

@@ -1,6 +1,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -29,6 +30,10 @@ function rangeToDates(range?: string, start?: string, end?: string) {
 
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+
+  // For User model: admin's team members have adminId = admin's id
+  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
 
   const q = getQuery(event)
   const { from, to } = rangeToDates(q.range as string, q.start as string, q.end as string)
@@ -36,13 +41,24 @@ export default defineEventHandler(async (event) => {
   const whereDate = from && to ? { gte: from, lte: to } : undefined
 
   const [totalUsers, totalListings, viewsCount, inquiriesCount, soldRevenue] = await Promise.all([
-    prisma.user.count(),
-    prisma.property.count(),
-    prisma.propertyView.count({ where: whereDate ? { createdAt: whereDate } : {} }),
-    prisma.propertyInquiry.count({ where: whereDate ? { createdAt: whereDate } : {} }),
+    prisma.user.count({ where: userTenantFilter }),
+    prisma.property.count({ where: tenantFilter }),
+    prisma.propertyView.count({
+      where: {
+        ...(whereDate ? { createdAt: whereDate } : {}),
+        property: tenantFilter
+      }
+    }),
+    prisma.propertyInquiry.count({
+      where: {
+        ...tenantFilter,
+        ...(whereDate ? { createdAt: whereDate } : {})
+      }
+    }),
     prisma.property.aggregate({
       _sum: { price: true },
       where: {
+        ...tenantFilter,
         status: 'sold',
         ...(whereDate ? { updatedAt: whereDate } : {})
       }
@@ -60,5 +76,3 @@ export default defineEventHandler(async (event) => {
     revenueGrowth: 0
   }
 })
-
-

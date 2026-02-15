@@ -146,7 +146,7 @@ const router = useRouter()
 
 // State
 const code = ref(['', '', '', '', '', ''])
-const codeInputs = ref<HTMLInputElement[]>([])
+const codeInputs = ref<any[]>([])
 const verifying = ref(false)
 const resending = ref(false)
 const errorMessage = ref('')
@@ -162,8 +162,8 @@ const isCodeComplete = computed(() => code.value.every(digit => digit !== ''))
 const fullCode = computed(() => code.value.join(''))
 const maskedEmail = computed(() => {
   if (!email.value) return '****@****.com'
-  const [username, domain] = email.value.split('@')
-  const maskedUsername = username.charAt(0) + '*'.repeat(username.length - 2) + username.charAt(username.length - 1)
+  const [username, domain] = email.value!.split('@')
+  const maskedUsername = username!.charAt(0) + '*'.repeat(username!.length - 2) + username!.charAt(username!.length - 1)
   return `${maskedUsername}@${domain}`
 })
 

@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const currentUser = await requireAdmin(event)
 
   const id = Number((event.context.params as any).id)
   if (!id) {
@@ -17,20 +17,38 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check if user exists
-  const user = await prisma.user.findUnique({
+  const targetUser = await prisma.user.findUnique({
     where: { id },
     select: {
       id: true,
       firstName: true,
       lastName: true,
-      email: true
+      email: true,
+      role: true,
+      adminId: true
     }
   })
 
-  if (!user) {
+  if (!targetUser) {
     throw createError({
       statusCode: 404,
       statusMessage: 'User not found'
+    })
+  }
+
+  // Prevent non-super_admin from resetting a super_admin's password
+  if (targetUser.role === 'super_admin' && currentUser.role !== 'super_admin') {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You do not have permission to reset a super admin\'s password'
+    })
+  }
+
+  // Tenant scoping: admin can only reset passwords for users under their own team
+  if (currentUser.role !== 'super_admin' && targetUser.adminId !== currentUser.id) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You do not have permission to reset this user\'s password'
     })
   }
 
@@ -49,14 +67,14 @@ export default defineEventHandler(async (event) => {
 
     // TODO: In a real application, you would send this password via email
     // For now, we'll just log it (remove this in production!)
-    console.log(`[PASSWORD RESET] Temporary password for ${user.email}: ${tempPassword}`)
+    console.log(`[PASSWORD RESET] Temporary password for ${targetUser.email}: ${tempPassword}`)
 
     // In production, you would use an email service like:
-    // await sendPasswordResetEmail(user.email, user.firstName, tempPassword)
+    // await sendPasswordResetEmail(targetUser.email, targetUser.firstName, tempPassword)
 
     return {
       success: true,
-      message: `Temporary password has been generated for ${user.email}. In a real application, this would be sent via email.`,
+      message: `Temporary password has been generated for ${targetUser.email}. In a real application, this would be sent via email.`,
       // TODO: Remove this in production - passwords should never be returned in API responses
       temporaryPassword: tempPassword
     }

@@ -1,12 +1,19 @@
 import { defineEventHandler, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter, getAdminIdForCreate } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  // Note: This endpoint is whitelisted in auth middleware, so no authentication required
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+  const adminId = getAdminIdForCreate(user)
+
   const id = Number((event.context.params as any).id)
-  const block = await prisma.contentBlock.findUnique({ where: { id } })
+
+  // Verify ownership before duplicating
+  const block = await prisma.contentBlock.findFirst({ where: { id, ...tenantFilter } })
   if (!block) throw createError({ statusCode: 404, statusMessage: 'Not found' })
 
   const copy = await prisma.contentBlock.create({
@@ -15,10 +22,9 @@ export default defineEventHandler(async (event) => {
       title: `${block.title} (Copy)` ,
       type: block.type,
       content: block.content,
-      metadata: block.metadata as any
+      metadata: block.metadata as any,
+      adminId
     }
   })
   return copy
 })
-
-

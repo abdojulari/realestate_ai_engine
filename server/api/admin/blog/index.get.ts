@@ -1,5 +1,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -9,8 +11,12 @@ const prisma = new PrismaClient()
  * 
  * Returns all posts (including drafts) for admin management
  * Requires admin authentication
+ * Tenant-scoped: admin sees own posts, super_admin sees all
  */
 export default defineEventHandler(async (event) => {
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+
   const query = getQuery(event)
   
   // Pagination
@@ -24,8 +30,10 @@ export default defineEventHandler(async (event) => {
   const search = query.search as string
   const authorId = query.authorId ? parseInt(query.authorId as string) : undefined
   
-  // Build where clause
-  const where: any = {}
+  // Build where clause with tenant scoping
+  const where: any = {
+    ...tenantFilter
+  }
   
   if (status && status !== 'all') {
     where.status = status
@@ -74,9 +82,10 @@ export default defineEventHandler(async (event) => {
         }
       }),
       prisma.blogPost.count({ where }),
-      // Get counts by status
+      // Get counts by status – scoped to tenant
       prisma.blogPost.groupBy({
         by: ['status'],
+        where: { ...tenantFilter },
         _count: true
       })
     ])

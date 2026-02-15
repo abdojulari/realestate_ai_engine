@@ -1,5 +1,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -22,13 +24,14 @@ function mapBlock(block: any) {
 }
 
 export default defineEventHandler(async (event) => {
-  // Note: This endpoint is whitelisted in auth middleware, so no authentication required
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
   const q = getQuery(event)
   const search = (q.search as string) || ''
   const section = (q.section as string) || undefined
 
-  const where: any = {}
+  const where: any = { ...tenantFilter }
   if (search) {
     where.OR = [
       { title: { contains: search, mode: 'insensitive' } },
@@ -41,5 +44,3 @@ export default defineEventHandler(async (event) => {
   const mapped = blocks.map(mapBlock).filter(b => (section ? b.section === section : true))
   return mapped
 })
-
-

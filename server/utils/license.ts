@@ -32,6 +32,8 @@ export const FEATURES = {
   PILLAR9_SYNC: 'pillar9_sync',
   /** Document legal review (contract/purchase agreement analysis + date alerts) */
   DOCUMENTS_LEGAL_REVIEW: 'documents_legal_review',
+  /** Best Deals / Price Cut Detection */
+  BEST_DEALS: 'best_deals',
 } as const
 
 export type Feature = typeof FEATURES[keyof typeof FEATURES]
@@ -75,6 +77,7 @@ const TIER_FEATURES: Record<LicenseTier, Feature[]> = {
     FEATURES.CREA_SYNC,
     FEATURES.PILLAR9_SYNC,
     FEATURES.DOCUMENTS_LEGAL_REVIEW,
+    FEATURES.BEST_DEALS,
   ],
   
   platinum: [
@@ -92,6 +95,7 @@ const TIER_FEATURES: Record<LicenseTier, Feature[]> = {
     FEATURES.CREA_SYNC,
     FEATURES.PILLAR9_SYNC,
     FEATURES.DOCUMENTS_LEGAL_REVIEW,
+    FEATURES.BEST_DEALS,
   ],
   
   enterprise: [
@@ -109,6 +113,7 @@ const TIER_FEATURES: Record<LicenseTier, Feature[]> = {
     FEATURES.CREA_SYNC,
     FEATURES.PILLAR9_SYNC,
     FEATURES.DOCUMENTS_LEGAL_REVIEW,
+    FEATURES.BEST_DEALS,
   ],
 }
 
@@ -128,6 +133,7 @@ const ALL_FEATURES: Feature[] = [
   FEATURES.CREA_SYNC,
   FEATURES.PILLAR9_SYNC,
   FEATURES.DOCUMENTS_LEGAL_REVIEW,
+  FEATURES.BEST_DEALS,
 ]
 
 export interface LicenseInfo {

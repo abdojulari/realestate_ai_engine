@@ -1,9 +1,11 @@
 import { defineEventHandler, createError, getRouterParam } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
+  const tenantFilter = await getPublicTenantFilter(event)
   const id = getRouterParam(event, 'id')
   
   // Guard: only numeric IDs are valid; avoid catching routes like "/saved"
@@ -14,8 +16,8 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const property = await prisma.property.findUnique({
-    where: { id: parseInt(id) },
+  const property = await prisma.property.findFirst({
+    where: { id: parseInt(id), ...tenantFilter },
     include: {
       user: {
         select: {

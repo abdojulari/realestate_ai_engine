@@ -7,10 +7,13 @@ const prisma = new PrismaClient()
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
 
+  // For User model: admin's team members have adminId = admin's id
+  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
+
   const q = getQuery(event)
   const role = (q.role as string) || undefined
 
-  const where: any = {}
+  const where: any = { ...userTenantFilter }
   if (role) {
     if (role === 'crm') {
       where.role = { notIn: ['admin', 'agent'] }
@@ -39,5 +42,3 @@ export default defineEventHandler(async (event) => {
     registrationDate: u.createdAt
   }))
 })
-
-

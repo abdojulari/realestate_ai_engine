@@ -158,7 +158,7 @@ export const usePropertyService = () => {
           }
         })
         
-        const response = await $fetch(`/api/properties?${queryParams.toString()}`)
+        const response = await $fetch(`/api/properties?${queryParams.toString()}`) as any
         console.log('🔍 Search API response type:', typeof response, Array.isArray(response))
         console.log('🔍 Search API response keys:', Object.keys(response))
         console.log('🔍 Search API first property:', response.properties?.[0] || response[0])

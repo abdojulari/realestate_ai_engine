@@ -1,12 +1,17 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  // Note: This endpoint is whitelisted in auth middleware, so no authentication required
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
-  const blocks = await prisma.contentBlock.findMany({})
+  const blocks = await prisma.contentBlock.findMany({
+    where: { ...tenantFilter }
+  })
   const sectionsMap = new Map<string, { id: string, title: string, icon: string, items: number, hasUnpublished: boolean }>()
 
   // Always include default sections so the UI is not blank on first run
@@ -22,7 +27,7 @@ export default defineEventHandler(async (event) => {
   for (const b of blocks) {
     const meta = ((): any => { try { return typeof b.metadata === 'string' ? JSON.parse(b.metadata) : b.metadata || {} } catch { return {} } })()
     const section = meta.section || 'general'
-    const rec = sectionsMap.get(section) || { id: section, title: section.replace(/\b\w/g, c => c.toUpperCase()).replace('-', ' '), icon: section === 'home' ? 'mdi-home' : section === 'about' ? 'mdi-information' : 'mdi-file-document', items: 0, hasUnpublished: false }
+    const rec = sectionsMap.get(section) || { id: section, title: section.replace(/\b\w/g, (c: string) => c.toUpperCase()).replace('-', ' '), icon: section === 'home' ? 'mdi-home' : section === 'about' ? 'mdi-information' : 'mdi-file-document', items: 0, hasUnpublished: false }
     rec.items += 1
     rec.hasUnpublished = rec.hasUnpublished || !(meta.published ?? true)
     sectionsMap.set(section, rec)
@@ -30,5 +35,3 @@ export default defineEventHandler(async (event) => {
 
   return Array.from(sectionsMap.values())
 })
-
-

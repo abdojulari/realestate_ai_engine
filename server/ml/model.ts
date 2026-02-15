@@ -57,7 +57,7 @@ export function createModel(config: ModelConfig = DEFAULT_CONFIG): tf.Sequential
   
   // First hidden layer (includes input shape)
   model.add(tf.layers.dense({
-    units: config.hiddenLayers[0],
+    units: config.hiddenLayers[0]!,
     activation: 'relu',
     inputShape: [config.inputSize],
     kernelInitializer: 'heNormal',
@@ -70,7 +70,7 @@ export function createModel(config: ModelConfig = DEFAULT_CONFIG): tf.Sequential
   // Additional hidden layers
   for (let i = 1; i < config.hiddenLayers.length; i++) {
     model.add(tf.layers.dense({
-      units: config.hiddenLayers[i],
+      units: config.hiddenLayers[i]!,
       activation: 'relu',
       kernelInitializer: 'heNormal',
       name: `dense_hidden_${i}`
@@ -139,13 +139,13 @@ export async function trainModel(
   }
   
   console.log(`[ML] Training with ${features.length} samples`)
-  console.log(`[ML] Feature size: ${features[0].length}, Output size: ${labels[0].length}`)
+  console.log(`[ML] Feature size: ${features[0]!.length}, Output size: ${labels[0]!.length}`)
   
   // Update config based on actual data
   const actualConfig = {
     ...config,
-    inputSize: features[0].length,
-    outputSize: labels[0].length
+    inputSize: features[0]!.length,
+    outputSize: labels[0]!.length
   }
   
   // Create model
@@ -202,8 +202,8 @@ export async function trainModel(
   return {
     success: true,
     epochs: actualConfig.epochs,
-    finalLoss: loss.length > 0 ? loss[loss.length - 1] : 0,
-    finalMae: mae.length > 0 ? mae[mae.length - 1] : 0,
+    finalLoss: loss.length > 0 ? loss[loss.length - 1]! : 0,
+    finalMae: mae.length > 0 ? mae[mae.length - 1]! : 0,
     history: trainingHistory,
     trainingTime,
     modelPath: MODEL_PATH
@@ -334,7 +334,7 @@ export async function predict(
     
     // Denormalize output
     const output = Array.from(normalizedOutput).map((val, i) =>
-      val * normalization.labelStds[i] + normalization.labelMeans[i]
+      val * normalization.labelStds[i]! + normalization.labelMeans[i]!
     )
     
     // Calculate confidence (inverse of prediction variance, simplified)
@@ -346,9 +346,9 @@ export async function predict(
     prediction.dispose()
     
     return {
-      soldCount: Math.max(0, Math.round(output[0])),
-      avgPrice: Math.max(0, Math.round(output[1])),
-      inventory: Math.max(0, Math.round(output[2])),
+      soldCount: Math.max(0, Math.round(output[0]!)),
+      avgPrice: Math.max(0, Math.round(output[1]!)),
+      inventory: Math.max(0, Math.round(output[2]!)),
       confidence
     }
   } catch (error) {

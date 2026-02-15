@@ -1,9 +1,11 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
+  const tenantFilter = await getPublicTenantFilter(event)
   const query = getQuery(event)
   const {
     includeCrea = 'true',
@@ -12,7 +14,7 @@ export default defineEventHandler(async (event) => {
     city
   } = query
 
-  const where: any = {}
+  const where: any = { ...tenantFilter }
   
   // Source filtering
   const sourceFilter = []

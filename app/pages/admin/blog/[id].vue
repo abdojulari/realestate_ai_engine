@@ -442,8 +442,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+// @ts-ignore
 import { api } from '~/utils/api'
-import { formatDate } from '../../../../utils/formatters'
+// @ts-ignore
+import { formatDate } from '~/utils/formatters'
 
 definePageMeta({
   layout: 'admin',
@@ -533,7 +535,7 @@ const fetchCategories = async () => {
 
 // Format helpers
 const insertFormat = (format: string) => {
-  const textarea = contentEditor.value?.$el?.querySelector('textarea')
+  const textarea = (contentEditor.value as any)?.$el?.querySelector('textarea')
   if (!textarea) return
   
   const start = textarea.selectionStart
@@ -590,7 +592,7 @@ const insertImage = async () => {
   try {
     let url = imageUrl.value
     if (imageTab.value === 'upload' && inlineImage.value.length > 0) {
-      url = await uploadImage(inlineImage.value[0]) || ''
+      url = await uploadImage(inlineImage.value[0] as File) || ''
     }
     if (url) {
       form.value.content += `\n![${imageAlt.value || 'Image'}](${url})\n`
@@ -676,7 +678,7 @@ const confirmDelete = () => {
 const deletePost = async () => {
   deleting.value = true
   try {
-    await api.del(`/api/admin/blog/${postId.value}`)
+    await api.delete(`/api/admin/blog/${postId.value}`)
     showSnackbar('Post deleted', 'success')
     router.push('/admin/blog')
   } catch (error: any) {

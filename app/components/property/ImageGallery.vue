@@ -164,6 +164,7 @@ const openFullscreen = () => {
 const downloadImage = async () => {
   try {
     const image = props.images[currentFullscreenIndex.value]
+    if (!image) return
     const response = await fetch(image)
     const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)

@@ -1,11 +1,13 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter, getAdminIdForCreate } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    const tenantFilter = getTenantFilter(user)
     const body = await readBody(event)
     const { email, firstName, lastName, tags, status = 'active' } = body
 
@@ -13,8 +15,8 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'Invalid email address' })
     }
 
-    const existingSubscriber = await prisma.newsletterSubscriber.findUnique({
-      where: { email: email.toLowerCase() }
+    const existingSubscriber = await prisma.newsletterSubscriber.findFirst({
+      where: { email: email.toLowerCase(), ...tenantFilter }
     })
 
     if (existingSubscriber) {
@@ -28,7 +30,8 @@ export default defineEventHandler(async (event) => {
         lastName,
         status,
         source: 'manual',
-        tags: tags || null
+        tags: tags || null,
+        adminId: getAdminIdForCreate(user)
       }
     })
 

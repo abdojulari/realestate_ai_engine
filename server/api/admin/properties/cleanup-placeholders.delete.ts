@@ -1,19 +1,25 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+
   try {
     console.log('🗑️ Starting cleanup of CREA properties with placeholder images...')
     
-    // Find all CREA properties with placeholder images
+    // Find all CREA properties with placeholder images, scoped to tenant
     const propertiesWithPlaceholders = await prisma.property.findMany({
       where: {
         source: 'crea',
         images: {
           string_contains: 'property-placeholder.svg'
-        }
+        },
+        ...tenantFilter
       },
       select: {
         id: true,
@@ -39,7 +45,8 @@ export default defineEventHandler(async (event) => {
       where: {
         id: {
           in: propertiesWithPlaceholders.map(p => p.id)
-        }
+        },
+        ...tenantFilter
       }
     })
 

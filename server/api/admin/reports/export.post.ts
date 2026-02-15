@@ -1,11 +1,16 @@
 import { defineEventHandler, readBody, createError, setHeader } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+
+  // For User model: admin's team members have adminId = admin's id
+  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
 
   const { format, dateRange, customRange, type } = await readBody(event)
 
@@ -15,22 +20,22 @@ export default defineEventHandler(async (event) => {
     
     switch (type) {
       case 'listings':
-        data = await getListingsData(dateRange, customRange)
+        data = await getListingsData(dateRange, customRange, tenantFilter)
         break
       case 'users':
-        data = await getUsersData(dateRange, customRange)
+        data = await getUsersData(dateRange, customRange, userTenantFilter, undefined)
         break
       case 'crm':
-        data = await getUsersData(dateRange, customRange, 'crm')
+        data = await getUsersData(dateRange, customRange, userTenantFilter, 'crm')
         break
       case 'inquiries':
-        data = await getInquiriesData(dateRange, customRange)
+        data = await getInquiriesData(dateRange, customRange, tenantFilter)
         break
       case 'viewings':
-        data = await getViewingsData(dateRange, customRange)
+        data = await getViewingsData(dateRange, customRange, tenantFilter)
         break
       default:
-        data = await getListingsData(dateRange, customRange)
+        data = await getListingsData(dateRange, customRange, tenantFilter)
     }
 
     if (format === 'excel') {
@@ -52,8 +57,8 @@ export default defineEventHandler(async (event) => {
   }
 })
 
-async function getListingsData(dateRange: string, customRange?: any) {
-  const where: any = { status: 'for_sale' }
+async function getListingsData(dateRange: string, customRange: any, tenantFilter: { adminId?: number }) {
+  const where: any = { ...tenantFilter, status: 'for_sale' }
   
   // Add date filtering if needed
   if (dateRange !== 'all') {
@@ -81,15 +86,15 @@ async function getListingsData(dateRange: string, customRange?: any) {
     type: p.type,
     city: p.city,
     address: p.address,
-    agent: `${p.user.firstName} ${p.user.lastName}`,
+    agent: `${p.user?.firstName} ${p.user?.lastName}`,
     views: p.views,
     createdAt: p.createdAt,
     source: p.source
   }))
 }
 
-async function getUsersData(dateRange: string, customRange?: any, role?: string) {
-  const where: any = {}
+async function getUsersData(dateRange: string, customRange: any, userTenantFilter: { adminId?: number }, role?: string) {
+  const where: any = { ...userTenantFilter }
   
   if (dateRange !== 'all') {
     const dateFilter = getDateFilter(dateRange, customRange)
@@ -121,14 +126,66 @@ async function getUsersData(dateRange: string, customRange?: any, role?: string)
   }))
 }
 
-async function getInquiriesData(dateRange: string, customRange?: any) {
-  // For now, return empty array since inquiries table might not have data
-  return []
+async function getInquiriesData(dateRange: string, customRange: any, tenantFilter: { adminId?: number }) {
+  const where: any = { ...tenantFilter }
+
+  if (dateRange !== 'all') {
+    const dateFilter = getDateFilter(dateRange, customRange)
+    if (dateFilter) {
+      where.createdAt = dateFilter
+    }
+  }
+
+  const inquiries = await prisma.propertyInquiry.findMany({
+    where,
+    include: {
+      property: { select: { title: true } },
+      user: { select: { firstName: true, lastName: true, email: true } }
+    },
+    orderBy: { createdAt: 'desc' }
+  })
+
+  return inquiries.map((i: any) => ({
+    id: i.id,
+    property: i.property?.title || 'N/A',
+    user: i.user ? `${i.user.firstName} ${i.user.lastName}` : 'N/A',
+    email: i.user?.email || 'N/A',
+    message: i.message,
+    status: i.status,
+    createdAt: i.createdAt
+  }))
 }
 
-async function getViewingsData(dateRange: string, customRange?: any) {
-  // For now, return empty array since viewings table might not have data
-  return []
+async function getViewingsData(dateRange: string, customRange: any, tenantFilter: { adminId?: number }) {
+  const where: any = {
+    property: tenantFilter
+  }
+
+  if (dateRange !== 'all') {
+    const dateFilter = getDateFilter(dateRange, customRange)
+    if (dateFilter) {
+      where.dateTime = dateFilter
+    }
+  }
+
+  const viewings = await prisma.viewingRequest.findMany({
+    where,
+    include: {
+      property: { select: { title: true } },
+      user: { select: { firstName: true, lastName: true, email: true } }
+    },
+    orderBy: { dateTime: 'desc' }
+  })
+
+  return viewings.map((v: any) => ({
+    id: v.id,
+    property: v.property?.title || 'N/A',
+    user: v.user ? `${v.user.firstName} ${v.user.lastName}` : 'N/A',
+    email: v.user?.email || 'N/A',
+    dateTime: v.dateTime,
+    status: v.status,
+    notes: v.notes || ''
+  }))
 }
 
 function getDateFilter(dateRange: string, customRange?: any) {

@@ -1,12 +1,12 @@
 <template>
   <header class="site-header">
     <div class="header-container">
-      <!-- Logo (tenant branding when from control plane) -->
+      <!-- Logo (from TenantSettings DB) -->
       <div class="logo-section">
         <NuxtLink to="/" class="logo-link">
             <img 
-                :src="tenantLogo" 
-                :alt="tenantName || 'Logo'" 
+                :src="logoUrl" 
+                :alt="businessName || 'Logo'" 
                 class="logo-image"
             />
         </NuxtLink>
@@ -275,9 +275,10 @@ import { useLicense, FEATURES } from '~/composables/useLicense'
 
 const mobileMenuOpen = ref(false)
 const auth = useAuthStore()
-const { licenseInfo, canUseChatbot, canUseAISearch, hasFullAccess } = useLicense()
-const tenantLogo = computed(() => licenseInfo.value?.logoUrl || '/images/logos/logo.png')
-const tenantName = computed(() => licenseInfo.value?.displayName || '')
+const { canUseChatbot, canUseAISearch, hasFullAccess } = useLicense()
+
+// Tenant settings from DB (replaces hardcoded logo/name)
+const { logoUrl, businessName } = useTenantSettings()
 
 const isAuthenticated = computed(() => auth.isAuthenticated)
 const isAdmin = computed(() => auth.isAdmin)
@@ -314,7 +315,7 @@ const clientServiceItems = [
 const menuItems = [
   { title: 'Blog', to: '/blog', icon: 'mdi-post-outline' },
   { title: 'News and Resources', to: '/news', icon: 'mdi-newspaper' },
-  { title: 'About Abdul', to: '/about', icon: 'mdi-information' },
+  { title: 'About', to: '/about', icon: 'mdi-information' },
   { title: 'Contact', to: '/contact', icon: 'mdi-email' }
 ]
 
@@ -335,7 +336,7 @@ const handleLogout = () => {
   position: sticky;
   top: 0;
   z-index: 1000;
-  height: 85px; /* Slightly increased for more prominence */
+  height: 85px;
   backdrop-filter: blur(12px);
 }
 
@@ -362,14 +363,12 @@ const handleLogout = () => {
 
 /* 2. LOGO ENHANCEMENTS */
 .logo-image {
-  height: 56px; /* Increased height for better visibility */
+  height: 56px;
   width: auto;
   max-width: 220px;
   object-fit: contain;
-  /* Technical sharpness improvements */
   image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
-  /* Visual weight improvements */
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.05)); 
   transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
@@ -392,8 +391,8 @@ const handleLogout = () => {
 .nav-link {
   text-decoration: none;
   color: #1a1a1a;
-  font-weight: 600; /* Made slightly bolder to match premium logo feel */
-  font-size: 13px; /* Slightly smaller for a more sophisticated look */
+  font-weight: 600;
+  font-size: 13px;
   letter-spacing: 0.08em; 
   text-transform: uppercase;
   line-height: 1;
@@ -442,7 +441,7 @@ const handleLogout = () => {
   padding: 12px 32px;
   background: #000;
   color: #fff !important;
-  border-radius: 2px; /* Sharper corners for a more formal/luxury look */
+  border-radius: 2px;
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.2em;

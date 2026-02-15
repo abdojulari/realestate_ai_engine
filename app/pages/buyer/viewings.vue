@@ -69,7 +69,7 @@
                     <div class="text-caption">{{ formatTime(request.dateTime) }}</div>
                   </td>
                   <td>
-                    <div>{{ request.property.agent?.name || (request.property.agent.firstName + ' ' + request.property.agent.lastName) }}</div>
+                    <div>{{ request.property.agent?.name || ((request.property.agent?.firstName ?? '') + ' ' + (request.property.agent?.lastName ?? '')) }}</div>
                     <div class="text-caption">{{ request.property.agent?.agency || '' }}</div>
                   </td>
                   <td>
@@ -257,8 +257,8 @@
             />
             <v-list-item
               prepend-icon="mdi-email"
-              :title="selectedAgent.email"
-              @click="emailAgent(selectedAgent.email)"
+              :title="selectedAgent?.email || ''"
+              @click="selectedAgent?.email && emailAgent(selectedAgent.email)"
             />
           </v-list>
         </v-card-text>
@@ -281,7 +281,7 @@ import { ref, computed, onMounted } from 'vue'
 import type { Property } from '~/types'
 // Remove this import as definePageMeta is auto-imported
 import { propertyService } from '~/services/property.service'
-import { formatDate, formatTime } from '../../../utils/formatters'
+import { formatDate, formatTime } from '~/utils/formatters'
 
 // State
 const activeTab = ref('upcoming')
@@ -378,7 +378,7 @@ const getEmptyStateMessage = () => {
 
 const rescheduleViewing = (request: ViewingRequest) => {
   selectedRequest.value = request
-  rescheduleDate.value = new Date().toISOString().split('T')[0]
+  rescheduleDate.value = new Date().toISOString().split('T')[0] || ''
   rescheduleTime.value = '09:00'
   showRescheduleDialog.value = true
 }

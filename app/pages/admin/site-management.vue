@@ -46,7 +46,7 @@
                 variant="tonal"
                 class="mb-6"
                 closable
-                @click:close="saveError = false"
+                @click:close="saveError = null"
               >
                 {{ saveError }}
               </v-alert>
@@ -120,7 +120,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+// @ts-ignore
 import { api } from '~/utils/api'
+
+definePageMeta({
+  layout: 'admin',
+  middleware: ['admin']
+})
 
 const activeTemplate = ref(1)
 const selectedTemplateId = ref<number | null>(null)

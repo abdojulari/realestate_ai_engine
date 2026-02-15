@@ -70,7 +70,7 @@
           <div 
             v-if="index > 0" 
             class="connecting-line horizontal"
-            :class="{ 'animated': currentStep > bottomSteps[index - 1].id }"
+            :class="{ 'animated': currentStep > (bottomSteps[index - 1]?.id ?? 0) }"
           >
             <div class="line-progress dashed-line"></div>
           </div>

@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
 import { rateLimit, rateLimitConfigs } from '../utils/rateLimiter'
 import { queueEmail } from '../utils/emailQueue'
+import { resolveTenantFromRequest } from '../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -125,10 +126,14 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Resolve tenant
+    const adminId = await resolveTenantFromRequest(event)
+
     // Create home estimate record
     const estimate = await prisma.homeEstimate.create({
       data: {
         userId: userId,
+        ...(adminId ? { adminId } : {}),
         // Property Details
         address: body.property.address,
         postalCode: body.property.postalCode,
@@ -168,7 +173,7 @@ export default defineEventHandler(async (event) => {
     queueEstimateEmails(estimate, requestId)
 
     return estimate
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating home estimate:', error)
     if (error.statusCode) {
       throw error

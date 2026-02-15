@@ -399,5 +399,5 @@ export const useUIStore = defineStore('ui', {
 
   persist: {
     paths: ['viewPreferences', 'features', 'sidebarCollapsed']
-  }
+  } as any
 })

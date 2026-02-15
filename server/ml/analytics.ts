@@ -202,7 +202,7 @@ function analyzeTrends(metrics: MonthlyMetrics[]): TrendAnalysis {
   const inventoryTrend = calculateTrend(recent.map(m => m.activeInventory))
   
   // Determine market type based on months of supply
-  const lastMonth = metrics[metrics.length - 1]
+  const lastMonth = metrics[metrics.length - 1]!
   const absorptionRate = lastMonth.absorptionRate
   let marketType: 'buyer' | 'seller' | 'balanced'
   
@@ -243,7 +243,7 @@ function calculateTrend(values: number[]): number {
   let denominator = 0
   
   for (let i = 0; i < n; i++) {
-    numerator += (i - xMean) * (values[i] - yMean)
+    numerator += (i - xMean) * (values[i]! - yMean)
     denominator += (i - xMean) ** 2
   }
   
@@ -410,7 +410,7 @@ function generateInsights(
   
   // Property type insights
   if (byType.length > 0) {
-    const dominant = byType[0]
+    const dominant = byType[0]!
     insights.push(`${dominant.type} properties dominate at ${dominant.percentOfTotal}% of listings`)
   }
   

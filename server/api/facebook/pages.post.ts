@@ -14,7 +14,7 @@ export default defineEventHandler(async (event) => {
   try {
     // Get user's pages
     const response = await fetch(
-      `https://graph.facebook.com/v18.0/me/accounts?access_token=${userAccessToken}`
+      `https://graph.facebook.com/v24.0/me/accounts?access_token=${userAccessToken}`
     )
 
     if (!response.ok) {

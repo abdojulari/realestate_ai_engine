@@ -138,7 +138,7 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { formatPrice } from '../../../utils/formatters'
+import { formatPrice } from '~/utils/formatters'
 import type { Property } from '~/types'
 
 const props = defineProps<{

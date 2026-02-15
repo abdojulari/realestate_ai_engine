@@ -1,23 +1,21 @@
 import { defineEventHandler, getRouterParams, readBody } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter, requireTenantAccess } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 /**
  * Update Blog Category
  * PUT /api/admin/blog/categories/:id
+ * 
+ * Tenant-scoped: verifies ownership before update
  */
 export default defineEventHandler(async (event) => {
-  const user = event.context.user
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
   
-  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Admin access required'
-    })
-  }
-  
-  const { id } = getRouterParams(event)
+  const { id } = getRouterParams(event) as { id: string }
   const categoryId = parseInt(id)
   
   if (!categoryId) {
@@ -30,8 +28,9 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   
   try {
-    const existing = await prisma.blogCategory.findUnique({
-      where: { id: categoryId }
+    // Fetch existing category with tenant scoping
+    const existing = await prisma.blogCategory.findFirst({
+      where: { id: categoryId, ...tenantFilter }
     })
     
     if (!existing) {
@@ -41,12 +40,16 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    // Check slug uniqueness if changing
+    // Verify tenant access
+    requireTenantAccess(user, existing.adminId)
+    
+    // Check slug uniqueness if changing (within tenant scope)
     if (body.slug && body.slug !== existing.slug) {
       const slugExists = await prisma.blogCategory.findFirst({
         where: {
           slug: body.slug,
-          id: { not: categoryId }
+          id: { not: categoryId },
+          ...tenantFilter
         }
       })
       

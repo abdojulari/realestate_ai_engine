@@ -1,5 +1,7 @@
 import type { NitroFetchRequest } from 'nitropack'
 
+type FetchOpts = Omit<RequestInit, 'method' | 'body'>
+
 export function useApi() {
   const config = useRuntimeConfig()
   const { showMessage } = useNuxtApp()
@@ -14,16 +16,16 @@ export function useApi() {
     return headers
   }
 
-  const get = async <T = any>(url: string, opts: RequestInit = {}) => {
+  const get = async <T = any>(url: string, opts: FetchOpts = {}) => {
     return await $fetch<T>(url as unknown as NitroFetchRequest, {
       baseURL,
-      method: 'get',
+      method: 'GET',
       headers: { ...buildHeaders(), ...(opts.headers || {}) },
       ...opts
     })
   }
 
-  const post = async <T = any>(url: string, data: any, opts: RequestInit = {}) => {
+  const post = async <T = any>(url: string, data: any, opts: FetchOpts = {}) => {
     const headers = buildHeaders()
     
     // If data is FormData, don't set Content-Type header
@@ -33,14 +35,14 @@ export function useApi() {
     
     return await $fetch<T>(url as unknown as NitroFetchRequest, {
       baseURL,
-      method: 'post',
+      method: 'POST',
       body: data,
       headers: { ...headers, ...(opts.headers || {}) },
       ...opts
     })
   }
 
-  const put = async <T = any>(url: string, data: any, opts: RequestInit = {}) => {
+  const put = async <T = any>(url: string, data: any, opts: FetchOpts = {}) => {
     const headers = buildHeaders()
     
     // If data is FormData, don't set Content-Type header
@@ -50,28 +52,28 @@ export function useApi() {
     
     return await $fetch<T>(url as unknown as NitroFetchRequest, {
       baseURL,
-      method: 'put',
+      method: 'PUT',
       body: data,
       headers: { ...headers, ...(opts.headers || {}) },
       ...opts
     })
   }
 
-  const del = async <T = any>(url: string, opts: RequestInit = {}) => {
+  const del = async <T = any>(url: string, opts: FetchOpts = {}) => {
     return await $fetch<T>(url as unknown as NitroFetchRequest, {
       baseURL,
-      method: 'delete',
+      method: 'DELETE',
       headers: { ...buildHeaders(), ...(opts.headers || {}) },
       ...opts
     })
   }
 
-  const upload = async <T = any>(url: string, formData: FormData, opts: RequestInit = {}) => {
+  const upload = async <T = any>(url: string, formData: FormData, opts: FetchOpts = {}) => {
     const headers = buildHeaders()
     delete headers['Content-Type']
     return await $fetch<T>(url as unknown as NitroFetchRequest, {
       baseURL,
-      method: 'post',
+      method: 'POST',
       body: formData as any,
       headers: { ...headers, ...(opts.headers || {}) },
       ...opts

@@ -1,10 +1,13 @@
 import { defineEventHandler, readMultipartFormData, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getAdminIdForCreate } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  // Note: This endpoint is whitelisted in auth middleware, so no authentication required
+  const user = await requireAdmin(event)
+  const adminId = getAdminIdForCreate(user)
   
   let payload: any = {}
   
@@ -19,8 +22,8 @@ export default defineEventHandler(async (event) => {
     try {
       const form = await readMultipartFormData(event)
       let dataField = form?.find(f => f.name === 'data' && typeof f.data === 'string')?.data as unknown as string
-      if (!dataField && form && form.length === 1 && form[0].type === 'application/json') {
-        dataField = form[0].data.toString('utf-8')
+      if (!dataField && form && form.length === 1 && form[0]!.type === 'application/json') {
+        dataField = form[0]!.data.toString('utf-8')
       }
       payload = dataField ? JSON.parse(dataField) : {}
     } catch (e) {
@@ -40,11 +43,10 @@ export default defineEventHandler(async (event) => {
       title: payload.title,
       type: payload.type,
       content: payload.content || '',
-      metadata: metadata as any
+      metadata: metadata as any,
+      adminId
     }
   })
 
   return created
 })
-
-

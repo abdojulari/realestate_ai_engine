@@ -218,7 +218,7 @@ export default defineEventHandler(async (event) => {
                 const { user, agent, isSaved, ...propertyData } = transformedProperty as any
                 const externalId = p9Prop.ListingKeyNumeric != null ? String(p9Prop.ListingKeyNumeric) : p9Prop.ListingId
 
-                const existingProperty = await prisma.property.findFirst({
+                const existingProperty: any = await prisma.property.findFirst({
                   where: {
                     source: 'pillar9',
                     externalId
@@ -226,19 +226,51 @@ export default defineEventHandler(async (event) => {
                 })
 
                 const statusKey = statusToKey(status)
+                const newPrice = propertyData.price || 0
+
                 const data = {
                   ...propertyData,
                   lastSyncAt: new Date(),
                   ...(existingProperty
-                    ? { views: existingProperty.views, createdAt: existingProperty.createdAt }
-                    : {})
+                    ? {
+                        views: existingProperty.views,
+                        createdAt: existingProperty.createdAt,
+                        // Never overwrite firstEntryPrice once set
+                        firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price
+                      }
+                    : {
+                        // First sync – both prices are identical
+                        firstEntryPrice: newPrice
+                      })
                 }
 
                 let saved = false
                 for (let attempt = 1; attempt <= 2 && !saved; attempt++) {
                   try {
                     if (existingProperty) {
-                      await prisma.property.update({
+                      // Detect price change and record it
+                      const oldPrice = existingProperty.price
+                      if (oldPrice && newPrice && oldPrice !== newPrice) {
+                        const changeAmt = newPrice - oldPrice
+                        const changePct = parseFloat(((changeAmt / oldPrice) * 100).toFixed(2))
+                        const priceEvent = changeAmt < 0 ? 'price_decrease' : 'price_increase'
+                        try {
+                          await (prisma as any).propertyPriceHistory.create({
+                            data: {
+                              propertyId: existingProperty.id,
+                              price: newPrice,
+                              event: priceEvent,
+                              changeAmt,
+                              changePct,
+                              source: 'pillar9'
+                            }
+                          })
+                        } catch (_priceErr) {
+                          // Non-critical – don't fail the sync
+                        }
+                      }
+
+                      await (prisma.property as any).update({
                         where: { id: existingProperty.id },
                         data
                       })
@@ -247,9 +279,22 @@ export default defineEventHandler(async (event) => {
                         syncStats.byStatus[statusKey].updated++
                       }
                     } else {
-                      await prisma.property.create({
-                        data: { ...propertyData, lastSyncAt: new Date() }
+                      const created: any = await (prisma.property as any).create({
+                        data: { ...propertyData, lastSyncAt: new Date(), firstEntryPrice: newPrice }
                       })
+                      // Record initial listing price
+                      try {
+                        await (prisma as any).propertyPriceHistory.create({
+                          data: {
+                            propertyId: created.id,
+                            price: newPrice,
+                            event: 'listed',
+                            source: 'pillar9'
+                          }
+                        })
+                      } catch (_priceErr) {
+                        // Non-critical
+                      }
                       syncStats.created++
                       if (syncStats.byStatus[statusKey]) {
                         syncStats.byStatus[statusKey].created++
@@ -292,10 +337,13 @@ export default defineEventHandler(async (event) => {
       data: { status: 'sold' }
     })
 
-    await prisma.setting.upsert({
-      where: { key: 'pillar9_last_sync' },
+    // System-level setting — use first super_admin as owner
+    const sysAdmin = await prisma.user.findFirst({ where: { role: 'super_admin' }, select: { id: true } })
+    const sysAdminId = sysAdmin?.id ?? null
+    await (prisma.setting as any).upsert({
+      where: { adminId_key: { adminId: sysAdminId!, key: 'pillar9_last_sync' } },
       update: { value: new Date().toISOString() },
-      create: { key: 'pillar9_last_sync', value: new Date().toISOString() }
+      create: { adminId: sysAdminId, key: 'pillar9_last_sync', value: new Date().toISOString() }
     })
 
     console.log('\n✅ Pillar9 sync completed:', syncStats)

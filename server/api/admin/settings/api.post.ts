@@ -1,24 +1,35 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter, getAdminIdForCreate } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+  const adminId = getAdminIdForCreate(user)
 
   const apiSettings = await readBody(event)
 
   try {
-    // Helper function to upsert API settings
+    // Helper function to upsert API settings scoped to tenant
     async function upsertApiSetting(name: string, settings: any) {
       const key = `api.${name.toLowerCase().replace(/\s+/g, '_')}`
       
-      await prisma.setting.upsert({
-        where: { key },
-        update: { value: JSON.stringify(settings) },
-        create: { key, value: JSON.stringify(settings) }
+      const existing = await prisma.setting.findFirst({
+        where: { key, adminId }
       })
+      if (existing) {
+        await prisma.setting.update({
+          where: { id: existing.id },
+          data: { value: JSON.stringify(settings) }
+        })
+      } else {
+        await prisma.setting.create({
+          data: { key, value: JSON.stringify(settings), adminId }
+        })
+      }
     }
 
     // Store each API configuration

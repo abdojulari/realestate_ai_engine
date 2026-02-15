@@ -9,15 +9,15 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Get the latest sync result from settings
-    const syncResult = await prisma.setting.findUnique({
+    const syncResult = await prisma.setting.findFirst({
       where: { key: 'last_sync_result' }
     })
 
-    const syncStatus = await prisma.setting.findUnique({
+    const syncStatus = await prisma.setting.findFirst({
       where: { key: 'sync_status' }
     })
 
-    const syncProgress = await prisma.setting.findUnique({
+    const syncProgress = await prisma.setting.findFirst({
       where: { key: 'sync_progress' }
     })
 

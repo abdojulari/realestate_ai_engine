@@ -5,7 +5,7 @@ import { requireAdmin } from '../../../../utils/auth'
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const currentUser = await requireAdmin(event)
 
   const id = Number((event.context.params as any).id)
   if (!id) {
@@ -16,21 +16,38 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check if user exists
-  const user = await prisma.user.findUnique({
+  const targetUser = await prisma.user.findUnique({
     where: { id },
     select: {
       id: true,
       firstName: true,
       lastName: true,
       email: true,
-      role: true
+      role: true,
+      adminId: true
     }
   })
 
-  if (!user) {
+  if (!targetUser) {
     throw createError({
       statusCode: 404,
       statusMessage: 'User not found'
+    })
+  }
+
+  // Prevent non-super_admin from modifying a super_admin's status
+  if (targetUser.role === 'super_admin' && currentUser.role !== 'super_admin') {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You do not have permission to modify a super admin user'
+    })
+  }
+
+  // Tenant scoping: admin can only toggle status for users under their own team
+  if (currentUser.role !== 'super_admin' && targetUser.adminId !== currentUser.id) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You do not have permission to modify this user'
     })
   }
 
@@ -46,11 +63,11 @@ export default defineEventHandler(async (event) => {
       success: true,
       message: `User status toggled successfully`,
       user: {
-        id: user.id,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email,
-        role: user.role,
+        id: targetUser.id,
+        firstName: targetUser.firstName,
+        lastName: targetUser.lastName,
+        email: targetUser.email,
+        role: targetUser.role,
         // Since we don't have a status field, we'll let the frontend handle the toggle
         statusToggled: true
       }

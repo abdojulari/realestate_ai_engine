@@ -44,7 +44,7 @@
               </div>
               <div class="stat-divider-inline"></div>
               <div class="stat-inline">
-                <span class="stat-value-split">{{ totalUsers > 0 ? `${totalUsers}+` : '500+' }}</span>
+                <span class="stat-value-split">{{ (totalUsers ?? 0) > 0 ? `${totalUsers}+` : '500+' }}</span>
                 <span class="stat-label-split">Clients</span>
               </div>
               <div class="stat-divider-inline"></div>

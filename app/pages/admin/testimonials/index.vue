@@ -278,6 +278,7 @@
 </template>
 
 <script setup lang="ts">
+// @ts-ignore
 import { api } from '~/utils/api'
 
 // Meta
@@ -413,12 +414,12 @@ const approveTestimonial = async (testimonial: Testimonial) => {
   }
 }
 
-const toggleFeatured = async (testimonial: Testimonial, featured: boolean) => {
+const toggleFeatured = async (testimonial: Testimonial, featured: boolean | null) => {
   try {
     await api.patch(`/admin/testimonials/${testimonial.id}`, {
       featured
     })
-    testimonial.featured = featured
+    testimonial.featured = featured ?? false
     await loadStats()
   } catch (error) {
     console.error('Error updating featured status:', error)

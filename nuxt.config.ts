@@ -32,7 +32,7 @@ export default defineNuxtConfig({
   nitro: {
     // Prevent 413 Payload Too Large on POST requests (default limit can be low)
     bodyLimit: '50mb',
-  },
+  } as any,
   vite: {
     optimizeDeps: {
       include: [
@@ -72,6 +72,7 @@ export default defineNuxtConfig({
     display: 'swap',
     download: true, // This downloads fonts to your server for better performance
   },
+  // @ts-expect-error vuetify-nuxt-module adds this config key
   vuetify: {
     moduleOptions: {
       /* module specific options */

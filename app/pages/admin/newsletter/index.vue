@@ -202,10 +202,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
-import { formatDate } from '/utils/formatters'
+// @ts-ignore
+import { formatDate } from '~/utils/formatters'
 
 // Helper function to safely get auth headers
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
     const token = localStorage.getItem('token')
     return token ? { 'Authorization': `Bearer ${token}` } : {}

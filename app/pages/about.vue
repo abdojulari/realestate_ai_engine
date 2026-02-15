@@ -223,7 +223,7 @@ const ctaButtonLink = ref<string>('')
 
 onMounted(async () => {
   try {
-    const pageData = await $fetch('/api/content/page/about')
+    const pageData = await $fetch('/api/content/page/about') as any
     const items: any[] = pageData?.items || []
     
     const heroTitleItem = items.find(i => i.key === 'about.hero.title')

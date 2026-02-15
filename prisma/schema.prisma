@@ -7,6 +7,10 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ═══════════════════════════════════════════════════════════════
+// USER & AUTH
+// ═══════════════════════════════════════════════════════════════
+
 model User {
   id                   Int               @id @default(autoincrement())
   email                String            @unique
@@ -36,35 +40,115 @@ model User {
   twoFactorCodeExpiry  DateTime?
   twoFactorEnabled     Boolean           @default(false)
   twoFactorSecret      String?
-  
+
   // Subscription tier for admins (basic, silver, gold, platinum)
-  // Only applicable when role is "admin"
   subscriptionTier     String?
-  
-  // Admin relationship - users belong to an admin
-  // When a user signs up under an admin's domain, they are linked here
+
+  // Admin relationship – users belong to an admin (tenant)
   adminId              Int?
   admin                User?             @relation("AdminUsers", fields: [adminId], references: [id])
   users                User[]            @relation("AdminUsers")
-  
+
+  // ── Personal-data relations (userId / authorId) ──
   activityLogs         ActivityLog[]
   documents            Document[]
-  homeEstimates        HomeEstimate[]
-  properties           Property[]
+  homeEstimates        HomeEstimate[]    @relation("UserEstimates")
+  properties           Property[]        @relation("UserProperties")
   propertyAlerts       PropertyAlert[]
-  inquiries            PropertyInquiry[]
+  inquiries            PropertyInquiry[] @relation("UserInquiries")
   propertyViews        PropertyView[]
   savedProperties      SavedProperty[]
   savedSearches        SavedSearch[]
   signatures           Signature[]
   viewingRequests      ViewingRequest[]
-  blogPosts            BlogPost[]
-  
+  blogPosts            BlogPost[]        @relation("AuthorPosts")
+
+  // ── Tenant-owned data relations (adminId) ──
+  // Records belonging to this admin's tenant
+  tenantProperties         Property[]             @relation("TenantProperties")
+  tenantContentBlocks      ContentBlock[]
+  tenantSettingsRows       Setting[]              @relation("TenantSettingRows")
+  tenantEmailTemplates     EmailTemplate[]
+  tenantTestimonials       Testimonial[]
+  tenantSubscribers        NewsletterSubscriber[]
+  tenantNewsTemplates      NewsletterTemplate[]
+  tenantNewsletters        Newsletter[]
+  tenantAutomations        NewsletterAutomation[]
+  tenantBlogCategories     BlogCategory[]
+  tenantBlogTags           BlogTag[]
+  tenantBlogPosts          BlogPost[]             @relation("TenantPosts")
+  tenantChatLeads          ChatLead[]
+  tenantEstimates          HomeEstimate[]         @relation("TenantEstimates")
+  tenantInquiries          PropertyInquiry[]      @relation("TenantInquiries")
+  tenantSiteSettings       TenantSettings?
+
+  // ── New feature relations (tenant-scoped) ──
+  tenantListingTemplates   ListingTemplate[]        @relation("TenantListingTemplates")
+  tenantCrmClients         CrmClient[]              @relation("TenantCrmClients")
+  tenantCrmTransactions    CrmTransaction[]         @relation("TenantCrmTransactions")
+  tenantCalendarEvents     CalendarEvent[]          @relation("TenantCalendarEvents")
+  tenantBookingSlots       BookingSlot[]            @relation("TenantBookingSlots")
+  tenantBookings           Booking[]                @relation("TenantBookings")
+  tenantFacebookIntegration FacebookIntegration?    @relation("TenantFacebookIntegration")
+  tenantFacebookPosts      FacebookPost[]           @relation("TenantFacebookPosts")
+  tenantPriceCutSearches   PriceCutSearch[]         @relation("TenantPriceCutSearches")
+
   @@index([adminId])
 }
 
+// ═══════════════════════════════════════════════════════════════
+// TENANT SETTINGS – per-admin branding, contact, social, etc.
+// ═══════════════════════════════════════════════════════════════
+
+model TenantSettings {
+  id               Int      @id @default(autoincrement())
+  adminId          Int      @unique
+  admin            User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  // Branding
+  businessName     String?          // "Alberta One Real Estate"
+  tagline          String?          // Displayed under logo
+  logoUrl          String?
+  faviconUrl       String?
+  primaryColor     String?          @default("#1976D2")
+
+  // Contact
+  phone            String?
+  email            String?
+  address          String?
+  city             String?
+  province         String?
+  postalCode       String?
+
+  // Social links  [{icon,name,url}]
+  socialLinks      Json?
+
+  // Brokerage
+  brokerageName    String?
+  brokerageLogoUrl String?
+
+  // Footer / legal
+  footerDisclaimer String?          @db.Text
+  copyrightName    String?
+  developerName    String?
+  developerUrl     String?
+
+  // Domain mapping (multi-tenant routing)
+  subdomain        String?          @unique   // acme → acme.realestatehub.ca
+  customDomain     String?          @unique   // acmesrealty.com
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PROPERTY & NEIGHBOURHOOD (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 model Property {
   id                     Int                   @id @default(autoincrement())
+  adminId                Int?
+  admin                  User?                 @relation("TenantProperties", fields: [adminId], references: [id])
   title                  String
   description            String
   price                  Float
@@ -111,16 +195,20 @@ model Property {
   listingOfficeData      Json?
   daysOnMarket           Int?
   originalEntryTimestamp DateTime?
-  user                   User?                 @relation(fields: [userId], references: [id])
+  firstEntryPrice        Float?                // Price when first synced – never updated after creation
+  user                   User?                 @relation("UserProperties", fields: [userId], references: [id])
   inquiries              PropertyInquiry[]
   neighborhood           PropertyNeighborhood?
   propertyViews          PropertyView[]
   savedBy                SavedProperty[]
   viewingRequests        ViewingRequest[]
+  priceHistory           PropertyPriceHistory[]
 
   @@unique([source, externalId])
+  @@index([adminId])
 }
 
+// Neighbourhood = shared geographic reference data (global)
 model Neighborhood {
   id               Int                    @id @default(autoincrement())
   name             String
@@ -157,16 +245,42 @@ model PropertyNeighborhood {
   @@index([neighborhoodId])
 }
 
+// ═══════════════════════════════════════════════════════════════
+// CONTENT & SETTINGS (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 model ContentBlock {
   id        Int      @id @default(autoincrement())
-  key       String   @unique
+  adminId   Int?
+  admin     User?    @relation(fields: [adminId], references: [id])
+  key       String
   title     String
   content   String
   type      String
   metadata  Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([adminId, key])
+  @@index([adminId])
 }
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  adminId   Int?
+  admin     User?    @relation("TenantSettingRows", fields: [adminId], references: [id])
+  key       String
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([adminId, key])
+  @@index([adminId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// USER-SCOPED (personal data – userId only)
+// ═══════════════════════════════════════════════════════════════
 
 model SavedSearch {
   id        Int      @id @default(autoincrement())
@@ -211,26 +325,6 @@ model ViewingRequest {
   user       User     @relation(fields: [userId], references: [id])
 }
 
-model Setting {
-  id        Int      @id @default(autoincrement())
-  key       String   @unique
-  value     String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model PropertyInquiry {
-  id         Int      @id @default(autoincrement())
-  userId     Int?
-  propertyId Int
-  message    String
-  status     String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  property   Property @relation(fields: [propertyId], references: [id])
-  user       User?    @relation(fields: [userId], references: [id])
-}
-
 model SavedProperty {
   id         Int      @id @default(autoincrement())
   userId     Int
@@ -254,19 +348,50 @@ model PropertyView {
   user       User?    @relation(fields: [userId], references: [id])
 }
 
+// ═══════════════════════════════════════════════════════════════
+// EMAIL & TEMPLATES (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 model EmailTemplate {
   id        Int      @id @default(autoincrement())
-  name      String   @unique
+  adminId   Int?
+  admin     User?    @relation(fields: [adminId], references: [id])
+  name      String
   subject   String
   content   String
   variables Json?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@unique([adminId, name])
+  @@index([adminId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CRM – LEADS, INQUIRIES, ESTIMATES (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+model PropertyInquiry {
+  id         Int      @id @default(autoincrement())
+  adminId    Int?
+  admin      User?    @relation("TenantInquiries", fields: [adminId], references: [id])
+  userId     Int?
+  propertyId Int
+  message    String
+  status     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  property   Property @relation(fields: [propertyId], references: [id])
+  user       User?    @relation("UserInquiries", fields: [userId], references: [id])
+
+  @@index([adminId])
 }
 
 model HomeEstimate {
   id                Int      @id @default(autoincrement())
+  adminId           Int?
+  admin             User?    @relation("TenantEstimates", fields: [adminId], references: [id])
   userId            Int?
   address           String
   postalCode        String
@@ -291,11 +416,15 @@ model HomeEstimate {
   agentNotes        String?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-  user              User?    @relation(fields: [userId], references: [id])
+  user              User?    @relation("UserEstimates", fields: [userId], references: [id])
+
+  @@index([adminId])
 }
 
 model Testimonial {
   id           Int      @id @default(autoincrement())
+  adminId      Int?
+  admin        User?    @relation(fields: [adminId], references: [id])
   name         String
   email        String
   phone        String?
@@ -312,9 +441,31 @@ model Testimonial {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@index([approved, featured, displayOrder])
+  @@index([adminId, approved, featured, displayOrder])
   @@index([createdAt])
 }
+
+model ChatLead {
+  id              Int      @id @default(autoincrement())
+  adminId         Int?
+  admin           User?    @relation(fields: [adminId], references: [id])
+  name            String
+  email           String
+  phone           String?
+  message         String?
+  conversationLog Json?
+  source          String   @default("chat_widget")
+  status          String   @default("new")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([adminId, email])
+  @@index([adminId, status])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACTIVITY LOG (user-scoped)
+// ═══════════════════════════════════════════════════════════════
 
 model ActivityLog {
   id          Int      @id @default(autoincrement())
@@ -333,6 +484,10 @@ model ActivityLog {
   @@index([action])
   @@index([entity, entityId])
 }
+
+// ═══════════════════════════════════════════════════════════════
+// DOCUMENTS & SIGNATURES (user-scoped)
+// ═══════════════════════════════════════════════════════════════
 
 model Document {
   id               Int      @id @default(autoincrement())
@@ -360,13 +515,13 @@ model Document {
 model DocumentLegalReview {
   id                Int      @id @default(autoincrement())
   documentId        Int      @unique
-  redFlags          Json     // string[]
-  importantNotes    Json     // string[]
-  importantDates    Json     // { label: string, date: string (ISO), context?: string }[]
+  redFlags          Json
+  importantNotes    Json
+  importantDates    Json
   legalSummary      String   @db.Text
   buyerImpact       String   @db.Text
   sellerImpact      String   @db.Text
-  partyRepresenting String?  // 'buyer' | 'seller'
+  partyRepresenting String?
   reviewedAt        DateTime @default(now())
   createdAt         DateTime @default(now())
   document          Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
@@ -402,9 +557,15 @@ model Signature {
   @@index([userId])
 }
 
+// ═══════════════════════════════════════════════════════════════
+// NEWSLETTER (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 model NewsletterSubscriber {
   id              Int              @id @default(autoincrement())
-  email           String           @unique
+  adminId         Int?
+  admin           User?            @relation(fields: [adminId], references: [id])
+  email           String
   firstName       String?
   lastName        String?
   status          String           @default("active")
@@ -419,13 +580,15 @@ model NewsletterSubscriber {
   updatedAt       DateTime         @updatedAt
   sentNewsletters SentNewsletter[]
 
-  @@index([email, status])
-  @@index([status, subscribedAt])
+  @@unique([adminId, email])
+  @@index([adminId, status, subscribedAt])
 }
 
 model NewsletterTemplate {
   id               Int          @id @default(autoincrement())
-  name             String       @unique
+  adminId          Int?
+  admin            User?        @relation(fields: [adminId], references: [id])
+  name             String
   subject          String
   content          String
   plainTextContent String?
@@ -442,11 +605,14 @@ model NewsletterTemplate {
   updatedAt        DateTime     @updatedAt
   newsletters      Newsletter[]
 
-  @@index([category, isActive])
+  @@unique([adminId, name])
+  @@index([adminId, category, isActive])
 }
 
 model Newsletter {
   id                 Int                 @id @default(autoincrement())
+  adminId            Int?
+  admin              User?               @relation(fields: [adminId], references: [id])
   name               String
   templateId         Int?
   subject            String
@@ -474,8 +640,8 @@ model Newsletter {
   template           NewsletterTemplate? @relation(fields: [templateId], references: [id])
   sentNewsletters    SentNewsletter[]
 
-  @@index([status, scheduledFor])
-  @@index([frequency, status])
+  @@index([adminId, status, scheduledFor])
+  @@index([adminId, frequency, status])
   @@index([createdAt])
 }
 
@@ -505,6 +671,8 @@ model SentNewsletter {
 
 model NewsletterAutomation {
   id            Int       @id @default(autoincrement())
+  adminId       Int?
+  admin         User?     @relation(fields: [adminId], references: [id])
   name          String
   description   String?
   triggerType   String
@@ -524,36 +692,44 @@ model NewsletterAutomation {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  @@index([isActive, nextRun])
+  @@index([adminId, isActive, nextRun])
   @@index([triggerType, frequency])
 }
 
-// Blog System Models
+// ═══════════════════════════════════════════════════════════════
+// BLOG (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
 model BlogCategory {
-  id          Int        @id @default(autoincrement())
-  name        String     @unique
-  slug        String     @unique
+  id          Int            @id @default(autoincrement())
+  adminId     Int?
+  admin       User?          @relation(fields: [adminId], references: [id])
+  name        String
+  slug        String
   description String?
-  color       String?    @default("#1976D2")
-  icon        String?    @default("mdi-folder")
+  color       String?        @default("#1976D2")
+  icon        String?        @default("mdi-folder")
   parentId    Int?
-  sortOrder   Int        @default(0)
-  isActive    Boolean    @default(true)
-  postCount   Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  sortOrder   Int            @default(0)
+  isActive    Boolean        @default(true)
+  postCount   Int            @default(0)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
   parent      BlogCategory?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
   children    BlogCategory[] @relation("CategoryHierarchy")
   posts       BlogPost[]
 
-  @@index([slug])
-  @@index([isActive, sortOrder])
+  @@unique([adminId, name])
+  @@unique([adminId, slug])
+  @@index([adminId, isActive, sortOrder])
 }
 
 model BlogPost {
   id              Int           @id @default(autoincrement())
+  adminId         Int?
+  admin           User?         @relation("TenantPosts", fields: [adminId], references: [id])
   title           String
-  slug            String        @unique
+  slug            String
   excerpt         String?       @db.Text
   content         String        @db.Text
   contentHtml     String?       @db.Text
@@ -561,30 +737,30 @@ model BlogPost {
   coverImageAlt   String?
   authorId        Int?
   categoryId      Int?
-  tags            Json?         // Array of tag strings
-  status          String        @default("draft") // draft, published, scheduled, archived
+  tags            Json?
+  status          String        @default("draft")
   publishedAt     DateTime?
   scheduledAt     DateTime?
   isFeatured      Boolean       @default(false)
   allowComments   Boolean       @default(true)
   views           Int           @default(0)
-  readTime        Int?          // Estimated reading time in minutes
+  readTime        Int?
   metaTitle       String?
   metaDescription String?       @db.Text
-  metaKeywords    Json?         // Array of keyword strings
+  metaKeywords    Json?
   canonicalUrl    String?
   ogImage         String?
-  hashnodeId      String?       // Hashnode post ID for sync
-  hashnodeUrl     String?       // Published URL on Hashnode
+  hashnodeId      String?
+  hashnodeUrl     String?
   syncToHashnode  Boolean       @default(false)
   lastSyncedAt    DateTime?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
-  author          User?         @relation(fields: [authorId], references: [id])
+  author          User?         @relation("AuthorPosts", fields: [authorId], references: [id])
   category        BlogCategory? @relation(fields: [categoryId], references: [id])
 
-  @@index([slug])
-  @@index([status, publishedAt])
+  @@unique([adminId, slug])
+  @@index([adminId, status, publishedAt])
   @@index([categoryId])
   @@index([authorId])
   @@index([isFeatured, status])
@@ -593,27 +769,281 @@ model BlogPost {
 
 model BlogTag {
   id        Int      @id @default(autoincrement())
-  name      String   @unique
-  slug      String   @unique
+  adminId   Int?
+  admin     User?    @relation(fields: [adminId], references: [id])
+  name      String
+  slug      String
   postCount Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@index([slug])
+  @@unique([adminId, name])
+  @@unique([adminId, slug])
+  @@index([adminId])
 }
 
-model ChatLead {
+// ═══════════════════════════════════════════════════════════════
+// PROPERTY PRICE HISTORY (tenant-scoped via property)
+// ═══════════════════════════════════════════════════════════════
+
+model PropertyPriceHistory {
+  id         Int      @id @default(autoincrement())
+  propertyId Int
+  price      Float
+  event      String   // listed, price_increase, price_decrease, sold
+  changeAmt  Float?   // dollar amount of change
+  changePct  Float?   // percentage change
+  source     String?  // crea, pillar9, manual
+  createdAt  DateTime @default(now())
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, createdAt])
+  @@index([event, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LISTING TEMPLATES (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+model ListingTemplate {
   id              Int      @id @default(autoincrement())
+  adminId         Int?
+  admin           User?    @relation("TenantListingTemplates", fields: [adminId], references: [id])
   name            String
-  email           String
-  phone           String?
-  message         String?
-  conversationLog Json?
-  source          String   @default("chat_widget")
-  status          String   @default("new")
+  propertyId      Int?
+  propertyAddress String?
+  description     String?  @db.Text
+  aiDescription   String?  @db.Text
+  theme           String   @default("luxury")   // luxury, modern, classic, minimal
+  primaryColor    String?  @default("#1a1a2e")
+  accentColor     String?  @default("#c9a96e")
+  fontFamily      String?  @default("Playfair Display")
+  images          Json?    // [{url, caption, type: 'hero'|'gallery'|'floorplan', order}]
+  floorPlans      Json?    // [{url, label}]
+  brandingLogo    String?
+  features        Json?    // highlight features
+  layout          String   @default("hero-gallery") // hero-gallery, slideshow, grid, split
+  status          String   @default("draft")  // draft, published
+  slug            String?
+  views           Int      @default(0)
+  createdBy       Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  @@index([email])
-  @@index([status])
+  @@unique([adminId, slug])
+  @@index([adminId, status])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CRM – CLIENTS & TRANSACTIONS (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+model CrmClient {
+  id          Int      @id @default(autoincrement())
+  adminId     Int?
+  admin       User?    @relation("TenantCrmClients", fields: [adminId], references: [id])
+  firstName   String
+  lastName    String
+  email       String?
+  phone       String?
+  type        String   // buyer, seller, investor, lead
+  status      String   @default("active")  // active, inactive, closed
+  source      String?  // inquiry, chat, estimate, referral, manual
+  sourceId    Int?     // link to original lead record
+  notes       String?  @db.Text
+  tags        Json?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  transactions CrmTransaction[]
+
+  @@unique([adminId, email])
+  @@index([adminId, type, status])
+}
+
+model CrmTransaction {
+  id            Int      @id @default(autoincrement())
+  adminId       Int?
+  admin         User?    @relation("TenantCrmTransactions", fields: [adminId], references: [id])
+  clientId      Int
+  client        CrmClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  propertyId    Int?
+  type          String   // buying, selling
+  status        String   @default("active")  // active, conditional, firm, closed, cancelled
+  propertyAddress String?
+  salePrice     Float?
+  closingDate   DateTime?
+  possessionDate DateTime?
+  notes         String?  @db.Text
+  progress      Float    @default(0) // 0-100 percentage
+  currentStage  String?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  checklist     CrmChecklistItem[]
+
+  @@index([adminId, status])
+  @@index([clientId])
+}
+
+model CrmChecklistItem {
+  id            Int       @id @default(autoincrement())
+  transactionId Int
+  transaction   CrmTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  label         String
+  description   String?
+  isCompleted   Boolean   @default(false)
+  completedAt   DateTime?
+  completedBy   Int?
+  sortOrder     Int       @default(0)
+  dueDate       DateTime?
+  isRequired    Boolean   @default(true)
+  category      String?   // pre-approval, showing, offer, conditions, closing
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([transactionId, sortOrder])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CALENDAR & BOOKING (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+model CalendarEvent {
+  id          Int       @id @default(autoincrement())
+  adminId     Int?
+  admin       User?     @relation("TenantCalendarEvents", fields: [adminId], references: [id])
+  title       String
+  description String?   @db.Text
+  type        String    // task, meeting, showing, open_house, reminder, personal
+  startTime   DateTime
+  endTime     DateTime?
+  allDay      Boolean   @default(false)
+  location    String?
+  color       String?
+  status      String    @default("scheduled") // scheduled, completed, cancelled
+  priority    String?   @default("normal")    // low, normal, high, urgent
+  reminders   Json?     // [{type: 'email'|'push', minutesBefore: 30}]
+  recurrence  Json?     // {frequency, interval, endDate}
+  propertyId  Int?
+  clientId    Int?
+  isPublic    Boolean   @default(false)
+  metadata    Json?
+  createdBy   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([adminId, startTime, endTime])
+  @@index([adminId, type, status])
+}
+
+model BookingSlot {
+  id          Int       @id @default(autoincrement())
+  adminId     Int?
+  admin       User?     @relation("TenantBookingSlots", fields: [adminId], references: [id])
+  dayOfWeek   Int?      // 0-6 (Sun-Sat), null for specific dates
+  specificDate DateTime? // for one-off slots
+  startTime   String    // HH:mm format
+  endTime     String    // HH:mm format
+  duration    Int       @default(30) // minutes per booking
+  maxBookings Int       @default(1)
+  isActive    Boolean   @default(true)
+  propertyId  Int?      // if slot is property-specific
+  label       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([adminId, dayOfWeek, isActive])
+  @@index([adminId, specificDate])
+}
+
+model Booking {
+  id          Int       @id @default(autoincrement())
+  adminId     Int?
+  admin       User?     @relation("TenantBookings", fields: [adminId], references: [id])
+  slotId      Int?
+  clientName  String
+  clientEmail String
+  clientPhone String?
+  propertyId  Int?
+  dateTime    DateTime
+  endTime     DateTime?
+  duration    Int       @default(30)
+  status      String    @default("confirmed") // confirmed, cancelled, completed, no_show
+  type        String    @default("showing")   // showing, consultation, open_house
+  notes       String?   @db.Text
+  confirmationSent Boolean @default(false)
+  reminderSent     Boolean @default(false)
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([adminId, dateTime])
+  @@index([adminId, status])
+  @@index([clientEmail])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FACEBOOK INTEGRATION (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+model FacebookIntegration {
+  id              Int       @id @default(autoincrement())
+  adminId         Int       @unique
+  admin           User      @relation("TenantFacebookIntegration", fields: [adminId], references: [id])
+  accessToken     String?   @db.Text
+  pageAccessToken String?   @db.Text
+  pageId          String?
+  pageName        String?
+  userId          String?   // Facebook user ID
+  userName        String?
+  permissions     Json?     // granted permissions
+  tokenExpiry     DateTime?
+  isActive        Boolean   @default(true)
+  adAccountId     String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model FacebookPost {
+  id          Int       @id @default(autoincrement())
+  adminId     Int?
+  admin       User?     @relation("TenantFacebookPosts", fields: [adminId], references: [id])
+  propertyId  Int?
+  postId      String?   // Facebook post ID
+  content     String    @db.Text
+  images      Json?     // image URLs posted
+  link        String?
+  status      String    @default("draft") // draft, scheduled, posted, failed
+  scheduledFor DateTime?
+  postedAt    DateTime?
+  errorMessage String?
+  engagement  Json?     // {likes, comments, shares}
+  postType    String    @default("listing") // listing, campaign, custom
+  metadata    Json?
+  createdBy   Int?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([adminId, status])
+  @@index([propertyId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SAVED PRICE CUT SEARCHES (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+model PriceCutSearch {
+  id         Int       @id @default(autoincrement())
+  adminId    Int?
+  admin      User?     @relation("TenantPriceCutSearches", fields: [adminId], references: [id])
+  name       String
+  filters    Json      // {city, community, area, propertyType, minDrop, maxPrice}
+  resultCount Int      @default(0)
+  lastRunAt  DateTime?
+  isActive   Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([adminId, isActive])
 }

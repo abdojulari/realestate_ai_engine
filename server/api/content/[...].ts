@@ -1,21 +1,24 @@
 import { createRouter, defineEventHandler, readBody } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 const router = createRouter()
 
 // Get all content blocks
-router.get('/', defineEventHandler(async () => {
-  const blocks = await prisma.contentBlock.findMany()
+router.get('/', defineEventHandler(async (event) => {
+  const tenantFilter = await getPublicTenantFilter(event)
+  const blocks = await prisma.contentBlock.findMany({ where: { ...tenantFilter } })
   return blocks
 }))
 
 // Get content block by key
 router.get('/:key', defineEventHandler(async (event) => {
+  const tenantFilter = await getPublicTenantFilter(event)
   const key = event.context.params?.key
   
-  const block = await prisma.contentBlock.findUnique({
-    where: { key },
+  const block = await prisma.contentBlock.findFirst({
+    where: { key, ...tenantFilter },
   })
 
   if (!block) {
@@ -47,7 +50,7 @@ router.put('/:key', defineEventHandler(async (event) => {
   const body = await readBody(event)
   
   const block = await prisma.contentBlock.update({
-    where: { key },
+    where: { key } as any,
     data: {
       ...body,
       metadata: body.metadata ? JSON.stringify(body.metadata) : null,
@@ -63,7 +66,7 @@ router.delete('/:key', defineEventHandler(async (event) => {
   const key = event.context.params?.key
   
   await prisma.contentBlock.delete({
-    where: { key },
+    where: { key } as any,
   })
 
   return { status: 200, body: { message: 'Content block deleted successfully' } }

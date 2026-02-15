@@ -111,6 +111,89 @@ interface Pillar9ApiResponse {
   '@odata.nextLink'?: string
 }
 
+/**
+ * Mapping of Pillar9 / Matrix city codes → human-readable Alberta city names.
+ * This covers the major cities plus surrounding municipalities.
+ * Codes not found here will fall through to the raw code string.
+ */
+const PILLAR9_CITY_CODE_MAP: Record<string, string> = {
+  '0046': 'Calgary',
+  '0047': 'Calgary (NW)',
+  '0100': 'Edmonton',
+  '0102': 'St. Albert',
+  '0114': 'Red Deer',
+  '0134': 'Lethbridge',
+  '0141': 'Medicine Hat',
+  '0264': 'Airdrie',
+  '0265': 'Cochrane',
+  '0380': 'Okotoks',
+  '0150': 'Spruce Grove',
+  '0152': 'Stony Plain',
+  '0154': 'Leduc',
+  '0156': 'Fort Saskatchewan',
+  '0159': 'Sherwood Park',
+  '0161': 'Beaumont',
+  '0165': 'Morinville',
+  '0167': 'Devon',
+  '0170': 'Camrose',
+  '0172': 'Wetaskiwin',
+  '0201': 'Grande Prairie',
+  '0203': 'Fort McMurray',
+  '0205': 'Lloydminster',
+  '0125': 'Sylvan Lake',
+  '0145': 'Brooks',
+  '0168': 'Drayton Valley',
+  '0182': 'Lacombe',
+  '0184': 'Ponoka',
+  '0187': 'Innisfail',
+  '0190': 'Olds',
+  '0192': 'Didsbury',
+  '0195': 'Carstairs',
+  '0197': 'Crossfield',
+  '0199': 'Irricana',
+  '0200': 'Chestermere',
+  '0202': 'Strathmore',
+  '0204': 'High River',
+  '0206': 'Nanton',
+  '0208': 'Claresholm',
+  '0210': 'Vulcan',
+  '0212': 'Taber',
+  '0214': 'Coaldale',
+  '0216': 'Raymond',
+  '0218': 'Cardston',
+  '0220': 'Pincher Creek',
+  '0222': 'Crowsnest Pass',
+  '0224': 'Canmore',
+  '0226': 'Banff',
+  '0228': 'Jasper',
+  '0230': 'Hinton',
+  '0232': 'Edson',
+  '0234': 'Whitecourt',
+  '0236': 'Slave Lake',
+  '0238': 'Athabasca',
+  '0240': 'Westlock',
+  '0242': 'Barrhead',
+  '0244': 'Peace River',
+  '0246': 'Fairview',
+  '0248': 'High Level',
+  '0250': 'Bonnyville',
+  '0252': 'Cold Lake',
+  '0254': 'Vegreville',
+  '0256': 'Vermilion',
+  '0258': 'Wainwright',
+  '0300': 'Stettler',
+  '0302': 'Hanna',
+  '0304': 'Drumheller',
+  '0306': 'Three Hills',
+  '0308': 'Trochu',
+  '0310': 'Sundre',
+  '0312': 'Rocky Mountain House',
+  '0314': 'Rimbey',
+  '0316': 'Bentley',
+  '0318': 'Blackfalds',
+  '0320': 'Penhold',
+}
+
 class Pillar9Service {
   // Pillar9/Matrix API configuration
   private tokenHost = 'pillarnine.clareityiam.net'
@@ -495,9 +578,12 @@ class Pillar9Service {
       ? p9Prop.ClosePrice 
       : (p9Prop.ListPrice || 0)
 
+    // Resolve city code to readable name (e.g. '0046' → 'Calgary')
+    const cityName = this.getCityName(p9Prop.City)
+
     return {
-      title: `${p9Prop.UnparsedAddress}, ${p9Prop.City}`,
-      description: p9Prop.PublicRemarks || `${p9Prop.PropertySubType || 'Property'} in ${p9Prop.City}`,
+      title: `${p9Prop.UnparsedAddress}, ${cityName}`,
+      description: p9Prop.PublicRemarks || `${p9Prop.PropertySubType || 'Property'} in ${cityName}`,
       price,
       beds: p9Prop.BedroomsTotal || 0,
       baths: p9Prop.BathroomsTotalInteger || 0,
@@ -505,7 +591,7 @@ class Pillar9Service {
       type,
       status,
       address: p9Prop.UnparsedAddress,
-      city: p9Prop.City,
+      city: cityName,
       province: p9Prop.StateOrProvince || 'AB',
       postalCode: p9Prop.PostalCode || '',
       latitude: p9Prop.Latitude || null,
@@ -553,6 +639,14 @@ class Pillar9Service {
       coListingAgentsData: [],
       coListingOfficesData: [],
     }
+  }
+
+  /**
+   * Map a Pillar9 city code to a human-readable city name.
+   * Falls through to the raw code when no mapping exists.
+   */
+  getCityName(code: string): string {
+    return PILLAR9_CITY_CODE_MAP[code] ?? code
   }
 
   /**

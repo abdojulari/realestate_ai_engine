@@ -433,6 +433,7 @@
 </template>
 
 <script setup lang="ts">
+// @ts-ignore
 import { api } from '~/utils/api'
 
 interface SyncFilters {

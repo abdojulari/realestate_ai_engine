@@ -320,7 +320,7 @@ watch(filters, (newFilters) => {
 // Close suggestions when clicking outside
 onMounted(() => {
   document.addEventListener('click', (e) => {
-    if (!e.target?.closest('.location-suggestions')) {
+    if (!(e.target as HTMLElement)?.closest('.location-suggestions')) {
       showSuggestions.value = false
     }
   })

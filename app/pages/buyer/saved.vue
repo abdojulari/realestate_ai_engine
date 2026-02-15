@@ -160,7 +160,7 @@ import { propertyService } from '~/services/property.service'
 
 // State
 const loading = ref(false)
-const properties = ref([])
+const properties = ref<any[]>([])
 const search = ref('')
 const sortBy = ref('newest')
 const propertyType = ref('all')
@@ -168,8 +168,8 @@ const currentPage = ref(1)
 const itemsPerPage = 12
 const showContactDialog = ref(false)
 const showRemoveDialog = ref(false)
-const selectedProperty = ref(null)
-const propertyToRemove = ref(null)
+const selectedProperty = ref<any>(null)
+const propertyToRemove = ref<any>(null)
 
 // Options
 const sortOptions = [

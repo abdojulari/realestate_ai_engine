@@ -1,16 +1,18 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
   try {
-    // Get the active home template setting
-    const setting = await prisma.setting.findUnique({
-      where: { key: 'site.homeTemplate' }
+    // Get the active home template setting scoped to tenant
+    const setting = await prisma.setting.findFirst({
+      where: { key: 'site.homeTemplate', ...tenantFilter }
     })
 
     // Return the template number (default to 1)

@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import nodemailer from 'nodemailer'
+import { resolveTenantFromRequest } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -28,6 +29,9 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Resolve tenant
+  const adminId = await resolveTenantFromRequest(event)
+
   // Save lead to database
   const lead = await prisma.chatLead.create({
     data: {
@@ -35,9 +39,10 @@ export default defineEventHandler(async (event) => {
       email: body.email.trim().toLowerCase(),
       phone: body.phone?.trim() || null,
       message: body.message?.trim() || null,
-      conversationLog: body.conversationLog || null,
+      conversationLog: (body.conversationLog || null) as any,
       source: 'chat_widget',
-      status: 'new'
+      status: 'new',
+      ...(adminId ? { adminId } : {})
     }
   })
 

@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   const startTime = Date.now()
-  const health = {
+  const health: any = {
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),

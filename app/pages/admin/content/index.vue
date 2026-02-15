@@ -470,6 +470,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
+// @ts-ignore
 import { api } from '~/utils/api'
 
 // Alert system

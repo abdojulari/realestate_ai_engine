@@ -1,13 +1,14 @@
 import { defineEventHandler, createError, getRouterParam } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { requireTenantAccess } from '../../../utils/tenant'
 import { unlink } from 'fs/promises'
 import { join } from 'path'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
 
   const id = parseInt(getRouterParam(event, 'id') || '0')
   if (!id || isNaN(id)) {
@@ -18,10 +19,10 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // Get testimonial to check for avatar file
+    // Get testimonial to check for avatar file and verify tenant ownership
     const testimonial = await prisma.testimonial.findUnique({
       where: { id },
-      select: { avatar: true }
+      select: { avatar: true, adminId: true }
     })
 
     if (!testimonial) {
@@ -30,6 +31,9 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Testimonial not found'
       })
     }
+
+    // Verify tenant ownership
+    requireTenantAccess(user, testimonial.adminId)
 
     // Delete the testimonial
     await prisma.testimonial.delete({
@@ -48,7 +52,7 @@ export default defineEventHandler(async (event) => {
     }
 
     return { success: true, message: 'Testimonial deleted successfully' }
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error deleting testimonial:', error)
     if (error.statusCode) {
       throw error

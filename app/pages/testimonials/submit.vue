@@ -35,9 +35,9 @@
               <transition name="slide-fade" mode="out-in">
                 <div :key="currentSlide" class="statement-content">
                   <div class="statement-icon mb-4">
-                    <v-icon :icon="slides[currentSlide].icon" size="32" color="white"></v-icon>
+                    <v-icon :icon="slides[currentSlide]?.icon" size="32" color="white"></v-icon>
                   </div>
-                  <p class="statement-text">{{ slides[currentSlide].statement }}</p>
+                  <p class="statement-text">{{ slides[currentSlide]?.statement }}</p>
                 </div>
               </transition>
             </div>
@@ -75,12 +75,12 @@
           <div class="form-wrapper">
             <!-- Mobile Hero (shown only on mobile) -->
             <div class="mobile-hero d-lg-none mb-8">
-              <div class="mobile-hero-bg" :style="{ backgroundImage: `url(${slides[currentSlide].image})` }"></div>
+              <div class="mobile-hero-bg" :style="{ backgroundImage: `url(${slides[currentSlide]?.image})` }"></div>
               <div class="mobile-hero-overlay"></div>
               <div class="mobile-hero-content">
                 <v-icon size="40" color="white" class="mb-2">mdi-home-heart</v-icon>
                 <h2 class="text-h5 text-white font-weight-bold">Share Your Experience</h2>
-                <p class="text-body-2 text-white-darken-1 mt-2">{{ slides[currentSlide].statement }}</p>
+                <p class="text-body-2 text-white-darken-1 mt-2">{{ slides[currentSlide]?.statement }}</p>
               </div>
             </div>
             
@@ -427,11 +427,12 @@ const rules = {
   fileSize: (files: File[]) => {
     if (!files || files.length === 0) return true
     const file = files[0]
-    return file.size <= 2 * 1024 * 1024 || 'File size must be less than 2MB'
+    return !file || file.size <= 2 * 1024 * 1024 || 'File size must be less than 2MB'
   },
   fileType: (files: File[]) => {
     if (!files || files.length === 0) return true
     const file = files[0]
+    if (!file) return true
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
     return allowedTypes.includes(file.type) || 'Only JPG and PNG files are allowed'
   }
@@ -456,6 +457,7 @@ const handlePhotoUpload = async (files: File | File[] | null) => {
   }
 
   const file = Array.isArray(files) ? files[0] : files
+  if (!file) return
   
   // Validate file
   if (file.size > 2 * 1024 * 1024) {
@@ -491,7 +493,7 @@ const submitTestimonial = async () => {
 
     // Add photo if uploaded
     if (photoFile.value && photoFile.value.length > 0) {
-      formData.append('photo', photoFile.value[0])
+      formData.append('photo', photoFile.value[0] as any)
     }
 
     const response = await fetch('/api/testimonials', {

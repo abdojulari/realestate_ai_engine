@@ -1,9 +1,10 @@
 import { defineEventHandler, readMultipartFormData, createError } from 'h3'
 import { promises as fs } from 'fs'
 import path from 'path'
+import { requireAdmin } from '../../../utils/auth'
 
 export default defineEventHandler(async (event) => {
-  // Note: This endpoint is whitelisted in auth middleware, so no authentication required
+  await requireAdmin(event)
 
   const form = await readMultipartFormData(event)
   if (!form || form.length === 0) {

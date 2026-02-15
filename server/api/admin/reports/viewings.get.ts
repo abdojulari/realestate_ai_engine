@@ -1,13 +1,20 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
 
+  // ViewingRequest doesn't have adminId directly, but Property does.
+  // Scope via the property relation.
   const rows = await prisma.viewingRequest.findMany({
+    where: {
+      property: tenantFilter
+    },
     orderBy: { dateTime: 'desc' },
     take: 50,
     include: { property: { select: { title: true, images: true } }, user: { select: { firstName: true, lastName: true } } }
@@ -23,5 +30,3 @@ export default defineEventHandler(async (event) => {
     notes: r.notes || ''
   }))
 })
-
-

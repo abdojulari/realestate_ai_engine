@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery, setHeader } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -32,16 +33,19 @@ export default defineEventHandler(async (event) => {
   // Sorting
   const sort = (query.sort as string) || 'latest'
   
+  const tenantFilter = await getPublicTenantFilter(event)
+
   // Build where clause - only published posts
   const where: any = {
+    ...tenantFilter,
     status: 'published',
     publishedAt: { lte: new Date() }
   }
   
   // Category filter
   if (categorySlug) {
-    const category = await prisma.blogCategory.findUnique({
-      where: { slug: categorySlug }
+    const category = await prisma.blogCategory.findFirst({
+      where: { slug: categorySlug, ...tenantFilter }
     })
     if (category) {
       where.categoryId = category.id

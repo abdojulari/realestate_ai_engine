@@ -76,7 +76,7 @@
                   prepend-inner-icon="mdi-file-document-outline"
                   clearable
                   class="mb-4"
-                  @update:model-value="loadTemplate"
+                  @update:model-value="loadTemplate as any"
                 >
                   <template v-slot:item="{ props, item }">
                     <v-list-item v-bind="props">
@@ -276,7 +276,7 @@ definePageMeta({
 })
 
 const router = useRouter()
-const formRef = ref(null)
+const formRef = ref<any>(null)
 const saving = ref(false)
 const showPreview = ref(false)
 const showSuccess = ref(false)
@@ -300,7 +300,7 @@ const form = ref({
   trackClicks: true
 })
 
-const templates = ref([])
+const templates = ref<any[]>([])
 const audienceOptions = [
   { title: 'All Subscribers', value: 'all' },
   { title: 'Active Subscribers Only', value: 'active' },
@@ -315,7 +315,7 @@ const loadTemplates = async () => {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`
       }
-    })
+    }) as any
     templates.value = response.templates || []
   } catch (error) {
     console.error('Error loading templates:', error)
@@ -331,7 +331,7 @@ const loadTemplate = async (templateId: number) => {
       headers: {
         Authorization: `Bearer ${localStorage.getItem('token')}`
       }
-    })
+    }) as any
     
     form.value.subject = template.subject
     form.value.content = template.content

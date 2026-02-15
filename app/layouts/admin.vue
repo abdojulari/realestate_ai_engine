@@ -1,5 +1,5 @@
 <template>
-  <v-app>
+  <div class="admin-layout">
     <!-- Navigation Drawer -->
     <v-navigation-drawer
       v-model="drawer"
@@ -268,17 +268,17 @@
         </div>
       </template>
     </v-navigation-drawer>
-  </v-app>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useLicense, FEATURES } from '~/composables/useLicense'
-import { formatTime } from '../../utils/formatters'
+// @ts-ignore
+import { formatTime } from '~/utils/formatters'
 import { useRouter, useRoute } from 'vue-router'
 // @ts-ignore
-//import { api } from '~~/utils/api'
 import { api } from '~/utils/api'
 
 const auth = useAuthStore()
@@ -327,15 +327,19 @@ const allMenuItems = [
   { title: 'Site', icon: 'mdi-home', to: '/', requiresFeature: null },
   { title: 'Site Management', icon: 'mdi-palette', to: '/admin/site-management', requiresFeature: null },
   { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', requiresFeature: null, getBadge: () => userBadge.value },
-  { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/users?crm=1', requiresFeature: null, getBadge: () => crmBadge.value },
+  { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/crm', requiresFeature: null, getBadge: () => crmBadge.value },
   { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties', requiresFeature: null },
+  { title: 'Listing Templates', icon: 'mdi-image-multiple', to: '/admin/listing-templates', requiresFeature: null },
+  { title: 'Best Deals', icon: 'mdi-tag-arrow-down', to: '/admin/deals', requiresFeature: FEATURES.BEST_DEALS, tier: 'gold' },
+  { title: 'Calendar', icon: 'mdi-calendar-clock', to: '/admin/calendar', requiresFeature: null },
+  { title: 'Facebook', icon: 'mdi-facebook', to: '/admin/facebook', requiresFeature: null },
   { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null },
   { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma', requiresFeature: FEATURES.CMA, tier: 'silver' },
   { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync', requiresFeature: FEATURES.CREA_SYNC, tier: 'platinum' },
   { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync', requiresFeature: FEATURES.PILLAR9_SYNC, tier: 'platinum' },
   { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter', requiresFeature: FEATURES.NEWSLETTER, tier: 'basic' },
   { title: 'Content', icon: 'mdi-file-document', to: '/admin/content', requiresFeature: null },
-  { title: 'Documents', icon: 'mdi-file-document', to: '/admin/documents', requiresFeature: null },
+  { title: 'Documents', icon: 'mdi-file-cabinet', to: '/admin/documents', requiresFeature: null },
   { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports', requiresFeature: FEATURES.FORECAST, tier: 'platinum' },
 ]
 
@@ -420,7 +424,7 @@ async function loadHeaderData() {
       // Fallback to auth store if profile API fails
       user.value = { 
         ...auth.user,
-        avatar: auth.user.avatar || null
+        avatar: (auth.user as any).avatar || null
       }
     }
     
@@ -435,7 +439,7 @@ async function loadHeaderData() {
     if (auth.user) {
       user.value = { 
         ...auth.user,
-        avatar: auth.user.avatar || null
+        avatar: (auth.user as any).avatar || null
       }
     }
   }

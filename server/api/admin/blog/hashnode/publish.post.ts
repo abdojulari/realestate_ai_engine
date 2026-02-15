@@ -1,5 +1,7 @@
 import { createError, defineEventHandler, readBody } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter, requireTenantAccess } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -9,6 +11,7 @@ const prisma = new PrismaClient()
  * 
  * Creates or updates a post on Hashnode using their GraphQL API
  * Requires HASHNODE_API_KEY in environment
+ * Tenant-scoped: verifies ownership of the post before publishing
  */
 
 const HASHNODE_API_URL = process.env.HASHNODE_API_URL || 'https://gql.hashnode.com'
@@ -191,14 +194,8 @@ async function updateHashnodePost(postId: string, input: Partial<HashnodePublica
 }
 
 export default defineEventHandler(async (event) => {
-  const user = event.context.user
-  
-  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Admin access required'
-    })
-  }
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
   
   if (!HASHNODE_API_KEY) {
     throw createError({
@@ -221,9 +218,9 @@ export default defineEventHandler(async (event) => {
     const config = useRuntimeConfig()
     const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
 
-    // Fetch the post
-    const post = await prisma.blogPost.findUnique({
-      where: { id: postId },
+    // Fetch the post with tenant scoping
+    const post = await prisma.blogPost.findFirst({
+      where: { id: postId, ...tenantFilter },
       include: {
         category: true
       }
@@ -235,6 +232,9 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Post not found'
       })
     }
+    
+    // Verify tenant access
+    requireTenantAccess(user, post.adminId)
     
     // Get publication ID
     const publicationId = await getMyPublication()

@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../utils/auth'
+import { getAdminIdForCreate } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -30,7 +31,8 @@ export default defineEventHandler(async (event) => {
         previewText,
         category,
         isActive,
-        createdBy: user.id
+        createdBy: user.id,
+        adminId: getAdminIdForCreate(user)
       }
     })
 

@@ -1,16 +1,36 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../utils/auth'
+import { getTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+
+  // For User model: admin's team members have adminId = admin's id
+  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
 
   const [latestUsers, latestProps, settings] = await Promise.all([
-    prisma.user.findMany({ orderBy: { createdAt: 'desc' }, take: 10, select: { id: true, firstName: true, lastName: true, email: true, createdAt: true } }),
-    prisma.property.findMany({ orderBy: { createdAt: 'desc' }, take: 10, select: { id: true, title: true, address: true, createdAt: true } }),
-    prisma.setting.findMany({ where: { key: { in: ['notifications.enabled', 'notifications.lastSeenAt', 'notifications.dismissedIds'] } } })
+    prisma.user.findMany({
+      where: userTenantFilter,
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: { id: true, firstName: true, lastName: true, email: true, createdAt: true }
+    }),
+    prisma.property.findMany({
+      where: tenantFilter,
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: { id: true, title: true, address: true, createdAt: true }
+    }),
+    prisma.setting.findMany({
+      where: {
+        ...tenantFilter,
+        key: { in: ['notifications.enabled', 'notifications.lastSeenAt', 'notifications.dismissedIds'] }
+      }
+    })
   ])
 
   const enabledSetting = settings.find(s => s.key === 'notifications.enabled')
@@ -46,5 +66,3 @@ export default defineEventHandler(async (event) => {
   const unread = notifications.filter(n => !n.read).length
   return { enabled, lastSeenAt, notifications, counts: { users: latestUsers.length, properties: latestProps.length, unread } }
 })
-
-

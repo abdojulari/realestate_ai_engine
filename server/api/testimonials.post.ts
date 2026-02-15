@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
+import { resolveTenantFromRequest } from '../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -91,6 +92,9 @@ export default defineEventHandler(async (event) => {
     const clientIP = event.node.req.headers['x-forwarded-for'] || event.node.req.connection?.remoteAddress || 'unknown'
     const userAgent = event.node.req.headers['user-agent']
 
+    // Resolve tenant
+    const adminId = await resolveTenantFromRequest(event)
+
     // Create testimonial record
     const testimonial = await prisma.testimonial.create({
       data: {
@@ -104,8 +108,9 @@ export default defineEventHandler(async (event) => {
         avatar: avatarPath,
         approved: false, // Admin approval required
         featured: false, // Not featured by default
-        ipAddress: clientIP || null,
-        userAgent: userAgent || null
+        ipAddress: (clientIP || null) as any,
+        userAgent: userAgent || null,
+        ...(adminId ? { adminId } : {})
       }
     })
 
@@ -124,7 +129,7 @@ export default defineEventHandler(async (event) => {
       id: testimonial.id
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating testimonial:', error)
     if (error.statusCode) {
       throw error

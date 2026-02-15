@@ -52,6 +52,8 @@ export default defineEventHandler(async (event) => {
     '/api/alerts/run-due',
     // License endpoint (internal use, no auth required)
     '/api/license',
+    // Tenant settings (public - for branding, social links, contact info)
+    '/api/tenant-settings',
     // User provisioning from SaaS control plane (uses API key auth)
     '/api/users/provision'
   ]
@@ -122,7 +124,9 @@ export default defineEventHandler(async (event) => {
         email: true,
         firstName: true,
         lastName: true,
-        role: true
+        role: true,
+        adminId: true,
+        subscriptionTier: true,
       }
     })
 

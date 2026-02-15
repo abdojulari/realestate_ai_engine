@@ -11,7 +11,7 @@
               <input 
                 v-model="searchParams.location"
                 placeholder="Where to?"
-                @input="handleLocationInput($event.target.value)"
+                @input="handleLocationInput(($event.target as HTMLInputElement)?.value ?? '')"
                 @focus="showSuggestions = true"
               />
             </div>
@@ -39,7 +39,7 @@
             <div class="field-content">
               <label>Type</label>
               <select v-model="searchParams.propertyType">
-                <option v-for="item in propertyTypes" :key="item.value" :value="item.value">
+                <option v-for="item in propertyTypes" :key="(item.value as any)" :value="item.value">
                   {{ item.title }}
                 </option>
               </select>
@@ -98,9 +98,9 @@
                 <div class="chip-group">
                   <button 
                     v-for="opt in bedOptions" 
-                    :key="opt.value"
+                    :key="(opt.value as any)"
                     :class="{ active: searchParams.beds === opt.value }"
-                    @click="searchParams.beds = opt.value"
+                    @click="searchParams.beds = opt.value as any"
                   >
                     {{ opt.title }}
                   </button>
@@ -112,9 +112,9 @@
                 <div class="chip-group">
                   <button 
                     v-for="opt in bathOptions" 
-                    :key="opt.value"
+                    :key="(opt.value as any)"
                     :class="{ active: searchParams.baths === opt.value }"
-                    @click="searchParams.baths = opt.value"
+                    @click="searchParams.baths = opt.value as any"
                   >
                     {{ opt.title }}
                   </button>

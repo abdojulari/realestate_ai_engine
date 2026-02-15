@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../utils/auth'
+import { getTenantFilter } from '../../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -8,7 +9,7 @@ function calculateNextRun(frequency: string, dayOfWeek?: number, dayOfMonth?: nu
   const [hours, minutes] = (timeOfDay || '09:00').split(':').map(Number)
   
   const nextRun = new Date(now)
-  nextRun.setHours(hours, minutes, 0, 0)
+  nextRun.setHours(hours!, minutes!, 0, 0)
   
   if (frequency === 'daily') {
     if (nextRun <= now) {
@@ -31,11 +32,21 @@ function calculateNextRun(frequency: string, dayOfWeek?: number, dayOfMonth?: nu
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    const tenantFilter = getTenantFilter(user)
     const id = parseInt(event.context.params?.id || '0')
     const body = await readBody(event)
 
     if (!id) {
       throw createError({ statusCode: 400, message: 'Invalid automation ID' })
+    }
+
+    // Verify tenant ownership before updating
+    const existingAutomation = await prisma.newsletterAutomation.findFirst({
+      where: { id, ...tenantFilter }
+    })
+
+    if (!existingAutomation) {
+      throw createError({ statusCode: 404, message: 'Automation not found' })
     }
 
     const {
@@ -55,18 +66,13 @@ export default defineEventHandler(async (event) => {
 
     let nextRun = undefined
     if (frequency || dayOfWeek !== undefined || dayOfMonth !== undefined || timeOfDay) {
-      const automation = await prisma.newsletterAutomation.findUnique({
-        where: { id }
-      })
-      if (automation) {
-        nextRun = calculateNextRun(
-          frequency || automation.frequency || 'weekly',
-          dayOfWeek !== undefined ? dayOfWeek : automation.dayOfWeek || undefined,
-          dayOfMonth !== undefined ? dayOfMonth : automation.dayOfMonth || undefined,
-          timeOfDay || automation.timeOfDay || '09:00',
-          timezone || automation.timezone
-        )
-      }
+      nextRun = calculateNextRun(
+        frequency || existingAutomation.frequency || 'weekly',
+        dayOfWeek !== undefined ? dayOfWeek : existingAutomation.dayOfWeek || undefined,
+        dayOfMonth !== undefined ? dayOfMonth : existingAutomation.dayOfMonth || undefined,
+        timeOfDay || existingAutomation.timeOfDay || '09:00',
+        timezone || existingAutomation.timezone
+      )
     }
 
     const automation = await prisma.newsletterAutomation.update({

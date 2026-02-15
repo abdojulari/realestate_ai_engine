@@ -1,20 +1,16 @@
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    const tenantFilter = getTenantFilter(user)
     const formData = await readMultipartFormData(event)
-    
-    if (!formData || formData.length === 0) {
+    const file = formData?.[0]
+    if (!file || !file.filename || !file.data) {
       throw createError({ statusCode: 400, message: 'No file uploaded' })
-    }
-
-    const file = formData[0]
-    
-    if (!file.filename || !file.data) {
-      throw createError({ statusCode: 400, message: 'Invalid file data' })
     }
 
     const allowedTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']

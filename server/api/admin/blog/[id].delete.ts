@@ -1,5 +1,7 @@
 import { defineEventHandler, getRouterParams } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter, requireTenantAccess } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -9,18 +11,13 @@ const prisma = new PrismaClient()
  * 
  * Permanently deletes a blog post
  * Requires admin authentication
+ * Tenant-scoped: verifies ownership before deletion
  */
 export default defineEventHandler(async (event) => {
-  const user = event.context.user
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
   
-  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Admin access required'
-    })
-  }
-  
-  const { id } = getRouterParams(event)
+  const { id } = getRouterParams(event) as { id: string }
   const postId = parseInt(id)
   
   if (!postId) {
@@ -31,9 +28,9 @@ export default defineEventHandler(async (event) => {
   }
   
   try {
-    // Fetch existing post
-    const existingPost = await prisma.blogPost.findUnique({
-      where: { id: postId }
+    // Fetch existing post with tenant scoping
+    const existingPost = await prisma.blogPost.findFirst({
+      where: { id: postId, ...tenantFilter }
     })
     
     if (!existingPost) {
@@ -43,6 +40,9 @@ export default defineEventHandler(async (event) => {
       })
     }
     
+    // Verify tenant access
+    requireTenantAccess(user, existingPost.adminId)
+    
     // Decrement category count
     if (existingPost.categoryId) {
       await prisma.blogCategory.update({
@@ -51,12 +51,12 @@ export default defineEventHandler(async (event) => {
       })
     }
     
-    // Decrement tag counts
+    // Decrement tag counts (scoped to tenant)
     const tags = (existingPost.tags as string[]) || []
     for (const tagName of tags) {
       const tagSlug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
       await prisma.blogTag.updateMany({
-        where: { slug: tagSlug },
+        where: { slug: tagSlug, ...tenantFilter },
         data: { postCount: { decrement: 1 } }
       })
     }

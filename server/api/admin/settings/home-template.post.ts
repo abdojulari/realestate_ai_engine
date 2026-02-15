@@ -1,11 +1,14 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter, getAdminIdForCreate } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+  const adminId = getAdminIdForCreate(user)
 
   const body = await readBody(event)
   const { template } = body
@@ -19,16 +22,25 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    // Upsert the home template setting
-    await prisma.setting.upsert({
-      where: { key: 'site.homeTemplate' },
-      update: { value: String(template) },
-      create: { key: 'site.homeTemplate', value: String(template) }
+    // Find existing setting for this tenant, then update or create
+    const existing = await prisma.setting.findFirst({
+      where: { key: 'site.homeTemplate', adminId }
     })
 
+    if (existing) {
+      await prisma.setting.update({
+        where: { id: existing.id },
+        data: { value: String(template) }
+      })
+    } else {
+      await prisma.setting.create({
+        data: { key: 'site.homeTemplate', value: String(template), adminId }
+      })
+    }
+
     // Verify it was saved
-    const savedSetting = await prisma.setting.findUnique({
-      where: { key: 'site.homeTemplate' }
+    const savedSetting = await prisma.setting.findFirst({
+      where: { key: 'site.homeTemplate', adminId }
     })
     
     console.log(`✅ Home template updated to template ${template}`)

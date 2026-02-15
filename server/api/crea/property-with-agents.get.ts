@@ -119,7 +119,7 @@ export default defineEventHandler(async (event) => {
       }
     }
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Error fetching property with agent details:', error)
     throw createError({
       statusCode: 500,

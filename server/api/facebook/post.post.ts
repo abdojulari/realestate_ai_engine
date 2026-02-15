@@ -13,7 +13,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    let endpoint = `https://graph.facebook.com/v18.0/${pageId}/feed`
+    let endpoint = `https://graph.facebook.com/v24.0/${pageId}/feed`
     const params = new URLSearchParams({
       message,
       access_token: pageAccessToken
@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
     // If image URL is provided, use photos endpoint instead
     if (imageUrl) {
-      endpoint = `https://graph.facebook.com/v18.0/${pageId}/photos`
+      endpoint = `https://graph.facebook.com/v24.0/${pageId}/photos`
       params.append('url', imageUrl)
     }
 

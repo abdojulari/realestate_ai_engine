@@ -1,6 +1,7 @@
 import { H3Event } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -9,9 +10,14 @@ const prisma = new PrismaClient()
  *
  * Unified CRM contact search across Users, ChatLeads, HomeEstimates,
  * and NewsletterSubscribers. Returns deduplicated contacts by email.
+ * All searches are scoped by tenant (super_admin sees all).
  */
 export default defineEventHandler(async (event: H3Event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+
+  // For User model: admin's team members have adminId = admin's id
+  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
 
   const query = getQuery(event)
   const q = ((query.q as string) || '').trim().toLowerCase()
@@ -40,17 +46,20 @@ export default defineEventHandler(async (event: H3Event) => {
   }
 
   try {
-    // Search Users
+    // Search Users (scoped by tenant)
     const users = await prisma.user.findMany({
-      where: q
-        ? {
-            OR: [
-              { email: { contains: q, mode: 'insensitive' } },
-              { firstName: { contains: q, mode: 'insensitive' } },
-              { lastName: { contains: q, mode: 'insensitive' } },
-            ],
-          }
-        : {},
+      where: {
+        ...userTenantFilter,
+        ...(q
+          ? {
+              OR: [
+                { email: { contains: q, mode: 'insensitive' } },
+                { firstName: { contains: q, mode: 'insensitive' } },
+                { lastName: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      },
       select: { email: true, firstName: true, lastName: true, phone: true },
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -59,17 +68,20 @@ export default defineEventHandler(async (event: H3Event) => {
       addContact(u.email, [u.firstName, u.lastName].filter(Boolean).join(' '), 'User', u.phone)
     }
 
-    // Search ChatLeads
+    // Search ChatLeads (scoped by tenant – has adminId)
     try {
       const leads = await (prisma as any).chatLead.findMany({
-        where: q
-          ? {
-              OR: [
-                { email: { contains: q, mode: 'insensitive' } },
-                { name: { contains: q, mode: 'insensitive' } },
-              ],
-            }
-          : {},
+        where: {
+          ...tenantFilter,
+          ...(q
+            ? {
+                OR: [
+                  { email: { contains: q, mode: 'insensitive' } },
+                  { name: { contains: q, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
         select: { email: true, name: true, phone: true },
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -81,18 +93,21 @@ export default defineEventHandler(async (event: H3Event) => {
       // ChatLead table may not exist
     }
 
-    // Search HomeEstimates
+    // Search HomeEstimates (scoped by tenant – has adminId)
     try {
       const estimates = await (prisma as any).homeEstimate.findMany({
-        where: q
-          ? {
-              OR: [
-                { email: { contains: q, mode: 'insensitive' } },
-                { firstName: { contains: q, mode: 'insensitive' } },
-                { lastName: { contains: q, mode: 'insensitive' } },
-              ],
-            }
-          : {},
+        where: {
+          ...tenantFilter,
+          ...(q
+            ? {
+                OR: [
+                  { email: { contains: q, mode: 'insensitive' } },
+                  { firstName: { contains: q, mode: 'insensitive' } },
+                  { lastName: { contains: q, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
         select: { email: true, firstName: true, lastName: true, phone: true },
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -106,18 +121,21 @@ export default defineEventHandler(async (event: H3Event) => {
       // HomeEstimate table may not exist
     }
 
-    // Search NewsletterSubscribers
+    // Search NewsletterSubscribers (scoped by tenant – has adminId)
     try {
       const subscribers = await (prisma as any).newsletterSubscriber.findMany({
-        where: q
-          ? {
-              OR: [
-                { email: { contains: q, mode: 'insensitive' } },
-                { firstName: { contains: q, mode: 'insensitive' } },
-                { lastName: { contains: q, mode: 'insensitive' } },
-              ],
-            }
-          : {},
+        where: {
+          ...tenantFilter,
+          ...(q
+            ? {
+                OR: [
+                  { email: { contains: q, mode: 'insensitive' } },
+                  { firstName: { contains: q, mode: 'insensitive' } },
+                  { lastName: { contains: q, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
         select: { email: true, firstName: true, lastName: true },
         take: limit,
         orderBy: { createdAt: 'desc' },
@@ -131,17 +149,20 @@ export default defineEventHandler(async (event: H3Event) => {
       // NewsletterSubscriber table may not exist
     }
 
-    // Search Testimonials
+    // Search Testimonials (scoped by tenant – has adminId)
     try {
       const testimonials = await (prisma as any).testimonial.findMany({
-        where: q
-          ? {
-              OR: [
-                { email: { contains: q, mode: 'insensitive' } },
-                { name: { contains: q, mode: 'insensitive' } },
-              ],
-            }
-          : {},
+        where: {
+          ...tenantFilter,
+          ...(q
+            ? {
+                OR: [
+                  { email: { contains: q, mode: 'insensitive' } },
+                  { name: { contains: q, mode: 'insensitive' } },
+                ],
+              }
+            : {}),
+        },
         select: { email: true, name: true, phone: true },
         take: limit,
         orderBy: { createdAt: 'desc' },

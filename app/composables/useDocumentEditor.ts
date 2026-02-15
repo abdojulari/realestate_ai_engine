@@ -524,7 +524,7 @@ export function useDocumentEditor() {
   const hexToRgb = (hex: string) => {
     const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
     return r
-      ? { r: parseInt(r[1], 16) / 255, g: parseInt(r[2], 16) / 255, b: parseInt(r[3], 16) / 255 }
+      ? { r: parseInt(r[1]!, 16) / 255, g: parseInt(r[2]!, 16) / 255, b: parseInt(r[3]!, 16) / 255 }
       : { r: 0, g: 0, b: 0 }
   }
 

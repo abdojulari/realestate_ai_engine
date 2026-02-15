@@ -15,13 +15,7 @@ export function useUpload() {
         formData.append(`file${index}`, file)
       })
 
-      const { data, error } = await upload(endpoint, formData, {
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            progress.value = Math.round((progressEvent.loaded * 100) / progressEvent.total)
-          }
-        }
-      })
+      const { data, error } = await upload(endpoint, formData, {})
 
       if (error.value) {
         throw error.value

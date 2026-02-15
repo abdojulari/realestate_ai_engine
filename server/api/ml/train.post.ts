@@ -128,16 +128,16 @@ export default defineEventHandler(async (event) => {
     }
     
     console.log(`[ML API] Prepared ${preparedData.features.length} training samples`)
-    console.log(`[ML API] Feature count: ${preparedData.features[0].length}`)
-    console.log(`[ML API] Label count: ${preparedData.labels[0].length}`)
+    console.log(`[ML API] Feature count: ${preparedData.features[0]!.length}`)
+    console.log(`[ML API] Label count: ${preparedData.labels[0]!.length}`)
     
     // Step 4: Train model
     console.log('[ML API] Starting TensorFlow.js training...')
     
     const config = {
       ...DEFAULT_CONFIG,
-      inputSize: preparedData.features[0].length,
-      outputSize: preparedData.labels[0].length,
+      inputSize: preparedData.features[0]!.length,
+      outputSize: preparedData.labels[0]!.length,
       epochs: 150 // More epochs for production
     }
     

@@ -1,11 +1,12 @@
 import { defineEventHandler, readBody, createError, getRouterParam } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
+import { requireTenantAccess } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
 
   const id = parseInt(getRouterParam(event, 'id') || '0')
   if (!id || isNaN(id)) {
@@ -14,6 +15,21 @@ export default defineEventHandler(async (event) => {
       statusMessage: 'Invalid testimonial ID'
     })
   }
+
+  // Verify tenant ownership
+  const existing = await prisma.testimonial.findUnique({
+    where: { id },
+    select: { adminId: true }
+  })
+
+  if (!existing) {
+    throw createError({
+      statusCode: 404,
+      statusMessage: 'Testimonial not found'
+    })
+  }
+
+  requireTenantAccess(user, existing.adminId)
 
   const body = await readBody<{
     approved?: boolean

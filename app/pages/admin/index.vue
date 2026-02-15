@@ -130,7 +130,7 @@
                 >
                   <template v-slot:prepend>
                     <v-img
-                      :src="property.images[0]"
+                      :src="property.images?.[0] || '/placeholder-property.jpg'"
                       width="70"
                       height="50"
                       cover
@@ -198,10 +198,10 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import EChart from '~/components/charts/EChart.vue'
-import { formatDate } from '../../../utils/formatters'
+import { formatDate } from '~/utils/formatters'
 
 // Helper function to safely get auth headers
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
     const token = localStorage.getItem('token')
     return token ? { 'Authorization': `Bearer ${token}` } : {}

@@ -240,7 +240,7 @@ export const useSearchStore = defineStore('search', {
         // Fetch properties for the specific page
         const apiUrl = `/api/properties?${queryParams.toString()}`
         console.log('📄 Pagination API URL:', apiUrl)
-        const response = await $fetch(apiUrl)
+        const response = await $fetch(apiUrl) as any
 
         if (response && response.properties) {
           this.setSearchResults(response.properties, response.pagination?.total)
@@ -272,7 +272,7 @@ export const useSearchStore = defineStore('search', {
         const parseResult = await $fetch('/api/ai/parse-property-query', {
           method: 'POST',
           body: { query }
-        })
+        }) as any
 
         // Set AI interpretation
         this.aiInterpretation = {
@@ -321,7 +321,7 @@ export const useSearchStore = defineStore('search', {
         // Step 3: Search properties using existing API
         const apiUrl = `/api/properties?${queryParams.toString()}`
         console.log('🔗 AI Search API URL:', apiUrl)
-        const response = await $fetch(apiUrl)
+        const response = await $fetch(apiUrl) as any
 
         if (response && response.properties) {
           this.setSearchResults(response.properties, response.pagination?.total)
@@ -343,7 +343,7 @@ export const useSearchStore = defineStore('search', {
     // Load cities
     async loadCities() {
       try {
-        const cities = await $fetch('/api/properties/cities')
+        const cities = await $fetch('/api/properties/cities') as any
         this.availableCities = cities
       } catch (error) {
         console.error('Failed to load cities:', error)
@@ -386,7 +386,7 @@ export const useSearchStore = defineStore('search', {
 
   persist: {
     paths: ['searchHistory', 'filters', 'currentQuery', 'availableCities']
-  }
+  } as any
 })
 
 // Utility function for time ago

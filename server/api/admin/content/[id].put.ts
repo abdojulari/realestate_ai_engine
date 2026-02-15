@@ -1,10 +1,14 @@
 import { defineEventHandler, readMultipartFormData, readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  // Note: This endpoint is whitelisted in auth middleware, so no authentication required
+  const user = await requireAdmin(event)
+  const tenantFilter = getTenantFilter(user)
+
   const id = Number((event.context.params as any).id)
   
   let payload: any = {}
@@ -20,8 +24,8 @@ export default defineEventHandler(async (event) => {
     try {
       const form = await readMultipartFormData(event)
       let dataField = form?.find(f => f.name === 'data' && typeof f.data === 'string')?.data as unknown as string
-      if (!dataField && form && form.length === 1 && form[0].type === 'application/json') {
-        dataField = form[0].data.toString('utf-8')
+      if (!dataField && form && form.length === 1 && form[0]!.type === 'application/json') {
+        dataField = form[0]!.data.toString('utf-8')
       }
       payload = dataField ? JSON.parse(dataField) : {}
     } catch (e) {
@@ -34,7 +38,8 @@ export default defineEventHandler(async (event) => {
     console.log('[PUT CONTENT] Updating ID:', id, 'content length:', payload.content?.length || 0)
   }
 
-  const block = await prisma.contentBlock.findUnique({ where: { id } })
+  // Verify ownership: find the block scoped to the tenant
+  const block = await prisma.contentBlock.findFirst({ where: { id, ...tenantFilter } })
   if (!block) throw createError({ statusCode: 404, statusMessage: 'Not found' })
 
   const existingMeta = ((): any => { try { return typeof block.metadata === 'string' ? JSON.parse(block.metadata) : block.metadata || {} } catch { return {} } })()
@@ -79,5 +84,3 @@ export default defineEventHandler(async (event) => {
     throw dbError
   }
 })
-
-

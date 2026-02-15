@@ -1,9 +1,11 @@
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
   try {
+    const tenantFilter = await getPublicTenantFilter(event)
     const body = await readBody(event)
     const { email } = body
 
@@ -14,8 +16,8 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    const subscriber = await prisma.newsletterSubscriber.findUnique({
-      where: { email: email.toLowerCase() }
+    const subscriber = await prisma.newsletterSubscriber.findFirst({
+      where: { email: email.toLowerCase(), ...tenantFilter }
     })
 
     if (!subscriber) {

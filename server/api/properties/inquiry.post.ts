@@ -2,6 +2,7 @@ import { defineEventHandler, readBody, createError, getQuery, getHeader } from '
 import { PrismaClient } from '@prisma/client'
 import nodemailer from 'nodemailer'
 import jwt from 'jsonwebtoken'
+import { resolveTenantFromRequest } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -71,13 +72,17 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // Resolve tenant for this inquiry
+    const adminId = await resolveTenantFromRequest(event)
+
     // Create inquiry record
     const inquiry = await prisma.propertyInquiry.create({
       data: {
         userId: userId, // Can be null for guest users
         propertyId: propertyId,
         message: body.message,
-        status: 'pending'
+        status: 'pending',
+        ...(adminId ? { adminId } : {})
       },
       include: {
         user: userId ? {
@@ -115,7 +120,7 @@ export default defineEventHandler(async (event) => {
     })
 
     return inquiry
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error creating property inquiry:', error)
     if (error.statusCode) {
       throw error

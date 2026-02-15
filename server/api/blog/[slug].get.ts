@@ -1,5 +1,6 @@
 import { defineEventHandler, getRouterParams, setHeader } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -22,9 +23,11 @@ export default defineEventHandler(async (event) => {
   }
   
   try {
+    const tenantFilter = await getPublicTenantFilter(event)
+
     // Fetch the post
-    const post = await prisma.blogPost.findUnique({
-      where: { slug },
+    const post = await prisma.blogPost.findFirst({
+      where: { slug, ...tenantFilter },
       include: {
         category: {
           select: {
@@ -71,6 +74,7 @@ export default defineEventHandler(async (event) => {
     // Fetch related posts (same category, excluding current)
     const relatedPosts = await prisma.blogPost.findMany({
       where: {
+        ...tenantFilter,
         status: 'published',
         publishedAt: { lte: new Date() },
         id: { not: post.id },

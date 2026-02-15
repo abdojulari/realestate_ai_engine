@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { getClientIP } from 'h3'
+import { getRequestIP } from 'h3'
 
 const prisma = new PrismaClient()
 
@@ -79,7 +79,7 @@ export async function checkIPWhitelist(event: any): Promise<boolean> {
       return true // IP whitelisting is disabled
     }
 
-    const clientIP = getClientIP(event)
+    const clientIP = getRequestIP(event)
     if (!clientIP) {
       console.warn('Could not determine client IP address')
       return false

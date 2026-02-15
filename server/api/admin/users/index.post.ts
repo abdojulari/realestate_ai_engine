@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
 
   const body = await readBody(event)
   const { firstName, lastName, email, role, phone, password, status } = body
@@ -16,6 +16,14 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       statusMessage: 'Missing required fields: firstName, lastName, email, role, password'
+    })
+  }
+
+  // Prevent non-super_admin from creating super_admin users
+  if (role === 'super_admin' && user.role !== 'super_admin') {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Only super admins can create super admin users'
     })
   }
 
@@ -52,6 +60,9 @@ export default defineEventHandler(async (event) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
+    // Tenant scoping: admin creates user under themselves, super_admin can create top-level
+    const adminId = user.role === 'super_admin' ? undefined : user.id
+
     // Create user
     const newUser = await prisma.user.create({
       data: {
@@ -61,8 +72,7 @@ export default defineEventHandler(async (event) => {
         role,
         phone: phone || null,
         password: hashedPassword,
-        // Note: status is handled as a computed field in the GET endpoint
-        // If you need to store status in DB, add it to the Prisma schema
+        ...(adminId !== undefined && { adminId }),
       },
       select: {
         id: true,

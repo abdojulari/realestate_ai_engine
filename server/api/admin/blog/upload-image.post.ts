@@ -2,22 +2,17 @@ import { defineEventHandler, readMultipartFormData } from 'h3'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import { requireAdmin } from '../../../utils/auth'
 
 /**
  * Upload Blog Image
  * POST /api/admin/blog/upload-image
  * 
  * Handles image uploads for blog posts (cover images, inline images)
+ * Requires admin authentication
  */
 export default defineEventHandler(async (event) => {
-  const user = event.context.user
-  
-  if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Admin access required'
-    })
-  }
+  const user = await requireAdmin(event)
   
   try {
     const formData = await readMultipartFormData(event)

@@ -1,5 +1,6 @@
 import { defineEventHandler } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter } from '../../utils/tenant'
 
 const prisma = new PrismaClient()
 
@@ -25,6 +26,8 @@ const CITY_COORDINATES: Record<string, { latitude: number; longitude: number }> 
 
 export default defineEventHandler(async (event) => {
   try {
+    const tenantFilter = await getPublicTenantFilter(event)
+
     // Get property counts grouped by city
     const cityCounts = await prisma.property.groupBy({
       by: ['city'],
@@ -32,6 +35,7 @@ export default defineEventHandler(async (event) => {
         id: true
       },
       where: {
+        ...tenantFilter,
         status: 'for_sale'
       },
       orderBy: {
@@ -50,6 +54,7 @@ export default defineEventHandler(async (event) => {
         // Get average price and property types for this city
         const stats = await prisma.property.aggregate({
           where: {
+            ...tenantFilter,
             city: cityName,
             status: 'for_sale'
           },
@@ -72,6 +77,7 @@ export default defineEventHandler(async (event) => {
             id: true
           },
           where: {
+            ...tenantFilter,
             city: cityName,
             status: 'for_sale'
           }
@@ -84,6 +90,7 @@ export default defineEventHandler(async (event) => {
             id: true
           },
           where: {
+            ...tenantFilter,
             city: cityName,
             status: 'for_sale'
           }

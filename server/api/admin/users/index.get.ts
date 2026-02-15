@@ -7,11 +7,14 @@ const prisma = new PrismaClient()
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
 
+  // Tenant scoping: super_admin sees all users, admin sees only their team
+  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
+
   const q = getQuery(event)
   const search = (q.search as string) || (q.q as string) || ''
   const role = (q.role as string) || undefined
 
-  const where: any = {}
+  const where: any = { ...userTenantFilter }
   if (search) {
     where.OR = [
       { firstName: { contains: search, mode: 'insensitive' } },
@@ -49,5 +52,3 @@ export default defineEventHandler(async (event) => {
     lastLogin: u.updatedAt
   }))
 })
-
-

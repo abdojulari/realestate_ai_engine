@@ -22,6 +22,7 @@ export default defineEventHandler(async (event) => {
       id: true,
       email: true,
       role: true,
+      adminId: true,
       properties: { select: { id: true } }
     }
   })
@@ -33,14 +34,6 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Check if user has properties
-  if (userToDelete.properties && userToDelete.properties.length > 0) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: `Cannot delete user: ${userToDelete.email} has ${userToDelete.properties.length} properties associated with them. Please reassign or remove their properties first.`
-    })
-  }
-
   // Prevent admin from deleting themselves
   if (userToDelete.id === currentUser.id) {
     throw createError({
@@ -49,11 +42,35 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Prevent deletion of super_admin users
+  // Prevent non-super_admin from deleting/modifying a super_admin
+  if (userToDelete.role === 'super_admin' && currentUser.role !== 'super_admin') {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You do not have permission to delete a super admin user'
+    })
+  }
+
+  // Prevent deletion of super_admin users entirely
   if (userToDelete.role === 'super_admin') {
     throw createError({
       statusCode: 400,
       statusMessage: 'Cannot delete super admin users'
+    })
+  }
+
+  // Tenant scoping: admin can only delete users under their own team
+  if (currentUser.role !== 'super_admin' && userToDelete.adminId !== currentUser.id) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You do not have permission to delete this user'
+    })
+  }
+
+  // Check if user has properties
+  if (userToDelete.properties && userToDelete.properties.length > 0) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: `Cannot delete user: ${userToDelete.email} has ${userToDelete.properties.length} properties associated with them. Please reassign or remove their properties first.`
     })
   }
 

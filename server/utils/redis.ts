@@ -6,12 +6,11 @@ export function getRedisClient(): Redis | null {
   // Only initialize Redis if it's available (optional dependency)
   if (!redis && process.env.REDIS_URL) {
     try {
-      redis = new Redis(process.env.REDIS_URL, {
-        retryDelayOnFailover: 100,
+      redis = new Redis(process.env.REDIS_URL!, {
         maxRetriesPerRequest: 3,
         connectTimeout: 1000,
         lazyConnect: true
-      })
+      } as any)
 
       redis.on('error', (err) => {
         console.error('Redis connection error:', err)

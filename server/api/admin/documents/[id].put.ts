@@ -80,16 +80,18 @@ export default defineEventHandler(async (event: H3Event) => {
     }
 
     if (fields.isSigned !== undefined) {
-      updateData.isSigned = fields.isSigned === 'true' || fields.isSigned === true
+      const isSigned = Array.isArray(fields.isSigned) ? fields.isSigned[0] : fields.isSigned
+      updateData.isSigned = isSigned === 'true' || (isSigned as any) === true
     }
 
     if (fields.watermarkApplied !== undefined) {
-      updateData.watermarkApplied = fields.watermarkApplied === 'true' || fields.watermarkApplied === true
+      const watermarkApplied = Array.isArray(fields.watermarkApplied) ? fields.watermarkApplied[0] : fields.watermarkApplied
+      updateData.watermarkApplied = watermarkApplied === 'true' || (watermarkApplied as any) === true
     }
 
     if (fields.signatureData) {
       updateData.signatureData = JSON.parse(
-        Array.isArray(fields.signatureData) ? fields.signatureData[0] : fields.signatureData
+        (Array.isArray(fields.signatureData) ? fields.signatureData[0] : fields.signatureData) as any
       )
     }
 

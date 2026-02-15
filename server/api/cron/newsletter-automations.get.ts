@@ -87,7 +87,7 @@ export default defineEventHandler(async (event) => {
         console.log(`[Newsletter Automation] Created campaign ${campaign.id} with ${subscribers.length} recipients`)
 
         // Send emails in batches
-        const sendResults = await sendNewsletterBatch(subscribers, campaign)
+        const sendResults = await sendNewsletterBatch(subscribers as any, campaign as any)
 
         // Update campaign status
         await prisma.newsletter.update({
@@ -171,7 +171,7 @@ function calculateNextRun(automation: any): Date {
   const [hours, minutes] = (automation.timeOfDay || '09:00').split(':').map(Number)
   
   const nextRun = new Date(now)
-  nextRun.setHours(hours, minutes, 0, 0)
+  nextRun.setHours(hours!, minutes!, 0, 0)
   
   if (automation.frequency === 'daily') {
     // If today's time has passed, schedule for tomorrow

@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs'
 const prisma = new PrismaClient()
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
 
   const id = Number((event.context.params as any).id)
   if (!id) {
@@ -38,13 +38,42 @@ export default defineEventHandler(async (event) => {
 
   // Check if user exists
   const existingUser = await prisma.user.findUnique({
-    where: { id }
+    where: { id },
+    select: {
+      id: true,
+      role: true,
+      adminId: true
+    }
   })
 
   if (!existingUser) {
     throw createError({
       statusCode: 404,
       statusMessage: 'User not found'
+    })
+  }
+
+  // Prevent non-super_admin from modifying a super_admin
+  if (existingUser.role === 'super_admin' && user.role !== 'super_admin') {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You do not have permission to modify a super admin user'
+    })
+  }
+
+  // Prevent non-super_admin from promoting a user to super_admin
+  if (role === 'super_admin' && user.role !== 'super_admin') {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Only super admins can assign the super admin role'
+    })
+  }
+
+  // Tenant scoping: admin can only update users under their own team
+  if (user.role !== 'super_admin' && existingUser.adminId !== user.id) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'You do not have permission to update this user'
     })
   }
 

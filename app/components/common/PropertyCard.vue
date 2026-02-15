@@ -174,10 +174,10 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import type { Property } from '~/types'
-import { formatPrice } from '../../../utils/formatters'
+import { formatPrice } from '~/utils/formatters'
 
 const props = defineProps<{
-  property: Property
+  property: Property & Record<string, any>
   showSaveButton?: boolean
   showContactButton?: boolean
 }>()

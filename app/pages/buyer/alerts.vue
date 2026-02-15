@@ -118,7 +118,7 @@ const loading = ref(false)
 
 // Get user info for consent display
 const authStore = useAuthStore()
-const user = computed(() => authStore.user)
+const user = computed(() => authStore.user as any)
 
 const loadAlerts = async () => {
   loading.value = true
