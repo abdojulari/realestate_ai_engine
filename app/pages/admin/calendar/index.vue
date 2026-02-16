@@ -215,25 +215,25 @@
           <v-card-text class="pa-6">
             <v-row>
               <v-col cols="12">
-                <v-text-field v-model="eventForm.title" label="Title" variant="outlined" required />
+                <v-text-field density="compact" v-model="eventForm.title" label="Title" variant="outlined" required />
               </v-col>
               <v-col cols="12" md="6">
-                <v-select v-model="eventForm.type" :items="eventTypes" label="Type" variant="outlined" />
+                <v-select density="compact" v-model="eventForm.type" :items="eventTypes" label="Type" variant="outlined" />
               </v-col>
               <v-col cols="12" md="6">
-                <v-select v-model="eventForm.priority" :items="['low', 'normal', 'high', 'urgent']" label="Priority" variant="outlined" />
+                <v-select density="compact" v-model="eventForm.priority" :items="['low', 'normal', 'high', 'urgent']" label="Priority" variant="outlined" />
               </v-col>
               <v-col cols="12" md="6">
-                <v-text-field v-model="eventForm.startTime" label="Start" type="datetime-local" variant="outlined" />
+                <v-text-field density="compact" v-model="eventForm.startTime" label="Start" type="datetime-local" variant="outlined" />
               </v-col>
               <v-col cols="12" md="6">
-                <v-text-field v-model="eventForm.endTime" label="End" type="datetime-local" variant="outlined" />
+                <v-text-field density="compact" v-model="eventForm.endTime" label="End" type="datetime-local" variant="outlined" />
               </v-col>
               <v-col cols="12">
-                <v-text-field v-model="eventForm.location" label="Location" variant="outlined" prepend-inner-icon="mdi-map-marker" />
+                <v-text-field density="compact" v-model="eventForm.location" label="Location" variant="outlined" prepend-inner-icon="mdi-map-marker" />
               </v-col>
               <v-col cols="12">
-                <v-textarea v-model="eventForm.description" label="Description" variant="outlined" rows="3" />
+                <v-textarea density="compact" v-model="eventForm.description" label="Description" variant="outlined" rows="3" />
               </v-col>
               <v-col cols="12">
                 <v-checkbox v-model="eventForm.allDay" label="All day event" hide-details />

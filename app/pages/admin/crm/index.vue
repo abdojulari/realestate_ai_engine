@@ -225,22 +225,22 @@
           <v-card-text class="pa-6">
             <v-row>
               <v-col cols="6">
-                <v-text-field v-model="clientForm.firstName" label="First Name" variant="outlined" required />
+                <v-text-field density="compact" v-model="clientForm.firstName" label="First Name" variant="outlined" required />
               </v-col>
               <v-col cols="6">
-                <v-text-field v-model="clientForm.lastName" label="Last Name" variant="outlined" required />
+                <v-text-field density="compact" v-model="clientForm.lastName" label="Last Name" variant="outlined" required />
               </v-col>
               <v-col cols="12">
-                <v-text-field v-model="clientForm.email" label="Email" variant="outlined" type="email" />
+                <v-text-field density="compact" v-model="clientForm.email" label="Email" variant="outlined" type="email" />
               </v-col>
               <v-col cols="12">
-                <v-text-field v-model="clientForm.phone" label="Phone" variant="outlined" />
+                <v-text-field density="compact" v-model="clientForm.phone" label="Phone" variant="outlined" />
               </v-col>
               <v-col cols="12">
-                <v-select v-model="clientForm.type" :items="['lead', 'buyer', 'seller', 'investor']" label="Client Type" variant="outlined" />
+                <v-select density="compact" v-model="clientForm.type" :items="['lead', 'buyer', 'seller', 'investor']" label="Client Type" variant="outlined" />
               </v-col>
               <v-col cols="12">
-                <v-textarea v-model="clientForm.notes" label="Notes" variant="outlined" rows="3" />
+                <v-textarea density="compact" v-model="clientForm.notes" label="Notes" variant="outlined" rows="3" />
               </v-col>
             </v-row>
           </v-card-text>

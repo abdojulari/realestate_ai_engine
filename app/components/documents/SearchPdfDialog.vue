@@ -3,7 +3,7 @@
     <v-card rounded="xl" class="premium-dialog">
       <v-card-title class="dialog-title">Search PDF</v-card-title>
       <v-card-text>
-        <v-text-field v-model="query" label="Search text" variant="outlined" prepend-inner-icon="mdi-magnify" @keyup.enter="search" />
+        <v-text-field density="compact" v-model="query" label="Search text" variant="outlined" prepend-inner-icon="mdi-magnify" @keyup.enter="search" />
         <div v-if="results.length > 0" class="mt-4">
           <div class="text-caption mb-2">Found {{ results.length }} results</div>
           <v-list density="compact">

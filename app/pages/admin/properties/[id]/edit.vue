@@ -31,28 +31,28 @@
                 <div class="text-h6 font-weight-bold mb-4">Property Details</div>
                 <v-row>
                   <v-col cols="12">
-                    <v-text-field v-model="form.title" label="Listing Title *" variant="outlined" :rules="[v => !!v || 'Required']" placeholder="e.g., Modern 3BR in Beltline – Builder Special" />
+                    <v-text-field density="compact" v-model="form.title" label="Listing Title *" variant="outlined" :rules="[v => !!v || 'Required']" placeholder="e.g., Modern 3BR in Beltline – Builder Special" />
                   </v-col>
                   <v-col cols="12">
-                    <v-textarea v-model="form.description" label="Description" variant="outlined" rows="4" placeholder="Describe the property..." />
+                    <v-textarea density="compact" v-model="form.description" label="Description" variant="outlined" rows="4" placeholder="Describe the property..." />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model.number="form.price" label="Price *" variant="outlined" type="number" prefix="$" :rules="[v => v > 0 || 'Required']" />
+                    <v-text-field density="compact" v-model.number="form.price" label="Price *" variant="outlined" type="number" prefix="$" :rules="[v => v > 0 || 'Required']" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-select v-model="form.type" :items="propertyTypes" item-title="label" item-value="value" label="Property Type *" variant="outlined" :rules="[v => !!v || 'Required']" />
+                    <v-select density="compact" v-model="form.type" :items="propertyTypes" item-title="label" item-value="value" label="Property Type *" variant="outlined" :rules="[v => !!v || 'Required']" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-select v-model="form.status" :items="propertyStatuses" item-title="label" item-value="value" label="Status" variant="outlined" />
+                    <v-select density="compact" v-model="form.status" :items="propertyStatuses" item-title="label" item-value="value" label="Status" variant="outlined" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model.number="form.beds" label="Bedrooms *" variant="outlined" type="number" :rules="[v => v >= 0 || 'Required']" />
+                    <v-text-field density="compact" v-model.number="form.beds" label="Bedrooms *" variant="outlined" type="number" :rules="[v => v >= 0 || 'Required']" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model.number="form.baths" label="Bathrooms *" variant="outlined" type="number" step="0.5" :rules="[v => v >= 0 || 'Required']" />
+                    <v-text-field density="compact" v-model.number="form.baths" label="Bathrooms *" variant="outlined" type="number" step="0.5" :rules="[v => v >= 0 || 'Required']" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model.number="form.sqft" label="Sq Ft *" variant="outlined" type="number" :rules="[v => v > 0 || 'Required']" />
+                    <v-text-field density="compact" v-model.number="form.sqft" label="Sq Ft *" variant="outlined" type="number" :rules="[v => v > 0 || 'Required']" />
                   </v-col>
                 </v-row>
               </v-card-text>
@@ -64,22 +64,22 @@
                 <div class="text-h6 font-weight-bold mb-4">Location</div>
                 <v-row>
                   <v-col cols="12">
-                    <v-text-field v-model="form.address" label="Street Address *" variant="outlined" :rules="[v => !!v || 'Required']" />
+                    <v-text-field density="compact" v-model="form.address" label="Street Address *" variant="outlined" :rules="[v => !!v || 'Required']" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model="form.city" label="City *" variant="outlined" :rules="[v => !!v || 'Required']" />
+                    <v-text-field density="compact" v-model="form.city" label="City *" variant="outlined" :rules="[v => !!v || 'Required']" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model="form.province" label="Province" variant="outlined" />
+                    <v-text-field density="compact" v-model="form.province" label="Province" variant="outlined" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model="form.postalCode" label="Postal Code" variant="outlined" />
+                    <v-text-field density="compact" v-model="form.postalCode" label="Postal Code" variant="outlined" />
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-text-field v-model="form.cityRegion" label="Community / Region" variant="outlined" />
+                    <v-text-field density="compact" v-model="form.cityRegion" label="Community / Region" variant="outlined" />
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-text-field v-model="form.unitNumber" label="Unit #" variant="outlined" />
+                    <v-text-field density="compact" v-model="form.unitNumber" label="Unit #" variant="outlined" />
                   </v-col>
                 </v-row>
               </v-card-text>
@@ -91,19 +91,19 @@
                 <div class="text-h6 font-weight-bold mb-4">Additional Details</div>
                 <v-row>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model.number="form.yearBuilt" label="Year Built" variant="outlined" type="number" />
+                    <v-text-field density="compact" v-model.number="form.yearBuilt" label="Year Built" variant="outlined" type="number" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model.number="form.stories" label="Stories" variant="outlined" type="number" />
+                    <v-text-field density="compact" v-model.number="form.stories" label="Stories" variant="outlined" type="number" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model="form.lotSizeDimensions" label="Lot Size" variant="outlined" placeholder="e.g., 50x120" />
+                    <v-text-field density="compact" v-model="form.lotSizeDimensions" label="Lot Size" variant="outlined" placeholder="e.g., 50x120" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model.number="form.taxAnnualAmount" label="Annual Tax" variant="outlined" type="number" prefix="$" />
+                    <v-text-field density="compact" v-model.number="form.taxAnnualAmount" label="Annual Tax" variant="outlined" type="number" prefix="$" />
                   </v-col>
                   <v-col cols="12" sm="4">
-                    <v-text-field v-model="form.zoning" label="Zoning" variant="outlined" />
+                    <v-text-field density="compact" v-model="form.zoning" label="Zoning" variant="outlined" />
                   </v-col>
                 </v-row>
               </v-card-text>

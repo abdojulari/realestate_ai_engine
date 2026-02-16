@@ -54,7 +54,7 @@
           :rules="[v => !!v || 'Email is required', v => /.+@.+\..+/.test(v) || 'Must be a valid email']" class="mb-2" />
         <v-text-field v-model="recipientName" label="Recipient name (optional)" variant="outlined" density="compact" prepend-inner-icon="mdi-account-outline" class="mb-2" />
         <v-text-field v-model="subject" label="Subject (optional)" variant="outlined" density="compact" prepend-inner-icon="mdi-format-title" :placeholder="`Document: ${doc?.originalName || ''}`" class="mb-2" />
-        <v-textarea v-model="message" label="Message (optional)" variant="outlined" rows="3" placeholder="Please find the attached document for your review." />
+        <v-textarea density="compact" v-model="message" label="Message (optional)" variant="outlined" rows="3" placeholder="Please find the attached document for your review." />
       </v-card-text>
       <v-card-actions class="pa-6 pt-0">
         <v-spacer />

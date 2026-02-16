@@ -34,6 +34,8 @@ export const FEATURES = {
   DOCUMENTS_LEGAL_REVIEW: 'documents_legal_review',
   /** Best Deals / Price Cut Detection */
   BEST_DEALS: 'best_deals',
+  /** Bookkeeping / Accounting Module */
+  BOOKKEEPING: 'bookkeeping',
 } as const
 
 export type Feature = typeof FEATURES[keyof typeof FEATURES]
@@ -96,6 +98,7 @@ const TIER_FEATURES: Record<LicenseTier, Feature[]> = {
     FEATURES.PILLAR9_SYNC,
     FEATURES.DOCUMENTS_LEGAL_REVIEW,
     FEATURES.BEST_DEALS,
+    FEATURES.BOOKKEEPING,
   ],
   
   enterprise: [
@@ -114,6 +117,7 @@ const TIER_FEATURES: Record<LicenseTier, Feature[]> = {
     FEATURES.PILLAR9_SYNC,
     FEATURES.DOCUMENTS_LEGAL_REVIEW,
     FEATURES.BEST_DEALS,
+    FEATURES.BOOKKEEPING,
   ],
 }
 
@@ -134,6 +138,7 @@ const ALL_FEATURES: Feature[] = [
   FEATURES.PILLAR9_SYNC,
   FEATURES.DOCUMENTS_LEGAL_REVIEW,
   FEATURES.BEST_DEALS,
+  FEATURES.BOOKKEEPING,
 ]
 
 export interface LicenseInfo {
@@ -428,25 +433,6 @@ export async function requireFeatureForUser(
       }
     })
   }
-}
-
-/**
- * Require a feature for an admin endpoint
- * @deprecated Use requireFeatureForUser instead
- */
-export async function requireFeatureForAdmin(
-  feature: Feature, 
-  user: { role: string },
-  event: H3Event
-): Promise<void> {
-  // Super admin bypasses all restrictions
-  if (user.role === 'super_admin') {
-    return
-  }
-  
-  // For other roles, check their effective tier
-  // This is a backward-compatible shim - ideally use requireFeatureForUser
-  await requireFeature(feature, event)
 }
 
 /**

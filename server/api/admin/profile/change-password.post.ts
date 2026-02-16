@@ -75,7 +75,26 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    // TODO: Send email notification about password change
+    // Send email notification about password change
+    try {
+      const { queueEmail } = await import('../../../utils/emailQueue')
+      await queueEmail({
+        to: user.email,
+        subject: 'Password Changed - Security Alert',
+        text: `Your password was changed on ${new Date().toLocaleString('en-CA')}. If you did not make this change, please contact support immediately.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #1a1a1a;">Password Changed</h2>
+            <p>Your account password was successfully changed on <strong>${new Date().toLocaleString('en-CA')}</strong>.</p>
+            <div style="background: #FFF3E0; border-left: 4px solid #FF9800; padding: 12px 16px; margin: 16px 0; border-radius: 4px;">
+              <strong>If you did not make this change</strong>, please contact support immediately to secure your account.
+            </div>
+          </div>
+        `
+      })
+    } catch (emailErr) {
+      console.error('Failed to send password change notification:', emailErr)
+    }
 
     return { success: true, message: 'Password changed successfully' }
   } catch (error: any) {

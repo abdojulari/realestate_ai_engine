@@ -281,14 +281,14 @@
       <v-card>
         <v-card-title>Send Report to Client</v-card-title>
         <v-card-text>
-          <v-text-field
+          <v-text-field density="compact"
             v-model="clientEmail"
             label="Client Email"
             type="email"
             variant="outlined"
             :rules="[v => !!v || 'Email is required', v => /.+@.+\..+/.test(v) || 'Invalid email']"
           />
-          <v-text-field
+          <v-text-field density="compact"
             v-model="clientName"
             label="Client Name"
             variant="outlined"

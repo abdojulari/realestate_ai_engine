@@ -331,7 +331,7 @@
           <v-card class="rounded-xl">
             <v-card-title class="pa-6 display-serif text-h6">Save This Search</v-card-title>
             <v-card-text class="px-6">
-              <v-text-field v-model="searchName" label="Search Name" variant="outlined" placeholder="e.g., Calgary Price Drops" />
+              <v-text-field density="compact" v-model="searchName" label="Search Name" variant="outlined" placeholder="e.g., Calgary Price Drops" />
             </v-card-text>
             <v-card-actions class="pa-6 pt-0">
               <v-spacer />

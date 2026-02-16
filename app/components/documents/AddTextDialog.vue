@@ -3,7 +3,7 @@
     <v-card rounded="xl" class="premium-dialog">
       <v-card-title class="dialog-title">Add Text to PDF</v-card-title>
       <v-card-text>
-        <v-textarea v-model="textOverlay" label="Enter text" variant="outlined" rows="3" class="mb-4" />
+        <v-textarea density="compact" v-model="textOverlay" label="Enter text" variant="outlined" rows="3" class="mb-4" />
         <v-row>
           <v-col cols="6">
             <v-select v-model="fontFamily" :items="fontFamilies" label="Font Family" variant="outlined" density="compact" />
@@ -18,7 +18,7 @@
             <input type="color" v-model="color" class="color-picker" />
           </v-col>
           <v-col cols="6">
-            <v-select
+            <v-select density="compact"
               v-model="page"
               :items="Array.from({ length: totalPages }, (_, i) => ({ title: `Page ${i + 1}`, value: i + 1 }))"
               label="Page" variant="outlined" density="compact"

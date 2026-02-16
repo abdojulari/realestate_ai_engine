@@ -3,6 +3,55 @@ import { requireAdmin } from '../../../utils/auth'
 import { getTenantAdminId } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
+const FB_API_VERSION = 'v24.0'
+
+/**
+ * Exchange a short-lived user token for a long-lived one (~60 days).
+ * The long-lived user token can then be used to obtain never-expiring page tokens.
+ */
+async function exchangeForLongLivedToken(shortLivedToken: string): Promise<{ token: string; expiresIn: number } | null> {
+  const config = useRuntimeConfig()
+  const appId = config.public?.facebookAppId
+  const appSecret = config.facebookAppSecret
+
+  if (!appId || !appSecret) {
+    console.warn('[Facebook] FACEBOOK_APP_ID or FACEBOOK_APP_SECRET not configured — skipping token exchange.')
+    console.warn('[Facebook] Set these env vars so tokens last 60+ days instead of ~1 hour.')
+    return null
+  }
+
+  try {
+    const url =
+      `https://graph.facebook.com/${FB_API_VERSION}/oauth/access_token?` +
+      `grant_type=fb_exchange_token&` +
+      `client_id=${encodeURIComponent(appId)}&` +
+      `client_secret=${encodeURIComponent(appSecret)}&` +
+      `fb_exchange_token=${encodeURIComponent(shortLivedToken)}`
+
+    const res = await fetch(url)
+    const data = await res.json() as any
+
+    if (data.access_token) {
+      const expiresIn = data.expires_in || 5184000
+      console.log(`[Facebook] Exchanged for long-lived token (expires in ${Math.round(expiresIn / 86400)} days)`)
+      return { token: data.access_token, expiresIn }
+    }
+
+    if (data.error) {
+      console.warn(`[Facebook] Token exchange failed: ${data.error.message}`)
+      // If the token is already long-lived, the exchange may fail — that's OK
+      if (data.error.message?.includes('long-lived')) {
+        console.log('[Facebook] Token appears to already be long-lived.')
+        return null
+      }
+    }
+
+    return null
+  } catch (e: any) {
+    console.error('[Facebook] Token exchange error:', e.message)
+    return null
+  }
+}
 
 /**
  * Validate a Facebook Page Access Token by calling the Graph API.
@@ -78,15 +127,25 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'An access token is required' })
     }
 
-    const token = pageAccessToken || accessToken
+    let token = pageAccessToken || accessToken
+    let tokenExpiresIn: number | null = null
 
-    // --- Strategy 1: Token might be a User Access Token ----
-    // Try fetching pages; if it works, the user provided a User token
-    // and we can auto-discover page ID + page-specific token.
+    // --- Step 1: Exchange short-lived token for a long-lived one ---
+    // This is critical: Graph API Explorer tokens last ~1 hour.
+    // Long-lived tokens last ~60 days, and page tokens derived from them NEVER expire.
+    const longLived = await exchangeForLongLivedToken(token)
+    if (longLived) {
+      token = longLived.token
+      tokenExpiresIn = longLived.expiresIn
+      accessToken = longLived.token
+    }
+
+    // --- Step 2: Try as User Access Token ---
+    // Fetch pages; if it works, the user provided a User token
+    // and we can auto-discover page ID + page-specific (never-expiring) token.
     const pages = await fetchUserPages(token)
 
     if (pages && pages.length > 0) {
-      // If caller specified a pageId, find that page; otherwise use the first one
       const matchedPage = pageId
         ? pages.find(p => p.id === pageId)
         : pages[0]
@@ -99,7 +158,7 @@ export default defineEventHandler(async (event) => {
         })
       }
 
-      // Use the page-specific token returned by the API
+      // Page tokens derived from long-lived user tokens NEVER expire
       pageId = matchedPage.id
       pageName = matchedPage.name || pageName
       pageAccessToken = matchedPage.access_token
@@ -165,9 +224,17 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Calculate token expiry (Facebook long-lived tokens last ~60 days)
+    // Calculate token expiry from actual API response, or estimate.
+    // NOTE: The PAGE token derived from a long-lived user token NEVER expires.
+    // The user token itself expires in ~60 days, so we track that for proactive refresh.
     const tokenExpiry = new Date()
-    tokenExpiry.setDate(tokenExpiry.getDate() + 60)
+    if (tokenExpiresIn) {
+      tokenExpiry.setSeconds(tokenExpiry.getSeconds() + tokenExpiresIn)
+    } else {
+      tokenExpiry.setDate(tokenExpiry.getDate() + 60) // conservative fallback
+    }
+
+    console.log(`[Facebook] Token expiry set to: ${tokenExpiry.toISOString()} (page token ${longLived ? 'never expires' : 'may be short-lived'})`)
 
     const integration = await prisma.facebookIntegration.upsert({
       where: { adminId },

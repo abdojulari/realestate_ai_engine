@@ -187,7 +187,7 @@
             <v-form v-model="isUserFormValid" @submit.prevent="saveUser">
               <v-row>
                 <v-col cols="12" md="6">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="userForm.firstName"
                     label="First Name"
                     variant="underlined"
@@ -197,7 +197,7 @@
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="userForm.lastName"
                     label="Last Name"
                     variant="underlined"
@@ -207,7 +207,7 @@
                 </v-col>
 
                 <v-col cols="12">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="userForm.email"
                     label="Email Address"
                     type="email"
@@ -218,7 +218,7 @@
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <v-select
+                  <v-select density="compact"
                     v-model="userForm.role"
                     :items="roleOptions"
                     label="Security Role"
@@ -229,7 +229,7 @@
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <v-select
+                  <v-select density="compact"
                     v-model="userForm.status"
                     :items="statusOptions"
                     label="Initial Status"
@@ -240,7 +240,7 @@
                 </v-col>
 
                 <v-col cols="12">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="userForm.phone"
                     label="Contact Number (Optional)"
                     variant="underlined"
@@ -249,7 +249,7 @@
                 </v-col>
 
                 <v-col v-if="!editingUser" cols="12">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="userForm.password"
                     label="Security Password"
                     type="password"

@@ -162,10 +162,10 @@
                 <div class="text-overline text-gold mb-3">Basic Information</div>
               </v-col>
               <v-col cols="12" md="6">
-                <v-text-field v-model="form.name" label="Template Name" variant="outlined" required />
+                <v-text-field density="compact" v-model="form.name" label="Template Name" variant="outlined" required />
               </v-col>
               <v-col cols="12" md="6">
-                <v-text-field v-model="form.propertyAddress" label="Property Address" variant="outlined" />
+                <v-text-field density="compact" v-model="form.propertyAddress" label="Property Address" variant="outlined" />
               </v-col>
 
               <!-- Theme Selection -->
@@ -190,7 +190,7 @@
 
               <!-- Layout Selection -->
               <v-col cols="12" md="6">
-                <v-select
+                <v-select density="compact"
                   v-model="form.layout"
                   :items="layouts"
                   item-title="name"
@@ -200,7 +200,7 @@
                 />
               </v-col>
               <v-col cols="12" md="6">
-                <v-select
+                <v-select density="compact"
                   v-model="form.fontFamily"
                   :items="fonts"
                   label="Font Family"
@@ -226,7 +226,7 @@
                 </div>
               </v-col>
               <v-col cols="12">
-                <v-textarea
+                <v-textarea density="compact"
                   v-model="form.description"
                   label="Listing Description"
                   variant="outlined"
@@ -307,7 +307,7 @@
                 />
               </v-col>
               <v-col cols="12" md="3">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="form.primaryColor"
                   label="Primary Color"
                   variant="outlined"
@@ -315,7 +315,7 @@
                 />
               </v-col>
               <v-col cols="12" md="3">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="form.accentColor"
                   label="Accent Color"
                   variant="outlined"
@@ -326,7 +326,7 @@
               <!-- Features -->
               <v-col cols="12">
                 <div class="text-overline text-gold mb-3">Key Features</div>
-                <v-combobox
+                <v-combobox density="compact"
                   v-model="form.features"
                   label="Add features (press Enter)"
                   variant="outlined"

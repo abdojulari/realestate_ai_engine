@@ -166,6 +166,15 @@ function calculateOverview(
     ? (avgPriceNow - avgPriceLastYear) / avgPriceLastYear
     : 0
   
+  // Inventory change: estimate by comparing listings that existed > 30 days ago vs current
+  const now = new Date()
+  const thirtyDaysAgo2 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const activeExistedLastMonth = active.filter(p => new Date(p.createdAt) < thirtyDaysAgo2)
+  const estimatedPrevInventory = activeExistedLastMonth.length > 0 ? activeExistedLastMonth.length : active.length
+  const inventoryChange = estimatedPrevInventory > 0
+    ? Math.round(((active.length - estimatedPrevInventory) / estimatedPrevInventory) * 100)
+    : 0
+  
   return {
     activeListings: active.length,
     soldLast30Days: soldLast30.length,
@@ -176,7 +185,7 @@ function calculateOverview(
     monthsOfSupply: Math.round(monthsOfSupply * 10) / 10,
     momSalesGrowth: Math.round(momSalesGrowth * 100),
     yoyPriceGrowth: Math.round(yoyPriceGrowth * 100),
-    inventoryChange: 0 // TODO: Calculate from historical data
+    inventoryChange
   }
 }
 

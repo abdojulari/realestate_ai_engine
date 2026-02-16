@@ -71,7 +71,7 @@
             <!-- Title & Slug -->
             <v-card class="editor-card mb-6" elevation="0">
               <v-card-text class="pa-6">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="form.title"
                   label="Post Title"
                   placeholder="Enter an engaging title..."
@@ -100,7 +100,7 @@
                 <span class="text-caption text-medium-emphasis ml-2">(Brief summary for previews)</span>
               </v-card-title>
               <v-card-text class="pa-4">
-                <v-textarea
+                <v-textarea density="compact"
                   v-model="form.excerpt"
                   placeholder="Write a brief summary of your post..."
                   variant="outlined"
@@ -143,7 +143,7 @@
                   </v-btn-group>
                 </div>
                 
-                <v-textarea
+                <v-textarea density="compact"
                   ref="contentEditor"
                   v-model="form.content"
                   :placeholder="editorMode === 'visual' ? 'Start writing your blog post...' : '# Your markdown content here...'"
@@ -392,7 +392,7 @@
                 />
               </v-window-item>
               <v-window-item value="url">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="imageUrl"
                   label="Image URL"
                   placeholder="https://..."
@@ -401,7 +401,7 @@
               </v-window-item>
             </v-window>
             
-            <v-text-field
+            <v-text-field density="compact"
               v-model="imageAlt"
               label="Alt Text"
               variant="outlined"

@@ -121,7 +121,7 @@
               <v-form v-model="isProfileFormValid" @submit.prevent="saveProfile">
                 <v-row>
                   <v-col cols="12" md="6">
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="profileForm.firstName"
                       label="First Name"
                       :rules="[v => !!v || 'First name is required']"
@@ -133,7 +133,7 @@
                   </v-col>
 
                   <v-col cols="12" md="6">
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="profileForm.lastName"
                       label="Last Name"
                       :rules="[v => !!v || 'Last name is required']"
@@ -145,7 +145,7 @@
                   </v-col>
 
                   <v-col cols="12" md="6">
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="profileForm.email"
                       label="Email Address"
                       type="email"
@@ -158,7 +158,7 @@
                   </v-col>
 
                   <v-col cols="12" md="6">
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="profileForm.phone"
                       label="Phone Number"
                       :rules="phoneRules"
@@ -169,7 +169,7 @@
                   </v-col>
 
                   <v-col cols="12">
-                    <v-textarea
+                    <v-textarea density="compact"
                       v-model="profileForm.bio"
                       label="Bio / About Me"
                       rows="4"
@@ -217,7 +217,7 @@
             <v-card-text class="p-8">
               <v-row>
                 <v-col cols="12" md="6">
-                  <v-select
+                  <v-select density="compact"
                     v-model="preferencesForm.timezone"
                     :items="timezones"
                     label="Timezone"
@@ -228,7 +228,7 @@
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <v-select
+                  <v-select density="compact"
                     v-model="preferencesForm.language"
                     :items="languages"
                     label="Language"
@@ -292,7 +292,7 @@
         </div>
         <v-card-text class="p-8">
           <v-form v-model="isPasswordFormValid">
-            <v-text-field
+            <v-text-field density="compact"
               v-model="passwordForm.currentPassword"
               label="Current Password"
               type="password"
@@ -302,7 +302,7 @@
               class="premium-input mb-4"
               required
             />
-            <v-text-field
+            <v-text-field density="compact"
               v-model="passwordForm.newPassword"
               label="New Password"
               type="password"
@@ -312,7 +312,7 @@
               class="premium-input mb-4"
               required
             />
-            <v-text-field
+            <v-text-field density="compact"
               v-model="passwordForm.confirmPassword"
               label="Confirm New Password"
               type="password"
@@ -378,6 +378,13 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+    <!-- Snackbar -->
+    <v-snackbar v-model="snackShow" :color="snackColor" location="top right" rounded="lg" :timeout="4000">
+      <div class="d-flex align-center">
+        <v-icon class="mr-2">{{ snackColor === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle' }}</v-icon>
+        {{ snackMsg }}
+      </div>
+    </v-snackbar>
   </div>
 </template>
 
@@ -399,6 +406,14 @@ const showPasswordDialog = ref(false)
 const show2FADialog = ref(false)
 const twoFactorEnabled = ref(false)
 const avatarInput = ref<HTMLInputElement | null>(null)
+const snackShow = ref(false)
+const snackMsg = ref('')
+const snackColor = ref<'success' | 'error'>('success')
+const showToast = (msg: string, color: 'success' | 'error' = 'success') => {
+  snackMsg.value = msg
+  snackColor.value = color
+  snackShow.value = true
+}
 
 // Stats
 const stats = ref({
@@ -489,11 +504,10 @@ const saveProfile = async () => {
   saving.value = true
   try {
     await api.put('/api/admin/profile', profileForm)
-    console.log('✅ Profile updated successfully')
-    // TODO: Show success toast
+    showToast('Profile updated successfully')
   } catch (e) {
-    console.error('❌ Failed to save profile:', e)
-    // TODO: Show error toast
+    console.error('Failed to save profile:', e)
+    showToast('Failed to save profile', 'error')
   } finally {
     saving.value = false
   }
@@ -503,11 +517,10 @@ const savePreferences = async () => {
   savingPreferences.value = true
   try {
     await api.put('/api/admin/profile/preferences', preferencesForm)
-    console.log('✅ Preferences updated successfully')
-    // TODO: Show success toast
+    showToast('Preferences updated successfully')
   } catch (e) {
-    console.error('❌ Failed to save preferences:', e)
-    // TODO: Show error toast
+    console.error('Failed to save preferences:', e)
+    showToast('Failed to save preferences', 'error')
   } finally {
     savingPreferences.value = false
   }
@@ -520,16 +533,14 @@ const changePassword = async () => {
       currentPassword: passwordForm.currentPassword,
       newPassword: passwordForm.newPassword
     })
-    console.log('✅ Password changed successfully')
     showPasswordDialog.value = false
-    // Reset form
     passwordForm.currentPassword = ''
     passwordForm.newPassword = ''
     passwordForm.confirmPassword = ''
-    // TODO: Show success toast
+    showToast('Password changed successfully')
   } catch (e) {
-    console.error('❌ Failed to change password:', e)
-    // TODO: Show error toast
+    console.error('Failed to change password:', e)
+    showToast('Failed to change password', 'error')
   } finally {
     changingPassword.value = false
   }
@@ -539,11 +550,10 @@ const toggle2FA = async () => {
   try {
     await api.post('/api/admin/profile/toggle-2fa', { enabled: !twoFactorEnabled.value })
     twoFactorEnabled.value = !twoFactorEnabled.value
-    console.log('✅ 2FA toggled successfully')
-    // TODO: Show success toast
+    showToast(twoFactorEnabled.value ? '2FA enabled successfully' : '2FA disabled')
   } catch (e) {
-    console.error('❌ Failed to toggle 2FA:', e)
-    // TODO: Show error toast
+    console.error('Failed to toggle 2FA:', e)
+    showToast('Failed to toggle 2FA', 'error')
   }
 }
 
@@ -563,11 +573,10 @@ const handleAvatarUpload = async (event: Event) => {
     if (response?.url) {
       profileForm.avatar = response.url
     }
-    console.log('✅ Avatar uploaded successfully')
-    // TODO: Show success toast
+    showToast('Avatar uploaded successfully')
   } catch (e) {
-    console.error('❌ Failed to upload avatar:', e)
-    // TODO: Show error toast
+    console.error('Failed to upload avatar:', e)
+    showToast('Failed to upload avatar', 'error')
   }
 }
 

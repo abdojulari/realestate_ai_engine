@@ -32,7 +32,7 @@
               <!-- Location Row -->
               <v-row class="mb-6">
                 <v-col cols="12" md="6">
-                  <v-select
+                  <v-select density="compact"
                     v-model="selectedCity"
                     :items="cities"
                     item-title="name"
@@ -66,7 +66,7 @@
 
               <!-- AI Input -->
               <div class="input-wrapper relative mb-6">
-                <v-textarea
+                <v-textarea density="compact"
                   v-model="searchQuery"
                   placeholder="e.g. A modern 3-bedroom penthouse with floor-to-ceiling windows, a chef's kitchen, and a private balcony overlooking the city skyline..."
                   variant="outlined"
@@ -488,7 +488,7 @@
             <!-- Frequency Selection -->
             <div class="frequency-selection mb-6">
               <h3 class="text-h6 mb-3">How often should we check for new properties?</h3>
-              <v-select
+              <v-select density="compact"
                 v-model="alertFrequency"
                 :items="frequencyOptions"
                 item-title="label"

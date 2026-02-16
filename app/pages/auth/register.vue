@@ -92,7 +92,7 @@
             <v-col cols="12" sm="6">
               <div class="form-group mb-4">
                 <label class="premium-label mb-1">First Name</label>
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="firstName"
                   :rules="nameRules"
                   variant="underlined"
@@ -106,7 +106,7 @@
             <v-col cols="12" sm="6">
               <div class="form-group mb-4">
                 <label class="premium-label mb-1">Last Name</label>
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="lastName"
                   :rules="nameRules"
                   variant="underlined"
@@ -121,7 +121,7 @@
 
           <div class="form-group mb-4">
             <label class="premium-label mb-1">Email Address</label>
-            <v-text-field
+            <v-text-field density="compact"
               v-model="email"
               type="email"
               :rules="emailRules"
@@ -137,7 +137,7 @@
             <v-col cols="12" sm="6">
               <div class="form-group mb-4">
                 <label class="premium-label mb-1">Phone</label>
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="phone"
                   type="tel"
                   :rules="phoneRules"
@@ -152,7 +152,7 @@
             <v-col cols="12" sm="6">
               <div class="form-group mb-4">
                 <label class="premium-label mb-1">Preferred Time</label>
-                <v-select
+                <v-select density="compact"
                   v-model="preferredContactTime"
                   :items="contactTimeOptions"
                   variant="underlined"
@@ -166,7 +166,7 @@
 
           <div class="form-group mb-4">
             <label class="premium-label mb-1">Password</label>
-            <v-text-field
+            <v-text-field density="compact"
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               :rules="passwordRules"
@@ -182,7 +182,7 @@
 
           <div class="form-group mb-6">
             <label class="premium-label mb-1">Confirm Password</label>
-            <v-text-field
+            <v-text-field density="compact"
               v-model="confirmPassword"
               :type="showConfirmPassword ? 'text' : 'password'"
               :rules="[...passwordRules, (v) => v === password || 'Passwords must match']"

@@ -131,28 +131,28 @@
         <v-divider />
         <v-card-text class="pa-6">
           <v-form ref="form">
-            <v-text-field
+            <v-text-field density="compact"
               v-model="formData.name"
               label="Template Name"
               variant="outlined"
               class="mb-4"
               :rules="[v => !!v || 'Name is required']"
             />
-            <v-text-field
+            <v-text-field density="compact"
               v-model="formData.subject"
               label="Email Subject"
               variant="outlined"
               class="mb-4"
               :rules="[v => !!v || 'Subject is required']"
             />
-            <v-select
+            <v-select density="compact"
               v-model="formData.category"
               :items="['market-update', 'property-showcase', 'tips', 'announcement']"
               label="Category"
               variant="outlined"
               class="mb-4"
             />
-            <v-textarea
+            <v-textarea density="compact"
               v-model="formData.content"
               label="Email Content (HTML)"
               variant="outlined"
@@ -160,7 +160,7 @@
               class="mb-4"
               :rules="[v => !!v || 'Content is required']"
             />
-            <v-text-field
+            <v-text-field density="compact"
               v-model="formData.previewText"
               label="Preview Text"
               variant="outlined"

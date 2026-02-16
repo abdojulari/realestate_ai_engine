@@ -78,7 +78,7 @@
                   <!-- Manual Sync Controls -->
                   <div class="sync-controls-premium">
                     <h3 class="text-subtitle-2 font-weight-bold text-slate-400 uppercase tracking-widest mb-4">Manual Sync</h3>
-                    <v-select
+                    <v-select density="compact"
                       v-model="syncCity"
                       :items="cities"
                       item-title="name"
@@ -122,7 +122,7 @@
                       @update:model-value="updateAutoSyncSetting"
                     ></v-switch>
 
-                    <v-select
+                    <v-select density="compact"
                       v-model="autoSyncTime"
                       :items="timeOptions"
                       label="Sync Time"
@@ -274,7 +274,7 @@
               <v-form v-model="isGeneralFormValid" @submit.prevent="saveGeneralSettings">
                 <v-row>
                   <v-col cols="12" md="6">
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="generalSettings.siteName"
                       label="Site Name"
                       :rules="[v => !!v || 'Site name is required']"
@@ -286,7 +286,7 @@
                   </v-col>
 
                   <v-col cols="12" md="6">
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="generalSettings.supportEmail"
                       label="Support Email"
                       type="email"
@@ -299,7 +299,7 @@
                   </v-col>
 
                   <v-col cols="12" md="6">
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="generalSettings.phone"
                       label="Contact Phone"
                       :rules="phoneRules"
@@ -310,7 +310,7 @@
                   </v-col>
 
                   <v-col cols="12" md="6">
-                    <v-select
+                    <v-select density="compact"
                       v-model="generalSettings.timezone"
                       :items="timezones"
                       label="Default Timezone"
@@ -361,7 +361,7 @@
               <v-form v-model="isEmailFormValid" @submit.prevent="saveEmailSettings">
                 <v-row>
                   <v-col cols="12" md="6">
-                    <v-select
+                    <v-select density="compact"
                       v-model="emailSettings.provider"
                       :items="emailProviders"
                       label="Email Provider"
@@ -374,7 +374,7 @@
                   </v-col>
 
                   <v-col cols="12" md="6">
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="emailSettings.fromEmail"
                       label="From Email"
                       type="email"
@@ -387,7 +387,7 @@
                   </v-col>
 
                   <v-col cols="12" md="6">
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="emailSettings.fromName"
                       label="From Name"
                       :rules="[v => !!v || 'From name is required']"
@@ -408,7 +408,7 @@
                         <v-expansion-panel-text class="pt-4">
                           <v-row>
                             <v-col cols="12" md="6">
-                              <v-text-field
+                              <v-text-field density="compact"
                                 v-model="emailSettings.smtp.host"
                                 label="SMTP Host"
                                 :rules="[v => !!v || 'SMTP host is required']"
@@ -419,7 +419,7 @@
                             </v-col>
 
                             <v-col cols="12" md="6">
-                              <v-text-field
+                              <v-text-field density="compact"
                                 v-model="emailSettings.smtp.port"
                                 label="SMTP Port"
                                 type="number"
@@ -431,7 +431,7 @@
                             </v-col>
 
                             <v-col cols="12" md="6">
-                              <v-text-field
+                              <v-text-field density="compact"
                                 v-model="emailSettings.smtp.username"
                                 label="SMTP Username"
                                 variant="outlined"
@@ -441,7 +441,7 @@
                             </v-col>
 
                             <v-col cols="12" md="6">
-                              <v-text-field
+                              <v-text-field density="compact"
                                 v-model="emailSettings.smtp.password"
                                 label="SMTP Password"
                                 type="password"
@@ -564,7 +564,7 @@
                         <v-expansion-panel-text class="pt-4">
                           <v-row>
                             <v-col cols="12">
-                              <v-text-field
+                              <v-text-field density="compact"
                                 v-model="api.apiKey"
                                 :label="api.name + ' API Key'"
                                 type="password"
@@ -576,7 +576,7 @@
                             </v-col>
 
                             <v-col cols="12">
-                              <v-text-field
+                              <v-text-field density="compact"
                                 v-model="api.apiSecret"
                                 :label="api.name + ' API Secret'"
                                 type="password"
@@ -642,7 +642,7 @@
               <v-form v-model="isSecurityFormValid" @submit.prevent="saveSecuritySettings">
                 <v-row>
                   <v-col cols="12" md="6">
-                    <v-select
+                    <v-select density="compact"
                       v-model="securitySettings.sessionTimeout"
                       :items="sessionTimeouts"
                       label="Session Timeout"
@@ -655,7 +655,7 @@
                   </v-col>
 
                   <v-col cols="12" md="6">
-                    <v-select
+                    <v-select density="compact"
                       v-model="securitySettings.passwordPolicy"
                       :items="passwordPolicies"
                       label="Password Policy"
@@ -693,7 +693,7 @@
                     v-if="securitySettings.ipWhitelisting"
                     cols="12"
                   >
-                    <v-textarea
+                    <v-textarea density="compact"
                       v-model="securitySettings.whitelistedIps"
                       label="Whitelisted IPs"
                       hint="Enter one IP address per line"
@@ -740,7 +740,7 @@
           <v-form v-model="isTemplateFormValid" @submit.prevent="saveTemplate">
             <v-row>
               <v-col cols="12">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="templateForm.subject"
                   label="Email Subject"
                   :rules="[v => !!v || 'Subject is required']"
@@ -752,7 +752,7 @@
               </v-col>
 
               <v-col cols="12">
-                <v-textarea
+                <v-textarea density="compact"
                   v-model="templateForm.content"
                   label="Template Content"
                   :rules="[v => !!v || 'Content is required']"
@@ -844,6 +844,14 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Snackbar -->
+    <v-snackbar v-model="snackShow" :color="snackColor" location="top right" rounded="lg" :timeout="4000">
+      <div class="d-flex align-center">
+        <v-icon class="mr-2">{{ snackColor === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle' }}</v-icon>
+        {{ snackMsg }}
+      </div>
+    </v-snackbar>
   </div>
 </template>
 
@@ -855,6 +863,15 @@ const getAuthHeaders = (): Record<string, string> => {
     return token ? { 'Authorization': `Bearer ${token}` } : {}
   }
   return {}
+}
+
+const snackShow = ref(false)
+const snackMsg = ref('')
+const snackColor = ref<'success' | 'error'>('success')
+const showToast = (msg: string, color: 'success' | 'error' = 'success') => {
+  snackMsg.value = msg
+  snackColor.value = color
+  snackShow.value = true
 }
 
 const syncing = ref(false)
@@ -1038,11 +1055,10 @@ const saveGeneralSettings = async () => {
       throw new Error('Failed to save general settings')
     }
     
-    console.log('✅ General settings saved successfully')
-    // TODO: Show success toast notification
+    showToast('General settings saved successfully')
   } catch (error) {
-    console.error('❌ Error saving general settings:', error)
-    // TODO: Show error toast notification
+    console.error('Error saving general settings:', error)
+    showToast('Failed to save general settings', 'error')
   } finally {
     saving.value = false
   }
@@ -1064,11 +1080,10 @@ const saveEmailSettings = async () => {
       throw new Error('Failed to save email settings')
     }
     
-    console.log('✅ Email settings saved successfully')
-    // TODO: Show success toast notification
+    showToast('Email settings saved successfully')
   } catch (error) {
-    console.error('❌ Error saving email settings:', error)
-    // TODO: Show error toast notification
+    console.error('Error saving email settings:', error)
+    showToast('Failed to save email settings', 'error')
   } finally {
     saving.value = false
   }
@@ -1090,11 +1105,10 @@ const saveApiSettings = async () => {
       throw new Error('Failed to save API settings')
     }
     
-    console.log('✅ API settings saved successfully')
-    // TODO: Show success toast notification
+    showToast('API settings saved successfully')
   } catch (error) {
-    console.error('❌ Error saving API settings:', error)
-    // TODO: Show error toast notification
+    console.error('Error saving API settings:', error)
+    showToast('Failed to save API settings', 'error')
   } finally {
     saving.value = false
   }
@@ -1116,11 +1130,10 @@ const saveSecuritySettings = async () => {
       throw new Error('Failed to save security settings')
     }
     
-    console.log('✅ Security settings saved successfully')
-    // TODO: Show success toast notification
+    showToast('Security settings saved successfully')
   } catch (error) {
-    console.error('❌ Error saving security settings:', error)
-    // TODO: Show error toast notification
+    console.error('Error saving security settings:', error)
+    showToast('Failed to save security settings', 'error')
   } finally {
     saving.value = false
   }
@@ -1144,11 +1157,10 @@ const testEmailSettings = async () => {
     }
     
     const result = await response.json()
-    console.log('✅ Test email sent successfully:', result.messageId)
-    // TODO: Show success toast notification with result.message
+    showToast(result.message || 'Test email sent successfully')
   } catch (error: any) {
-    console.error('❌ Error testing email settings:', error)
-    // TODO: Show error toast notification with error.message
+    console.error('Error testing email settings:', error)
+    showToast(error.message || 'Failed to send test email', 'error')
   } finally {
     testing.value = false
   }
@@ -1226,11 +1238,10 @@ const saveTemplate = async () => {
     }
     
     showTemplateDialog.value = false
-    console.log('✅ Template saved successfully')
-    // TODO: Show success toast notification
+    showToast('Template saved successfully')
   } catch (error) {
-    console.error('❌ Error saving template:', error)
-    // TODO: Show error toast notification
+    console.error('Error saving template:', error)
+    showToast('Failed to save template', 'error')
   } finally {
     saving.value = false
   }

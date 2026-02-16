@@ -51,7 +51,7 @@
                 <v-col cols="12" sm="6">
                   <div class="form-group mb-6">
                     <label class="premium-label mb-1">First Name</label>
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="form.firstName"
                       :rules="[v => !!v || 'Required']"
                       variant="underlined"
@@ -65,7 +65,7 @@
                 <v-col cols="12" sm="6">
                   <div class="form-group mb-6">
                     <label class="premium-label mb-1">Last Name</label>
-                    <v-text-field
+                    <v-text-field density="compact"
                       v-model="form.lastName"
                       :rules="[v => !!v || 'Required']"
                       variant="underlined"
@@ -80,7 +80,7 @@
 
               <div class="form-group mb-6">
                 <label class="premium-label mb-1">Email Address</label>
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="form.email"
                   type="email"
                   :rules="emailRules"
@@ -94,7 +94,7 @@
 
               <div class="form-group mb-6">
                 <label class="premium-label mb-1">Phone Number (Optional)</label>
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="form.phone"
                   variant="underlined"
                   placeholder="+1 (403) 000-0000"
@@ -106,7 +106,7 @@
 
               <div class="form-group mb-10">
                 <label class="premium-label mb-1">How can we assist you?</label>
-                <v-textarea
+                <v-textarea density="compact"
                   v-model="form.message"
                   :rules="[v => !!v || 'Message required']"
                   variant="underlined"

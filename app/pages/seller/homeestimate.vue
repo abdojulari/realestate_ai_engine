@@ -80,7 +80,7 @@
                   <v-form v-model="forms.propertyDetails.valid">
                     <v-row>
                       <v-col cols="12">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="forms.propertyDetails.address"
                           label="Street Address"
                           placeholder="e.g. 123 Luxury Lane"
@@ -90,7 +90,7 @@
                         />
                       </v-col>
                       <v-col cols="12" md="6">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="forms.propertyDetails.postalCode"
                           label="Postal Code"
                           variant="underlined"
@@ -99,7 +99,7 @@
                         />
                       </v-col>
                       <v-col cols="12" md="6">
-                        <v-select
+                        <v-select density="compact"
                           v-model="forms.propertyDetails.propertyType"
                           :items="propertyTypes"
                           label="Residence Type"
@@ -108,7 +108,7 @@
                         />
                       </v-col>
                       <v-col cols="12" md="4">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model.number="forms.propertyDetails.beds"
                           type="number"
                           label="Beds"
@@ -117,7 +117,7 @@
                         />
                       </v-col>
                       <v-col cols="12" md="4">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model.number="forms.propertyDetails.baths"
                           type="number"
                           label="Baths"
@@ -126,7 +126,7 @@
                         />
                       </v-col>
                       <v-col cols="12" md="4">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model.number="forms.propertyDetails.sqft"
                           type="number"
                           label="Living Area (sqft)"
@@ -135,7 +135,7 @@
                         />
                       </v-col>
                       <v-col cols="12" md="4">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model.number="forms.propertyDetails.yearBuilt"
                           type="number"
                           label="Year Built"
@@ -145,7 +145,7 @@
                         />
                       </v-col>
                       <v-col cols="12" md="8">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="forms.propertyDetails.lotSize"
                           label="Lot Size"
                           variant="underlined"
@@ -173,7 +173,7 @@
                         </v-chip-group>
                       </v-col>
                       <v-col cols="12">
-                        <v-select
+                        <v-select density="compact"
                           v-model="forms.features.selectedFeatures"
                           :items="availableFeatures"
                           label="Highlight Features"
@@ -183,7 +183,7 @@
                         />
                       </v-col>
                       <v-col cols="12">
-                        <v-textarea
+                        <v-textarea density="compact"
                           v-model="forms.features.additionalInfo"
                           label="Tell us what makes it unique"
                           placeholder="e.g. Recently renovated kitchen, mountain views..."
@@ -203,16 +203,16 @@
                   <v-form v-model="forms.contact.valid">
                     <v-row>
                       <v-col cols="12" md="6">
-                        <v-text-field v-model="forms.contact.firstName" label="First Name" variant="underlined" />
+                        <v-text-field density="compact" v-model="forms.contact.firstName" label="First Name" variant="underlined" />
                       </v-col>
                       <v-col cols="12" md="6">
-                        <v-text-field v-model="forms.contact.lastName" label="Last Name" variant="underlined" />
+                        <v-text-field density="compact" v-model="forms.contact.lastName" label="Last Name" variant="underlined" />
                       </v-col>
                       <v-col cols="12">
-                        <v-text-field v-model="forms.contact.email" label="Professional Email" type="email" variant="underlined" />
+                        <v-text-field density="compact" v-model="forms.contact.email" label="Professional Email" type="email" variant="underlined" />
                       </v-col>
                       <v-col cols="12">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="forms.contact.phone"
                           label="Phone Number"
                           variant="underlined"
@@ -220,7 +220,7 @@
                         />
                       </v-col>
                       <v-col cols="12">
-                        <v-select v-model="forms.contact.timeframe" :items="sellingTimeframes" label="Selling Intent" variant="underlined" />
+                        <v-select density="compact" v-model="forms.contact.timeframe" :items="sellingTimeframes" label="Selling Intent" variant="underlined" />
                       </v-col>
                     </v-row>
                   </v-form>

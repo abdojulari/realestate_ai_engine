@@ -205,7 +205,7 @@
             </p>
             <v-row justify="center">
               <v-col cols="12" sm="8">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="newsletterEmail"
                   placeholder="Your email address"
                   variant="outlined"

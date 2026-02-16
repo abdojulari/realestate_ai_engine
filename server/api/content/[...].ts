@@ -1,18 +1,19 @@
-import { createRouter, defineEventHandler, readBody } from 'h3'
+import { createRouter, defineEventHandler, readBody, useBase } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { getPublicTenantFilter } from '../../utils/tenant'
+import { requireAdmin } from '../../utils/auth'
 
 const prisma = new PrismaClient()
 const router = createRouter()
 
-// Get all content blocks
+// Get all content blocks (public read)
 router.get('/', defineEventHandler(async (event) => {
   const tenantFilter = await getPublicTenantFilter(event)
   const blocks = await prisma.contentBlock.findMany({ where: { ...tenantFilter } })
   return blocks
 }))
 
-// Get content block by key
+// Get content block by key (public read)
 router.get('/:key', defineEventHandler(async (event) => {
   const tenantFilter = await getPublicTenantFilter(event)
   const key = event.context.params?.key
@@ -22,7 +23,7 @@ router.get('/:key', defineEventHandler(async (event) => {
   })
 
   if (!block) {
-    return { status: 404, body: { error: 'Content block not found' } }
+    throw createError({ statusCode: 404, statusMessage: 'Content block not found' })
   }
 
   return block
@@ -30,7 +31,7 @@ router.get('/:key', defineEventHandler(async (event) => {
 
 // Create content block (admin only)
 router.post('/', defineEventHandler(async (event) => {
-  // TODO: Add admin authentication middleware
+  await requireAdmin(event)
   const body = await readBody(event)
   
   const block = await prisma.contentBlock.create({
@@ -45,7 +46,7 @@ router.post('/', defineEventHandler(async (event) => {
 
 // Update content block (admin only)
 router.put('/:key', defineEventHandler(async (event) => {
-  // TODO: Add admin authentication middleware
+  await requireAdmin(event)
   const key = event.context.params?.key
   const body = await readBody(event)
   
@@ -62,14 +63,14 @@ router.put('/:key', defineEventHandler(async (event) => {
 
 // Delete content block (admin only)
 router.delete('/:key', defineEventHandler(async (event) => {
-  // TODO: Add admin authentication middleware
+  await requireAdmin(event)
   const key = event.context.params?.key
   
   await prisma.contentBlock.delete({
     where: { key } as any,
   })
 
-  return { status: 200, body: { message: 'Content block deleted successfully' } }
+  return { success: true, message: 'Content block deleted successfully' }
 }))
 
-export default router
+export default useBase('/api/content', router.handler)

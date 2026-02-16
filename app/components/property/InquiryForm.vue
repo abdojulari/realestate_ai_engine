@@ -147,7 +147,7 @@
 
           <!-- Message -->
           <v-col cols="12">
-            <v-textarea
+            <v-textarea density="compact"
               v-model="formData.message"
               :label="messageLabel"
               :rules="[required]"

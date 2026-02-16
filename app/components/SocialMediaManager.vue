@@ -84,7 +84,7 @@
             </v-col>
           </v-row>
 
-          <v-textarea
+          <v-textarea density="compact"
             v-model="postContent"
             label="Post Content"
             rows="4"

@@ -177,7 +177,7 @@
           <v-form v-model="isContentFormValid" @submit.prevent="saveContent">
             <v-row>
               <v-col cols="12" md="6">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="contentForm.title"
                   label="Title"
                   :rules="[v => !!v || 'Title is required']"
@@ -189,7 +189,7 @@
               </v-col>
 
               <v-col cols="12" md="6">
-                <v-select
+                <v-select density="compact"
                   v-model="contentForm.key"
                   :items="keyOptions"
                   item-title="title"
@@ -204,7 +204,7 @@
               </v-col>
 
               <v-col cols="12" md="6">
-                <v-select
+                <v-select density="compact"
                   v-model="contentForm.section"
                   :items="pageSections"
                   item-title="label"
@@ -219,7 +219,7 @@
               </v-col>
 
               <v-col cols="12" md="6">
-                <v-select
+                <v-select density="compact"
                   v-model="contentForm.type"
                   :items="contentTypes"
                   label="Section"
@@ -233,7 +233,7 @@
 
               <v-col cols="12">
                 <div v-if="contentForm.type === 'text'">
-                  <v-textarea
+                  <v-textarea density="compact"
                     v-model="contentForm.content"
                     label="Content"
                     rows="5"
@@ -247,7 +247,7 @@
 
                 <div v-else-if="contentForm.type === 'html'">
                   <!-- Simple HTML Editor -->
-                  <v-textarea
+                  <v-textarea density="compact"
                     v-model="contentForm.content"
                     label="HTML Content"
                     rows="12"
@@ -340,7 +340,7 @@
                 </div>
 
                 <div v-else-if="contentForm.key === 'testimonial'">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="contentForm.metadata.author"
                     label="Author Name"
                     :rules="[v => !!v || 'Author name is required']"
@@ -349,14 +349,14 @@
                     rounded="lg"
                     class="premium-input mb-4"
                   />
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="contentForm.metadata.position"
                     label="Author Position/Company"
                     variant="outlined"
                     rounded="lg"
                     class="premium-input mb-4"
                   />
-                  <v-textarea
+                  <v-textarea density="compact"
                     v-model="contentForm.content"
                     label="Testimonial"
                     rows="4"
@@ -378,7 +378,7 @@
                   />
                 </div>
                 <div v-else-if="contentForm.key === 'why-choose-us-item'">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="contentForm.metadata.icon"
                     label="Icon (mdi-*)"
                     hint="Example: mdi-home-search"
@@ -387,7 +387,7 @@
                     rounded="lg"
                     class="premium-input mb-4"
                   />
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="contentForm.title"
                     label="Card Title"
                     :rules="[v => !!v || 'Card title is required']"
@@ -396,7 +396,7 @@
                     rounded="lg"
                     class="premium-input mb-4"
                   />
-                  <v-textarea
+                  <v-textarea density="compact"
                     v-model="contentForm.content"
                     label="Card Description"
                     rows="4"
@@ -408,7 +408,7 @@
                   />
                 </div>
                 <div v-else>
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="contentForm.content"
                     :label="contentForm.key?.replace(/-/g,' ') || 'Content'"
                     :rules="[v => !!v || 'Content is required']"

@@ -90,7 +90,7 @@
                   </template>
                 </v-select>
 
-                <v-textarea
+                <v-textarea density="compact"
                   v-model="form.content"
                   label="Email Content (HTML)"
                   placeholder="<h1>Hello!</h1><p>Your content here...</p>"
@@ -100,7 +100,7 @@
                   class="mb-4"
                 />
 
-                <v-textarea
+                <v-textarea density="compact"
                   v-model="form.plainTextContent"
                   label="Plain Text Version (Optional)"
                   placeholder="Plain text version for email clients that don't support HTML"

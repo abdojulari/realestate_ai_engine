@@ -115,7 +115,7 @@
             {{ editingCategory ? 'Edit Category' : 'New Category' }}
           </v-card-title>
           <v-card-text>
-            <v-text-field
+            <v-text-field density="compact"
               v-model="formData.name"
               label="Category Name"
               variant="outlined"
@@ -124,7 +124,7 @@
               @blur="generateSlug"
             />
             
-            <v-text-field
+            <v-text-field density="compact"
               v-model="formData.slug"
               label="URL Slug"
               variant="outlined"
@@ -132,7 +132,7 @@
               prepend-inner-icon="mdi-link"
             />
             
-            <v-textarea
+            <v-textarea density="compact"
               v-model="formData.description"
               label="Description"
               variant="outlined"
@@ -142,7 +142,7 @@
             
             <v-row>
               <v-col cols="6">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="formData.color"
                   label="Color"
                   variant="outlined"
@@ -150,7 +150,7 @@
                 />
               </v-col>
               <v-col cols="6">
-                <v-select
+                <v-select density="compact"
                   v-model="formData.icon"
                   :items="iconOptions"
                   label="Icon"
@@ -171,7 +171,7 @@
               </v-col>
             </v-row>
             
-            <v-text-field
+            <v-text-field density="compact"
               v-model.number="formData.sortOrder"
               label="Sort Order"
               variant="outlined"

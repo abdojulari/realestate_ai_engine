@@ -74,7 +74,7 @@
         <v-form @submit.prevent="handleSubmit">
           <div class="form-group mb-5">
             <label class="premium-label mb-2">Email Address</label>
-            <v-text-field
+            <v-text-field density="compact"
               v-model="email"
               type="email"
               required
@@ -93,7 +93,7 @@
                 Forgot?
               </NuxtLink>
             </div>
-            <v-text-field
+            <v-text-field density="compact"
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               required

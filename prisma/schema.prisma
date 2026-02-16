@@ -93,6 +93,12 @@ model User {
   tenantFacebookPosts      FacebookPost[]           @relation("TenantFacebookPosts")
   tenantPriceCutSearches   PriceCutSearch[]         @relation("TenantPriceCutSearches")
 
+  // ── Bookkeeping relations (tenant-scoped) ──
+  tenantBkExpenses         BkExpense[]              @relation("TenantBkExpenses")
+  tenantBkRevenues         BkRevenue[]              @relation("TenantBkRevenues")
+  tenantBkEmployees        BkEmployee[]             @relation("TenantBkEmployees")
+  tenantBkPayrollPayments  BkPayrollPayment[]       @relation("TenantBkPayrollPayments")
+
   @@index([adminId])
 }
 
@@ -1046,4 +1052,113 @@ model PriceCutSearch {
   updatedAt  DateTime  @updatedAt
 
   @@index([adminId, isActive])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOKKEEPING — Expenses (tenant-scoped, platinum only)
+// ═══════════════════════════════════════════════════════════════
+
+model BkExpense {
+  id              Int       @id @default(autoincrement())
+  adminId         Int?
+  admin           User?     @relation("TenantBkExpenses", fields: [adminId], references: [id])
+  vendor          String
+  receiptNumber   String?
+  date            DateTime
+  subtotal        Float
+  gstAmount       Float     @default(0)
+  hstAmount       Float     @default(0)
+  pstAmount       Float     @default(0)
+  taxAmount       Float     @default(0)
+  total           Float
+  category        String    @default("general")
+  description     String?
+  receiptUrl      String?
+  paymentMethod   String?   // cash, credit, debit, etransfer, cheque
+  isReconciled    Boolean   @default(false)
+  ocrRawData      Json?     // raw OCR extraction for debugging
+  createdBy       Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([adminId, date])
+  @@index([adminId, category])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOKKEEPING — Revenue (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+model BkRevenue {
+  id              Int       @id @default(autoincrement())
+  adminId         Int?
+  admin           User?     @relation("TenantBkRevenues", fields: [adminId], references: [id])
+  source          String    @default("manual") // manual, commission, listing, referral
+  listingId       Int?
+  date            DateTime
+  amount          Float
+  category        String    @default("commission")
+  description     String?
+  clientName      String?
+  invoiceNumber   String?
+  isReconciled    Boolean   @default(false)
+  createdBy       Int?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([adminId, date])
+  @@index([adminId, category])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOKKEEPING — Payroll Employees (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+model BkEmployee {
+  id              Int       @id @default(autoincrement())
+  adminId         Int?
+  admin           User?     @relation("TenantBkEmployees", fields: [adminId], references: [id])
+  name            String
+  email           String?
+  role            String?
+  salaryType      String    @default("hourly") // hourly, fixed
+  hourlyRate      Float?
+  fixedSalary     Float?
+  province        String    @default("AB")
+  startDate       DateTime  @default(now())
+  isActive        Boolean   @default(true)
+  isSelf          Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  payments        BkPayrollPayment[]
+
+  @@index([adminId, isActive])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BOOKKEEPING — Payroll Payments (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+model BkPayrollPayment {
+  id                  Int       @id @default(autoincrement())
+  adminId             Int?
+  admin               User?     @relation("TenantBkPayrollPayments", fields: [adminId], references: [id])
+  employeeId          Int
+  employee            BkEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payDate             DateTime
+  periodStart         DateTime?
+  periodEnd           DateTime?
+  hoursWorked         Float?
+  grossAmount         Float
+  cppDeduction        Float     @default(0)
+  eiDeduction         Float     @default(0)
+  incomeTaxDeduction  Float     @default(0)
+  otherDeductions     Float     @default(0)
+  netAmount           Float
+  notes               String?
+  createdAt           DateTime  @default(now())
+
+  @@index([adminId, payDate])
+  @@index([employeeId])
 }

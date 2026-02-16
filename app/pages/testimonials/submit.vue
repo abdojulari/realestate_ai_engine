@@ -216,7 +216,7 @@
                     </v-col>
                   </v-row>
 
-                  <v-textarea
+                  <v-textarea density="compact"
                     v-model="form.content"
                     label="Tell us about your experience"
                     :rules="[rules.required, rules.minLength(50)]"

@@ -17,7 +17,7 @@
             <v-form v-model="isFormValid" @submit.prevent="handleSubmit">
               <v-row>
                 <v-col cols="12" md="6">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="formData.firstName"
                     label="First Name"
                     :readonly="!isEditing"
@@ -27,7 +27,7 @@
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="formData.lastName"
                     label="Last Name"
                     :readonly="!isEditing"
@@ -37,7 +37,7 @@
                 </v-col>
 
                 <v-col cols="12">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="formData.email"
                     label="Email"
                     type="email"
@@ -48,7 +48,7 @@
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <v-text-field
+                  <v-text-field density="compact"
                     v-model="formData.phone"
                     label="Phone"
                     :readonly="!isEditing"
@@ -58,7 +58,7 @@
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <v-select
+                  <v-select density="compact"
                     v-model="formData.preferredContactTime"
                     :items="contactTimeOptions"
                     label="Preferred Contact Time"

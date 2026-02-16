@@ -121,12 +121,12 @@
           <v-divider />
           <v-card-text class="pa-6">
             <v-row>
-              <v-col cols="6"><v-text-field v-model="form.firstName" label="First Name" variant="outlined" /></v-col>
-              <v-col cols="6"><v-text-field v-model="form.lastName" label="Last Name" variant="outlined" /></v-col>
-              <v-col cols="12"><v-text-field v-model="form.email" label="Email" variant="outlined" type="email" /></v-col>
-              <v-col cols="12"><v-text-field v-model="form.phone" label="Phone" variant="outlined" /></v-col>
-              <v-col cols="12"><v-select v-model="form.type" :items="['lead', 'buyer', 'seller', 'investor']" label="Type" variant="outlined" /></v-col>
-              <v-col cols="12"><v-textarea v-model="form.notes" label="Notes" variant="outlined" rows="3" /></v-col>
+              <v-col cols="6"><v-text-field density="compact" v-model="form.firstName" label="First Name" variant="outlined" /></v-col>
+              <v-col cols="6"><v-text-field density="compact" v-model="form.lastName" label="Last Name" variant="outlined" /></v-col>
+              <v-col cols="12"><v-text-field density="compact" v-model="form.email" label="Email" variant="outlined" type="email" /></v-col>
+              <v-col cols="12"><v-text-field density="compact" v-model="form.phone" label="Phone" variant="outlined" /></v-col>
+              <v-col cols="12"><v-select density="compact" v-model="form.type" :items="['lead', 'buyer', 'seller', 'investor']" label="Type" variant="outlined" /></v-col>
+              <v-col cols="12"><v-textarea density="compact" v-model="form.notes" label="Notes" variant="outlined" rows="3" /></v-col>
             </v-row>
           </v-card-text>
           <v-divider />
@@ -147,9 +147,9 @@
             <div class="text-body-1 mb-4">
               Create a new transaction for <strong>{{ convertingClient?.firstName }} {{ convertingClient?.lastName }}</strong>
             </div>
-            <v-select v-model="convertForm.type" :items="[{title: 'Buying', value: 'buying'}, {title: 'Selling', value: 'selling'}]" label="Transaction Type" variant="outlined" class="mb-4" />
-            <v-text-field v-model="convertForm.propertyAddress" label="Property Address (optional)" variant="outlined" class="mb-4" />
-            <v-text-field v-model="convertForm.salePrice" label="Sale Price (optional)" variant="outlined" type="number" prefix="$" />
+            <v-select density="compact" v-model="convertForm.type" :items="[{title: 'Buying', value: 'buying'}, {title: 'Selling', value: 'selling'}]" label="Transaction Type" variant="outlined" class="mb-4" />
+            <v-text-field density="compact" v-model="convertForm.propertyAddress" label="Property Address (optional)" variant="outlined" class="mb-4" />
+            <v-text-field density="compact" v-model="convertForm.salePrice" label="Sale Price (optional)" variant="outlined" type="number" prefix="$" />
           </v-card-text>
           <v-divider />
           <v-card-actions class="pa-6">

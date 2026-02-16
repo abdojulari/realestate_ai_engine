@@ -37,7 +37,7 @@
                   <v-form v-model="isStep1Valid" @submit.prevent>
                     <v-row>
                       <v-col cols="12">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.title"
                           label="Property Title"
                           :rules="[v => !!v || 'Title is required']"
@@ -46,7 +46,7 @@
                       </v-col>
 
                       <v-col cols="12" md="6">
-                        <v-select
+                        <v-select density="compact"
                           v-model="propertyData.type"
                           :items="propertyTypes"
                           label="Property Type"
@@ -56,7 +56,7 @@
                       </v-col>
 
                       <v-col cols="12" md="6">
-                        <v-select
+                        <v-select density="compact"
                           v-model="propertyData.status"
                           :items="propertyStatuses"
                           label="Listing Status"
@@ -66,7 +66,7 @@
                       </v-col>
 
                       <v-col cols="12">
-                        <v-textarea
+                        <v-textarea density="compact"
                           v-model="propertyData.description"
                           label="Property Description"
                           rows="4"
@@ -87,7 +87,7 @@
                   <v-form v-model="isStep2Valid" @submit.prevent>
                     <v-row>
                       <v-col cols="12" sm="6" md="3">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.beds"
                           label="Bedrooms"
                           type="number"
@@ -98,7 +98,7 @@
                       </v-col>
 
                       <v-col cols="12" sm="6" md="3">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.baths"
                           label="Bathrooms"
                           type="number"
@@ -110,7 +110,7 @@
                       </v-col>
 
                       <v-col cols="12" sm="6" md="3">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.sqft"
                           label="Square Feet"
                           type="number"
@@ -121,7 +121,7 @@
                       </v-col>
 
                       <v-col cols="12" sm="6" md="3">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.yearBuilt"
                           label="Year Built"
                           type="number"
@@ -133,7 +133,7 @@
                       </v-col>
 
                       <v-col cols="12">
-                        <v-combobox
+                        <v-combobox density="compact"
                           v-model="propertyData.features"
                           :items="commonFeatures"
                           label="Features"
@@ -144,7 +144,7 @@
                       </v-col>
 
                       <v-col cols="12" md="6">
-                        <v-select
+                        <v-select density="compact"
                           v-model="propertyData.parking"
                           :items="parkingOptions"
                           label="Parking"
@@ -152,7 +152,7 @@
                       </v-col>
 
                       <v-col cols="12" md="6">
-                        <v-select
+                        <v-select density="compact"
                           v-model="propertyData.heating"
                           :items="heatingOptions"
                           label="Heating"
@@ -218,7 +218,7 @@
                       </v-col>
 
                       <v-col cols="12">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.videoUrl"
                           label="Video URL (Optional)"
                           placeholder="e.g., YouTube or Vimeo link"
@@ -226,7 +226,7 @@
                       </v-col>
 
                       <v-col cols="12">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.virtualTourUrl"
                           label="Virtual Tour URL (Optional)"
                           placeholder="e.g., Matterport or other 3D tour link"
@@ -245,7 +245,7 @@
                   <v-form v-model="isStep4Valid" @submit.prevent>
                     <v-row>
                       <v-col cols="12">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.address"
                           label="Street Address"
                           required
@@ -254,7 +254,7 @@
                       </v-col>
 
                       <v-col cols="12" md="6">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.city"
                           label="City"
                           required
@@ -263,7 +263,7 @@
                       </v-col>
 
                       <v-col cols="12" md="6">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.postalCode"
                           label="Postal Code"
                           required
@@ -272,7 +272,7 @@
                       </v-col>
 
                       <v-col cols="12" md="6">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.price"
                           label="Price"
                           type="number"
@@ -283,7 +283,7 @@
                       </v-col>
 
                       <v-col cols="12" md="6">
-                        <v-text-field
+                        <v-text-field density="compact"
                           v-model="propertyData.taxes"
                           label="Annual Property Taxes"
                           type="number"

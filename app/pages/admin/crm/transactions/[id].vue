@@ -229,11 +229,11 @@
           <v-card-title class="pa-6 display-serif text-h6">Edit Transaction</v-card-title>
           <v-divider />
           <v-card-text class="pa-6">
-            <v-text-field v-model="editForm.propertyAddress" label="Property Address" variant="outlined" class="mb-4" />
-            <v-text-field v-model="editForm.salePrice" label="Sale Price" variant="outlined" type="number" prefix="$" class="mb-4" />
-            <v-text-field v-model="editForm.closingDate" label="Closing Date" variant="outlined" type="date" class="mb-4" />
-            <v-text-field v-model="editForm.possessionDate" label="Possession Date" variant="outlined" type="date" class="mb-4" />
-            <v-textarea v-model="editForm.notes" label="Notes" variant="outlined" rows="3" />
+            <v-text-field density="compact" v-model="editForm.propertyAddress" label="Property Address" variant="outlined" class="mb-4" />
+            <v-text-field density="compact" v-model="editForm.salePrice" label="Sale Price" variant="outlined" type="number" prefix="$" class="mb-4" />
+            <v-text-field density="compact" v-model="editForm.closingDate" label="Closing Date" variant="outlined" type="date" class="mb-4" />
+            <v-text-field density="compact" v-model="editForm.possessionDate" label="Possession Date" variant="outlined" type="date" class="mb-4" />
+            <v-textarea density="compact" v-model="editForm.notes" label="Notes" variant="outlined" rows="3" />
           </v-card-text>
           <v-divider />
           <v-card-actions class="pa-6">

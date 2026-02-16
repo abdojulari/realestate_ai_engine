@@ -49,7 +49,7 @@
           </div>
         </v-window-item>
         <v-window-item value="type">
-          <v-text-field v-model="sigText" label="Type your name" variant="outlined" class="mb-4" placeholder="Your Signature" />
+          <v-text-field density="compact" v-model="sigText" label="Type your name" variant="outlined" class="mb-4" placeholder="Your Signature" />
           <div class="preview-text-sig mb-4">{{ sigText || 'Preview' }}</div>
           <v-checkbox v-model="saveForReuse" label="Save for reuse" hide-details density="compact" />
         </v-window-item>
@@ -63,7 +63,7 @@
       </v-window>
 
       <v-card-text class="pt-0">
-        <v-select
+        <v-select density="compact"
           v-model="page"
           :items="Array.from({ length: totalPages }, (_, i) => ({ title: `Page ${i + 1}`, value: i + 1 }))"
           label="Add to Page" variant="outlined" density="compact"

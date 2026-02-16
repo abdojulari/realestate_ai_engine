@@ -145,7 +145,7 @@
         <v-divider />
         <v-card-text class="pa-6">
           <v-form ref="form">
-            <v-text-field
+            <v-text-field density="compact"
               v-model="formData.email"
               label="Email Address"
               type="email"
@@ -155,21 +155,21 @@
             />
             <v-row>
               <v-col cols="6">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="formData.firstName"
                   label="First Name"
                   variant="outlined"
                 />
               </v-col>
               <v-col cols="6">
-                <v-text-field
+                <v-text-field density="compact"
                   v-model="formData.lastName"
                   label="Last Name"
                   variant="outlined"
                 />
               </v-col>
             </v-row>
-            <v-select
+            <v-select density="compact"
               v-model="formData.status"
               :items="['active', 'unsubscribed', 'bounced']"
               label="Status"

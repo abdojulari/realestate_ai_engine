@@ -179,7 +179,7 @@
               :min="minDate"
             />
 
-            <v-select
+            <v-select density="compact"
               v-model="rescheduleTime"
               :items="availableTimes"
               label="Select Time"

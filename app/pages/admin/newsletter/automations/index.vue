@@ -133,14 +133,14 @@
         <v-divider />
         <v-card-text class="pa-6">
           <v-form ref="form">
-            <v-text-field
+            <v-text-field density="compact"
               v-model="formData.name"
               label="Automation Name"
               variant="outlined"
               class="mb-4"
               :rules="[v => !!v || 'Name is required']"
             />
-            <v-textarea
+            <v-textarea density="compact"
               v-model="formData.description"
               label="Description (Optional)"
               variant="outlined"
@@ -149,7 +149,7 @@
             />
             
             <h4 class="text-subtitle-1 font-weight-bold mb-3">Schedule</h4>
-            <v-select
+            <v-select density="compact"
               v-model="formData.frequency"
               :items="['daily', 'weekly', 'monthly']"
               label="Frequency"
@@ -158,7 +158,7 @@
               :rules="[v => !!v || 'Frequency is required']"
             />
             
-            <v-select
+            <v-select density="compact"
               v-if="formData.frequency === 'weekly'"
               v-model="formData.dayOfWeek"
               :items="dayOptions"
@@ -167,7 +167,7 @@
               class="mb-4"
             />
             
-            <v-text-field
+            <v-text-field density="compact"
               v-if="formData.frequency === 'monthly'"
               v-model.number="formData.dayOfMonth"
               type="number"
@@ -178,7 +178,7 @@
               class="mb-4"
             />
             
-            <v-text-field
+            <v-text-field density="compact"
               v-model="formData.timeOfDay"
               type="time"
               label="Time of Day"
@@ -186,7 +186,7 @@
               class="mb-4"
             />
 
-            <v-text-field
+            <v-text-field density="compact"
               v-model="formData.subject"
               label="Email Subject (Optional)"
               variant="outlined"

@@ -65,18 +65,34 @@ export default defineEventHandler(async (event) => {
       data: { password: hashedPassword }
     })
 
-    // TODO: In a real application, you would send this password via email
-    // For now, we'll just log it (remove this in production!)
-    console.log(`[PASSWORD RESET] Temporary password for ${targetUser.email}: ${tempPassword}`)
-
-    // In production, you would use an email service like:
-    // await sendPasswordResetEmail(targetUser.email, targetUser.firstName, tempPassword)
+    // Send temporary password via email
+    try {
+      const { queueEmail } = await import('../../../../utils/emailQueue')
+      await queueEmail({
+        to: targetUser.email,
+        subject: 'Your Password Has Been Reset',
+        text: `Hi ${targetUser.firstName || 'there'},\n\nYour password has been reset by an administrator.\n\nYour temporary password is: ${tempPassword}\n\nPlease log in and change your password immediately.\n\nIf you did not request this, please contact support.`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="color: #1a1a1a;">Password Reset</h2>
+            <p>Hi ${targetUser.firstName || 'there'},</p>
+            <p>Your password has been reset by an administrator.</p>
+            <div style="background: #f5f5f5; padding: 16px; border-radius: 8px; margin: 16px 0; text-align: center;">
+              <div style="color: #666; font-size: 12px; margin-bottom: 4px;">Your temporary password</div>
+              <div style="font-size: 20px; font-weight: bold; letter-spacing: 2px; font-family: monospace;">${tempPassword}</div>
+            </div>
+            <p style="color: #E65100; font-weight: bold;">Please log in and change your password immediately.</p>
+            <p style="color: #666; font-size: 14px;">If you did not request this, please contact support.</p>
+          </div>
+        `
+      })
+    } catch (emailErr) {
+      console.error('Failed to send password reset email:', emailErr)
+    }
 
     return {
       success: true,
-      message: `Temporary password has been generated for ${targetUser.email}. In a real application, this would be sent via email.`,
-      // TODO: Remove this in production - passwords should never be returned in API responses
-      temporaryPassword: tempPassword
+      message: `A temporary password has been sent to ${targetUser.email}.`
     }
   } catch (error: any) {
     console.error('Error resetting password:', error)

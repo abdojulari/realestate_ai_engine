@@ -26,12 +26,14 @@
       <v-list nav>
         <v-list-item
           v-for="item in menuItems"
-          :key="item.title"
+          :key="item.to"
           :to="item.to"
-          :prepend-icon="item.icon"
           :title="rail ? '' : item.title"
           :value="item.title"
         >
+          <template #prepend>
+            <v-icon>{{ item.icon }}</v-icon>
+          </template>
           <template v-slot:append v-if="!rail && item.badge">
             <v-badge
               :content="item.badge"
@@ -341,6 +343,7 @@ const allMenuItems = [
   { title: 'Content', icon: 'mdi-file-document', to: '/admin/content', requiresFeature: null },
   { title: 'Documents', icon: 'mdi-file-cabinet', to: '/admin/documents', requiresFeature: null },
   { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports', requiresFeature: FEATURES.FORECAST, tier: 'platinum' },
+  { title: 'Book Keeping', icon: 'mdi-book-open-page-variant', to: '/admin/bookkeeping', requiresFeature: FEATURES.BOOKKEEPING, tier: 'platinum' },
 ]
 
 // Filter menu items based on license
