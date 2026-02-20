@@ -60,7 +60,154 @@
         </v-col>
 
         <v-col cols="12" md="9">
-          <v-card class="premium-card">
+          <!-- ═══════ SITE BRANDING PANEL ═══════ -->
+          <v-card v-if="selectedSection === 'branding'" class="premium-card">
+            <div class="p-8 border-b border-slate-100 d-flex align-center">
+              <div class="icon-orb mr-4">
+                <v-icon color="primary" size="24">mdi-palette-swatch</v-icon>
+              </div>
+              <div>
+                <h2 class="text-h6 font-weight-bold">Site Branding</h2>
+                <p class="text-caption text-slate-400 mb-0">Manage logos, contact info, and footer content for your Header &amp; Footer</p>
+              </div>
+            </div>
+            <v-card-text class="p-8">
+              <v-alert v-if="brandingSaved" type="success" variant="tonal" density="compact" closable class="mb-6" @click:close="brandingSaved = false">Branding saved successfully!</v-alert>
+              <v-alert v-if="brandingError" type="error" variant="tonal" density="compact" closable class="mb-6" @click:close="brandingError = ''">{{ brandingError }}</v-alert>
+
+              <!-- Header Logo -->
+              <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">HEADER</div>
+              <v-row dense class="mb-2">
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.businessName" label="Business Name" variant="outlined" density="compact" hint="Displayed as alt-text and fallback" persistent-hint />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.tagline" label="Tagline" variant="outlined" density="compact" hint="Short line below logo in footer" persistent-hint />
+                </v-col>
+              </v-row>
+              <v-row dense class="mb-6">
+                <v-col cols="12" md="6">
+                  <div class="brand-upload-card">
+                    <div class="brand-upload-card__label">Site Logo</div>
+                    <div class="brand-upload-card__preview">
+                      <img :src="siteLogoPreview" alt="Current logo" class="brand-upload-card__img brand-upload-card__img--logo" />
+                      <v-btn v-if="branding.logoUrl" variant="text" color="error" size="x-small" icon="mdi-close-circle" class="brand-upload-card__remove" @click="branding.logoUrl = ''" />
+                    </div>
+                    <v-file-input v-model="logoFile" label="Replace logo" accept="image/*" show-size prepend-icon="" prepend-inner-icon="mdi-camera" variant="outlined" density="compact" hide-details @update:model-value="uploadLogo" />
+                  </div>
+                </v-col>
+                <v-col cols="12" md="6">
+                  <div class="brand-upload-card">
+                    <div class="brand-upload-card__label">Favicon</div>
+                    <div class="brand-upload-card__preview">
+                      <img :src="faviconPreview" alt="Favicon" class="brand-upload-card__img brand-upload-card__img--favicon" />
+                      <v-btn v-if="branding.faviconUrl" variant="text" color="error" size="x-small" icon="mdi-close-circle" class="brand-upload-card__remove" @click="branding.faviconUrl = ''" />
+                    </div>
+                    <v-file-input v-model="faviconFile" label="Replace favicon" accept="image/*,.ico" show-size prepend-icon="" prepend-inner-icon="mdi-star-four-points" variant="outlined" density="compact" hide-details @update:model-value="uploadFavicon" />
+                  </div>
+                </v-col>
+              </v-row>
+
+              <v-divider class="my-6" />
+
+              <!-- Contact Info -->
+              <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">CONTACT INFO</div>
+              <v-row dense class="mb-2">
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.phone" label="Phone Number" variant="outlined" density="compact" prepend-inner-icon="mdi-phone" />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.email" label="Contact Email" variant="outlined" density="compact" prepend-inner-icon="mdi-email" />
+                </v-col>
+              </v-row>
+              <v-row dense class="mb-6">
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.address" label="Address" variant="outlined" density="compact" prepend-inner-icon="mdi-map-marker" />
+                </v-col>
+                <v-col cols="12" md="3">
+                  <v-text-field v-model="branding.city" label="City" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="6" md="1.5">
+                  <v-text-field v-model="branding.province" label="Province" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="6" md="1.5">
+                  <v-text-field v-model="branding.postalCode" label="Postal Code" variant="outlined" density="compact" />
+                </v-col>
+              </v-row>
+
+              <v-divider class="my-6" />
+
+              <!-- Brokerage -->
+              <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">BROKERAGE</div>
+              <v-row dense class="mb-2">
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.brokerageName" label="Brokerage Name" variant="outlined" density="compact" />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <div class="brand-upload-card">
+                    <div class="brand-upload-card__label">Brokerage Logo</div>
+                    <div v-if="branding.brokerageLogoUrl" class="brand-upload-card__preview">
+                      <img :src="branding.brokerageLogoUrl" alt="Brokerage logo" class="brand-upload-card__img brand-upload-card__img--logo" />
+                      <v-btn variant="text" color="error" size="x-small" icon="mdi-close-circle" class="brand-upload-card__remove" @click="branding.brokerageLogoUrl = ''" />
+                    </div>
+                    <v-file-input v-model="brokerageLogoFile" label="Upload brokerage logo" accept="image/*" show-size prepend-icon="" prepend-inner-icon="mdi-domain" variant="outlined" density="compact" hide-details @update:model-value="uploadBrokerageLogo" />
+                  </div>
+                </v-col>
+              </v-row>
+
+              <v-divider class="my-6" />
+
+              <!-- Social Links -->
+              <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">SOCIAL LINKS</div>
+              <v-row v-for="(link, i) in branding.socialLinks" :key="i" dense class="mb-2">
+                <v-col cols="12" md="4">
+                  <v-text-field v-model="link.name" label="Name" variant="outlined" density="compact" placeholder="e.g. Instagram" />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="link.url" label="URL" variant="outlined" density="compact" placeholder="https://..." prepend-inner-icon="mdi-link" />
+                </v-col>
+                <v-col cols="12" md="2" class="d-flex align-center">
+                  <v-btn icon="mdi-delete" variant="text" color="error" size="small" @click="branding.socialLinks.splice(i, 1)" />
+                </v-col>
+              </v-row>
+              <v-btn variant="tonal" size="small" prepend-icon="mdi-plus" @click="branding.socialLinks.push({ icon: '', name: '', url: '' })" class="mb-6">Add Social Link</v-btn>
+
+              <v-divider class="my-6" />
+
+              <!-- Footer / Legal -->
+              <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">FOOTER &amp; LEGAL</div>
+              <v-row dense class="mb-2">
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.copyrightName" label="Copyright Name" variant="outlined" density="compact" hint="e.g. Alberta One Real Estate" persistent-hint />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.primaryColor" label="Primary Color" variant="outlined" density="compact" prepend-inner-icon="mdi-palette" hint="Hex color, e.g. #1976D2" persistent-hint />
+                </v-col>
+              </v-row>
+              <v-row dense class="mb-2">
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.developerName" label="Developer Name" variant="outlined" density="compact" hint="'Developed by' credit in footer" persistent-hint />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field v-model="branding.developerUrl" label="Developer URL" variant="outlined" density="compact" prepend-inner-icon="mdi-link" />
+                </v-col>
+              </v-row>
+              <v-row dense>
+                <v-col cols="12">
+                  <v-textarea v-model="branding.footerDisclaimer" label="Footer Disclaimer" variant="outlined" density="compact" rows="3" hint="Legal disclaimer text shown at the bottom of every page" persistent-hint />
+                </v-col>
+              </v-row>
+            </v-card-text>
+            <v-divider />
+            <v-card-actions class="p-6">
+              <v-spacer />
+              <v-btn variant="tonal" @click="loadBranding" :loading="brandingLoading">Reset</v-btn>
+              <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save" @click="saveBranding" :loading="brandingSaving" class="action-btn-primary px-8">Save Branding</v-btn>
+            </v-card-actions>
+          </v-card>
+
+          <!-- ═══════ CONTENT TABLE (existing sections) ═══════ -->
+          <v-card v-else class="premium-card">
             <div class="p-8 border-b border-slate-100 d-flex align-center">
               <div class="icon-orb mr-4">
                 <v-icon color="primary" size="24">{{ getCurrentSection?.icon || 'mdi-file-document' }}</v-icon>
@@ -317,25 +464,40 @@
                   </div>
                 </div>
 
-                <div v-else-if="['image','hero'].includes(contentForm.key)">
+                <div v-else-if="isImageContent">
+                  <div class="brand-upload-card mb-4">
+                    <div class="brand-upload-card__label">Current Image</div>
+                    <div v-if="contentForm.content" class="brand-upload-card__preview">
+                      <img :src="contentForm.content" alt="Preview" class="brand-upload-card__img brand-upload-card__img--hero" />
+                      <v-btn variant="text" color="error" size="x-small" icon="mdi-close-circle" class="brand-upload-card__remove" @click="contentForm.content = ''" />
+                    </div>
+                    <div v-else class="brand-upload-card__preview">
+                      <v-icon size="48" color="grey-lighten-1">mdi-image-off-outline</v-icon>
+                    </div>
+                  </div>
                   <v-file-input
                     v-model="contentForm.file"
-                    :label="contentForm.key === 'hero' ? 'Hero Banner' : 'Image'"
+                    label="Upload new image"
                     accept="image/*"
-                    :rules="[v => !!v || 'Image is required']"
-                    required
                     show-size
-                    prepend-icon="mdi-camera"
+                    prepend-icon=""
+                    prepend-inner-icon="mdi-camera"
                     variant="outlined"
+                    density="compact"
+                    rounded="lg"
+                    class="premium-input mb-3"
+                    @update:model-value="handleContentImageUpload"
+                  />
+                  <v-text-field
+                    v-model="contentForm.content"
+                    label="Or enter image URL"
+                    variant="outlined"
+                    density="compact"
                     rounded="lg"
                     class="premium-input"
-                  />
-                  <v-img
-                    v-if="contentForm.content"
-                    :src="contentForm.content"
-                    max-height="200"
-                    contain
-                    class="mt-4 rounded-lg"
+                    prepend-inner-icon="mdi-link"
+                    hint="Upload above or paste a URL here"
+                    persistent-hint
                   />
                 </div>
 
@@ -514,8 +676,11 @@ const pageKeyOptions: Record<string, Array<{ title: string, value: string }>> = 
   about: [
     { title: 'Hero Title', value: 'about.hero.title' },
     { title: 'Hero Subtitle', value: 'about.hero.subtitle' },
-    { title: 'Hero Image', value: 'about.hero.image' },
+    { title: 'Hero Description', value: 'about.hero.description' },
+    { title: 'Hero Image (profile photo)', value: 'about.hero.image' },
     { title: 'Story Title', value: 'about.story.title' },
+    { title: 'Story Author Name', value: 'about.story.name' },
+    { title: 'Story Author Role / Title', value: 'about.story.role' },
     { title: 'Story Content (HTML)', value: 'about.story.content' },
     { title: 'Core Value 1', value: 'about.values.1' },
     { title: 'Core Value 2', value: 'about.values.2' },
@@ -524,12 +689,14 @@ const pageKeyOptions: Record<string, Array<{ title: string, value: string }>> = 
     { title: 'Stat 2', value: 'about.stats.2' },
     { title: 'Stat 3', value: 'about.stats.3' },
     { title: 'Stat 4', value: 'about.stats.4' },
+    { title: 'Connect Heading', value: 'about.connect.heading' },
+    { title: 'Connect Description', value: 'about.connect.description' },
+    { title: 'CTA Area Names', value: 'about.cta.areas' },
     { title: 'CTA Title', value: 'about.cta.title' },
     { title: 'CTA Subtitle', value: 'about.cta.subtitle' },
-    { title: 'Legacy: About Title', value: 'about-title' },
-    { title: 'Legacy: About Body', value: 'about-body' },
-    { title: 'Legacy: About Subtitle', value: 'about-subtitle' },
-    { title: 'Legacy: About Image', value: 'about-image' }
+    { title: 'CTA Background Image', value: 'about.cta.image' },
+    { title: 'Meta Title (SEO)', value: 'about.meta.title' },
+    { title: 'Meta Description (SEO)', value: 'about.meta.description' },
   ],
   testimonials: [
     { title: 'Testimonial Item', value: 'testimonial' }
@@ -537,6 +704,12 @@ const pageKeyOptions: Record<string, Array<{ title: string, value: string }>> = 
 }
 
 const keyOptions = computed(() => pageKeyOptions[contentForm.section] || [])
+
+const isImageContent = computed(() => {
+  const key = contentForm.key || ''
+  const type = contentForm.type || ''
+  return type === 'image' || key === 'hero' || key === 'image' || key.endsWith('.image')
+})
 
 const contentForm = reactive<any>({
   title: '',
@@ -556,6 +729,133 @@ const contentForm = reactive<any>({
 })
 
 const contentItems = ref<any[]>([])
+
+// ═══════ Site Branding State ═══════
+const branding = reactive({
+  businessName: '',
+  tagline: '',
+  logoUrl: '',
+  faviconUrl: '',
+  primaryColor: '#1976D2',
+  phone: '',
+  email: '',
+  address: '',
+  city: '',
+  province: '',
+  postalCode: '',
+  socialLinks: [] as Array<{ icon: string; name: string; url: string }>,
+  brokerageName: '',
+  brokerageLogoUrl: '',
+  footerDisclaimer: '',
+  copyrightName: '',
+  developerName: '',
+  developerUrl: '',
+})
+const logoFile = ref<File | null>(null)
+const faviconFile = ref<File | null>(null)
+const brokerageLogoFile = ref<File | null>(null)
+const siteLogoPreview = computed(() => branding.logoUrl || '/images/logos/logo.png')
+const faviconPreview = computed(() => branding.faviconUrl || '/favicon.ico')
+const brandingLoading = ref(false)
+const brandingSaving = ref(false)
+const brandingSaved = ref(false)
+const brandingError = ref('')
+
+async function loadBranding() {
+  brandingLoading.value = true
+  try {
+    const data: any = await api.get('/api/admin/tenant-settings')
+    Object.assign(branding, {
+      businessName: data.businessName || '',
+      tagline: data.tagline || '',
+      logoUrl: data.logoUrl || '',
+      faviconUrl: data.faviconUrl || '',
+      primaryColor: data.primaryColor || '#1976D2',
+      phone: data.phone || '',
+      email: data.email || '',
+      address: data.address || '',
+      city: data.city || '',
+      province: data.province || '',
+      postalCode: data.postalCode || '',
+      socialLinks: Array.isArray(data.socialLinks) ? data.socialLinks : [],
+      brokerageName: data.brokerageName || '',
+      brokerageLogoUrl: data.brokerageLogoUrl || '',
+      footerDisclaimer: data.footerDisclaimer || '',
+      copyrightName: data.copyrightName || '',
+      developerName: data.developerName || '',
+      developerUrl: data.developerUrl || '',
+    })
+  } catch (e: any) {
+    console.error('Failed to load branding:', e)
+  } finally {
+    brandingLoading.value = false
+  }
+}
+
+async function saveBranding() {
+  brandingSaving.value = true
+  brandingSaved.value = false
+  brandingError.value = ''
+  try {
+    await api.post('/api/admin/tenant-settings', { ...branding })
+    brandingSaved.value = true
+  } catch (e: any) {
+    brandingError.value = e?.message || 'Failed to save branding'
+  } finally {
+    brandingSaving.value = false
+  }
+}
+
+async function uploadLogo(file: File | File[] | null) {
+  if (!file || Array.isArray(file)) return
+  try {
+    const formData = new FormData()
+    formData.append('logo', file)
+    const res: any = await api.post('/api/admin/tenant-settings/upload-logo', formData)
+    if (res?.logoUrl) branding.logoUrl = res.logoUrl
+  } catch (e: any) {
+    brandingError.value = 'Failed to upload logo'
+  } finally {
+    logoFile.value = null
+  }
+}
+
+async function uploadImageField(file: File, fieldName: string) {
+  try {
+    const formData = new FormData()
+    formData.append('logo', file)
+    const res: any = await api.post('/api/admin/tenant-settings/upload-logo', formData)
+    if (res?.logoUrl) (branding as any)[fieldName] = res.logoUrl
+  } catch (e: any) {
+    brandingError.value = `Failed to upload ${fieldName}`
+  }
+}
+
+async function uploadFavicon(file: File | File[] | null) {
+  if (!file || Array.isArray(file)) return
+  await uploadImageField(file, 'faviconUrl')
+  faviconFile.value = null
+}
+
+async function uploadBrokerageLogo(file: File | File[] | null) {
+  if (!file || Array.isArray(file)) return
+  await uploadImageField(file, 'brokerageLogoUrl')
+  brokerageLogoFile.value = null
+}
+
+async function handleContentImageUpload(file: File | File[] | null) {
+  if (!file || Array.isArray(file)) return
+  try {
+    const formData = new FormData()
+    formData.append('image', file)
+    const res: any = await api.post('/api/admin/content/upload', formData)
+    if (res?.url) contentForm.content = res.url
+  } catch (e: any) {
+    console.error('Image upload failed:', e)
+  } finally {
+    contentForm.file = null
+  }
+}
 
 const getCurrentSection = computed(() => {
   return contentSections.value.find(s => s.id === selectedSection.value)
@@ -580,11 +880,61 @@ const getTypeColor = (type: string) => {
 
 const formatDateTime = (date: Date | string) => new Date(date).toLocaleString()
 
+const aboutDefaults: Array<{ key: string; title: string; type: string; content: string; metadata?: Record<string, any> }> = [
+  { key: 'about.hero.title', title: 'Hero Title', type: 'text', content: 'ABOUT.' },
+  { key: 'about.hero.subtitle', title: 'Hero Subtitle', type: 'text', content: "I'm passionate about innovation and driven by impact." },
+  { key: 'about.hero.description', title: 'Hero Description', type: 'text', content: 'Providing excellence in real estate services with a personalized approach. Helping you navigate the journey home with safety and peace of mind.' },
+  { key: 'about.hero.image', title: 'Hero Image (Profile Photo)', type: 'image', content: '/images/about/abdul.JPG' },
+  { key: 'about.story.title', title: 'Story Title', type: 'text', content: 'A Realtor with a Purpose' },
+  { key: 'about.story.name', title: 'Story Author Name', type: 'text', content: 'Abdul Ojulari' },
+  { key: 'about.story.role', title: 'Story Author Role / Title', type: 'text', content: 'eXp Realty | Licensed REALTOR®' },
+  { key: 'about.story.content', title: 'Story Content (HTML)', type: 'hero-title', content: `<p>With over 20 years of experience in the IT industry as a Senior Software Developer, I bring a strong analytical mindset and technology-driven approach to real estate. I hold multiple industry certifications, and have developed innovative software solutions for the real estate industry that simplify processes and enhance the client experience.</p><p>Now a licensed REALTOR® in Alberta specializing in residential real estate, I am passionate about helping clients feel confident, informed, and supported throughout every stage of their real estate journey. My background allows me to offer data-driven insights, clear guidance, and strategic advice so clients can make well-informed decisions.</p><p>Whether you are buying or selling, I go above and beyond to ensure your needs are clearly understood and fully represented. I believe no client should ever feel confused or pressured.</p><p>Approachable, responsive, and easy to work with, I value collaboration and continuously learn from my clients to deliver exceptional results while providing honest advice and meaningful market insights.</p>` },
+  { key: 'about.values.1', title: 'Work Hard', type: 'text', content: 'My mission is to work hard to find you your forever home.', metadata: { icon: 'mdi-hammer-wrench' } },
+  { key: 'about.values.2', title: 'Live Well', type: 'text', content: 'The right home is the essential ingredient needed to live well.', metadata: { icon: 'mdi-home-heart' } },
+  { key: 'about.values.3', title: 'Give Back', type: 'text', content: 'When I find the right match, your new home will give back to your life.', metadata: { icon: 'mdi-hand-heart' } },
+  { key: 'about.connect.heading', title: 'Connect Heading', type: 'text', content: 'Connect With Me' },
+  { key: 'about.connect.description', title: 'Connect Description', type: 'text', content: 'Scan the QR code to save my contact details directly to your phone or find me on your favorite platform.' },
+  { key: 'about.cta.areas', title: 'CTA Area Names', type: 'text', content: 'WINDERMERE • QUARRY RIDGE • LAKESIDE' },
+  { key: 'about.cta.title', title: 'CTA Title', type: 'text', content: 'Ready to Find Your Dream Home?' },
+  { key: 'about.cta.subtitle', title: 'CTA Subtitle', type: 'text', content: "Let's work together to make your real estate goals a reality in Edmonton's most prestigious communities." },
+  { key: 'about.cta.image', title: 'CTA Background Image', type: 'image', content: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop' },
+  { key: 'about.meta.title', title: 'Meta Title (SEO)', type: 'text', content: 'About | Real Estate Expert' },
+  { key: 'about.meta.description', title: 'Meta Description (SEO)', type: 'text', content: 'Learn about your trusted real estate professional.' },
+]
+
+const seedAboutDefaults = async () => {
+  const promises = aboutDefaults.map(item =>
+    api.post('/api/admin/content', {
+      key: item.key,
+      title: item.title,
+      type: item.type,
+      section: 'about',
+      content: item.content,
+      published: true,
+      metadata: { section: 'about', published: true, ...(item.metadata || {}) },
+    })
+  )
+  await Promise.all(promises)
+  const items = await api.get('/api/admin/content?section=about')
+  contentItems.value = items as any[]
+  const sec = contentSections.value.find(s => s.id === 'about')
+  if (sec) sec.items = contentItems.value.length
+}
+
 const selectSection = async (sectionId: string) => {
   selectedSection.value = sectionId
+  if (sectionId === 'branding') {
+    await loadBranding()
+    return
+  }
   try {
     const items = await api.get(`/api/admin/content?section=${sectionId}`)
     contentItems.value = items as any[]
+    const sec = contentSections.value.find(s => s.id === sectionId)
+    if (sec) sec.items = contentItems.value.length
+    if (sectionId === 'about' && contentItems.value.length === 0) {
+      await seedAboutDefaults()
+    }
   } catch (e) { console.error(e) }
 }
 
@@ -763,30 +1113,35 @@ const saveContent = async () => {
 
 onMounted(async () => {
   try {
-    const [sections, items] = await Promise.all([
-      api.get('/api/admin/content/sections'),
-      api.get('/api/admin/content?section=home')
-    ])
+    const sections = await api.get('/api/admin/content/sections')
+    const brandingSection = { id: 'branding', title: 'Site Branding', icon: 'mdi-palette-swatch', items: 0, hasUnpublished: false }
     const defaults = [
+      brandingSection,
       { id: 'home', title: 'Home Page', icon: 'mdi-home', items: 0, hasUnpublished: false },
       { id: 'about', title: 'About Us', icon: 'mdi-information', items: 0, hasUnpublished: false },
       { id: 'testimonials', title: 'Testimonials', icon: 'mdi-account-voice', items: 0, hasUnpublished: false }
     ]
-    contentSections.value = (sections as any[])?.length ? (sections as any[]) : defaults
-    contentItems.value = items as any[]
+    const apiSections = (sections as any[])?.length ? (sections as any[]) : defaults
+    contentSections.value = [brandingSection, ...apiSections.filter((s: any) => s.id !== 'branding')]
+
     if (!selectedSection.value && contentSections.value.length) {
       selectedSection.value = contentSections.value[0].id
     }
-    // No extra preload needed; table shows the selected section already
+
+    if (selectedSection.value === 'branding') {
+      await loadBranding()
+    } else {
+      await selectSection(selectedSection.value!)
+    }
   } catch (e) {
     console.error('Error loading content data:', e)
-    // Fallback to defaults if API fails
     contentSections.value = [
+      { id: 'branding', title: 'Site Branding', icon: 'mdi-palette-swatch', items: 0, hasUnpublished: false },
       { id: 'home', title: 'Home Page', icon: 'mdi-home', items: 0, hasUnpublished: false },
       { id: 'about', title: 'About Us', icon: 'mdi-information', items: 0, hasUnpublished: false },
       { id: 'testimonials', title: 'Testimonials', icon: 'mdi-account-voice', items: 0, hasUnpublished: false }
     ]
-    selectedSection.value = 'home'
+    selectedSection.value = 'branding'
   }
 })
 
@@ -1008,6 +1363,70 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
 .hover-bg-slate-50:hover {
   background: #F8FAFC !important;
+}
+
+/* ── Brand Upload Cards ── */
+.brand-upload-card {
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 16px;
+  background: #F8FAFC;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.brand-upload-card__label {
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748B;
+}
+
+.brand-upload-card__preview {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  padding: 12px;
+  min-height: 64px;
+}
+
+.brand-upload-card__img {
+  object-fit: contain;
+  display: block;
+}
+
+.brand-upload-card__img--logo {
+  max-height: 48px;
+  max-width: 180px;
+}
+
+.brand-upload-card__img--favicon {
+  max-height: 32px;
+  max-width: 32px;
+}
+
+.brand-upload-card__img--hero {
+  max-height: 180px;
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+.brand-upload-card__remove {
+  position: absolute !important;
+  top: 4px;
+  right: 4px;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.brand-upload-card__remove:hover {
+  opacity: 1;
 }
 
 .max-width-300 {

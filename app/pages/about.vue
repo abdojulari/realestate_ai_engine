@@ -7,18 +7,15 @@
           <div class="h-1 w-24 bg-primary mb-10"></div>
           
           <h1 class="text-display font-weight-black text-white leading-tight mb-8">
-             {{ heroTitle || 'ABOUT.' }}
+             {{ heroTitle }}
           </h1>
 
           <p class="text-h5 text-white font-weight-bold mb-8 leading-snug opacity-90">
-            {{ heroSubtitle || "I'm passionate about innovation and driven by impact." }}
+            {{ heroSubtitle }}
           </p>
 
           <div class="editorial-text text-grey-lighten-2">
-            <p>
-              Providing excellence in real estate services with a personalized approach. 
-              Helping you navigate the journey home with safety and peace of mind.
-            </p>
+            <p>{{ heroDescription }}</p>
           </div>
         </div>
       </div>
@@ -27,7 +24,7 @@
         <div 
           class="absolute inset-0 bg-cover bg-center transition-transform duration-1000 scale-105"
           :style="{ 
-            backgroundImage: `url(${profileImage || '/images/about/abdul.JPG'})`,
+            backgroundImage: `url(${profileImage})`,
             backgroundPosition: 'center 1%'
           }"
         ></div>
@@ -40,30 +37,18 @@
         <v-row justify="space-between" align="start">
           <v-col cols="12" md="5" class="mb-8 mb-md-0">
             <h2 class="text-h3 font-weight-bold text-black mb-6 leading-tight">
-              {{ storyTitle || 'A Realtor with a Purpose' }}
+              {{ storyTitle }}
             </h2>
             <div class="pa-6 border-l-4 border-primary bg-grey-lighten-4">
-              <p class="text-h6 mb-1 font-weight-bold">Abdul Ojulari</p>
-              <p class="text-subtitle-1 text-grey-darken-1">eXp Realty | Licensed REALTOR®</p>
+              <p class="text-h6 mb-1 font-weight-bold">{{ storyName }}</p>
+              <p class="text-subtitle-1 text-grey-darken-1">{{ storyRole }}</p>
             </div>
           </v-col>
           
           <v-col cols="12" md="6">
             <div v-if="storyContent" v-html="storyContent" class="editorial-text"></div>
             <div v-else class="editorial-text">
-              <p>
-                With over 20 years of experience in the IT industry as a Senior Software Developer, 
-                I bring a strong analytical mindset and technology-driven approach to real estate. 
-                I hold multiple industry certifications, and have developed innovative software 
-                solutions for the real estate industry that simplify processes and enhance the client experience.
-              </p>
-              <p>
-                Now a licensed REALTOR® in Alberta specializing in residential real estate, I am passionate about helping clients feel confident, informed, and supported throughout every stage of their real estate journey. My background allows me to offer data-driven insights, clear guidance, and strategic advice so clients can make well-informed decisions.
-
-Whether you are buying or selling, I go above and beyond to ensure your needs are clearly understood and fully represented. I believe no client should ever feel confused or pressured.
-
-Approachable, responsive, and easy to work with, I value collaboration and continuously learn from my clients to deliver exceptional results while providing honest advice and meaningful market insights.
-              </p>
+              <p>{{ storyContentDefault }}</p>
             </div>
           </v-col>
         </v-row>
@@ -74,37 +59,33 @@ Approachable, responsive, and easy to work with, I value collaboration and conti
       <v-container>
         <v-row align="center">
           <v-col cols="12" md="7">
-            <h3 class="text-h4 font-weight-bold mb-6 tracking-tight">Connect With Me</h3>
+            <h3 class="text-h4 font-weight-bold mb-6 tracking-tight">{{ connectHeading }}</h3>
             <p class="text-body-1 mb-10 text-grey-lighten-1 max-w-md leading-relaxed">
-              Scan the QR code to save my contact details directly to your phone or find me on your favorite platform.
+              {{ connectDescription }}
             </p>
             
-            <div class="d-flex flex-wrap gap-4 mb-12">
-              <v-btn icon href="https://www.facebook.com/realtorabdulojulari" target="_blank" class="social-btn facebook">
-                <v-icon size="28">mdi-facebook</v-icon>
-              </v-btn>
-
-              <v-btn icon href="https://instagram.com/homesbyabdul_o" target="_blank" class="social-btn instagram">
-                <v-icon size="28">mdi-instagram</v-icon>
-              </v-btn>
-
-              <v-btn icon href="https://www.linkedin.com/in/abdulojulari/" target="_blank" class="social-btn linkedin">
-                <v-icon size="28">mdi-linkedin</v-icon>
-              </v-btn>
-
-              <v-btn icon href="https://x.com/OMcpayne" target="_blank" class="social-btn x-twitter">
-                <v-icon size="24">mdi-twitter</v-icon>
+            <div v-if="tenantSocialLinks.length" class="d-flex flex-wrap gap-4 mb-12">
+              <v-btn
+                v-for="social in tenantSocialLinks"
+                :key="social.name"
+                icon
+                :href="social.url"
+                target="_blank"
+                class="social-btn"
+                :class="getSocialClass(social.name)"
+              >
+                <v-icon size="28">{{ getSocialIcon(social.name) }}</v-icon>
               </v-btn>
             </div>
 
             <div class="d-flex flex-column gap-4">
-              <a href="mailto:abdul.ojulari@exprealty.com" class="contact-link">
+              <a v-if="contactEmail" :href="`mailto:${contactEmail}`" class="contact-link">
                 <v-icon size="20" class="mr-3 text-primary">mdi-email-outline</v-icon> 
-                abdul.ojulari@exprealty.com
+                {{ contactEmail }}
               </a>
-              <a href="tel:6475637235" class="contact-link">
+              <a v-if="contactPhone" :href="`tel:${contactPhone.replace(/[^+\d]/g, '')}`" class="contact-link">
                 <v-icon size="20" class="mr-3 text-primary">mdi-phone-outline</v-icon> 
-                647-563-7235
+                {{ contactPhone }}
               </a>
             </div>
           </v-col>
@@ -113,7 +94,7 @@ Approachable, responsive, and easy to work with, I value collaboration and conti
             <div class="qr-card">
               <div class="qr-bg">
                 <img 
-                  :src="`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=BEGIN:VCARD%0AVERSION:3.0%0AFN:Abdul+Ojulari%0ATEL:6475637235%0AEMAIL:abdul.ojulari@exprealty.com%0AEND:VCARD`" 
+                  :src="qrCodeUrl" 
                   alt="Contact QR Code"
                 />
               </div>
@@ -151,8 +132,8 @@ Approachable, responsive, and easy to work with, I value collaboration and conti
 
     <section class="relative min-h-[60vh] d-flex align-center overflow-hidden">
       <v-parallax
-        src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop"
-        alt="Luxury Property in Windermere"
+        :src="ctaImage"
+        alt="Featured Property"
         scale="0.7"
       >
         <div class="absolute inset-0 bg-black/60 d-flex align-center">
@@ -160,26 +141,27 @@ Approachable, responsive, and easy to work with, I value collaboration and conti
             <v-row justify="center">
               <v-col cols="12" md="10" lg="8" class="text-center text-white">
                 <span class="text-overline font-weight-bold tracking-[0.3em] mb-4 d-block opacity-80">
-                  WINDERMERE • QUARRY RIDGE • LAKESIDE
+                  {{ ctaAreas }}
                 </span>
                 
                 <h2 class="text-h3 md:text-h2 mb-6 font-weight-black leading-tight">
-                  {{ ctaTitle || 'Ready to Find Your Dream Home?' }}
+                  {{ ctaTitle }}
                 </h2>
                 
                 <div class="w-16 h-1 bg-white mx-auto mb-10"></div>
                 
                 <p class="text-h6 mb-12 opacity-90 leading-relaxed font-weight-light max-w-2xl mx-auto">
-                  {{ ctaSubtitle || "Let's work together to make your real estate goals a reality in Edmonton's most prestigious communities." }}
+                  {{ ctaSubtitle }}
                 </p>
                 
                 <div class="d-flex flex-column flex-sm-row justify-center gap-6">
                   <v-btn 
+                    v-if="contactPhone"
                     size="x-large" 
                     variant="flat" 
                     color="white" 
                     class="px-12 rounded-0 text-black font-weight-bold transition-all hover:scale-105" 
-                    :href="`tel:6475637235`"
+                    :href="`tel:${contactPhone.replace(/[^+\d]/g, '')}`"
                   >
                     CALL NOW
                   </v-btn>
@@ -204,81 +186,154 @@ Approachable, responsive, and easy to work with, I value collaboration and conti
 </template>
 
 <script setup lang="ts">
-const heroTitle = ref<string>('')
-const heroSubtitle = ref<string>('')
-const profileImage = ref<string>('')
-const phone = ref<string>('647-563-7235')
-const email = ref<string>('abdul.ojulari@exprealty.com')
+const { businessName, phone, contactEmail: tenantEmail, socialLinks: tenantSocialLinks } = useTenantSettings()
 
-const storyTitle = ref<string>('')
-const storyContent = ref<string>('')
-const personalQuote = ref<string>('')
-const coreValues = ref<any[]>([])
+// ── Defaults (current hardcoded values preserved as fallbacks) ──
+const DEFAULTS = {
+  heroTitle: 'ABOUT.',
+  heroSubtitle: "I'm passionate about innovation and driven by impact.",
+  heroDescription: 'Providing excellence in real estate services with a personalized approach. Helping you navigate the journey home with safety and peace of mind.',
+  profileImage: '/images/about/abdul.JPG',
+  storyTitle: 'A Realtor with a Purpose',
+  storyName: 'Abdul Ojulari',
+  storyRole: 'eXp Realty | Licensed REALTOR®',
+  storyContent: '',
+  storyContentDefault: `With over 20 years of experience in the IT industry as a Senior Software Developer, I bring a strong analytical mindset and technology-driven approach to real estate. I hold multiple industry certifications, and have developed innovative software solutions for the real estate industry that simplify processes and enhance the client experience.
+
+Now a licensed REALTOR® in Alberta specializing in residential real estate, I am passionate about helping clients feel confident, informed, and supported throughout every stage of their real estate journey. My background allows me to offer data-driven insights, clear guidance, and strategic advice so clients can make well-informed decisions.
+
+Whether you are buying or selling, I go above and beyond to ensure your needs are clearly understood and fully represented. I believe no client should ever feel confused or pressured.
+
+Approachable, responsive, and easy to work with, I value collaboration and continuously learn from my clients to deliver exceptional results while providing honest advice and meaningful market insights.`,
+  connectHeading: 'Connect With Me',
+  connectDescription: 'Scan the QR code to save my contact details directly to your phone or find me on your favorite platform.',
+  ctaAreas: 'WINDERMERE • QUARRY RIDGE • LAKESIDE',
+  ctaTitle: 'Ready to Find Your Dream Home?',
+  ctaSubtitle: "Let's work together to make your real estate goals a reality in Edmonton's most prestigious communities.",
+  ctaImage: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop',
+  metaTitle: 'About | Real Estate Expert',
+  metaDescription: 'Learn about your trusted real estate professional.',
+  defaultValues: [
+    { key: 'work-hard', title: 'Work Hard', description: 'My mission is to work hard to find you your forever home.', icon: 'mdi-hammer-wrench' },
+    { key: 'live-well', title: 'Live Well', description: 'The right home is the essential ingredient needed to live well.', icon: 'mdi-home-heart' },
+    { key: 'give-back', title: 'Give Back', description: 'When I find the right match, your new home will give back to your life.', icon: 'mdi-hand-heart' },
+  ],
+}
+
+// ── Reactive CMS state ──
+const heroTitle = ref(DEFAULTS.heroTitle)
+const heroSubtitle = ref(DEFAULTS.heroSubtitle)
+const heroDescription = ref(DEFAULTS.heroDescription)
+const profileImage = ref(DEFAULTS.profileImage)
+const storyTitle = ref(DEFAULTS.storyTitle)
+const storyName = ref(DEFAULTS.storyName)
+const storyRole = ref(DEFAULTS.storyRole)
+const storyContent = ref(DEFAULTS.storyContent)
+const storyContentDefault = ref(DEFAULTS.storyContentDefault)
+const connectHeading = ref(DEFAULTS.connectHeading)
+const connectDescription = ref(DEFAULTS.connectDescription)
+const coreValues = ref<any[]>(DEFAULTS.defaultValues)
 const stats = ref<any[]>([])
-const testimonials = ref<any[]>([])
-const ctaTitle = ref<string>('')
-const ctaSubtitle = ref<string>('')
-const ctaButtonText = ref<string>('')
-const ctaButtonLink = ref<string>('')
+const ctaAreas = ref(DEFAULTS.ctaAreas)
+const ctaTitle = ref(DEFAULTS.ctaTitle)
+const ctaSubtitle = ref(DEFAULTS.ctaSubtitle)
+const ctaImage = ref(DEFAULTS.ctaImage)
+const metaTitle = ref(DEFAULTS.metaTitle)
+const metaDescription = ref(DEFAULTS.metaDescription)
+
+// ── Contact info from tenant settings ──
+const contactPhone = computed(() => phone.value || '647-563-7235')
+const contactEmail = computed(() => tenantEmail.value || 'abdul.ojulari@exprealty.com')
+
+const qrCodeUrl = computed(() => {
+  const name = encodeURIComponent(storyName.value || DEFAULTS.storyName)
+  const tel = contactPhone.value.replace(/[^+\d]/g, '')
+  const em = contactEmail.value
+  return `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=BEGIN:VCARD%0AVERSION:3.0%0AFN:${name}%0ATEL:${tel}%0AEMAIL:${em}%0AEND:VCARD`
+})
+
+function getSocialIcon(name: string): string {
+  const n = name.toLowerCase()
+  if (n.includes('facebook')) return 'mdi-facebook'
+  if (n.includes('instagram')) return 'mdi-instagram'
+  if (n.includes('linkedin')) return 'mdi-linkedin'
+  if (n.includes('twitter') || n.includes('x.com') || n === 'x') return 'mdi-twitter'
+  if (n.includes('youtube')) return 'mdi-youtube'
+  if (n.includes('tiktok')) return 'mdi-music-note'
+  return 'mdi-link'
+}
+
+function getSocialClass(name: string): string {
+  const n = name.toLowerCase()
+  if (n.includes('facebook')) return 'facebook'
+  if (n.includes('instagram')) return 'instagram'
+  if (n.includes('linkedin')) return 'linkedin'
+  if (n.includes('twitter') || n.includes('x.com') || n === 'x') return 'x-twitter'
+  return ''
+}
+
+// ── Helper: pick CMS value or keep default ──
+function apply(item: any, target: Ref<string>) {
+  if (item?.content) target.value = item.content
+}
 
 onMounted(async () => {
   try {
     const pageData = await $fetch('/api/content/page/about') as any
     const items: any[] = pageData?.items || []
-    
-    const heroTitleItem = items.find(i => i.key === 'about.hero.title')
-    const heroSubtitleItem = items.find(i => i.key === 'about.hero.subtitle' || i.key === 'about-subtitle')
-    const profileImageItem = items.find(i => i.key === 'about.hero.image' || i.key === 'about-image')
-    
-    if (heroTitleItem?.content) heroTitle.value = heroTitleItem.content
-    if (heroSubtitleItem?.content) heroSubtitle.value = heroSubtitleItem.content
-    if (profileImageItem?.content) profileImage.value = profileImageItem.content
-    
-    const storyTitleItem = items.find(i => i.key === 'about.story.title' || i.key === 'about-title')
-    const storyContentItem = items.find(i => i.key === 'about.story.content' || i.key === 'about-body')
-    if (storyTitleItem?.content) storyTitle.value = storyTitleItem.content
-    if (storyContentItem?.content) storyContent.value = storyContentItem.content
-    
+
+    const find = (key: string | string[]) => {
+      const keys = Array.isArray(key) ? key : [key]
+      return items.find(i => keys.includes(i.key))
+    }
+
+    apply(find('about.hero.title'), heroTitle)
+    apply(find(['about.hero.subtitle', 'about-subtitle']), heroSubtitle)
+    apply(find('about.hero.description'), heroDescription)
+    apply(find(['about.hero.image', 'about-image']), profileImage)
+    apply(find(['about.story.title', 'about-title']), storyTitle)
+    apply(find('about.story.name'), storyName)
+    apply(find('about.story.role'), storyRole)
+    apply(find(['about.story.content', 'about-body']), storyContent)
+    apply(find('about.connect.heading'), connectHeading)
+    apply(find('about.connect.description'), connectDescription)
+    apply(find('about.cta.areas'), ctaAreas)
+    apply(find('about.cta.title'), ctaTitle)
+    apply(find('about.cta.subtitle'), ctaSubtitle)
+    apply(find('about.cta.image'), ctaImage)
+    apply(find('about.meta.title'), metaTitle)
+    apply(find('about.meta.description'), metaDescription)
+
     const valueItems = items.filter(i => i.key.startsWith('about.values.'))
-    coreValues.value = valueItems.length > 0 ? valueItems.map(item => ({
-      key: item.key,
-      title: item.title,
-      description: item.content,
-      icon: 'mdi-check-circle'
-    })) : [
-      { key: 'work-hard', title: 'Work Hard', description: 'My mission is to work hard to find you your forever home.', icon: 'mdi-hammer-wrench' },
-      { key: 'live-well', title: 'Live Well', description: 'The right home is the essential ingredient needed to live well.', icon: 'mdi-home-heart' },
-      { key: 'give-back', title: 'Give Back', description: 'When I find the right match, your new home will give back to your life.', icon: 'mdi-hand-heart' }
-    ]
+    if (valueItems.length > 0) {
+      coreValues.value = valueItems.map(item => ({
+        key: item.key,
+        title: item.title,
+        description: item.content,
+        icon: item.metadata?.icon || 'mdi-check-circle',
+      }))
+    }
 
     const statItems = items.filter(i => i.key.startsWith('about.stats.'))
     stats.value = statItems.map(item => ({ key: item.key, value: item.content, label: item.title }))
-
-    const ctaTitleItem = items.find(i => i.key === 'about.cta.title')
-    const ctaSubtitleItem = items.find(i => i.key === 'about.cta.subtitle')
-    if (ctaTitleItem?.content) ctaTitle.value = ctaTitleItem.content
-    if (ctaSubtitleItem?.content) ctaSubtitle.value = ctaSubtitleItem.content
-
   } catch (error) {
     console.error('Error loading about content:', error)
   }
 })
 
 useHead({
-  title: 'About Abdul Ojulari | Real Estate Expert',
-  meta: [{ name: 'description', content: 'Learn about your trusted real estate professional.' }]
+  title: computed(() => metaTitle.value),
+  meta: [{ name: 'description', content: computed(() => metaDescription.value) as any }],
 })
 </script>
 
 <style scoped>
-/* High-End Hero Typography */
 .text-display {
-  font-size: clamp(2.5rem, 8vw, 5.5rem); /* Matches the massive header in the reference */
+  font-size: clamp(2.5rem, 8vw, 5.5rem);
   letter-spacing: -0.05em;
   text-transform: uppercase;
 }
 
-/* Fix for the crowded text */
 .editorial-text {
   font-size: 1.15rem;
   line-height: 2.1; 
@@ -288,7 +343,6 @@ useHead({
 .editorial-text :deep(p) { margin-bottom: 2rem; }
 .editorial-text :deep(li) { margin-bottom: 1rem; }
 
-/* Social Icons Brand Colors */
 .social-btn { color: white !important; transition: transform 0.3s ease !important; }
 .social-btn:hover { transform: translateY(-5px); }
 .facebook { background-color: #1877F2 !important; }
@@ -298,7 +352,6 @@ useHead({
   background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%) !important; 
 }
 
-/* Contact Links */
 .contact-link {
   text-decoration: none;
   color: #f5f5f5;
@@ -307,7 +360,6 @@ useHead({
 }
 .contact-link:hover { color: #1976D2; }
 
-/* UI Elements */
 .qr-card {
   display: inline-block;
   background: white;
