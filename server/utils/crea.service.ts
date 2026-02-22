@@ -317,12 +317,13 @@ class CreaService {
     // Build filter conditions array
     const filterConditions: string[] = []
     
-    // ALWAYS filter to Active listings only (unless explicitly requesting sold)
-    if (filters.includeSold) {
-      // Include both active and sold
+    if (filters.standardStatus) {
+      const statuses = Array.isArray(filters.standardStatus) ? filters.standardStatus : [filters.standardStatus]
+      const clause = statuses.map((s: string) => `StandardStatus eq '${s}'`).join(' or ')
+      filterConditions.push(statuses.length > 1 ? `(${clause})` : clause)
+    } else if (filters.includeSold) {
       filterConditions.push("(StandardStatus eq 'Active' or StandardStatus eq 'Sold')")
     } else {
-      // Default: Only active listings
       filterConditions.push("StandardStatus eq 'Active'")
     }
 
@@ -633,13 +634,18 @@ class CreaService {
       return null // Return null to indicate this should be filtered out
     }
 
-    // Extract status - CREA uses "A - ACTIVE" format
-    let status = 'for_sale' // default
+    let status = 'for_sale'
     const creaStatus = creaProp.StandardStatus?.toLowerCase() || ''
     if (creaStatus.includes('active') || creaStatus === 'a - active') {
       status = 'for_sale'
     } else if (creaStatus.includes('sold') || creaStatus.includes('closed')) {
       status = 'sold'
+    } else if (creaStatus.includes('terminated') || creaStatus.includes('cancel')) {
+      status = 'terminated'
+    } else if (creaStatus.includes('withdrawn')) {
+      status = 'withdrawn'
+    } else if (creaStatus.includes('expired')) {
+      status = 'expired'
     }
 
     // Extract images and sort by order (Media is included by default in CREA DDF OData API)

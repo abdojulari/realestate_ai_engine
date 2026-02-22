@@ -333,6 +333,7 @@ const allMenuItems = [
   { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties', requiresFeature: null },
   { title: 'Listing Templates', icon: 'mdi-image-multiple', to: '/admin/listing-templates', requiresFeature: null },
   { title: 'Best Deals', icon: 'mdi-tag-arrow-down', to: '/admin/deals', requiresFeature: FEATURES.BEST_DEALS, tier: 'gold' },
+  { title: 'Off-Market', icon: 'mdi-home-off-outline', to: '/admin/off-market', requiresFeature: null, superAdminOnly: true },
   { title: 'Calendar', icon: 'mdi-calendar-clock', to: '/admin/calendar', requiresFeature: null },
   { title: 'Facebook', icon: 'mdi-facebook', to: '/admin/facebook', requiresFeature: null },
   { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null },
@@ -358,10 +359,9 @@ const menuItems = computed(() => {
     }))
   }
   return allMenuItems
-    .filter(item => {
-      // Always show items without feature requirements
+    .filter((item: any) => {
+      if (item.superAdminOnly) return false
       if (!item.requiresFeature) return true
-      // Check if user has the required feature
       return hasFeature(item.requiresFeature as any)
     })
     .map(item => ({
