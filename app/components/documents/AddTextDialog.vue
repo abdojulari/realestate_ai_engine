@@ -21,7 +21,7 @@
             <v-select density="compact"
               v-model="page"
               :items="Array.from({ length: totalPages }, (_, i) => ({ title: `Page ${i + 1}`, value: i + 1 }))"
-              label="Page" variant="outlined" density="compact"
+              label="Page" variant="outlined"
             />
           </v-col>
         </v-row>

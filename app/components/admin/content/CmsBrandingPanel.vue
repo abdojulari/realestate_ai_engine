@@ -1,0 +1,267 @@
+<template>
+  <v-card class="premium-card">
+    <div class="p-8 border-b border-slate-100 d-flex align-center">
+      <div class="icon-orb mr-4">
+        <v-icon color="primary" size="24">mdi-palette-swatch</v-icon>
+      </div>
+      <div>
+        <h2 class="text-h6 font-weight-bold">Site Branding</h2>
+        <p class="text-caption text-slate-400 mb-0">Manage logos, contact info, and footer content for your Header &amp; Footer</p>
+      </div>
+    </div>
+    <v-card-text class="p-8">
+      <v-alert v-if="saved" type="success" variant="tonal" density="compact" closable class="mb-6" @click:close="saved = false">Branding saved successfully!</v-alert>
+      <v-alert v-if="error" type="error" variant="tonal" density="compact" closable class="mb-6" @click:close="error = ''">{{ error }}</v-alert>
+
+      <!-- Header Logo -->
+      <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">HEADER</div>
+      <v-row dense class="mb-2">
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.businessName" label="Business Name" variant="outlined" density="compact" hint="Displayed as alt-text and fallback" persistent-hint />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.tagline" label="Tagline" variant="outlined" density="compact" hint="Short line below logo in footer" persistent-hint />
+        </v-col>
+      </v-row>
+      <v-row dense class="mb-6">
+        <v-col cols="12" md="6">
+          <div class="brand-upload-card">
+            <div class="brand-upload-card__label">Site Logo</div>
+            <div class="brand-upload-card__preview">
+              <img :src="siteLogoPreview" alt="Current logo" class="brand-upload-card__img brand-upload-card__img--logo" />
+              <v-btn v-if="branding.logoUrl" variant="text" color="error" size="x-small" icon="mdi-close-circle" class="brand-upload-card__remove" @click="branding.logoUrl = ''" />
+            </div>
+            <v-file-input v-model="logoFile" label="Replace logo" accept="image/*" show-size prepend-icon="" prepend-inner-icon="mdi-camera" variant="outlined" density="compact" hide-details @update:model-value="uploadLogo" />
+          </div>
+        </v-col>
+        <v-col cols="12" md="6">
+          <div class="brand-upload-card">
+            <div class="brand-upload-card__label">Favicon</div>
+            <div class="brand-upload-card__preview">
+              <img :src="faviconPreview" alt="Favicon" class="brand-upload-card__img brand-upload-card__img--favicon" />
+              <v-btn v-if="branding.faviconUrl" variant="text" color="error" size="x-small" icon="mdi-close-circle" class="brand-upload-card__remove" @click="branding.faviconUrl = ''" />
+            </div>
+            <v-file-input v-model="faviconFile" label="Replace favicon" accept="image/*,.ico" show-size prepend-icon="" prepend-inner-icon="mdi-star-four-points" variant="outlined" density="compact" hide-details @update:model-value="uploadFavicon" />
+          </div>
+        </v-col>
+      </v-row>
+
+      <v-divider class="my-6" />
+
+      <!-- Contact Info -->
+      <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">CONTACT INFO</div>
+      <v-row dense class="mb-2">
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.phone" label="Phone Number" variant="outlined" density="compact" prepend-inner-icon="mdi-phone" />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.email" label="Contact Email" variant="outlined" density="compact" prepend-inner-icon="mdi-email" />
+        </v-col>
+      </v-row>
+      <v-row dense class="mb-6">
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.address" label="Address" variant="outlined" density="compact" prepend-inner-icon="mdi-map-marker" />
+        </v-col>
+        <v-col cols="12" md="3">
+          <v-text-field v-model="branding.city" label="City" variant="outlined" density="compact" />
+        </v-col>
+        <v-col cols="6" md="1.5">
+          <v-text-field v-model="branding.province" label="Province" variant="outlined" density="compact" />
+        </v-col>
+        <v-col cols="6" md="1.5">
+          <v-text-field v-model="branding.postalCode" label="Postal Code" variant="outlined" density="compact" />
+        </v-col>
+      </v-row>
+
+      <v-divider class="my-6" />
+
+      <!-- Brokerage -->
+      <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">BROKERAGE</div>
+      <v-row dense class="mb-2">
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.brokerageName" label="Brokerage Name" variant="outlined" density="compact" />
+        </v-col>
+        <v-col cols="12" md="6">
+          <div class="brand-upload-card">
+            <div class="brand-upload-card__label">Brokerage Logo</div>
+            <div v-if="branding.brokerageLogoUrl" class="brand-upload-card__preview">
+              <img :src="branding.brokerageLogoUrl" alt="Brokerage logo" class="brand-upload-card__img brand-upload-card__img--logo" />
+              <v-btn variant="text" color="error" size="x-small" icon="mdi-close-circle" class="brand-upload-card__remove" @click="branding.brokerageLogoUrl = ''" />
+            </div>
+            <v-file-input v-model="brokerageLogoFile" label="Upload brokerage logo" accept="image/*" show-size prepend-icon="" prepend-inner-icon="mdi-domain" variant="outlined" density="compact" hide-details @update:model-value="uploadBrokerageLogo" />
+          </div>
+        </v-col>
+      </v-row>
+
+      <v-divider class="my-6" />
+
+      <!-- Social Links -->
+      <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">SOCIAL LINKS</div>
+      <v-row v-for="(link, i) in branding.socialLinks" :key="i" dense class="mb-2">
+        <v-col cols="12" md="4">
+          <v-text-field v-model="link.name" label="Name" variant="outlined" density="compact" placeholder="e.g. Instagram" />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-text-field v-model="link.url" label="URL" variant="outlined" density="compact" placeholder="https://..." prepend-inner-icon="mdi-link" />
+        </v-col>
+        <v-col cols="12" md="2" class="d-flex align-center">
+          <v-btn icon="mdi-delete" variant="text" color="error" size="small" @click="branding.socialLinks.splice(i, 1)" />
+        </v-col>
+      </v-row>
+      <v-btn variant="tonal" size="small" prepend-icon="mdi-plus" @click="branding.socialLinks.push({ icon: '', name: '', url: '' })" class="mb-6">Add Social Link</v-btn>
+
+      <v-divider class="my-6" />
+
+      <!-- Footer / Legal -->
+      <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">FOOTER &amp; LEGAL</div>
+      <v-row dense class="mb-2">
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.copyrightName" label="Copyright Name" variant="outlined" density="compact" hint="e.g. Alberta One Real Estate" persistent-hint />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.primaryColor" label="Primary Color" variant="outlined" density="compact" prepend-inner-icon="mdi-palette" hint="Hex color, e.g. #1976D2" persistent-hint />
+        </v-col>
+      </v-row>
+      <v-row dense class="mb-2">
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.developerName" label="Developer Name" variant="outlined" density="compact" hint="'Developed by' credit in footer" persistent-hint />
+        </v-col>
+        <v-col cols="12" md="6">
+          <v-text-field v-model="branding.developerUrl" label="Developer URL" variant="outlined" density="compact" prepend-inner-icon="mdi-link" />
+        </v-col>
+      </v-row>
+      <v-row dense>
+        <v-col cols="12">
+          <v-textarea v-model="branding.footerDisclaimer" label="Footer Disclaimer" variant="outlined" density="compact" rows="3" hint="Legal disclaimer text shown at the bottom of every page" persistent-hint />
+        </v-col>
+      </v-row>
+    </v-card-text>
+    <v-divider />
+    <v-card-actions class="p-6">
+      <v-spacer />
+      <v-btn variant="tonal" @click="loadBranding" :loading="loading">Reset</v-btn>
+      <v-btn color="primary" variant="flat" prepend-icon="mdi-content-save" @click="saveBranding" :loading="brandingSaving" class="action-btn-primary px-8">Save Branding</v-btn>
+    </v-card-actions>
+  </v-card>
+</template>
+
+<script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+// @ts-ignore
+import { api } from '~/utils/api'
+
+const branding = reactive({
+  businessName: '',
+  tagline: '',
+  logoUrl: '',
+  faviconUrl: '',
+  primaryColor: '#1976D2',
+  phone: '',
+  email: '',
+  address: '',
+  city: '',
+  province: '',
+  postalCode: '',
+  socialLinks: [] as Array<{ icon: string; name: string; url: string }>,
+  brokerageName: '',
+  brokerageLogoUrl: '',
+  footerDisclaimer: '',
+  copyrightName: '',
+  developerName: '',
+  developerUrl: '',
+})
+
+const logoFile = ref<File | null>(null)
+const faviconFile = ref<File | null>(null)
+const brokerageLogoFile = ref<File | null>(null)
+const siteLogoPreview = computed(() => branding.logoUrl || '/images/logos/logo.png')
+const faviconPreview = computed(() => branding.faviconUrl || '/favicon.ico')
+const loading = ref(false)
+const brandingSaving = ref(false)
+const saved = ref(false)
+const error = ref('')
+
+async function loadBranding() {
+  loading.value = true
+  try {
+    const data: any = await api.get('/api/admin/tenant-settings')
+    Object.assign(branding, {
+      businessName: data.businessName || '',
+      tagline: data.tagline || '',
+      logoUrl: data.logoUrl || '',
+      faviconUrl: data.faviconUrl || '',
+      primaryColor: data.primaryColor || '#1976D2',
+      phone: data.phone || '',
+      email: data.email || '',
+      address: data.address || '',
+      city: data.city || '',
+      province: data.province || '',
+      postalCode: data.postalCode || '',
+      socialLinks: Array.isArray(data.socialLinks) ? data.socialLinks : [],
+      brokerageName: data.brokerageName || '',
+      brokerageLogoUrl: data.brokerageLogoUrl || '',
+      footerDisclaimer: data.footerDisclaimer || '',
+      copyrightName: data.copyrightName || '',
+      developerName: data.developerName || '',
+      developerUrl: data.developerUrl || '',
+    })
+  } catch (e: any) {
+    console.error('Failed to load branding:', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function saveBranding() {
+  brandingSaving.value = true
+  saved.value = false
+  error.value = ''
+  try {
+    await api.post('/api/admin/tenant-settings', { ...branding })
+    saved.value = true
+  } catch (e: any) {
+    error.value = e?.message || 'Failed to save branding'
+  } finally {
+    brandingSaving.value = false
+  }
+}
+
+async function uploadImageField(file: File, fieldName: string) {
+  try {
+    const formData = new FormData()
+    formData.append('logo', file)
+    const res: any = await api.post('/api/admin/tenant-settings/upload-logo', formData)
+    if (res?.logoUrl) (branding as any)[fieldName] = res.logoUrl
+  } catch (e: any) {
+    error.value = `Failed to upload ${fieldName}`
+  }
+}
+
+async function uploadLogo(file: File | File[] | null) {
+  if (!file || Array.isArray(file)) return
+  try {
+    const formData = new FormData()
+    formData.append('logo', file)
+    const res: any = await api.post('/api/admin/tenant-settings/upload-logo', formData)
+    if (res?.logoUrl) branding.logoUrl = res.logoUrl
+  } catch (e: any) {
+    error.value = 'Failed to upload logo'
+  } finally {
+    logoFile.value = null
+  }
+}
+
+async function uploadFavicon(file: File | File[] | null) {
+  if (!file || Array.isArray(file)) return
+  await uploadImageField(file, 'faviconUrl')
+  faviconFile.value = null
+}
+
+async function uploadBrokerageLogo(file: File | File[] | null) {
+  if (!file || Array.isArray(file)) return
+  await uploadImageField(file, 'brokerageLogoUrl')
+  brokerageLogoFile.value = null
+}
+
+onMounted(() => loadBranding())
+</script>

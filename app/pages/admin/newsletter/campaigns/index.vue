@@ -196,7 +196,7 @@ const loadCampaigns = async () => {
 }
 
 const editCampaign = (id: number) => {
-  navigateTo(`/admin/newsletter/campaigns/${id}/edit`)
+  navigateTo(`/admin/newsletter/campaigns/${id}`)
 }
 
 const sendCampaign = async (id: number) => {

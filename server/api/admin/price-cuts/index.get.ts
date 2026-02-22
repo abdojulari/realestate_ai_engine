@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter } from '../../../utils/tenant'
 import { requireFeatureForUser, FEATURES } from '../../../utils/license'
+import { pillar9Service } from '../../../utils/pillar9.service'
 
 const prisma = new PrismaClient()
 
@@ -33,11 +34,18 @@ export default defineEventHandler(async (event) => {
     // ───── Build the query ─────
     // City is always applied (AND).
     // Community and propertyType are OR – if either matches, the property qualifies.
+    // Match both the human-readable name and any Pillar9 city codes that map to it
+    const matchingCodes = pillar9Service.getCodesForCityName(city)
+    const cityConditions: any[] = [{ city: { contains: city, mode: 'insensitive' } }]
+    if (matchingCodes.length > 0) {
+      cityConditions.push({ city: { in: matchingCodes } })
+    }
+
     const baseWhere: any = {
       ...tenantFilter,
       status: { in: ['for_sale', 'pending'] },
       firstEntryPrice: { not: null },
-      city: { contains: city, mode: 'insensitive' },
+      OR: cityConditions,
     }
 
     if (maxPrice) baseWhere.price = { ...baseWhere.price, lte: maxPrice }

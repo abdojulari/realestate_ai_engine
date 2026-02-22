@@ -138,19 +138,19 @@
                 <v-list bg-color="transparent">
                   <v-list-item 
                     prepend-icon="mdi-email-golden" 
-                    title="abdul.ojulari@exprealty.com" 
+                    title="abdulkabirojulari@gmail.com" 
                     subtitle="Primary Correspondence"
                     class="px-0"
                   />
                   <v-list-item 
                     prepend-icon="mdi-phone-golden" 
-                    title="647-803-7236" 
+                    title="647-563-7235" 
                     subtitle="Direct Legal Inquiries"
                     class="px-0"
                   />
                   <v-list-item 
                     prepend-icon="mdi-web-golden" 
-                    title="www.propertymatch.estate" 
+                    title="www.agentos.ai" 
                     subtitle="Digital Portal"
                     class="px-0"
                   />

@@ -267,7 +267,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { formatDateTime } from '~/utils/formatters'
 
 definePageMeta({
@@ -276,6 +276,7 @@ definePageMeta({
 })
 
 const router = useRouter()
+const route = useRoute()
 const formRef = ref<any>(null)
 const saving = ref(false)
 const showPreview = ref(false)
@@ -373,7 +374,7 @@ const saveCampaign = async () => {
     let scheduledFor = null
     
     if (form.value.sendType === 'now') {
-      status = 'sending'
+      status = 'draft'
     } else if (form.value.sendType === 'scheduled') {
       status = 'scheduled'
       scheduledFor = `${form.value.scheduledDate}T${form.value.scheduledTime}:00`
@@ -399,17 +400,27 @@ const saveCampaign = async () => {
         Authorization: `Bearer ${localStorage.getItem('token')}`
       },
       body: payload
-    })
+    }) as any
 
-    successMessage.value = form.value.sendType === 'now' 
-      ? 'Campaign is being sent!' 
-      : form.value.sendType === 'scheduled'
-      ? 'Campaign scheduled successfully!'
-      : 'Campaign saved as draft!'
+    const campaignId = response.campaign?.id
+
+    if (form.value.sendType === 'now' && campaignId) {
+      const sendResult = await $fetch(`/api/admin/newsletter/campaigns/${campaignId}/send`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        },
+        body: {}
+      }) as any
+      successMessage.value = sendResult.message || `Campaign sent to ${sendResult.recipientCount} subscribers!`
+    } else if (form.value.sendType === 'scheduled') {
+      successMessage.value = 'Campaign scheduled successfully!'
+    } else {
+      successMessage.value = 'Campaign saved as draft!'
+    }
     
     showSuccess.value = true
 
-    // Redirect to campaigns list after success
     setTimeout(() => {
       router.push('/admin/newsletter/campaigns')
     }, 1500)
@@ -422,8 +433,122 @@ const saveCampaign = async () => {
   }
 }
 
-onMounted(() => {
-  loadTemplates()
+async function prefillFromProperty(propertyId: number) {
+  try {
+    const res = await $fetch(`/api/admin/properties/${propertyId}`, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+    }) as any
+    const p = res.property || res
+    if (!p?.id) return
+
+    const price = p.price || 0
+    const original = p.firstEntryPrice || 0
+    const hasDeal = original && price && original > price
+    const saved = hasDeal ? original - price : 0
+    const dropPct = hasDeal ? ((saved / original) * 100).toFixed(1) : '0'
+    const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`
+    const addr = p.address || p.title || 'Property'
+    const loc = [p.city, p.province || 'AB'].filter(Boolean).join(', ')
+    const specs = [
+      p.beds ? `${p.beds} Bed` : '',
+      p.baths ? `${p.baths} Bath` : '',
+      p.sqft ? `${p.sqft.toLocaleString()} sqft` : '',
+    ].filter(Boolean).join(' · ')
+    const link = `${window.location.origin}/property/${p.id}`
+
+    const heroImg = Array.isArray(p.images) && p.images.length > 0
+      ? (typeof p.images[0] === 'string' ? p.images[0] : p.images[0].url || p.images[0].Uri || '')
+      : ''
+
+    if (hasDeal) {
+      form.value.name = `Price Drop Alert – ${addr}`
+      form.value.subject = `🔥 ${dropPct}% Price Drop – ${addr} now ${fmt(price)}`
+      form.value.previewText = `Was ${fmt(original)}, now ${fmt(price)}. Save ${fmt(saved)} on this ${specs} home in ${loc}.`
+      form.value.content = buildDealEmailHtml({ addr, loc, specs, price, original, saved, dropPct, link, heroImg, description: p.description })
+      form.value.plainTextContent = [
+        `PRICE REDUCED ${dropPct}% – ${addr}`,
+        `${loc} | ${specs}`,
+        '',
+        `Was: ${fmt(original)}`,
+        `Now: ${fmt(price)}`,
+        `You Save: ${fmt(saved)} (${dropPct}% off)`,
+        '',
+        p.description?.substring(0, 300) || '',
+        '',
+        `Don't miss this deal → ${link}`,
+      ].join('\n')
+    } else {
+      form.value.name = `Featured Listing – ${addr}`
+      form.value.subject = `New Listing: ${addr} – ${fmt(price)}`
+      form.value.previewText = `${specs} in ${loc} for ${fmt(price)}.`
+      form.value.content = buildListingEmailHtml({ addr, loc, specs, price, link, heroImg, description: p.description })
+      form.value.plainTextContent = [
+        `${addr}`, `${loc} | ${specs}`, `Price: ${fmt(price)}`,
+        '', p.description?.substring(0, 300) || '', '', `View listing → ${link}`,
+      ].join('\n')
+    }
+  } catch (e) {
+    console.error('Failed to prefill property for campaign:', e)
+  }
+}
+
+function buildDealEmailHtml(d: any) {
+  const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`
+  return `
+<div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;">
+  ${d.heroImg ? `<img src="${d.heroImg}" alt="${d.addr}" style="width:100%;max-height:340px;object-fit:cover;border-radius:8px 8px 0 0;" />` : ''}
+  <div style="padding:32px 28px;">
+    <div style="background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;padding:12px 20px;border-radius:8px;margin-bottom:24px;text-align:center;">
+      <span style="font-size:22px;font-weight:700;">🔥 PRICE REDUCED ${d.dropPct}%</span>
+    </div>
+    <h1 style="margin:0 0 8px;font-size:24px;color:#1a1a1a;">${d.addr}</h1>
+    <p style="margin:0 0 20px;color:#666;font-size:15px;">${d.loc} · ${d.specs}</p>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
+      <tr>
+        <td style="padding:16px;background:#f8f9fa;border-radius:8px 0 0 8px;text-align:center;width:33%;">
+          <div style="font-size:12px;color:#999;text-transform:uppercase;letter-spacing:1px;">Was</div>
+          <div style="font-size:20px;font-weight:700;color:#999;text-decoration:line-through;">${fmt(d.original)}</div>
+        </td>
+        <td style="padding:16px;background:#e74c3c;text-align:center;width:33%;">
+          <div style="font-size:12px;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:1px;">Now</div>
+          <div style="font-size:24px;font-weight:700;color:#fff;">${fmt(d.price)}</div>
+        </td>
+        <td style="padding:16px;background:#27ae60;border-radius:0 8px 8px 0;text-align:center;width:33%;">
+          <div style="font-size:12px;color:rgba(255,255,255,0.8);text-transform:uppercase;letter-spacing:1px;">You Save</div>
+          <div style="font-size:20px;font-weight:700;color:#fff;">${fmt(d.saved)}</div>
+        </td>
+      </tr>
+    </table>
+    ${d.description ? `<p style="margin:0 0 24px;color:#444;font-size:14px;line-height:1.6;">${d.description.substring(0, 300)}</p>` : ''}
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${d.link}" style="display:inline-block;padding:14px 40px;background:#e74c3c;color:#fff;font-size:16px;font-weight:600;text-decoration:none;border-radius:8px;">View This Deal →</a>
+    </div>
+    <p style="text-align:center;color:#999;font-size:13px;margin-top:20px;">This property just dropped ${fmt(d.saved)} — don't wait!</p>
+  </div>
+</div>`.trim()
+}
+
+function buildListingEmailHtml(d: any) {
+  const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`
+  return `
+<div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:600px;margin:0 auto;background:#ffffff;">
+  ${d.heroImg ? `<img src="${d.heroImg}" alt="${d.addr}" style="width:100%;max-height:340px;object-fit:cover;border-radius:8px 8px 0 0;" />` : ''}
+  <div style="padding:32px 28px;">
+    <h1 style="margin:0 0 8px;font-size:24px;color:#1a1a1a;">${d.addr}</h1>
+    <p style="margin:0 0 12px;color:#666;font-size:15px;">${d.loc} · ${d.specs}</p>
+    <p style="margin:0 0 24px;font-size:28px;font-weight:700;color:#1877F2;">${fmt(d.price)}</p>
+    ${d.description ? `<p style="margin:0 0 24px;color:#444;font-size:14px;line-height:1.6;">${d.description.substring(0, 300)}</p>` : ''}
+    <div style="text-align:center;margin:28px 0;">
+      <a href="${d.link}" style="display:inline-block;padding:14px 40px;background:#1877F2;color:#fff;font-size:16px;font-weight:600;text-decoration:none;border-radius:8px;">View Listing →</a>
+    </div>
+  </div>
+</div>`.trim()
+}
+
+onMounted(async () => {
+  await loadTemplates()
+  const pid = route.query.propertyId
+  if (pid) await prefillFromProperty(Number(pid))
 })
 </script>
 

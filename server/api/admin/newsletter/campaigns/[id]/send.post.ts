@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../../../utils/auth'
 import { getTenantFilter } from '../../../../../utils/tenant'
+import { sendEmail, sendNewsletterBatch } from '../../../../../utils/email'
 
 const prisma = new PrismaClient()
 
@@ -17,7 +18,6 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const { testMode = false, testEmail } = body
 
-    // Verify tenant ownership of the campaign
     const campaign = await prisma.newsletter.findFirst({
       where: { id, ...tenantFilter }
     })
@@ -31,11 +31,13 @@ export default defineEventHandler(async (event) => {
     }
 
     if (testMode && testEmail) {
-      return {
-        success: true,
-        message: `Test email sent to ${testEmail}`,
-        testMode: true
-      }
+      await sendEmail({
+        to: testEmail,
+        subject: `[TEST] ${campaign.subject}`,
+        html: campaign.content,
+        text: campaign.plainTextContent || undefined
+      })
+      return { success: true, message: `Test email sent to ${testEmail}`, testMode: true }
     }
 
     await prisma.newsletter.update({
@@ -43,15 +45,32 @@ export default defineEventHandler(async (event) => {
       data: { status: 'sending' }
     })
 
-    // Query subscribers scoped to the same tenant
     const where: any = { status: 'active', ...tenantFilter }
-    if (campaign.targetFilters) {
-      // Apply filters here
+    const filters = campaign.targetFilters as any
+    if (filters?.audience === 'new') {
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      where.createdAt = { gte: thirtyDaysAgo }
+    } else if (filters?.audience === 'inactive') {
+      where.status = 'inactive'
     }
 
     const subscribers = await prisma.newsletterSubscriber.findMany({
       where,
       select: { id: true, email: true, firstName: true, lastName: true }
+    })
+
+    if (subscribers.length === 0) {
+      await prisma.newsletter.update({ where: { id }, data: { status: 'draft' } })
+      throw createError({ statusCode: 400, message: 'No subscribers match the target audience' })
+    }
+
+    const emailResults = await sendNewsletterBatch(subscribers, {
+      id: campaign.id,
+      subject: campaign.subject,
+      content: campaign.content,
+      plainTextContent: campaign.plainTextContent || undefined,
+      attachments: campaign.attachments
     })
 
     const sentRecords = subscribers.map(subscriber => ({
@@ -60,7 +79,6 @@ export default defineEventHandler(async (event) => {
       status: 'sent',
       sentAt: new Date()
     }))
-
     await prisma.sentNewsletter.createMany({ data: sentRecords })
 
     await prisma.newsletter.update({
@@ -74,8 +92,10 @@ export default defineEventHandler(async (event) => {
 
     return {
       success: true,
-      message: `Campaign sent successfully to ${subscribers.length} subscribers`,
-      recipientCount: subscribers.length
+      message: `Campaign sent to ${emailResults.success} of ${subscribers.length} subscribers`,
+      recipientCount: subscribers.length,
+      emailsSent: emailResults.success,
+      emailsFailed: emailResults.failed
     }
   } catch (error: any) {
     console.error('Error sending campaign:', error)

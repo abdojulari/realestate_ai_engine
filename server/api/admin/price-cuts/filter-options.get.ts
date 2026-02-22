@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter } from '../../../utils/tenant'
+import { pillar9Service } from '../../../utils/pillar9.service'
 
 const prisma = new PrismaClient()
 
@@ -40,7 +41,11 @@ export default defineEventHandler(async (event) => {
       }),
     ])
 
-    const cities = citiesRaw.map(r => r.city).filter(Boolean)
+    const cities = [...new Set(
+      citiesRaw.map(r => r.city).filter(Boolean)
+        .map(c => pillar9Service.getCityName(c))
+        .filter(c => !/^\d+$/.test(c))
+    )].sort()
     const communities = communitiesRaw.map(r => r.cityRegion).filter(Boolean) as string[]
     const propertyTypes = typesRaw.map(r => r.type).filter(Boolean)
 

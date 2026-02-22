@@ -650,6 +650,16 @@ class Pillar9Service {
   }
 
   /**
+   * Reverse lookup: given a city name, return all codes that map to it.
+   */
+  getCodesForCityName(name: string): string[] {
+    const lower = name.toLowerCase()
+    return Object.entries(PILLAR9_CITY_CODE_MAP)
+      .filter(([, cityName]) => cityName.toLowerCase() === lower)
+      .map(([code]) => code)
+  }
+
+  /**
    * Alberta city codes (Matrix API) for batch sync - avoids "too many results"
    */
   getAlbertaCityCodes(): string[] {

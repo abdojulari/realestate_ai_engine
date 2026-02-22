@@ -45,7 +45,10 @@
           </div>
           <div class="d-flex justify-space-between align-center">
             <v-btn variant="text" size="small" @click="clearSig">Clear</v-btn>
-            <v-checkbox v-model="saveForReuse" label="Save for reuse" hide-details density="compact" />
+            <v-checkbox 
+            v-model="saveForReuse" 
+            label="Save for reuse" hide-details density="compact" 
+            />
           </div>
         </v-window-item>
         <v-window-item value="type">
@@ -66,7 +69,7 @@
         <v-select density="compact"
           v-model="page"
           :items="Array.from({ length: totalPages }, (_, i) => ({ title: `Page ${i + 1}`, value: i + 1 }))"
-          label="Add to Page" variant="outlined" density="compact"
+          label="Add to Page" variant="outlined" 
         />
       </v-card-text>
 
