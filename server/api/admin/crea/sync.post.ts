@@ -139,19 +139,14 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Mark stale properties as inactive (optional)
-    const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // 7 days ago
+    const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const staleProperties = await prisma.property.updateMany({
       where: {
         source: 'crea',
-        lastSyncAt: {
-          lt: cutoffDate
-        },
+        lastSyncAt: { lt: cutoffDate },
         status: 'for_sale'
       },
-      data: {
-        status: 'sold' // Mark as sold to hide from active listings
-      }
+      data: { status: 'expired' }
     })
 
     console.log('CREA sync completed:', syncStats)

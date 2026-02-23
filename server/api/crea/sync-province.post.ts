@@ -12,6 +12,9 @@ const prisma = new PrismaClient()
  *   - limit: Maximum number of properties to fetch (default: 100)
  *   - batchSize: Processing batch size (default: 10)
  *   - includeAgentData: Whether to fetch agent data (default: true)
+ *   - standardStatus: CREA RESO status(es) to fetch (default: ['Active']). 
+ *       Off-market: ['Expired','Withdrawn','Canceled']. All RESO values:
+ *       Active, ActiveUnderContract, Closed, Pending, Expired, Withdrawn, Canceled, Hold, Delete.
  */
 export default defineEventHandler(async (event) => {
   const body = await readBody(event)
@@ -20,7 +23,8 @@ export default defineEventHandler(async (event) => {
     city = null,
     limit = 100, 
     batchSize = 10, 
-    includeAgentData = true 
+    includeAgentData = true,
+    standardStatus = null as string | string[] | null
   } = body
 
   const locationLabel = city ? `${city}, ${province}` : province
@@ -32,6 +36,10 @@ export default defineEventHandler(async (event) => {
     const filters: any = {
       province: province,
       $top: limit
+    }
+    
+    if (standardStatus) {
+      filters.standardStatus = Array.isArray(standardStatus) ? standardStatus : [standardStatus]
     }
     
     // Add city filter if specified

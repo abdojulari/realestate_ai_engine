@@ -334,7 +334,7 @@ export default defineEventHandler(async (event) => {
         lastSyncAt: { lt: cutoffDate },
         status: 'for_sale'
       },
-      data: { status: 'sold' }
+      data: { status: 'expired' }
     })
 
     // System-level setting — use first super_admin as owner

@@ -1091,7 +1091,7 @@ const processOCR = async () => {
       {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: { text: ocrRawText.value }
+        body: { ocrText: ocrRawText.value }
       }
     )
 

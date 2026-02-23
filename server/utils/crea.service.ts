@@ -305,6 +305,8 @@ class CreaService {
     })
 
     if (!response.ok) {
+      const errorBody = await response.text().catch(() => '')
+      console.error(`CREA API error [${response.status}]: ${errorBody.substring(0, 500)}`)
       throw new Error(`CREA API request failed: ${response.status} ${response.statusText}`)
     }
 
@@ -434,9 +436,20 @@ class CreaService {
   async getPropertyById(listingKey: string): Promise<CreaProperty | null> {
     try {
       const safeKey = encodeURIComponent(listingKey)
-      const property: CreaProperty = await this.makeCreaRequest(`/odata/v1/Property/${safeKey}?$expand=Media`)
+      const property: CreaProperty = await this.makeCreaRequest(`/odata/v1/Property('${safeKey}')?$expand=Media`)
       return property
-    } catch (error) {
+    } catch (error: any) {
+      if (error?.message?.includes('400')) {
+        try {
+          const result: { value: CreaProperty[] } = await this.makeCreaRequest(
+            `/odata/v1/Property?$filter=ListingKey eq '${safeKey}'&$expand=Media&$top=1`
+          )
+          return result.value?.[0] || null
+        } catch {
+          console.error('Error fetching CREA property (fallback):', error)
+          return null
+        }
+      }
       console.error('Error fetching CREA property:', error)
       return null
     }

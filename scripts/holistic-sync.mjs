@@ -93,6 +93,7 @@ function parseArgs() {
   }
   
   const syncAll = args.includes('--all') || args.includes('-a')
+  const offMarketOnly = args.includes('--off-market')
   
   return {
     purge: args.includes('--purge') || args.includes('-p'),
@@ -101,7 +102,8 @@ function parseArgs() {
     help: args.includes('--help') || args.includes('-h'),
     province: province,
     city: city,
-    syncAll: syncAll
+    syncAll: syncAll,
+    offMarketOnly: offMarketOnly
   }
 }
 
@@ -122,6 +124,7 @@ Options:
   --verify, -v             Only verify database state (no changes)
   --province=NAME          Sync a specific province (e.g., --province=Ontario)
   --city=NAME, -C=NAME     Sync a specific city (e.g., --city=Edmonton)
+  --off-market             Sync off-market listings only (Terminated, Withdrawn, Expired, Cancelled)
   --all, -a                Sync ALL Canadian provinces (slower but complete)
   --help, -h               Show this help message
 
@@ -221,10 +224,11 @@ async function getCreaCount(province = 'Alberta', city = null) {
 // STEP 3: SYNC PROPERTIES
 // ============================================
 
-async function syncProperties(totalInCrea, province = 'Alberta', city = null) {
+async function syncProperties(totalInCrea, province = 'Alberta', city = null, standardStatus = null) {
   const locationLabel = city ? `${city}, ${province}` : province
+  const statusLabel = standardStatus ? ` [${Array.isArray(standardStatus) ? standardStatus.join(', ') : standardStatus}]` : ''
   console.log('\n========================================')
-  console.log(`STEP 3: SYNCING PROPERTIES (${locationLabel})`)
+  console.log(`STEP 3: SYNCING PROPERTIES (${locationLabel})${statusLabel}`)
   console.log('========================================\n')
   
   let totalSynced = 0
@@ -238,12 +242,11 @@ async function syncProperties(totalInCrea, province = 'Alberta', city = null) {
   const processingBatchSize = 10
   const maxBatches = totalInCrea ? Math.ceil(totalInCrea / batchSize) + 50 : 500
 
-  console.log(`Starting sync for ${locationLabel} (estimated ${maxBatches} batches)...\n`)
+  console.log(`Starting sync for ${locationLabel}${statusLabel} (estimated ${maxBatches} batches)...\n`)
 
   while (true) {
     const startTime = Date.now()
     
-    // Use the new sync-province endpoint that accepts any province and city
     const requestBody = {
       province: province,
       limit: batchSize,
@@ -251,9 +254,11 @@ async function syncProperties(totalInCrea, province = 'Alberta', city = null) {
       includeAgentData: true
     }
     
-    // Add city filter if specified
     if (city) {
       requestBody.city = city
+    }
+    if (standardStatus) {
+      requestBody.standardStatus = standardStatus
     }
     
     const response = await fetch(`${API_BASE}/api/crea/sync-province`, {
@@ -263,7 +268,24 @@ async function syncProperties(totalInCrea, province = 'Alberta', city = null) {
     })
 
     if (!response.ok) {
+      if (currentBatch === 1 && Array.isArray(standardStatus) && standardStatus.length > 1) {
+        console.warn(`[${province}] Combined status query failed (${response.status}). Falling back to per-status sync...`)
+        let fallbackResult = { totalSynced: 0, totalCreated: 0, totalUpdated: 0, totalSkipped: 0, totalErrors: 0, batches: 0, province }
+        for (const singleStatus of standardStatus) {
+          console.log(`\n  → Trying status: ${singleStatus}`)
+          const sub = await syncProperties(null, province, city, [singleStatus])
+          fallbackResult.totalSynced += sub.totalSynced
+          fallbackResult.totalCreated += sub.totalCreated
+          fallbackResult.totalUpdated += sub.totalUpdated
+          fallbackResult.totalSkipped += sub.totalSkipped
+          fallbackResult.totalErrors += sub.totalErrors
+          fallbackResult.batches += sub.batches
+        }
+        return fallbackResult
+      }
       console.error(`[${province}] Batch ${currentBatch} failed:`, response.status)
+      const errorText = await response.text().catch(() => '')
+      if (errorText) console.error(`  Error detail: ${errorText.substring(0, 200)}`)
       break
     }
 
@@ -406,13 +428,19 @@ async function main() {
   // City filter (optional)
   const cityFilter = options.city || null
   
+  const OFF_MARKET_STATUSES = ['Expired', 'Withdrawn', 'Canceled']
+  
   console.log('==========================================')
   console.log('    HOLISTIC CREA SYNC                   ')
   console.log('==========================================')
-  console.log(`Mode: ${options.verify ? 'VERIFY' : options.cleanup ? 'CLEANUP' : options.purge ? 'PURGE + SYNC' : 'SYNC'}`)
+  const modeLabel = options.verify ? 'VERIFY' : options.cleanup ? 'CLEANUP' : options.offMarketOnly ? 'OFF-MARKET SYNC' : options.purge ? 'PURGE + SYNC' : 'SYNC'
+  console.log(`Mode: ${modeLabel}`)
   console.log(`Provinces: ${provincesToSync.length === ALL_PROVINCES.length ? 'ALL CANADA' : provincesToSync.join(', ')}`)
   if (cityFilter) {
     console.log(`City: ${cityFilter}`)
+  }
+  if (options.offMarketOnly) {
+    console.log(`Statuses: ${OFF_MARKET_STATUSES.join(', ')}`)
   }
   
   const startTime = Date.now()
@@ -447,31 +475,36 @@ async function main() {
       provinceResults: []
     }
     
-    // Sync each province
-    for (const province of provincesToSync) {
-      const locationLabel = cityFilter ? `${cityFilter}, ${province}` : province
-      console.log(`\n${'='.repeat(50)}`)
-      console.log(`SYNCING: ${locationLabel.toUpperCase()}`)
-      console.log('='.repeat(50))
-      
-      const totalInCrea = await getCreaCount(province, cityFilter)
-      const syncResult = await syncProperties(totalInCrea, province, cityFilter)
-      
-      aggregateStats.totalSynced += syncResult.totalSynced
-      aggregateStats.totalCreated += syncResult.totalCreated
-      aggregateStats.totalUpdated += syncResult.totalUpdated
-      aggregateStats.totalSkipped += syncResult.totalSkipped
-      aggregateStats.totalErrors += syncResult.totalErrors
-      aggregateStats.totalBatches += syncResult.batches
-      aggregateStats.provinceResults.push({
-        province,
-        ...syncResult
-      })
-      
-      // Delay between provinces to avoid rate limiting
-      if (provincesToSync.indexOf(province) < provincesToSync.length - 1) {
-        console.log('\nWaiting 5 seconds before next province...')
-        await new Promise(r => setTimeout(r, 5000))
+    // Determine sync passes: active, off-market, or both
+    const syncPasses = options.offMarketOnly
+      ? [{ label: 'OFF-MARKET', statuses: OFF_MARKET_STATUSES }]
+      : [{ label: 'ACTIVE', statuses: null }]
+
+    for (const pass of syncPasses) {
+      for (const province of provincesToSync) {
+        const locationLabel = cityFilter ? `${cityFilter}, ${province}` : province
+        console.log(`\n${'='.repeat(50)}`)
+        console.log(`SYNCING ${pass.label}: ${locationLabel.toUpperCase()}`)
+        console.log('='.repeat(50))
+        
+        const totalInCrea = pass.statuses ? null : await getCreaCount(province, cityFilter)
+        const syncResult = await syncProperties(totalInCrea, province, cityFilter, pass.statuses)
+        
+        aggregateStats.totalSynced += syncResult.totalSynced
+        aggregateStats.totalCreated += syncResult.totalCreated
+        aggregateStats.totalUpdated += syncResult.totalUpdated
+        aggregateStats.totalSkipped += syncResult.totalSkipped
+        aggregateStats.totalErrors += syncResult.totalErrors
+        aggregateStats.totalBatches += syncResult.batches
+        aggregateStats.provinceResults.push({
+          province: `${province} (${pass.label})`,
+          ...syncResult
+        })
+        
+        if (provincesToSync.indexOf(province) < provincesToSync.length - 1) {
+          console.log('\nWaiting 5 seconds before next province...')
+          await new Promise(r => setTimeout(r, 5000))
+        }
       }
     }
     
