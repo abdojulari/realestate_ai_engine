@@ -202,6 +202,56 @@ export default defineEventHandler(async (event) => {
                     }
                   })
                   if (existingCrea) {
+                    // When Pillar9 has a non-active status (sold, terminated, etc.)
+                    // update the CREA property's status so CMA/off-market pages can use it
+                    const p9Status = transformedProperty.status as string
+                    const statusUpdateNeeded = ['sold', 'terminated', 'withdrawn', 'expired'].includes(p9Status)
+                      && existingCrea.status !== p9Status
+                    if (statusUpdateNeeded) {
+                      try {
+                        const updateData: any = { status: p9Status, lastSyncAt: new Date() }
+                        // For sold properties, merge closeDate/closePrice into features
+                        if (p9Status === 'sold' && transformedProperty.features) {
+                          const existingFeatures = typeof existingCrea.features === 'string'
+                            ? JSON.parse(existingCrea.features || '{}')
+                            : (existingCrea as any).features || {}
+                          const p9Features = typeof transformedProperty.features === 'string'
+                            ? JSON.parse(transformedProperty.features as string)
+                            : transformedProperty.features
+                          updateData.features = {
+                            ...existingFeatures,
+                            closeDate: (p9Features as any)?.closeDate || null,
+                            closePrice: (p9Features as any)?.closePrice || null,
+                            statusChangeTimestamp: new Date().toISOString(),
+                          }
+                          // Use close price if available
+                          if ((p9Features as any)?.closePrice) {
+                            updateData.price = (p9Features as any).closePrice
+                          }
+                        }
+                        await prisma.property.update({
+                          where: { id: existingCrea.id },
+                          data: updateData
+                        })
+                        if (p9Status === 'sold') {
+                          await (prisma as any).propertyPriceHistory.create({
+                            data: {
+                              propertyId: existingCrea.id,
+                              price: existingCrea.price,
+                              event: 'sold',
+                              source: 'pillar9'
+                            }
+                          }).catch(() => {})
+                        }
+                        syncStats.updated++
+                        const sKey = statusToKey(status)
+                        if (syncStats.byStatus[sKey]) {
+                          syncStats.byStatus[sKey]!.updated++
+                        }
+                      } catch (_err) {
+                        // Non-critical
+                      }
+                    }
                     syncStats.duplicates++
                     continue
                   }

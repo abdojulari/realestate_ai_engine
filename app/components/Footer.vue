@@ -10,9 +10,9 @@
                 <img :src="logoUrl" :alt="businessName || 'Logo'" class="footer-tenant-logo" />
               </template>
               <template v-else>
-                <span class="text-h4 font-weight-black tracking-tighter">AO<span class="text-primary">.</span></span>
+                <img src="/images/logos/agentos-logo.png" alt="AgentOS" class="footer-agentos-logo" />
               </template>
-              <p class="premium-tagline mt-2">{{ tagline || businessName }}</p>
+              <p class="premium-tagline mt-2">{{ tagline || 'Intelligence for Realtors' }}</p>
             </div>
             
             <div class="contact-group">
@@ -31,7 +31,7 @@
                 :src="brokerageLogoUrl" 
                 :alt="brokerageName || 'Brokerage Logo'" 
                 class="brand-logo grayscale" 
-                width="120" 
+                width="60" 
               />
             </div>
           </v-col>
@@ -209,6 +209,12 @@ const handleSubscribe = async () => {
   object-fit: contain;
 }
 
+.footer-agentos-logo {
+  max-height: 86px;
+  width: auto;
+  object-fit: contain;
+}
+
 .premium-label {
   font-size: 0.7rem;
   font-weight: 800;
@@ -255,7 +261,7 @@ const handleSubscribe = async () => {
 .contact-link {
   color: #000;
   text-decoration: none;
-  font-size: 1.1rem;
+  font-size: 0.85rem;
   font-weight: 500;
   transition: opacity 0.2s ease;
 }

@@ -33,6 +33,7 @@ export default defineEventHandler(async (event) => {
   const q = getQuery(event)
   const province = (q.province as string) || undefined
   const city = (q.city as string) || undefined
+  const community = (q.community as string) || undefined
   const range = (q.range as string) || 'last_90'
   const startDate = q.startDate as string | undefined
   const endDate = q.endDate as string | undefined
@@ -58,6 +59,7 @@ export default defineEventHandler(async (event) => {
     where.AND = [...(where.AND || []), { OR: provinceFilters }]
   }
   if (city) where.city = { contains: city, mode: 'insensitive' }
+  if (community) where.cityRegion = { contains: community, mode: 'insensitive' }
 
   const dateFilter = parseDateRange(range, startDate, endDate)
   const shouldFilterBySoldDate = Boolean(dateFilter)
@@ -83,6 +85,7 @@ export default defineEventHandler(async (event) => {
         status: true,
         address: true,
         city: true,
+        cityRegion: true,
         province: true,
         postalCode: true,
         latitude: true,

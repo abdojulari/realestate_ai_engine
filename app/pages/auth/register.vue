@@ -13,7 +13,7 @@
         <div class="hero-content-wrapper pa-12">
           <div class="brand-badge mb-12 animate-fade-in">
             <NuxtLink to="/" class="text-decoration-none">
-              <span class="text-h4 font-weight-black tracking-tighter text-white">AO<span class="text-primary">.</span></span>
+              <img src="/images/logos/agentos-logo.png" alt="AgentOS" class="auth-logo-light" />
             </NuxtLink>
           </div>
           
@@ -64,7 +64,7 @@
       <div class="form-inner-container">
         <!-- Logo for Mobile -->
         <div class="d-md-none text-center mb-12">
-           <span class="text-h4 font-weight-black tracking-tighter text-black">AO<span class="text-primary">.</span></span>
+           <img src="/images/logos/agentos-logo.png" alt="AgentOS" class="auth-logo-mobile" />
         </div>
 
         <div class="mb-8 text-center text-md-left">
@@ -465,6 +465,19 @@ const handleSubmit = async () => {
 }
 .slide-up-enter-from { opacity: 0; transform: translateY(20px); }
 .slide-up-leave-to { opacity: 0; transform: translateY(-20px); }
+
+.auth-logo-light {
+  height: 52px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.auth-logo-mobile {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
+}
 
 .underline-hover:hover { text-decoration: underline !important; }
 

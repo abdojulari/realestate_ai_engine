@@ -4,7 +4,7 @@ import { getTenantFilter } from '../../../utils/tenant'
 
 const prisma = new PrismaClient()
 
-const OFF_MARKET_STATUSES = ['terminated', 'withdrawn', 'expired']
+const OFF_MARKET_STATUSES = ['terminated', 'withdrawn', 'expired', 'sold']
 
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
@@ -83,7 +83,7 @@ export default defineEventHandler(async (event) => {
     }),
   ])
 
-  const counts: Record<string, number> = { terminated: 0, withdrawn: 0, expired: 0 }
+  const counts: Record<string, number> = { terminated: 0, withdrawn: 0, expired: 0, sold: 0 }
   for (const row of statusCounts) {
     counts[row.status] = row._count
   }

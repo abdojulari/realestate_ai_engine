@@ -11,14 +11,24 @@
           </div>
           <h1 class="display-serif text-h3 mb-1">Off-Market Listings</h1>
           <p class="text-subtitle-1 text-medium-emphasis font-weight-light">
-            Terminated, withdrawn, and expired listings — potential leads for outreach
+            Sold, terminated, withdrawn, and expired listings — potential leads for outreach
           </p>
         </v-col>
       </v-row>
 
       <!-- Summary Cards -->
       <v-row class="mb-8">
-        <v-col cols="12" sm="4">
+        <v-col cols="12" sm="6" md="3">
+          <v-card class="stat-card" elevation="0" @click="setStatusFilter('sold')" style="cursor:pointer">
+            <v-card-text class="text-center">
+              <v-icon icon="mdi-check-decagram" size="28" color="success" class="mb-2" />
+              <div class="text-h3 font-weight-bold text-success mb-1">{{ counts.sold }}</div>
+              <div class="text-overline text-medium-emphasis">Sold</div>
+              <div class="text-caption text-medium-emphasis">Transaction closed</div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+        <v-col cols="12" sm="6" md="3">
           <v-card class="stat-card" elevation="0" @click="setStatusFilter('terminated')" style="cursor:pointer">
             <v-card-text class="text-center">
               <v-icon icon="mdi-file-cancel-outline" size="28" color="error" class="mb-2" />
@@ -28,7 +38,7 @@
             </v-card-text>
           </v-card>
         </v-col>
-        <v-col cols="12" sm="4">
+        <v-col cols="12" sm="6" md="3">
           <v-card class="stat-card" elevation="0" @click="setStatusFilter('withdrawn')" style="cursor:pointer">
             <v-card-text class="text-center">
               <v-icon icon="mdi-undo-variant" size="28" color="warning" class="mb-2" />
@@ -38,7 +48,7 @@
             </v-card-text>
           </v-card>
         </v-col>
-        <v-col cols="12" sm="4">
+        <v-col cols="12" sm="6" md="3">
           <v-card class="stat-card" elevation="0" @click="setStatusFilter('expired')" style="cursor:pointer">
             <v-card-text class="text-center">
               <v-icon icon="mdi-clock-alert-outline" size="28" color="info" class="mb-2" />
@@ -123,7 +133,7 @@
             <v-icon icon="mdi-home-search" size="64" color="grey-lighten-1" class="mb-4" />
             <h3 class="text-h5 font-weight-bold mb-2">No Off-Market Listings Found</h3>
             <p class="text-body-1 text-medium-emphasis">
-              Off-market listings will appear here after syncing from Pillar9 or CREA with terminated, withdrawn, or expired statuses.
+              Off-market listings will appear here after syncing from Pillar9 or CREA with sold, terminated, withdrawn, or expired statuses.
             </p>
           </v-card>
         </v-col>
@@ -214,14 +224,14 @@ definePageMeta({
   middleware: ['admin']
 })
 
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
   const token = process.client ? localStorage.getItem('token') : null
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 const loading = ref(true)
 const properties = ref<any[]>([])
-const counts = ref({ terminated: 0, withdrawn: 0, expired: 0 })
+const counts = ref({ sold: 0, terminated: 0, withdrawn: 0, expired: 0 })
 const pagination = ref({ page: 1, limit: 18, total: 0, totalPages: 0 })
 const filterOptions = ref({ cities: [] as string[], sources: [] as string[] })
 
@@ -234,6 +244,7 @@ const filters = ref({
 
 const statusOptions = [
   { title: 'All Off-Market', value: '' },
+  { title: 'Sold', value: 'sold' },
   { title: 'Terminated', value: 'terminated' },
   { title: 'Withdrawn', value: 'withdrawn' },
   { title: 'Expired', value: 'expired' },
@@ -247,7 +258,7 @@ function setStatusFilter(status: string) {
 }
 
 function getStatusColor(status: string) {
-  const map: Record<string, string> = { terminated: 'error', withdrawn: 'warning', expired: 'info' }
+  const map: Record<string, string> = { sold: 'success', terminated: 'error', withdrawn: 'warning', expired: 'info' }
   return map[status] || 'grey'
 }
 

@@ -59,8 +59,8 @@ async function main() {
     await prisma.tenantSettings.create({
       data: {
         adminId: admin.id,
-        businessName: 'Alberta One Real Estate',
-        tagline: 'ALBERTA ONE REAL ESTATE',
+        businessName: 'AgentOS',
+        tagline: 'Intelligence for Realtors',
         phone: '+1 (647) 563 7235',
         email: 'abdul.ojulari@exprealty.com',
         brokerageName: 'eXp Realty',

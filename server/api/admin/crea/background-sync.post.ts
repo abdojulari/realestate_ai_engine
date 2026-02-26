@@ -144,13 +144,18 @@ export default defineEventHandler(async (event) => {
                   }
                 }
 
+                // Don't let CREA overwrite statuses set by Pillar9 (sold, terminated, etc.)
+                const pillar9AuthoritativeStatuses = ['sold', 'terminated', 'withdrawn']
+                const preserveStatus = pillar9AuthoritativeStatuses.includes(existingProperty.status)
+                  && propertyData.status === 'for_sale'
+
                 await (prisma.property as any).update({
                   where: { id: existingProperty.id },
                   data: {
                     ...propertyData,
                     lastSyncAt: new Date(),
-                    // Preserve firstEntryPrice once set
-                    firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price
+                    firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price,
+                    ...(preserveStatus ? { status: existingProperty.status } : {})
                   }
                 })
                 syncStats.updated++

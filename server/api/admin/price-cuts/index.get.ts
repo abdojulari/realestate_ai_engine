@@ -41,37 +41,33 @@ export default defineEventHandler(async (event) => {
       cityConditions.push({ city: { in: matchingCodes } })
     }
 
-    const baseWhere: any = {
-      ...tenantFilter,
-      status: { in: ['for_sale', 'pending'] },
-      firstEntryPrice: { not: null },
-      OR: cityConditions,
-    }
+    const andConditions: any[] = [
+      { ...tenantFilter },
+      { status: { in: ['for_sale', 'pending'] } },
+      { firstEntryPrice: { not: null } },
+      { OR: cityConditions },
+    ]
 
-    if (maxPrice) baseWhere.price = { ...baseWhere.price, lte: maxPrice }
-    if (minPrice) baseWhere.price = { ...baseWhere.price, gte: minPrice }
+    if (maxPrice) andConditions.push({ price: { lte: maxPrice } })
+    if (minPrice) andConditions.push({ price: { gte: minPrice } })
 
-    // If both community and propertyType are provided → OR between them
-    // If only one is provided → treat as simple AND
-    // If neither is provided → no additional filter
-    let where: any
+    // Community and propertyType use OR logic when both provided
     if (community && propertyType) {
-      where = {
-        AND: [baseWhere],
+      andConditions.push({
         OR: [
           { cityRegion: { contains: community, mode: 'insensitive' } },
           { type: { contains: propertyType, mode: 'insensitive' } },
         ],
-      }
+      })
     } else if (community) {
-      where = { ...baseWhere, cityRegion: { contains: community, mode: 'insensitive' } }
+      andConditions.push({ cityRegion: { contains: community, mode: 'insensitive' } })
     } else if (propertyType) {
-      where = { ...baseWhere, type: { contains: propertyType, mode: 'insensitive' } }
-    } else {
-      where = baseWhere
+      andConditions.push({ type: { contains: propertyType, mode: 'insensitive' } })
     }
 
-    // Fetch candidates
+    const where = { AND: andConditions }
+
+    // Fetch candidates (cap at 2000 to avoid memory issues)
     const allCandidates: any[] = await (prisma.property as any).findMany({
       where,
       include: {
@@ -82,6 +78,7 @@ export default defineEventHandler(async (event) => {
         },
       },
       orderBy: { updatedAt: 'desc' },
+      take: 2000,
     })
 
     // Filter to only properties where current price < firstEntryPrice
@@ -154,7 +151,7 @@ export default defineEventHandler(async (event) => {
     const biggestDropPct =
       total > 0
         ? parseFloat(
-            Math.min(...priceCutProperties.map((p: any) => p.priceDrop.changePct)).toFixed(1),
+            Math.max(...priceCutProperties.map((p: any) => Math.abs(p.priceDrop.changePct))).toFixed(1),
           )
         : 0
 

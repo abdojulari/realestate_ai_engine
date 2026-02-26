@@ -112,7 +112,7 @@ model TenantSettings {
   admin            User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   // Branding
-  businessName     String?          // "Alberta One Real Estate"
+  businessName     String?          // "AgentOS"
   tagline          String?          // Displayed under logo
   logoUrl          String?
   faviconUrl       String?
@@ -1161,4 +1161,26 @@ model BkPayrollPayment {
 
   @@index([adminId, payDate])
   @@index([employeeId])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PIPEDA — Privacy Requests
+// ═══════════════════════════════════════════════════════════════
+
+model PrivacyRequest {
+  id          Int       @id @default(autoincrement())
+  fullName    String
+  email       String
+  phone       String?
+  requestType String
+  details     String
+  status      String    @default("pending")
+  ipAddress   String?
+  resolvedAt  DateTime?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([email])
+  @@index([status])
 }

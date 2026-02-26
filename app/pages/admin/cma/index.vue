@@ -49,6 +49,15 @@
             class="mt-3" 
             density="compact"
           />
+          <v-text-field
+            v-model="filters.community"
+            label="Neighbourhood / Community"
+            variant="outlined"
+            class="mt-3"
+            density="compact"
+            hint="CREA CityRegion — e.g. Beltline, Signal Hill"
+            persistent-hint
+          />
           <v-select density="compact" v-model="filters.range" :items="dateRanges" label="Date Range" variant="outlined" class="mt-3" />
           <v-row v-if="filters.range === 'custom'" class="mt-1">
             <v-col cols="6">
@@ -88,6 +97,7 @@
           />
           <v-text-field density="compact" v-model="subject.address" label="Address" variant="outlined" class="mt-3" />
           <v-text-field density="compact" v-model="subject.city" label="City" variant="outlined" class="mt-3" />
+          <v-text-field density="compact" v-model="subject.community" label="Neighbourhood" variant="outlined" class="mt-3" placeholder="e.g. Beltline, Signal Hill" />
           <v-text-field density="compact" v-model="subject.province" label="Province" variant="outlined" class="mt-3" />
           <v-row class="mt-1">
             <v-col cols="4">
@@ -205,8 +215,17 @@
             <div class="text-subtitle-1 font-weight-bold">Comparables</div>
             <div class="text-caption text-medium-emphasis">
               {{ compStats.count }} comps ({{ minMatchScore }}%+ match)
+              <span v-if="compStats.neighbourhoodComps"> &middot; {{ compStats.neighbourhoodComps }} in neighbourhood</span>
             </div>
           </div>
+          <v-alert v-if="searchScope && filters.community" type="info" variant="tonal" density="compact" class="mb-4">
+            <span v-if="searchScope === 'neighbourhood'">
+              Showing comps from <strong>{{ filters.community }}</strong> neighbourhood.
+            </span>
+            <span v-else>
+              Not enough comps in <strong>{{ filters.community }}</strong> — expanded search to {{ radiusKm }}km radius.
+            </span>
+          </v-alert>
           <v-table>
             <thead>
               <tr>
@@ -232,7 +251,13 @@
               <tr v-else v-for="comp in comparables" :key="comp.id">
                 <td>
                   <div class="font-weight-medium">{{ comp.title || comp.address }}</div>
-                  <div class="text-caption text-medium-emphasis">{{ comp.city }}</div>
+                  <div class="text-caption text-medium-emphasis">
+                    {{ comp.city }}
+                    <v-chip v-if="comp.inSameNeighbourhood" size="x-small" color="primary" variant="tonal" class="ml-1">
+                      Same neighbourhood
+                    </v-chip>
+                  </div>
+                  <div v-if="comp.cityRegion" class="text-caption text-medium-emphasis">{{ comp.cityRegion }}</div>
                 </td>
                 <td class="font-weight-bold">${{ formatCurrency(comp.price) }}</td>
                 <td>{{ comp.beds }} / {{ comp.baths }}</td>
@@ -341,19 +366,25 @@ const dateRanges = [
 
 const availableFeatures = [
   'Finished Basement',
+  'Walkout Basement',
   'Double Garage',
+  'Triple Garage',
   'Single Garage',
   'Parking Pad',
   'Central Air',
   'Fireplace',
+  'Fence',
+  'Solar',
+  'Solar Panels',
   'Pool',
   'Waterfront',
-  'City Views'
+  'City Views',
 ]
 
 const filters = reactive({
   province: 'Alberta',
   city: '',
+  community: '',
   range: 'last_90',
   startDate: '',
   endDate: ''
@@ -368,7 +399,7 @@ const soldHeaders = [
   { title: 'Price', key: 'price' },
   { title: 'Beds/Baths', key: 'bedsBaths' },
   { title: 'City', key: 'city' },
-  { title: 'Status', key: 'status' },
+  { title: 'Community', key: 'cityRegion' },
   { title: 'Sold Date', key: 'soldDate' }
 ]
 
@@ -378,6 +409,7 @@ const selectedEstimateId = ref<number | null>(null)
 const subject = reactive({
   address: '',
   city: '',
+  community: '',
   province: '',
   postalCode: '',
   beds: 0,
@@ -392,6 +424,7 @@ const subject = reactive({
 const radiusKm = ref(5)
 const comparables = ref<any[]>([])
 const loadingComps = ref(false)
+const searchScope = ref<string>('')
 const compStats = ref<any>({ 
   count: 0, 
   avgPrice: 0, 
@@ -453,7 +486,9 @@ const matchColor = (score: number) => {
 
 const getMatchTooltip = (comp: any) => {
   const parts = []
+  if (comp.neighbourhoodScore !== undefined && filters.community) parts.push(`Neighbourhood: ${comp.neighbourhoodScore}%`)
   if (comp.featureScore !== undefined) parts.push(`Features: ${comp.featureScore}%`)
+  if (comp.valueImpactScore !== undefined) parts.push(`Value Impact: ${comp.valueImpactScore}%`)
   if (comp.bedsScore !== undefined) parts.push(`Beds: ${comp.bedsScore}%`)
   if (comp.bathsScore !== undefined) parts.push(`Baths: ${comp.bathsScore}%`)
   if (comp.sqftScore !== undefined) parts.push(`Sqft: ${comp.sqftScore}%`)
@@ -466,6 +501,7 @@ const loadSold = async () => {
     const query = new URLSearchParams({
       province: filters.province === 'All' ? '' : (filters.province || ''),
       city: filters.city || '',
+      community: filters.community || '',
       range: filters.range || 'last_90',
       startDate: filters.startDate || '',
       endDate: filters.endDate || '',
@@ -488,7 +524,7 @@ const updateSoldPage = (page: number) => {
 }
 
 watch(
-  () => [filters.province, filters.city, filters.range, filters.startDate, filters.endDate],
+  () => [filters.province, filters.city, filters.community, filters.range, filters.startDate, filters.endDate],
   () => {
     soldPagination.value.page = 1
     loadSold()
@@ -533,6 +569,7 @@ const findComps = async () => {
       filters: {
         province: filters.province || subject.province,
         city: filters.city || subject.city,
+        community: filters.community || subject.community || '',
         range: filters.range,
         startDate: filters.startDate,
         endDate: filters.endDate,
@@ -544,6 +581,7 @@ const findComps = async () => {
     comparables.value = response.comps || []
     compStats.value = response.stats || compStats.value
     methodology.value = response.methodology || null
+    searchScope.value = response.searchScope || ''
   } catch (error) {
     console.error('Failed to load comparables:', error)
   } finally {

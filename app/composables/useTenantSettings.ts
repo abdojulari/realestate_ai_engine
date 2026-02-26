@@ -61,7 +61,7 @@ export function useTenantSettings() {
   // ── Computed helpers ──
 
   const businessName = computed(() => tenantSettings.value?.businessName || '')
-  const tagline = computed(() => tenantSettings.value?.tagline || '')
+  const tagline = computed(() => tenantSettings.value?.tagline || 'Intelligence for Realtors')
   const logoUrl = computed(() => tenantSettings.value?.logoUrl || '/images/logos/logo.png')
   const faviconUrl = computed(() => tenantSettings.value?.faviconUrl || '')
   const primaryColor = computed(() => tenantSettings.value?.primaryColor || '#1976D2')

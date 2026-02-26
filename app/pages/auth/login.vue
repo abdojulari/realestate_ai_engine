@@ -12,7 +12,7 @@
         <!-- Floating Glassmorphism Layer -->
         <div class="hero-content-wrapper pa-12">
           <div class="brand-badge mb-12 animate-fade-in">
-            <span class="text-h4 font-weight-black tracking-tighter text-white">AO<span class="text-primary">.</span></span>
+            <img src="/images/logos/agentos-logo.png" alt="AgentOS" class="auth-logo-light" />
           </div>
           
           <div class="mt-auto">
@@ -62,7 +62,7 @@
       <div class="form-inner-container">
         <!-- Logo for Mobile -->
         <div class="d-md-none text-center mb-12">
-           <span class="text-h4 font-weight-black tracking-tighter text-black">AO<span class="text-primary">.</span></span>
+           <img src="/images/logos/agentos-logo.png" alt="AgentOS" class="auth-logo-mobile" />
         </div>
 
         <div class="mb-10 text-center text-md-left">
@@ -520,6 +520,19 @@ onUnmounted(() => {
 .social-btn:hover {
   background-color: #f8fafc !important;
   border-color: #000 !important;
+}
+
+.auth-logo-light {
+  height: 52px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
+.auth-logo-mobile {
+  height: 48px;
+  width: auto;
+  object-fit: contain;
 }
 
 .gap-6 { gap: 24px; }

@@ -133,15 +133,19 @@ export default defineEventHandler(async (event) => {
           }
 
           if (existingProperty) {
-            // Update existing property
+            // Don't let CREA overwrite statuses set by Pillar9 (sold, terminated, etc.)
+            const pillar9AuthoritativeStatuses = ['sold', 'terminated', 'withdrawn']
+            const preserveStatus = pillar9AuthoritativeStatuses.includes(existingProperty.status)
+              && propertyData.status === 'for_sale'
+
             await prisma.property.update({
               where: { id: existingProperty.id },
               data: {
                 ...propertyData,
                 lastSyncAt: new Date(),
-                // Preserve local data
                 views: existingProperty.views,
-                createdAt: existingProperty.createdAt
+                createdAt: existingProperty.createdAt,
+                ...(preserveStatus ? { status: existingProperty.status } : {})
               }
             })
             syncStats.updated++
