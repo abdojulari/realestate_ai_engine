@@ -1,18 +1,13 @@
 import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 export default defineNitroPlugin(async (nitroApp) => {
-  nitroApp.hooks.hook('request', async () => {
-    // Connect to database when request starts
-    await prisma.$connect()
-  })
-
-  nitroApp.hooks.hook('beforeResponse', async () => {
-    // Disconnect from database before sending response
-    await prisma.$disconnect()
-  })
-
   // Make prisma available in event context
   nitroApp.hooks.hook('request', (event) => {
     event.context.prisma = prisma

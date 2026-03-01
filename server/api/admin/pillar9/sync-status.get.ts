@@ -1,8 +1,13 @@
 import { defineEventHandler } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { pillar9Service } from '../../../utils/pillar9.service'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 // GET is public - used by admin page and schedulers
 export default defineEventHandler(async (event) => {

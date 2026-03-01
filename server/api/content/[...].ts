@@ -1,9 +1,15 @@
 import { createRouter, defineEventHandler, readBody, useBase } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { getPublicTenantFilter } from '../../utils/tenant'
 import { requireAdmin } from '../../utils/auth'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
+
 const router = createRouter()
 
 // Get all content blocks (public read)

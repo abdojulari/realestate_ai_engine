@@ -1,11 +1,16 @@
 import { defineEventHandler, createError, getRouterParam } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
 import { requireTenantAccess } from '../../../utils/tenant'
 import { unlink } from 'fs/promises'
 import { join } from 'path'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)

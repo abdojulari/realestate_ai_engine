@@ -1,8 +1,13 @@
 import { defineEventHandler, createError } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { requireAuth } from '../../../utils/auth'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 export default defineEventHandler(async (event) => {
   const user = await requireAuth(event)

@@ -1,7 +1,12 @@
-import { PrismaClient } from '@prisma/client'
 import { sendEmail, generateEmailTemplate } from '../../utils/email'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 const VALID_REQUEST_TYPES = ['access', 'correction', 'deletion', 'withdraw_consent', 'restrict', 'other']
 

@@ -8,14 +8,19 @@
  */
 
 import { defineEventHandler, createError } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../utils/auth'
 import { requireFeature, FEATURES } from '../../utils/license'
 import { aggregateMonthlyMetrics, prepareTrainingData } from '../../ml/dataPrep'
 import { trainModel, saveModel, DEFAULT_CONFIG } from '../../ml/model'
 import type { RawPropertyData } from '../../ml/dataPrep'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 export default defineEventHandler(async (event) => {
   // Only admins can train the model

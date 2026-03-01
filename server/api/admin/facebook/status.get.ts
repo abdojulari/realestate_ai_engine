@@ -1,8 +1,13 @@
-import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantAdminId } from '../../../utils/tenant'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 export default defineEventHandler(async (event) => {
   try {

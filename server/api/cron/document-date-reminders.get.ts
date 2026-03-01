@@ -3,10 +3,15 @@
  * Call: GET /api/cron/document-date-reminders?secret=YOUR_CRON_SECRET
  * Run daily (e.g. 8:00 AM): 0 8 * * * curl "https://yoursite.com/api/cron/document-date-reminders?secret=xxx"
  */
-import { PrismaClient } from '@prisma/client'
 import { sendEmail } from '../../utils/email'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)

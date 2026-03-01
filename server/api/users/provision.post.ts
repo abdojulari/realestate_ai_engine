@@ -1,10 +1,15 @@
 // POST /api/users/provision - Provision a new user from SaaS Control Plane
 // This endpoint is called when a user completes their subscription
-import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import crypto from 'crypto'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 // Generate a random secure password
 function generateRandomPassword(length = 12): string {

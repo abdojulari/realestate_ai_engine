@@ -1,8 +1,13 @@
 import { defineEventHandler } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { getPublicTenantFilter } from '../../utils/tenant'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 // City coordinates for major Alberta cities
 const CITY_COORDINATES: Record<string, { latitude: number; longitude: number }> = {

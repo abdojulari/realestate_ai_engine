@@ -8,7 +8,6 @@
  */
 
 import { defineEventHandler, createError } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../utils/auth'
 import { requireFeature, FEATURES } from '../../utils/license'
 import { aggregateMonthlyMetrics, prepareForPrediction } from '../../ml/dataPrep'
@@ -16,8 +15,14 @@ import { loadModel, predict, modelExists } from '../../ml/model'
 import type { RawPropertyData } from '../../ml/dataPrep'
 import * as fs from 'fs'
 import * as path from 'path'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 // Cache predictions for 1 hour (don't predict on every request)
 let predictionCache: {

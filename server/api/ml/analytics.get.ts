@@ -8,13 +8,18 @@
  */
 
 import { defineEventHandler, getQuery } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../utils/auth'
 import { requireFeature, FEATURES } from '../../utils/license'
 import { calculateAnalytics } from '../../ml/analytics'
 import type { RawPropertyData } from '../../ml/dataPrep'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 // Cache analytics for 30 minutes
 let analyticsCache: {

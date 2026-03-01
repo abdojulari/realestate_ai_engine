@@ -1,10 +1,15 @@
 // GET /api/license - Get current license info and feature access
 // Works for both authenticated and unauthenticated requests
 import { getLicenseInfo, getUserLicense, getEffectiveSubscriptionTier, FEATURES } from '../utils/license'
-import { PrismaClient } from '@prisma/client'
 import jwt from 'jsonwebtoken'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 export default defineEventHandler(async (event) => {
   // Check for optional auth token

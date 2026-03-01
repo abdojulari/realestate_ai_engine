@@ -1,9 +1,14 @@
 import { defineEventHandler, readBody, createError, getHeader } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { pillar9Service } from '../../../utils/pillar9.service'
 import { requireAdmin } from '../../../utils/auth'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 /** Allow request if sync secret is configured and provided (for cron). Otherwise require admin. */
 async function requireAdminOrSyncSecret(event: any) {

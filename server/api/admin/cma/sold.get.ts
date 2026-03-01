@@ -1,9 +1,14 @@
 import { defineEventHandler, getQuery } from 'h3'
-import { PrismaClient } from '@prisma/client'
 import { requireAdmin } from '../../../utils/auth'
 import { creaService } from '../../../utils/crea.service'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient()
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
 
 function parseDateRange(range?: string, startDate?: string, endDate?: string) {
   const now = new Date()
