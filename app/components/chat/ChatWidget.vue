@@ -145,7 +145,7 @@
           </div>
 
           <div v-if="m.followUpQuestions?.length" class="follow-up">
-            <div class="follow-up-label">Suggested next questions</div>
+            <div class="follow-up-label">Suggested replies</div>
             <div class="follow-up-list">
               <button
                 v-for="(q, i) in m.followUpQuestions"
@@ -240,9 +240,9 @@ const leadForm = reactive({
 })
 
 const suggestions = [
-  'How much can I afford each month?',
-  'Show me 3-bed homes in Edmonton',
-  'What is the selling process?'
+  'I am looking to get a 3-bedroom home in a family-oriented community in the city.',
+  'I want to understand the process of selling a property.',
+  'I am already pre-approved for a mortgage.'
 ]
 
 const sendMessage = async () => {
@@ -262,7 +262,13 @@ const sendMessage = async () => {
       followUpQuestions?: string[]
     }>('/api/chat', {
       method: 'POST',
-      body: { message: text }
+      body: {
+        message: text,
+        history: messages.value.slice(-8).map(m => ({
+          role: m.role,
+          content: m.content
+        }))
+      }
     })
 
     messages.value.push({

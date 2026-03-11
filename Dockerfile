@@ -6,21 +6,27 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache python3 make g++
 
+# Enable pnpm (project package manager)
+RUN corepack enable
+
+# Increase Node heap for Nuxt production build in container
+ENV NODE_OPTIONS=--max-old-space-size=4096
+
 # Copy package files
-COPY package*.json ./
+COPY package.json pnpm-lock.yaml ./
 COPY prisma ./prisma/
 
 # Clean install with proper architecture support
-RUN npm ci --force
+RUN pnpm install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Generate Prisma client
-RUN npx prisma generate
+RUN pnpm exec prisma generate
 
 # Build application
-RUN npm run build
+RUN pnpm run build
 
 # Production stage
 FROM node:20-alpine
@@ -30,16 +36,19 @@ WORKDIR /app
 # Install runtime dependencies
 RUN apk add --no-cache dumb-init
 
+# Enable pnpm in runtime image too
+RUN corepack enable
+
 # Copy built application
 COPY --from=builder /app/.output ./
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
 
-# Install production dependencies only
-RUN npm ci --only=production --force
+# Install dependencies (includes Prisma CLI for generate step)
+RUN pnpm install --frozen-lockfile
 
 # Generate Prisma client for production
-RUN npx prisma generate
+RUN pnpm exec prisma generate
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs

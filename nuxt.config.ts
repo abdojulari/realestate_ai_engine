@@ -1,5 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 import { defineNuxtConfig } from 'nuxt/config'
+import { fileURLToPath } from 'node:url'
 
 export default defineNuxtConfig({
   compatibilityDate: '2025-12-29',
@@ -156,7 +157,7 @@ export default defineNuxtConfig({
     pillar9SyncSecret: process.env.PILLAR9_SYNC_SECRET || process.env.CRON_SECRET || '',
   },
   alias: {
-    '~': '/Users/abdul.ojulari/Frontends/suhani/app',
-    '@': '/Users/abdul.ojulari/Frontends/suhani/app'
+    '~': fileURLToPath(new URL('./app', import.meta.url)),
+    '@': fileURLToPath(new URL('./app', import.meta.url)),
   }
 })

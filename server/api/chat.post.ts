@@ -12,6 +12,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 type Intent = 'faq' | 'property' | 'general'
+type HistoryMessage = { role: 'user' | 'assistant'; content: string }
 
 const RESIDENTIAL_TYPES = ['house', 'condo', 'townhouse', 'multi-family', 'land', 'other']
 
@@ -41,6 +42,7 @@ export default defineEventHandler(async (event) => {
   const tenantFilter = await getPublicTenantFilter(event)
   const body = await readBody(event)
   const message = typeof body?.message === 'string' ? body.message.trim() : ''
+  const history = sanitizeHistory(body?.history)
 
   if (!message) {
     throw createError({
@@ -65,6 +67,7 @@ export default defineEventHandler(async (event) => {
   const answer = await askChatbot({
     userMessage: message,
     context,
+    history,
     leadIntent
   })
 
@@ -72,6 +75,8 @@ export default defineEventHandler(async (event) => {
     intent,
     leadIntent,
     message,
+    answer,
+    history,
     properties
   })
 
@@ -87,6 +92,22 @@ export default defineEventHandler(async (event) => {
     followUpQuestions
   }
 })
+
+function sanitizeHistory(rawHistory: unknown): HistoryMessage[] {
+  if (!Array.isArray(rawHistory)) return []
+  return rawHistory
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null
+      const role = (item as any).role
+      const content = (item as any).content
+      if ((role !== 'user' && role !== 'assistant') || typeof content !== 'string') return null
+      const trimmed = content.trim()
+      if (!trimmed) return null
+      return { role, content: trimmed } as HistoryMessage
+    })
+    .filter((item): item is HistoryMessage => item !== null)
+    .slice(-8)
+}
 
 function detectIntent(message: string): Intent {
   const normalized = normalizeText(message)
@@ -309,11 +330,15 @@ function buildFollowUpQuestions({
   intent,
   leadIntent,
   message,
+  answer,
+  history,
   properties
 }: {
   intent: Intent
   leadIntent: boolean
   message: string
+  answer: string
+  history: HistoryMessage[]
   properties: Array<{
     title: string
     price: number
@@ -326,43 +351,125 @@ function buildFollowUpQuestions({
   }>
 }): string[] {
   const normalized = normalizeText(message)
+  const recentText = normalizeText(
+    [
+      message,
+      answer,
+      ...history.map((h) => h.content)
+    ].join(' ')
+  )
+  const preferredCity = extractCity(recentText)
+  const hasPropertyContext = /\b(property|properties|listing|mls|bed|bedroom|bath|bathroom|viewing|showing|city|community)\b/i.test(recentText)
+  const hasSellingContext = /\b(sell|selling|seller|list|listing my home|home worth|valuation)\b/i.test(recentText)
+  const hasMortgageContext = /\b(mortgage|pre-approval|preapproval|down payment|interest rate|financing)\b/i.test(recentText)
+  const askedForDeepDive = /\b(deeper|deep dive|deep-dive|walkthrough)\b/i.test(recentText)
   const candidates: string[] = []
 
-  if (intent === 'property') {
-    if (!normalized.includes('city') && !extractCity(normalized)) {
-      candidates.push('Which city are you looking in?')
+  if (intent === 'property' || hasPropertyContext) {
+    if (preferredCity) {
+      candidates.push(`I want listings in ${preferredCity} with 3+ bedrooms.`)
+      candidates.push(`I want family-oriented communities in ${preferredCity}.`)
+    } else if (!normalized.includes('city') && !extractCity(normalized)) {
+      candidates.push('I am looking in Edmonton.')
     }
     if (!normalized.includes('bed') && !extractBeds(normalized)) {
-      candidates.push('How many bedrooms do you need?')
+      candidates.push('I am looking for a 3-bedroom home in a family-oriented community.')
     }
     if (!normalized.includes('bath') && !extractBaths(normalized)) {
-      candidates.push('How many bathrooms should the home have?')
+      candidates.push('I would like at least 2 bathrooms.')
     }
     if (!normalized.includes('$') && !extractPriceRange(normalized).maxPrice) {
-      candidates.push('What price range should I focus on?')
+      candidates.push('My budget is between $500k and $700k.')
     }
     if (properties.length > 0) {
-      candidates.push('Would you like details on any of these listings?')
+      candidates.push('I would like details on one of these listings.')
+      candidates.push('I want to compare these listings side by side.')
     }
-  } else if (intent === 'faq') {
-    candidates.push('Do you want a quick checklist or a deeper walkthrough?')
-    if (!normalized.includes('mortgage') && !normalized.includes('pre-approval')) {
-      candidates.push('Are you already pre-approved for a mortgage?')
+  } else if (intent === 'faq' || hasSellingContext || hasMortgageContext) {
+    if (hasSellingContext) {
+      candidates.push('I want a step-by-step selling timeline from listing to closing.')
+      candidates.push('I want to know how to price my property in the current market.')
+      candidates.push('I want a checklist to prepare my home before listing.')
+    } else if (hasMortgageContext || askedForDeepDive) {
+      candidates.push('I want a deeper walkthrough of the mortgage pre-approval process.')
+      candidates.push('I want a checklist of documents needed for pre-approval.')
+      candidates.push('I want to understand how down payment affects monthly costs.')
+    } else {
+      candidates.push('I want a quick checklist.')
+      candidates.push('I would like a deeper walkthrough.')
     }
-    candidates.push('Would you like to speak with an agent about this?')
+    if (!normalized.includes('mortgage') && !normalized.includes('pre-approval') && !askedForDeepDive) {
+      candidates.push('I am already pre-approved for a mortgage.')
+      candidates.push('I am not pre-approved yet.')
+    }
+    candidates.push('I want to speak with an agent about this.')
   } else {
-    candidates.push('Are you looking to buy, sell, or just explore the market?')
-    candidates.push('What type of property are you interested in?')
+    if (preferredCity) {
+      candidates.push(`I want to explore neighborhoods in ${preferredCity}.`)
+      candidates.push(`I want recent market trends in ${preferredCity}.`)
+    } else {
+      candidates.push('I am exploring the market in my area.')
+    }
+    candidates.push('I want a continuation based on what we just discussed.')
   }
 
   if (leadIntent) {
-    candidates.push('What timeline are you working with?')
+    candidates.push('My timeline is within the next 3 to 6 months.')
   }
 
-  // Filter out questions similar to what the user already asked
-  const filtered = candidates.filter(q => !isSimilarQuestion(message, q))
+  // Filter out suggestions similar to recent conversation to reduce repetition
+  const filtered = candidates.filter((q) => {
+    if (isSimilarQuestion(message, q)) return false
+    if (history.some((h) => isSimilarQuestion(h.content, q))) return false
+    const suggestionNorm = normalizeText(q)
+    return !recentText.includes(suggestionNorm)
+  })
 
-  return filtered.slice(0, 3)
+  return sanitizeSuggestedReplies(Array.from(new Set(filtered)).slice(0, 3), recentText, preferredCity)
+}
+
+function sanitizeSuggestedReplies(
+  suggestions: string[],
+  recentText = '',
+  preferredCity: string | null = null
+): string[] {
+  const hasSellingContext = /\b(sell|selling|seller|list|home worth|valuation)\b/i.test(recentText)
+  const hasMortgageContext = /\b(mortgage|pre-approval|preapproval|down payment)\b/i.test(recentText)
+  const userVoiceFallbacks = hasSellingContext
+    ? [
+        'I want the full selling process from start to finish.',
+        'I want help pricing my property correctly.',
+        'I want to speak with an agent about selling.'
+      ]
+    : hasMortgageContext
+      ? [
+          'I want a deeper walkthrough of pre-approval.',
+          'I am already pre-approved for a mortgage.',
+          'I am not pre-approved yet.'
+        ]
+      : preferredCity
+        ? [
+            `I want listings in ${preferredCity}.`,
+            `I want family-oriented communities in ${preferredCity}.`,
+            `I want market trends in ${preferredCity}.`
+          ]
+        : [
+            'I am looking to buy a home.',
+            'I want to understand the process of selling a property.',
+            'I am exploring the market in my area.'
+          ]
+
+  const hasQuestionMark = (text: string) => text.includes('?')
+  const aiDirectedPattern = /^(are|do|did|can|could|would|will|what|which|when|where|why|who|how)\b/i
+
+  const filtered = suggestions
+    .map(s => s.trim())
+    .filter(Boolean)
+    .filter((s) => !hasQuestionMark(s))
+    .filter((s) => !aiDirectedPattern.test(s))
+    .filter((s) => s.toLowerCase() !== 'are you already pre-approved for a mortgage')
+
+  return filtered.length > 0 ? filtered.slice(0, 3) : userVoiceFallbacks
 }
 
 function buildContext({
@@ -412,10 +519,12 @@ function buildContext({
 async function askChatbot({
   userMessage,
   context,
+  history,
   leadIntent
 }: {
   userMessage: string
   context: string
+  history: HistoryMessage[]
   leadIntent: boolean
 }) {
   const config = useRuntimeConfig()
@@ -438,10 +547,12 @@ ${context}
 
 Rules:
 - Answer using provided knowledge only when possible
-- If you lack specific details, ask a brief clarifying question
+- If details are missing, ask at most one brief clarifying question
 - If asking about a property, mention MLS if available
 - Encourage lead capture politely when intent is shown
-- Never hallucinate prices or availability
+- Never hallucinate prices, availability, neighborhoods, schools, or market stats
+- If the information is not in context, say you do not have that detail yet
+- Avoid repeating the same question that was already asked in this conversation
 ${leadCaptureRule}
   `.trim()
 
@@ -455,9 +566,10 @@ ${leadCaptureRule}
     },
     body: {
       model: 'llama-3.1-8b-instant',
-      temperature: 0.2,
+      temperature: 0.1,
       messages: [
         { role: 'system', content: systemPrompt },
+        ...history.map((item) => ({ role: item.role, content: item.content })),
         { role: 'user', content: userMessage }
       ]
     }
