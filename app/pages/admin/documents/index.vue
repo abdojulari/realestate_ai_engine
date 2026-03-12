@@ -130,6 +130,7 @@
               <v-list-subheader>TOOLS</v-list-subheader>
               <v-list-item prepend-icon="mdi-format-text" title="Add Text" @click="showTextDialog = true" />
               <v-list-item prepend-icon="mdi-signature" title="Add Signature" @click="showSignatureDialog = true" />
+              <v-list-item prepend-icon="mdi-draw" title="Markup & Annotate" @click="showMarkupDialog = true" />
               <v-list-item prepend-icon="mdi-watermark" title="Watermark" @click="handleWatermark" :loading="editor.processing.value" />
               <v-list-item prepend-icon="mdi-text-box-search-outline" title="OCR Extract (Page)" @click="handleOCR" :disabled="editor.ocrLoading.value" />
               <v-list-item prepend-icon="mdi-file-document-multiple" title="OCR All Pages" @click="handleOCRAll" :disabled="editor.ocrLoading.value" />
@@ -206,6 +207,7 @@
     <FileConverterDialog v-model="showConverterDialog" :loading="converting" @convert="convertFile" />
     <LegalAdviseDialog v-model="showLegalAdviseDialog" :doc="legalAdviseDoc" :review-data="legalReviewData" :loading="legalReviewLoading" :date-alerts="dateAlertItems" :saving-alerts="savingAlerts" @save-alerts="saveDateAlerts" />
     <EmailDocumentDialog v-model="showEmailDialog" :doc="emailDoc" @sent="showSnackbar('Document emailed successfully', 'success')" />
+    <PdfMarkupDialog v-model="showMarkupDialog" :total-pages="editor.totalPages.value" :current-page="editor.currentPage.value" :canvas-refs="editor.canvasRefs" @apply-markup="onApplyMarkup" />
 
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000">{{ snackbarText }}</v-snackbar>
@@ -244,6 +246,7 @@ const showDeleteDialog = ref(false)
 const showConverterDialog = ref(false)
 const showLegalAdviseDialog = ref(false)
 const showEmailDialog = ref(false)
+const showMarkupDialog = ref(false)
 const emailDoc = ref<any>(null)
 
 // ─── Snackbar ────────────────────────────────────────────
@@ -333,6 +336,15 @@ async function onAddSignature(el: any, save: boolean, name: string) {
 async function onDeleteSignature(id: number) {
   try { await $fetch(`/api/admin/signatures/${id}`, { method: 'DELETE', headers: editor.getAuthHeaders() }); showSnackbar('Signature deleted'); await loadSignatures() }
   catch { showSnackbar('Failed to delete signature', 'error') }
+}
+
+async function onApplyMarkup(payload: { page: number; imageData: string }) {
+  try {
+    await editor.applyMarkupToPage(payload.page, payload.imageData)
+    showSnackbar('Markup applied to page ' + payload.page)
+  } catch {
+    showSnackbar('Failed to apply markup', 'error')
+  }
 }
 
 async function onSearch(query: string) {

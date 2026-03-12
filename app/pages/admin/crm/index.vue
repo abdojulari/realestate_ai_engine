@@ -73,7 +73,7 @@
       <v-row class="mb-10">
         <v-col cols="12">
           <v-card class="action-card-premium" elevation="0">
-            <v-card-title class="text-overline letter-spacing-1 pt-6 px-8 text-white">Quick Actions</v-card-title>
+            <v-card-title class="text-overline letter-spacing-1 pt-6 px-8">Quick Actions</v-card-title>
             <v-card-text class="pa-8 pt-2">
               <v-row>
                 <v-col cols="12" sm="6" md="3">
@@ -357,7 +357,7 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
 .warning-orb { background: rgba(var(--v-theme-warning), 0.1); color: rgb(var(--v-theme-warning)); }
 .gold-orb { background: rgba(140, 115, 75, 0.1); color: #8c734b; }
 
-.action-card-premium { border-radius: 24px !important; background: #121212 !important; color: white !important; }
+.action-card-premium { border-radius: 24px !important; }
 
 .transaction-mini-card {
   border-radius: 16px !important;

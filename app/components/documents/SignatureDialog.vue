@@ -40,15 +40,12 @@
 
       <v-window v-model="sigTab" class="pa-6">
         <v-window-item value="draw">
-          <div class="signature-canvas-container premium-signature-pad border rounded-lg bg-white mb-4">
-            <canvas ref="sigCanvas" width="600" height="200"></canvas>
+          <div ref="canvasWrapper" class="signature-canvas-container premium-signature-pad border rounded-lg bg-white mb-4">
+            <canvas ref="sigCanvas"></canvas>
           </div>
           <div class="d-flex justify-space-between align-center">
             <v-btn variant="text" size="small" @click="clearSig">Clear</v-btn>
-            <v-checkbox 
-            v-model="saveForReuse" 
-            label="Save for reuse" hide-details density="compact" 
-            />
+            <v-checkbox v-model="saveForReuse" label="Save for reuse" hide-details density="compact" />
           </div>
         </v-window-item>
         <v-window-item value="type">
@@ -69,7 +66,7 @@
         <v-select density="compact"
           v-model="page"
           :items="Array.from({ length: totalPages }, (_, i) => ({ title: `Page ${i + 1}`, value: i + 1 }))"
-          label="Add to Page" variant="outlined" 
+          label="Add to Page" variant="outlined"
         />
       </v-card-text>
 
@@ -99,7 +96,9 @@ const emit = defineEmits<{
 }>()
 
 const sigCanvas = ref<HTMLCanvasElement | null>(null)
+const canvasWrapper = ref<HTMLElement | null>(null)
 let signaturePad: SignaturePad | null = null
+let resizeObserver: ResizeObserver | null = null
 
 const sigTab = ref('draw')
 const sigText = ref('')
@@ -114,6 +113,8 @@ watch(() => props.modelValue, (val) => {
   if (val) {
     page.value = props.currentPage
     if (sigTab.value === 'draw') initCanvas()
+  } else {
+    destroyObserver()
   }
 })
 
@@ -121,15 +122,80 @@ watch(sigTab, (val) => {
   if (val === 'draw' && props.modelValue) initCanvas()
 })
 
+onBeforeUnmount(() => {
+  destroyObserver()
+})
+
+function destroyObserver() {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+    resizeObserver = null
+  }
+}
+
+function resizeCanvas() {
+  const canvas = sigCanvas.value
+  const wrapper = canvasWrapper.value
+  if (!canvas || !wrapper) return
+
+  const rect = wrapper.getBoundingClientRect()
+  if (rect.width === 0) return
+
+  const dpr = window.devicePixelRatio || 1
+  const displayWidth = rect.width
+  const displayHeight = Math.max(180, rect.width * 0.3)
+
+  canvas.width = displayWidth * dpr
+  canvas.height = displayHeight * dpr
+  canvas.style.width = displayWidth + 'px'
+  canvas.style.height = displayHeight + 'px'
+
+  const ctx = canvas.getContext('2d')
+  if (ctx) ctx.scale(dpr, dpr)
+
+  return { displayWidth, displayHeight, dpr }
+}
+
 function initCanvas() {
   nextTick(() => {
-    if (sigCanvas.value) {
-      const ctx = sigCanvas.value.getContext('2d')
-      if (ctx) ctx.clearRect(0, 0, sigCanvas.value.width, sigCanvas.value.height)
-      signaturePad = new SignaturePad(sigCanvas.value, {
-        backgroundColor: 'rgba(0, 0, 0, 0)', penColor: 'rgb(0, 0, 0)',
+    // Wait for the dialog DOM to settle (v-dialog transition)
+    setTimeout(() => {
+      const dims = resizeCanvas()
+      if (!dims) return
+
+      const canvas = sigCanvas.value
+      if (!canvas) return
+
+      if (signaturePad) {
+        signaturePad.off()
+      }
+
+      signaturePad = new SignaturePad(canvas, {
+        backgroundColor: 'rgba(0, 0, 0, 0)',
+        penColor: 'rgb(0, 0, 0)',
+        minWidth: 1,
+        maxWidth: 3,
+        velocityFilterWeight: 0.7,
       })
-    }
+
+      destroyObserver()
+      resizeObserver = new ResizeObserver(() => {
+        if (!signaturePad || !canvas) return
+        const data = signaturePad.isEmpty() ? null : signaturePad.toData()
+        resizeCanvas()
+        signaturePad = new SignaturePad(canvas, {
+          backgroundColor: 'rgba(0, 0, 0, 0)',
+          penColor: 'rgb(0, 0, 0)',
+          minWidth: 1,
+          maxWidth: 3,
+          velocityFilterWeight: 0.7,
+        })
+        if (data) signaturePad.fromData(data)
+      })
+      if (canvasWrapper.value) {
+        resizeObserver.observe(canvasWrapper.value)
+      }
+    }, 150)
   })
 }
 
@@ -178,17 +244,74 @@ async function submit() {
 
 <style scoped>
 .premium-dialog {
-  background: rgba(255, 255, 255, 0.98) !important; backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.8); box-shadow: 0 20px 60px rgba(31, 38, 135, 0.3) !important;
+  background: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  box-shadow: 0 20px 60px rgba(31, 38, 135, 0.3) !important;
 }
-.dialog-title { font-weight: 700; font-size: 1.25rem; border-bottom: 1px solid rgba(0, 0, 0, 0.06); padding: 20px 24px !important; }
+.dialog-title {
+  font-weight: 700;
+  font-size: 1.25rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 20px 24px !important;
+}
 .cursor-pointer { cursor: pointer; }
-.signature-preview-card { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); }
-.signature-preview-card:hover { border-color: rgb(var(--v-theme-primary)); box-shadow: 0 6px 20px rgba(25, 118, 210, 0.2); transform: translateY(-2px); }
-.selected-signature { border-color: rgb(var(--v-theme-primary)) !important; border-width: 2px !important; background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), rgba(var(--v-theme-primary), 0.12)) !important; box-shadow: 0 8px 24px rgba(25, 118, 210, 0.25) !important; }
-.signature-img-preview, .signature-text-preview { min-height: 60px; display: flex; align-items: center; justify-content: center; }
-.signature-text-preview { font-family: 'Dancing Script', cursive; font-size: 24px; color: #1a237e; }
-.premium-signature-pad { background-image: linear-gradient(45deg, #f8f9fa 25%, transparent 25%), linear-gradient(-45deg, #f8f9fa 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #f8f9fa 75%), linear-gradient(-45deg, transparent 75%, #f8f9fa 75%); background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px; box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.05); position: relative; overflow: hidden; }
-.signature-canvas-container canvas { cursor: crosshair; width: 100%; display: block; }
-.preview-text-sig { font-family: 'Dancing Script', cursive; font-size: 48px; text-align: center; border: 2px dashed rgba(25, 118, 210, 0.3); background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(249, 250, 251, 0.9)); padding: 20px; color: #1a237e; min-height: 100px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.signature-preview-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(10px);
+}
+.signature-preview-card:hover {
+  border-color: rgb(var(--v-theme-primary));
+  box-shadow: 0 6px 20px rgba(25, 118, 210, 0.2);
+  transform: translateY(-2px);
+}
+.selected-signature {
+  border-color: rgb(var(--v-theme-primary)) !important;
+  border-width: 2px !important;
+  background: linear-gradient(135deg, rgba(var(--v-theme-primary), 0.08), rgba(var(--v-theme-primary), 0.12)) !important;
+  box-shadow: 0 8px 24px rgba(25, 118, 210, 0.25) !important;
+}
+.signature-img-preview, .signature-text-preview {
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.signature-text-preview {
+  font-family: 'Dancing Script', cursive;
+  font-size: 24px;
+  color: #1a237e;
+}
+.premium-signature-pad {
+  background-image:
+    linear-gradient(45deg, #f8f9fa 25%, transparent 25%),
+    linear-gradient(-45deg, #f8f9fa 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #f8f9fa 75%),
+    linear-gradient(-45deg, transparent 75%, #f8f9fa 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.05);
+  position: relative;
+  overflow: hidden;
+}
+.signature-canvas-container canvas {
+  cursor: crosshair;
+  display: block;
+  touch-action: none;
+}
+.preview-text-sig {
+  font-family: 'Dancing Script', cursive;
+  font-size: 48px;
+  text-align: center;
+  border: 2px dashed rgba(25, 118, 210, 0.3);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(249, 250, 251, 0.9));
+  padding: 20px;
+  color: #1a237e;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+}
 </style>

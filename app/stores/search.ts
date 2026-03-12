@@ -301,6 +301,8 @@ export const useSearchStore = defineStore('search', {
                   queryParams.append('features', featureKey)
                 }
               })
+            } else if (key === 'bedsMinimum' || key === 'mainFloorBedrooms' || key === 'upperFloorBedroomCount') {
+              // Informational flags, skip
             } else if (Array.isArray(value)) {
               queryParams.append(key, value.join(','))
             } else {

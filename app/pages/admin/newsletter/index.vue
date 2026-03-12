@@ -355,8 +355,6 @@ definePageMeta({
 /* Action Card */
 .action-card-premium {
   border-radius: 24px !important;
-  background: #121212 !important;
-  color: white !important;
 }
 
 .premium-action-btn {

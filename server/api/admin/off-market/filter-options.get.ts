@@ -10,7 +10,7 @@ if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
 }
 
-const OFF_MARKET_STATUSES = ['terminated', 'withdrawn', 'expired']
+const OFF_MARKET_STATUSES = ['terminated', 'withdrawn', 'expired', 'sold']
 
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)

@@ -809,8 +809,10 @@ const searchWithAI = async (pageNum = 1) => {
         // Skip internal flags
         } else if (key === 'bedsMinimum') {
           // This is handled by beds logic above
+        } else if (key === 'mainFloorBedrooms' || key === 'upperFloorBedroomCount') {
+          // Informational counts used for remark keyword generation
           
-        // Arrays (like 'near' items)
+        // Arrays (like 'near' items and remarkKeywords)
         } else if (Array.isArray(value)) {
           queryParams.append(key, value.join(','))
           

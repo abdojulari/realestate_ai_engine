@@ -49,13 +49,15 @@
             class="mt-3" 
             density="compact"
           />
-          <v-text-field
+          <v-autocomplete
             v-model="filters.community"
+            :items="availableCommunities"
             label="Neighbourhood / Community"
             variant="outlined"
             class="mt-3"
             density="compact"
-            hint="CREA CityRegion — e.g. Beltline, Signal Hill"
+            clearable
+            hint="From sold records"
             persistent-hint
           />
           <v-select density="compact" v-model="filters.range" :items="dateRanges" label="Date Range" variant="outlined" class="mt-3" />
@@ -97,7 +99,7 @@
           />
           <v-text-field density="compact" v-model="subject.address" label="Address" variant="outlined" class="mt-3" />
           <v-text-field density="compact" v-model="subject.city" label="City" variant="outlined" class="mt-3" />
-          <v-text-field density="compact" v-model="subject.community" label="Neighbourhood" variant="outlined" class="mt-3" placeholder="e.g. Beltline, Signal Hill" />
+          <v-autocomplete density="compact" v-model="subject.community" :items="availableCommunities" label="Neighbourhood" variant="outlined" class="mt-3" clearable />
           <v-text-field density="compact" v-model="subject.province" label="Province" variant="outlined" class="mt-3" />
           <v-row class="mt-1">
             <v-col cols="4">
@@ -381,6 +383,20 @@ const availableFeatures = [
   'City Views',
 ]
 
+const availableCommunities = ref<string[]>([])
+
+const loadCommunities = async () => {
+  try {
+    const params = new URLSearchParams()
+    if (filters.province && filters.province !== 'All') params.set('province', filters.province)
+    if (filters.city) params.set('city', filters.city)
+    const data: any = await api.get(`/api/admin/cma/communities?${params.toString()}`)
+    availableCommunities.value = data.communities || []
+  } catch (e) {
+    console.error('Failed to load communities:', e)
+  }
+}
+
 const filters = reactive({
   province: 'Alberta',
   city: '',
@@ -390,7 +406,7 @@ const filters = reactive({
   endDate: ''
 })
 
-const minMatchScore = ref(20)
+const minMatchScore = ref(50)
 const loadingSold = ref(false)
 const soldProperties = ref<any[]>([])
 const soldPagination = ref({ page: 1, limit: 10, total: 0, pages: 1 })
@@ -421,7 +437,7 @@ const subject = reactive({
   features: [] as string[]
 })
 
-const radiusKm = ref(5)
+const radiusKm = ref(1)
 const comparables = ref<any[]>([])
 const loadingComps = ref(false)
 const searchScope = ref<string>('')
@@ -529,6 +545,11 @@ watch(
     soldPagination.value.page = 1
     loadSold()
   }
+)
+
+watch(
+  () => [filters.province, filters.city],
+  () => { loadCommunities() }
 )
 
 const loadEstimates = async () => {
@@ -674,7 +695,7 @@ const sendReport = async () => {
 }
 
 onMounted(async () => {
-  await Promise.all([loadSold(), loadEstimates()])
+  await Promise.all([loadSold(), loadEstimates(), loadCommunities()])
 })
 </script>
 

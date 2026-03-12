@@ -1212,8 +1212,246 @@ function parseWithRules(query: string): Record<string, any> {
   if (!filters.status) {
     filters.status = 'for_sale'
   }
-  
+
+  // =========================================================================
+  // 36. FLOOR-LEVEL BEDROOM & BATHROOM DISTRIBUTION
+  // =========================================================================
+  const floorBedroomPatterns = [
+    /(\d+|one|two|three|four|five)\s*(?:bed|bedroom|br)s?\s*(?:on\s*(?:the\s*)?)?(?:main|ground|first)\s*(?:floor|level|storey)/,
+    /(?:main|ground|first)\s*(?:floor|level)\s*(?:master\s*)?(?:bed|bedroom)/,
+    /(?:master|primary)\s*(?:bed|bedroom|suite)\s*(?:on\s*(?:the\s*)?)?(?:main|ground|first)\s*(?:floor|level)/,
+    /(?:bed|bedroom)\s*(?:on\s*(?:the\s*)?)?(?:main|ground|first)\s*(?:floor|level)/,
+  ]
+
+  for (const pattern of floorBedroomPatterns) {
+    const match = query.match(pattern)
+    if (match) {
+      if (!filters.features) filters.features = {}
+      filters.features.mainFloorBedroom = true
+      if (match[1]) {
+        const count = convertNumberWordToDigit(match[1])
+        if (count) filters.mainFloorBedrooms = count
+      }
+      break
+    }
+  }
+
+  const upperBedroomPatterns = [
+    /(\d+|one|two|three|four|five)\s*(?:bed|bedroom|br)s?\s*(?:upstairs|up|on\s*(?:the\s*)?(?:upper|second|2nd|top)\s*(?:floor|level|storey))/,
+    /(\d+|one|two|three|four|five)\s*(?:bed|bedroom|br)s?\s*(?:on\s*(?:the\s*)?)?(?:upper|second|2nd)\s*(?:floor|level)/,
+  ]
+
+  for (const pattern of upperBedroomPatterns) {
+    const match = query.match(pattern)
+    if (match && match[1]) {
+      if (!filters.features) filters.features = {}
+      filters.features.upperFloorBedrooms = true
+      const count = convertNumberWordToDigit(match[1])
+      if (count) filters.upperFloorBedroomCount = count
+      break
+    }
+  }
+
+  // "bedroom with a full bathroom on the main floor" or "full bath on main"
+  if (/(?:bed|bedroom)\s*(?:with\s*(?:a\s*)?(?:full\s*)?(?:bath|bathroom|ensuite))\s*(?:on\s*(?:the\s*)?)?(?:main|ground|first)\s*(?:floor|level)/.test(query) ||
+      /(?:full\s*)?(?:bath|bathroom|ensuite)\s*(?:on\s*(?:the\s*)?)?(?:main|ground|first)\s*(?:floor|level)/.test(query)) {
+    if (!filters.features) filters.features = {}
+    filters.features.mainFloorFullBath = true
+  }
+
+  if (/(?:half\s*bath|powder\s*room)\s*(?:on\s*(?:the\s*)?)?(?:main|ground|first)\s*(?:floor|level)/.test(query)) {
+    if (!filters.features) filters.features = {}
+    filters.features.mainFloorHalfBath = true
+  }
+
+  if (/(?:master|primary)\s*(?:on\s*(?:the\s*)?)?(?:main|ground|first)|(?:main|ground|first)\s*(?:floor|level)\s*(?:master|primary)/.test(query)) {
+    if (!filters.features) filters.features = {}
+    filters.features.mainFloorMaster = true
+  }
+
+  // =========================================================================
+  // 37. KITCHEN TYPES & FEATURES
+  // =========================================================================
+  const kitchenTypePatterns = [
+    { keywords: ['spice kitchen', 'secondary kitchen', 'second kitchen', '2nd kitchen', 'wok kitchen', 'prep kitchen', 'auxiliary kitchen', 'catering kitchen'], feature: 'spiceKitchen' },
+    { keywords: ['gourmet kitchen', "chef's kitchen", 'chefs kitchen', 'chef kitchen', 'professional kitchen'], feature: 'gourmetKitchen' },
+    { keywords: ['eat-in kitchen', 'eat in kitchen', 'breakfast nook', 'breakfast bar', 'eating area in kitchen'], feature: 'eatInKitchen' },
+    { keywords: ['pot lights', 'recessed lighting', 'pot lighting', 'recessed lights'], feature: 'potLights' },
+    { keywords: ['backsplash', 'tile backsplash', 'glass backsplash', 'mosaic backsplash'], feature: 'backsplash' },
+    { keywords: ['soft close', 'soft-close', 'soft close drawers', 'soft close cabinets'], feature: 'softCloseDrawers' },
+    { keywords: ['undermount sink', 'farmhouse sink', 'apron sink', 'deep sink'], feature: 'upgradedSink' },
+  ]
+
+  for (const { keywords, feature } of kitchenTypePatterns) {
+    if (queryContainsAny(query, keywords)) {
+      if (!filters.features) filters.features = {}
+      filters.features[feature] = true
+    }
+  }
+
+  // =========================================================================
+  // 38. MAIN/UPPER FLOOR SPECIFIC FEATURES
+  // =========================================================================
+  const floorFeaturePatterns = [
+    { keywords: ['main floor laundry', 'laundry on main', 'laundry on the main', 'main level laundry', 'laundry main floor'], feature: 'mainFloorLaundry' },
+    { keywords: ['upper floor laundry', 'upstairs laundry', 'second floor laundry', 'laundry upstairs', 'laundry on the upper'], feature: 'upperFloorLaundry' },
+    { keywords: ['separate entrance', 'side entrance', 'private entrance', 'own entrance', 'independent entrance'], feature: 'separateEntrance' },
+    { keywords: ['main floor office', 'main floor den', 'office on main', 'den on main', 'main level den'], feature: 'mainFloorDen' },
+    { keywords: ['open to above', 'open to below', 'double height', 'two-storey foyer', 'grand foyer', 'soaring ceiling', 'open foyer'], feature: 'grandEntrance' },
+    { keywords: ['coffered ceiling', 'tray ceiling', 'waffle ceiling', 'coffered ceilings'], feature: 'cofferedCeiling' },
+    { keywords: ['wainscoting', 'chair rail', 'wall panels', 'wall paneling', 'wainscotting'], feature: 'wainscoting' },
+    { keywords: ['built-in shelves', 'built in shelves', 'built-in bookcase', 'built-ins', 'custom shelving'], feature: 'builtInShelves' },
+    { keywords: ['9 foot ceiling', '9 ft ceiling', "9' ceiling", '9ft ceiling', 'nine foot ceiling', '10 foot ceiling', '10 ft ceiling'], feature: 'tallCeilings' },
+    { keywords: ['exposed beam', 'beam ceiling', 'wood beam', 'exposed beams', 'timber beam'], feature: 'beamCeilings' },
+    { keywords: ['floor to ceiling window', 'floor-to-ceiling', 'oversized window', 'large window', 'picture window', 'wall of windows'], feature: 'oversizedWindows' },
+    { keywords: ['tankless hot water', 'tankless water heater', 'on-demand hot water', 'on demand hot water', 'instant hot water'], feature: 'tanklessHotWater' },
+    { keywords: ['rough in', 'rough-in', 'roughed in', 'roughed-in', 'rough in basement'], feature: 'roughInBasement' },
+    { keywords: ['epoxy floor', 'garage floor coating', 'epoxy garage', 'coated garage floor'], feature: 'garageFloorCoating' },
+    { keywords: ['mud bench', 'built-in bench', 'entry bench', 'shoe bench'], feature: 'mudBench' },
+  ]
+
+  for (const { keywords, feature } of floorFeaturePatterns) {
+    if (queryContainsAny(query, keywords)) {
+      if (!filters.features) filters.features = {}
+      filters.features[feature] = true
+    }
+  }
+
+  // =========================================================================
+  // 39. DETAILED GARAGE FEATURES (supplements section 3)
+  // =========================================================================
+  if (filters.garageSpaces === 3) {
+    if (!filters.features) filters.features = {}
+    filters.features.tripleGarage = true
+  } else if (filters.garageSpaces === 2) {
+    if (!filters.features) filters.features = {}
+    filters.features.doubleGarage = true
+  } else if (filters.garageSpaces === 1) {
+    if (!filters.features) filters.features = {}
+    filters.features.singleGarage = true
+  }
+
+  const detailedGaragePatterns = [
+    { keywords: ['insulated garage', 'fully insulated garage'], feature: 'insulatedGarage' },
+    { keywords: ['garage workshop', 'workshop in garage'], feature: 'garageWorkshop' },
+    { keywords: ['floor drain', 'garage drain', 'drain in garage'], feature: 'garageFloorDrain' },
+    { keywords: ['ev ready', 'ev-ready', 'electric vehicle ready', 'ev outlet', 'ev charging ready'], feature: 'evReady' },
+  ]
+
+  for (const { keywords, feature } of detailedGaragePatterns) {
+    if (queryContainsAny(query, keywords)) {
+      if (!filters.features) filters.features = {}
+      filters.features[feature] = true
+    }
+  }
+
+  // =========================================================================
+  // 40. REMARK KEYWORDS - CREA/Pillar9 description search phrases
+  // =========================================================================
+  const rk = generateRemarkKeywords(filters, query)
+  if (rk.length > 0) {
+    filters.remarkKeywords = rk
+  }
+
   return filters
+}
+
+// ============================================================================
+// REMARK KEYWORD GENERATOR - Produces CREA/Pillar9-style search phrases
+// ============================================================================
+
+function generateRemarkKeywords(filters: Record<string, any>, _query: string): string[] {
+  const keywords: string[] = []
+  const features = filters.features || {}
+
+  if (features.mainFloorBedroom) {
+    keywords.push('bedroom on main', 'main floor bedroom', 'bed on main',
+      'bdrm on main', 'bedroom on the main', 'main level bedroom', 'master on main')
+    if (filters.mainFloorBedrooms) {
+      keywords.push(`${filters.mainFloorBedrooms} bed on main`,
+        `${filters.mainFloorBedrooms} bedroom on main`)
+    }
+  }
+
+  if (features.mainFloorFullBath) {
+    keywords.push('ensuite on main', 'full bath on main', 'ensuite on the main',
+      'full bathroom on main', 'main floor ensuite', 'main floor full bath', 'bath on main')
+  }
+
+  if (features.mainFloorMaster) {
+    keywords.push('master on main', 'primary on main', 'master bedroom on main',
+      'main floor master', 'master on the main', 'primary bedroom on main')
+  }
+
+  if (features.upperFloorBedrooms) {
+    keywords.push('bedrooms up', 'bedrooms upstairs', 'beds up',
+      'upper floor bedroom', 'bedrooms on upper', 'beds upstairs')
+    if (filters.upperFloorBedroomCount) {
+      keywords.push(`${filters.upperFloorBedroomCount} bed up`,
+        `${filters.upperFloorBedroomCount} bedroom up`,
+        `${filters.upperFloorBedroomCount} bedrooms up`,
+        `${filters.upperFloorBedroomCount} beds up`)
+    }
+  }
+
+  if (features.spiceKitchen) {
+    keywords.push('spice kitchen', 'secondary kitchen', 'second kitchen',
+      '2nd kitchen', 'wok kitchen', 'prep kitchen')
+  }
+
+  if (features.gourmetKitchen) {
+    keywords.push('gourmet kitchen', "chef's kitchen", 'chefs kitchen',
+      'upgraded kitchen', 'professional kitchen')
+  }
+
+  if (features.tripleGarage) {
+    keywords.push('triple garage', '3 car garage', '3-car garage',
+      'triple car', 'three car garage', 'triple attached', 'triple car garage')
+  } else if (features.doubleGarage) {
+    keywords.push('double garage', '2 car garage', '2-car garage',
+      'double car', 'two car garage', 'double attached', 'double car garage')
+  }
+
+  if (filters.basement === 'finished') {
+    keywords.push('finished basement', 'fully finished basement',
+      'developed basement', 'fully developed basement', 'completed basement')
+  } else if (filters.basement === 'walkout') {
+    keywords.push('walkout basement', 'walk-out basement', 'walk out basement')
+  } else if (filters.basement === 'suite' || filters.basement === 'legal_suite') {
+    keywords.push('basement suite', 'legal suite', 'in-law suite',
+      'inlaw suite', 'secondary suite')
+  }
+
+  if (features.mainFloorLaundry) {
+    keywords.push('main floor laundry', 'laundry on main', 'laundry on the main')
+  }
+
+  if (features.separateEntrance) {
+    keywords.push('separate entrance', 'side entrance', 'private entrance')
+  }
+
+  if (features.tallCeilings) {
+    keywords.push("9' ceiling", '9 foot ceiling', '9 ft ceiling',
+      '10 foot ceiling', '10 ft ceiling', 'high ceiling', 'tall ceiling')
+  }
+
+  if (features.potLights) {
+    keywords.push('pot lights', 'recessed lighting', 'pot lighting')
+  }
+
+  if (features.tanklessHotWater) {
+    keywords.push('tankless', 'tankless hot water', 'on-demand hot water')
+  }
+
+  if (features.beamCeilings) {
+    keywords.push('exposed beam', 'beam ceiling', 'wood beam', 'exposed beams')
+  }
+
+  if (features.mainFloorDen) {
+    keywords.push('den on main', 'office on main', 'main floor den', 'main floor office')
+  }
+
+  return [...new Set(keywords)]
 }
 
 // ============================================================================

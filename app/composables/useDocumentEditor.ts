@@ -299,6 +299,31 @@ export function useDocumentEditor() {
     selectedElement.value = null
   }
 
+  // ─── Markup / Annotation Overlay ────────────────────────
+
+  const applyMarkupToPage = async (pageNum: number, imageDataUrl: string) => {
+    if (!currentPdfDoc) return
+    processing.value = true
+    try {
+      const pages = currentPdfDoc.getPages()
+      const page = pages[pageNum - 1]
+      if (!page) return
+
+      const base64 = imageDataUrl.split(',')[1]
+      if (!base64) return
+      const imgBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+      const img = await currentPdfDoc.embedPng(imgBytes)
+
+      const { width, height } = page.getSize()
+      page.drawImage(img, { x: 0, y: 0, width, height })
+
+      const pdfBytes = await currentPdfDoc.save()
+      await loadPdfDocument(pdfBytes.buffer)
+    } finally {
+      processing.value = false
+    }
+  }
+
   // ─── Search ────────────────────────────────────────────
 
   const searchPdf = async () => {
@@ -566,7 +591,7 @@ export function useDocumentEditor() {
     addTextElement, addSignatureElement,
     selectElement, startDrag, startResize, deleteElement,
     // Features
-    searchPdf, addWatermark, runOCR, runOCRAllPages,
+    searchPdf, addWatermark, applyMarkupToPage, runOCR, runOCRAllPages,
     savePdf,
     // Converters
     convertDocxToPdf, convertImageToPdf, convertTextToPdf,

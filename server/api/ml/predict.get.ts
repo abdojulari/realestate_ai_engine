@@ -121,10 +121,10 @@ export default defineEventHandler(async (event) => {
     // Aggregate monthly metrics
     const monthlyMetrics = aggregateMonthlyMetrics(rawData)
     
-    if (monthlyMetrics.length < 6) {
+    if (monthlyMetrics.length < 1) {
       return {
         success: false,
-        error: 'Insufficient data for prediction. Need at least 6 months of data.',
+        error: 'Insufficient data for prediction. Need at least 1 month of data.',
         hasPrediction: false
       }
     }

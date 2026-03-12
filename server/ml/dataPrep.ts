@@ -458,8 +458,8 @@ export function prepareForPrediction(
   metrics: MonthlyMetrics[],
   normalization: PreparedFeatures['normalization']
 ): number[] | null {
-  if (metrics.length < 6) {
-    console.warn('[ML] Need at least 6 months of data for prediction')
+  if (metrics.length < 1) {
+    console.warn('[ML] Need at least 1 month of data for prediction')
     return null
   }
   

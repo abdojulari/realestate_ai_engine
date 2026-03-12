@@ -50,6 +50,9 @@ RUN pnpm install --frozen-lockfile
 # Generate Prisma client for production
 RUN pnpm exec prisma generate
 
+# Pre-create ML model directory so the non-root user can write to it
+RUN mkdir -p server/ml/models/forecast
+
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nuxt -u 1001

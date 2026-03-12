@@ -56,7 +56,10 @@ export default defineEventHandler(async (event) => {
     // Subdivision/neighborhood
     subdivision,
     neighborhood,
-    neighborhoodId
+    neighborhoodId,
+    
+    // CREA/Pillar9 remark keywords for exhaustive description search
+    remarkKeywords
   } = query
 
   const where: any = { ...tenantFilter }
@@ -247,6 +250,22 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // CREA/Pillar9 remark keywords - exhaustive description search
+  if (remarkKeywords) {
+    const keywordsArray = typeof remarkKeywords === 'string'
+      ? (remarkKeywords as string).split(',').map((k: string) => k.trim()).filter((k: string) => k.length > 0)
+      : Array.isArray(remarkKeywords) ? (remarkKeywords as string[]).map((k: string) => k.trim()) : []
+
+    if (keywordsArray.length > 0) {
+      if (!where.AND) where.AND = []
+      where.AND.push({
+        OR: keywordsArray.map((keyword: string) => ({
+          description: { contains: keyword, mode: 'insensitive' }
+        }))
+      })
+    }
+  }
+
   // Helper function to build feature condition
   function buildFeatureCondition(feature: string, allFeatures: string[]): any {
     // Comprehensive feature mapping with description search
@@ -422,6 +441,49 @@ export default defineEventHandler(async (event) => {
       'tenantinplace': { keywords: ['tenant', 'rented', 'currently rented'] },
       'petfriendly': { keywords: ['pet friendly', 'pets allowed', 'dog friendly'] },
       'furnished': { keywords: ['furnished', 'fully furnished'] },
+      
+      // ===== FLOOR-LEVEL DISTRIBUTION =====
+      'mainfloorbedroom': { keywords: ['bedroom on main', 'main floor bedroom', 'bed on main', 'bdrm on main', 'bedroom on the main', 'main level bedroom', 'master on main', 'primary on main', '1 bed on main', '1 bedroom on main'] },
+      'mainfloormaster': { keywords: ['master on main', 'primary on main', 'master bedroom on main', 'main floor master', 'master on the main', 'primary bedroom on main', 'primary on the main'] },
+      'mainfloorensuite': { keywords: ['ensuite on main', 'full bath on main', 'ensuite on the main', 'full bathroom on main', 'main floor ensuite', 'main floor full bath'] },
+      'mainfloorfullbath': { keywords: ['full bath on main', 'full bathroom on main', 'ensuite on main', 'main floor full bath', 'main floor ensuite', 'full ensuite on main', 'bath on main'] },
+      'mainfloorhalfbath': { keywords: ['half bath on main', 'half bathroom on main', 'powder room on main', 'half bath on the main', 'powder room'] },
+      'upperfloorbedrooms': { keywords: ['bedrooms up', 'bedrooms upstairs', 'beds up', 'upper floor bedroom', 'bedrooms on upper', 'beds upstairs', '3 bed up', '3 bedrooms up', '2 bed up', '4 bed up', '2 bedrooms up', '4 bedrooms up'] },
+      
+      // ===== KITCHEN TYPES =====
+      'spicekitchen': { keywords: ['spice kitchen', 'secondary kitchen', 'second kitchen', '2nd kitchen', 'wok kitchen', 'prep kitchen', 'auxiliary kitchen', 'catering kitchen'] },
+      'gourmetkitchen': { keywords: ['gourmet kitchen', "chef's kitchen", 'chefs kitchen', 'chef kitchen', 'professional kitchen', 'upgraded kitchen'] },
+      'eatinkitchen': { keywords: ['eat-in kitchen', 'eat in kitchen', 'breakfast nook', 'breakfast bar', 'eating area'] },
+      'upgradedsink': { keywords: ['undermount sink', 'farmhouse sink', 'apron sink', 'deep sink'] },
+      'potlights': { keywords: ['pot lights', 'recessed lighting', 'pot lighting', 'recessed lights'] },
+      'backsplash': { keywords: ['backsplash', 'tile backsplash', 'glass backsplash', 'mosaic backsplash'] },
+      'softclosedrawers': { keywords: ['soft close', 'soft-close', 'soft close drawers', 'soft close cabinets'] },
+      
+      // ===== FLOOR-SPECIFIC FEATURES =====
+      'mainfloorlaundry': { keywords: ['main floor laundry', 'laundry on main', 'laundry on the main', 'main level laundry'] },
+      'upperfloorlaundry': { keywords: ['upper floor laundry', 'upstairs laundry', 'second floor laundry', 'laundry upstairs'] },
+      'separateentrance': { keywords: ['separate entrance', 'side entrance', 'private entrance', 'own entrance', 'independent entrance'] },
+      'mainfloorden': { keywords: ['main floor den', 'office on main', 'den on main', 'main floor office', 'main level den'] },
+      'grandentrance': { keywords: ['open to above', 'double height', 'two-storey foyer', 'grand foyer', 'soaring ceiling', 'open foyer'] },
+      'cofferedceiling': { keywords: ['coffered ceiling', 'tray ceiling', 'waffle ceiling', 'coffered ceilings'] },
+      'wainscoting': { keywords: ['wainscoting', 'chair rail', 'wall panels', 'wainscotting', 'wall paneling'] },
+      'builtinshelves': { keywords: ['built-in shelves', 'built in shelves', 'built-in bookcase', 'built-ins', 'custom shelving'] },
+      'tallceilings': { keywords: ['9 foot ceiling', '9 ft ceiling', "9' ceiling", '10 foot ceiling', '10 ft ceiling', 'high ceiling', 'tall ceiling', '9ft ceiling'] },
+      'beamceilings': { keywords: ['exposed beam', 'beam ceiling', 'wood beam', 'exposed beams', 'timber beam'] },
+      'oversizedwindows': { keywords: ['floor to ceiling window', 'floor-to-ceiling', 'oversized window', 'large window', 'picture window', 'wall of windows'] },
+      'tanklesshotwater': { keywords: ['tankless hot water', 'tankless water heater', 'on-demand hot water', 'instant hot water', 'tankless'] },
+      'roughinbasement': { keywords: ['rough in', 'rough-in', 'roughed in', 'roughed-in'] },
+      'garagefloorcoating': { keywords: ['epoxy floor', 'garage floor coating', 'epoxy garage', 'coated garage floor'] },
+      'mudbench': { keywords: ['mud bench', 'built-in bench', 'entry bench', 'shoe bench'] },
+      
+      // ===== DETAILED GARAGE =====
+      'triplegarage': { keywords: ['triple garage', '3 car garage', '3-car garage', 'triple car', 'three car garage', 'triple attached', 'triple car garage'] },
+      'doublegarage': { keywords: ['double garage', '2 car garage', '2-car garage', 'double car', 'two car garage', 'double attached', 'double car garage'] },
+      'singlegarage': { keywords: ['single garage', '1 car garage', '1-car garage', 'single car', 'one car garage', 'single attached'] },
+      'insulatedgarage': { keywords: ['insulated garage', 'fully insulated garage'] },
+      'garageworkshop': { keywords: ['garage workshop', 'workshop in garage'] },
+      'garagefloordrain': { keywords: ['floor drain', 'garage drain'] },
+      'evready': { keywords: ['ev ready', 'ev-ready', 'electric vehicle ready', 'ev outlet', 'ev charging ready'] },
     }
     
     // Find matching keywords for this feature

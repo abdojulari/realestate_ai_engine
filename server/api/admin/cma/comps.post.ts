@@ -258,11 +258,10 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const subject: Subject = body?.subject || {}
   const filters = body?.filters || {}
-  const radiusKm = Number(filters.radiusKm || 5)
+  const radiusKm = Number(filters.radiusKm || 1)
   const limit = Number(filters.limit || 20)
-  const minMatchScore = Number(filters.minMatchScore || 20)
+  const minMatchScore = Number(filters.minMatchScore || 50)
   const community = (filters.community || subject.community || '') as string
-  const MIN_COMPS_BEFORE_EXPAND = 3
 
   // Geocode subject address if no coordinates provided
   let subjectCoords = subject.latitude && subject.longitude
@@ -308,7 +307,7 @@ export default defineEventHandler(async (event) => {
     baseWhere.updatedAt = dateFilter
   }
 
-  // Phase 1: Search within the neighbourhood/community first
+  // Search sold properties — strictly within the community when specified
   let properties: any[] = []
   let searchScope: 'neighbourhood' | 'radius' | 'city' = 'city'
 
@@ -325,27 +324,28 @@ export default defineEventHandler(async (event) => {
     })
     searchScope = 'neighbourhood'
     console.log(`[CMA] Neighbourhood "${community}": ${properties.length} sold properties found`)
-  }
-
-  // Phase 2: If neighbourhood returned fewer than MIN_COMPS_BEFORE_EXPAND, expand to radius/city
-  if (properties.length < MIN_COMPS_BEFORE_EXPAND) {
-    const cityProperties = await prisma.property.findMany({
-      where: baseWhere,
+  } else if (subjectCoords) {
+    // No community — use bounding box to limit DB query to radius
+    const latDelta = radiusKm / KM_PER_DEGREE
+    const lonDelta = radiusKm / (KM_PER_DEGREE * Math.cos(subjectCoords.lat * Math.PI / 180))
+    const radiusWhere = {
+      ...baseWhere,
+      latitude: { gte: subjectCoords.lat - latDelta, lte: subjectCoords.lat + latDelta },
+      longitude: { gte: subjectCoords.lng - lonDelta, lte: subjectCoords.lng + lonDelta },
+    }
+    properties = await prisma.property.findMany({
+      where: radiusWhere,
       orderBy: { updatedAt: 'desc' },
       take: 500,
       select: propertySelect,
     })
-
-    // Merge: neighbourhood results first, then city results (deduplicated)
-    const existingIds = new Set(properties.map((p: any) => p.id))
-    for (const p of cityProperties) {
-      if (!existingIds.has(p.id)) {
-        properties.push(p)
-        existingIds.add(p.id)
-      }
-    }
-    searchScope = subjectCoords ? 'radius' : 'city'
-    console.log(`[CMA] Expanded to ${searchScope}: ${properties.length} total sold properties`)
+    searchScope = 'radius'
+    console.log(`[CMA] Radius ${radiusKm}km search: ${properties.length} sold properties found`)
+  } else {
+    // No community, no coordinates — cannot determine radius, return empty
+    properties = []
+    searchScope = 'city'
+    console.log(`[CMA] No community or coordinates provided, no results`)
   }
 
   const subjectFeatures = (subject.features || []).map(normalizeFeature)
@@ -392,22 +392,34 @@ export default defineEventHandler(async (event) => {
         : 50
 
       let bedsScore = 100
-      if (subject.beds && property.beds) {
-        const bedsDiff = Math.abs(subject.beds - property.beds)
-        bedsScore = Math.max(0, 100 - bedsDiff * 25)
+      if (subject.beds != null && subject.beds > 0) {
+        if (!property.beds || property.beds === 0) {
+          bedsScore = 0
+        } else {
+          const bedsDiff = Math.abs(subject.beds - property.beds)
+          bedsScore = Math.max(0, 100 - bedsDiff * 25)
+        }
       }
       
       let bathsScore = 100
-      if (subject.baths && property.baths) {
-        const bathsDiff = Math.abs(subject.baths - property.baths)
-        bathsScore = Math.max(0, 100 - bathsDiff * 25)
+      if (subject.baths != null && subject.baths > 0) {
+        if (!property.baths || property.baths === 0) {
+          bathsScore = 0
+        } else {
+          const bathsDiff = Math.abs(subject.baths - property.baths)
+          bathsScore = Math.max(0, 100 - bathsDiff * 25)
+        }
       }
       
       let sqftScore = 100
-      if (subject.sqft && property.sqft) {
-        const sqftDiff = Math.abs(subject.sqft - property.sqft)
-        const sqftPercentDiff = sqftDiff / subject.sqft
-        sqftScore = Math.max(0, 100 - sqftPercentDiff * 200)
+      if (subject.sqft != null && subject.sqft > 0) {
+        if (!property.sqft || property.sqft === 0) {
+          sqftScore = 0
+        } else {
+          const sqftDiff = Math.abs(subject.sqft - property.sqft)
+          const sqftPercentDiff = sqftDiff / subject.sqft
+          sqftScore = Math.max(0, 100 - sqftPercentDiff * 200)
+        }
       }
 
       const propRegion = ((property as any).cityRegion || '').toLowerCase()
@@ -420,11 +432,11 @@ export default defineEventHandler(async (event) => {
 
       const hasComm = Boolean(communityLower)
       const matchScore = Math.round(
-        combinedFeatureScore * (hasComm ? 0.30 : 0.40) +
-        bedsScore * 0.15 +
-        bathsScore * 0.15 +
-        sqftScore * (hasComm ? 0.25 : 0.30) +
-        neighbourhoodScore * (hasComm ? 0.15 : 0)
+        combinedFeatureScore * (hasComm ? 0.15 : 0.40) +
+        bedsScore * 0.10 +
+        bathsScore * 0.10 +
+        sqftScore * (hasComm ? 0.15 : 0.30) +
+        neighbourhoodScore * (hasComm ? 0.50 : 0)
       )
       
       const distance = subjectCoords && property.latitude && property.longitude
@@ -451,10 +463,11 @@ export default defineEventHandler(async (event) => {
       }
     })
     .filter((property) => property.matchScore >= minMatchScore)
-    // Filter by radius if coordinates available (but always keep neighbourhood matches)
+    // Filter by radius (always keep neighbourhood matches)
     .filter((property) => {
       if (property.inSameNeighbourhood) return true
-      if (!subjectCoords || property.distanceKm == null) return true
+      if (!subjectCoords) return true
+      if (property.distanceKm == null) return false
       return property.distanceKm <= radiusKm
     })
     // Sort: same neighbourhood first, then by match score, then by distance
@@ -513,11 +526,11 @@ export default defineEventHandler(async (event) => {
         : 'Comparative Market Analysis based on recently sold properties',
       matchCriteria: community
         ? [
-            'Neighbourhood match (15% weight)',
-            'Feature matching (30% weight)',
-            'Bedroom count similarity (15% weight)',
-            'Bathroom count similarity (15% weight)',
-            'Square footage similarity (25% weight)',
+            'Neighbourhood match (50% weight)',
+            'Feature matching (15% weight)',
+            'Bedroom count similarity (10% weight)',
+            'Bathroom count similarity (10% weight)',
+            'Square footage similarity (15% weight)',
           ]
         : [
             'Feature matching (40% weight)',

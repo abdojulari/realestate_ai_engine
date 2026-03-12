@@ -76,7 +76,7 @@
       <v-row class="mb-10">
         <v-col cols="12">
           <v-card class="action-card-premium" elevation="0">
-            <v-card-title class="text-overline letter-spacing-1 pt-6 px-8 text-white">
+            <v-card-title class="text-overline letter-spacing-1 pt-6 px-8">
               Quick Actions
             </v-card-title>
             <v-card-text class="pa-8 pt-2">
@@ -679,8 +679,6 @@ onMounted(() => {
 /* ── Quick Actions Card ──────────────────────────────────── */
 .action-card-premium {
   border-radius: 24px !important;
-  background: #121212 !important;
-  color: white !important;
 }
 
 .premium-action-btn {
