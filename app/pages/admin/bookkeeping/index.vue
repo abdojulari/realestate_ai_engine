@@ -1,4 +1,5 @@
 <template>
+  <FeatureGate :feature="FEATURES.BOOKKEEPING" :show-upgrade-prompt="true">
   <div class="bookkeeping-dashboard px-md-8 py-md-6">
     <v-container fluid>
       <!-- Page Header -->
@@ -286,10 +287,13 @@
       </div>
     </v-snackbar>
   </div>
+  </FeatureGate>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import FeatureGate from '~/components/FeatureGate.vue'
+import { FEATURES } from '~/composables/useLicense'
 import EChart from '~/components/charts/EChart.vue'
 
 definePageMeta({

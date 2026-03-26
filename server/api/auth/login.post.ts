@@ -35,7 +35,8 @@ export default defineEventHandler(async (event) => {
         twoFactorEnabled: true,
         twoFactorCode: true,
         twoFactorCodeExpiry: true,
-        loginCount: true
+        loginCount: true,
+        mustChangePassword: true,
       }
     })
 
@@ -115,7 +116,8 @@ export default defineEventHandler(async (event) => {
 
         return {
           user: userWithoutSensitiveData,
-          token
+          token,
+          mustChangePassword: user.mustChangePassword || false,
         }
       } else {
         // Generate 2FA code
@@ -286,7 +288,8 @@ If you didn't request this code, please ignore this email and ensure your accoun
 
     return {
       user: userWithoutSensitiveData,
-      token
+      token,
+      mustChangePassword: user.mustChangePassword || false,
     }
   } catch (error: any) {
     throw createError({

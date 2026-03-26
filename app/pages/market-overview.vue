@@ -1,120 +1,94 @@
 <template>
-  <div class="market-overview-page">
-    <!-- Hero Section with Premium Gradient & Texture -->
-    <section class="hero-section text-white overflow-hidden">
-      <div class="hero-bg-overlay"></div>
-      <v-container class="relative py-16">
+  <div class="mo-page">
+    <!-- Hero -->
+    <section class="mo-hero">
+      <div class="mo-hero-grain"></div>
+      <div class="mo-hero-glow mo-glow-1"></div>
+      <div class="mo-hero-glow mo-glow-2"></div>
+
+      <v-container class="mo-hero-content">
         <v-row align="center" justify="center" class="text-center">
-          <v-col cols="12" md="10" lg="8">
-            <v-chip
-              color="white"
-              variant="outlined"
-              size="small"
-              class="mb-6 px-4 py-3 text-uppercase tracking-widest font-weight-bold"
-              style="border-color: rgba(255,255,255,0.4) !important;"
-            >
+          <v-col cols="12" md="10" lg="7">
+            <div class="mo-hero-chip">
+              <span class="mo-chip-dot"></span>
               Market Insights
-            </v-chip>
-            <h1 class="premium-title text-h3 text-sm-h2 mb-6">
-              Alberta Real Estate <br class="hidden-sm-and-down" />
-              <span class="text-italic font-weight-light">Market Intelligence</span>
+            </div>
+            <h1 class="mo-hero-title">
+              Alberta Real Estate<br class="hidden-sm-and-down" />
+              <span class="mo-hero-accent">Market Intelligence</span>
             </h1>
-            <p class="text-subtitle-1 text-md-h6 mb-0 opacity-80 max-w-700 mx-auto font-weight-light">
-              Access comprehensive neighborhood analytics and pricing trends across Alberta's most vibrant cities.
+            <p class="mo-hero-desc">
+              Access comprehensive neighborhood analytics, pricing trends and
+              inventory data across Alberta&rsquo;s most vibrant cities.
             </p>
           </v-col>
         </v-row>
       </v-container>
-      
-      <!-- Decorative Abstract Element -->
-      <div class="decorative-circle top-right"></div>
-      <div class="decorative-circle bottom-left"></div>
     </section>
 
-    <!-- Main Content with Refined Spacing -->
-    <section class="content-section pb-16">
+    <!-- Main Content -->
+    <section class="mo-content">
       <v-container>
-        <v-row class="mt-n10">
-          <v-col cols="12">
-            <!-- Market Overview Component Wrapper -->
-            <v-card class="premium-glass-card pa-2" elevation="24">
-              <CityMarketOverview 
-                @city-selected="handleCitySelected"
-              />
-            </v-card>
-          </v-col>
-        </v-row>
-        
-        <!-- Neighborhood Section: Refined Design -->
-        <v-row class="mt-12" v-if="showNeighborhoodData">
-          <v-col cols="12">
-            <div class="section-header mb-8 d-flex align-center">
-              <div>
-                <h2 class="text-h4 font-weight-bold mb-2">Neighborhood Breakdown</h2>
-                <div class="section-line"></div>
-              </div>
-              <v-spacer />
-              <v-chip size="small" color="blue-darken-4" variant="tonal" prepend-icon="mdi-chart-bell-curve">
-                Beta Access
-              </v-chip>
+        <!-- City Overview Card -->
+        <div class="mo-card-wrapper mo-pull-up">
+          <div class="mo-glass-card">
+            <CityMarketOverview @city-selected="handleCitySelected" />
+          </div>
+        </div>
+
+        <!-- Neighborhood Section -->
+        <div v-if="showNeighborhoodData" class="mo-card-wrapper mt-14">
+          <div class="mo-section-header">
+            <div>
+              <h2 class="mo-section-title">Neighborhood Breakdown</h2>
+              <div class="mo-section-bar"></div>
             </div>
+            <div class="mo-section-chip">
+              <v-icon size="14" class="mr-1">mdi-chart-bell-curve</v-icon>
+              Beta Access
+            </div>
+          </div>
 
-            <v-alert
-              border="start"
-              color="blue-darken-3"
-              theme="dark"
-              variant="flat"
-              class="mb-8 rounded-xl elevation-4"
-              icon="mdi-lightbulb-on-outline"
-            >
-              <div class="text-h6 font-weight-bold">Insights Expanding</div>
-              <div class="text-body-2 opacity-90">
-                We are currently indexing localized data. The following metrics represent curated sample sets for key Alberta regions.
-              </div>
-            </v-alert>
+          <div class="mo-info-banner">
+            <v-icon size="20" color="white" class="mr-3">mdi-lightbulb-on-outline</v-icon>
+            <div>
+              <div class="mo-banner-title">Insights Expanding</div>
+              <div class="mo-banner-desc">We are currently indexing localized data. The following metrics represent curated sample sets for key Alberta regions.</div>
+            </div>
+          </div>
 
-            <v-card class="premium-glass-card pa-2" elevation="12">
-              <NeighborhoodMarketOverview 
-                @city-selected="handleCitySelected"
-              />
-            </v-card>
-          </v-col>
-        </v-row>
+          <div class="mo-glass-card">
+            <NeighborhoodMarketOverview @city-selected="handleCitySelected" />
+          </div>
+        </div>
 
-        <!-- City Details Modal: High End Refinement -->
+        <!-- City Dialog -->
         <v-dialog
           v-model="showCityDialog"
           max-width="850px"
           scrollable
           transition="dialog-bottom-transition"
-          class="premium-dialog"
         >
-          <v-card class="rounded-xl overflow-hidden">
-            <v-card-title class="pa-6 d-flex align-center bg-grey-lighten-4">
+          <v-card class="mo-dialog-card">
+            <v-card-title class="mo-dialog-header">
               <div class="d-flex align-center">
-                <v-avatar color="black" size="48" class="mr-4">
-                  <v-icon color="white">mdi-city-variant-outline</v-icon>
-                </v-avatar>
-                <div>
-                  <div class="text-overline leading-none mb-1">CITY ANALYTICS</div>
-                  <div class="text-h5 font-weight-black">{{ selectedCity }}</div>
+                <div class="mo-dialog-icon">
+                  <v-icon size="24" color="white">mdi-city-variant-outline</v-icon>
+                </div>
+                <div class="ml-4">
+                  <div class="mo-dialog-overline">City Analytics</div>
+                  <div class="mo-dialog-name">{{ selectedCity }}</div>
                 </div>
               </div>
-              <v-spacer />
-              <v-btn
-                icon="mdi-close"
-                variant="tonal"
-                color="grey-darken-3"
-                @click="showCityDialog = false"
-              />
+              <v-btn icon="mdi-close" variant="text" size="small" @click="showCityDialog = false" />
             </v-card-title>
 
             <v-divider />
 
             <v-card-text class="pa-0">
               <div v-if="loadingCityDetails" class="text-center py-16">
-                <v-progress-circular indeterminate color="black" size="64" width="2" />
-                <p class="mt-6 text-overline tracking-widest">Gathering intelligence...</p>
+                <v-progress-circular indeterminate color="#0f172a" size="56" width="3" />
+                <p class="mt-6 mo-dialog-loading-text">Gathering intelligence&hellip;</p>
               </div>
 
               <div v-else-if="cityNeighborhoods.length > 0">
@@ -122,50 +96,43 @@
                   :headers="cityDetailHeaders"
                   :items="cityNeighborhoods"
                   :items-per-page="10"
-                  class="premium-table"
+                  class="mo-dialog-table"
                   hover
                 >
                   <template #item.name="{ item }">
                     <div class="py-3">
-                      <div class="text-subtitle-1 font-weight-bold">{{ item.name }}</div>
-                      <div class="text-caption text-medium-emphasis">Residential Zone</div>
+                      <div class="font-weight-bold" style="color: #1e293b;">{{ item.name }}</div>
+                      <div class="text-caption" style="color: #94a3b8;">Residential Zone</div>
                     </div>
                   </template>
 
                   <template #item.propertyCount="{ item }">
-                    <v-chip
-                      :color="getPropertyCountColor(item.propertyCount)"
-                      variant="tonal"
-                      size="small"
-                      class="font-weight-black"
-                    >
+                    <span class="mo-dialog-count" :class="getCountClass(item.propertyCount)">
                       {{ item.propertyCount }} Active
-                    </v-chip>
+                    </span>
                   </template>
 
                   <template #item.averagePrice="{ item }">
                     <div class="text-right">
-                      <div class="text-subtitle-1 font-weight-black text-blue-darken-4">
-                        {{ formatPrice(item.averagePrice) }}
-                      </div>
-                      <div class="text-tiny text-uppercase tracking-tighter text-grey">Avg Listing</div>
+                      <div class="font-weight-black" style="color: #0f172a;">{{ formatPrice(item.averagePrice) }}</div>
+                      <div style="font-size: 0.6rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Avg Listing</div>
                     </div>
                   </template>
                 </v-data-table>
               </div>
 
               <div v-else class="text-center py-16 px-6">
-                <v-icon size="64" color="grey-lighten-2">mdi-database-off-outline</v-icon>
-                <h3 class="text-h6 font-weight-bold mt-4">No Localized Data Found</h3>
-                <p class="text-body-2 text-medium-emphasis">We're still collecting neighborhood-level metrics for {{ selectedCity }}.</p>
+                <v-icon size="56" color="#cbd5e1">mdi-database-off-outline</v-icon>
+                <h3 class="mt-4" style="color: #475569;">No Localized Data</h3>
+                <p style="color: #94a3b8;">Collecting neighborhood-level metrics for {{ selectedCity }}.</p>
               </div>
             </v-card-text>
 
             <v-divider />
 
-            <v-card-actions class="pa-6 bg-white">
+            <v-card-actions class="pa-5">
               <v-btn
-                color="black"
+                color="#0f172a"
                 variant="flat"
                 size="large"
                 block
@@ -173,8 +140,8 @@
                 class="text-none font-weight-bold"
                 @click="searchPropertiesInCity"
               >
-                Browse All Properties in {{ selectedCity }}
-                <v-icon end icon="mdi-arrow-right" size="small" class="ml-2" />
+                Browse Properties in {{ selectedCity }}
+                <v-icon end size="18" class="ml-2">mdi-arrow-right</v-icon>
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -206,32 +173,26 @@ const cityDetailHeaders = [
 
 const formatPrice = (price: number): string => {
   if (!price) return 'N/A'
-  if (price >= 1000000) {
-    return `$${(price / 1000000).toFixed(2)}M`
-  } else if (price >= 1000) {
-    return `$${(price / 1000).toFixed(0)}K`
-  }
+  if (price >= 1000000) return `$${(price / 1000000).toFixed(2)}M`
+  if (price >= 1000) return `$${(price / 1000).toFixed(0)}K`
   return `$${price.toLocaleString()}`
 }
 
-const getPropertyCountColor = (count: number): string => {
-  if (count >= 50) return 'blue-darken-4'
-  if (count >= 25) return 'blue-darken-1'
-  if (count >= 10) return 'blue-lighten-1'
-  return 'grey'
+const getCountClass = (count: number): string => {
+  if (count >= 50) return 'count-high'
+  if (count >= 25) return 'count-mid'
+  if (count >= 10) return 'count-low'
+  return 'count-min'
 }
 
 const handleCitySelected = async (city: string) => {
   selectedCity.value = city
   showCityDialog.value = true
   loadingCityDetails.value = true
-  
   try {
-    const response = await $fetch<{
-      neighborhoods: any[]
-      pagination: any
-    }>(`/api/neighborhoods?city=${encodeURIComponent(city)}&limit=100`)
-    
+    const response = await $fetch<{ neighborhoods: any[], pagination: any }>(
+      `/api/neighborhoods?city=${encodeURIComponent(city)}&limit=100`
+    )
     cityNeighborhoods.value = response.neighborhoods || []
   } catch (error) {
     console.error('Error loading city neighborhoods:', error)
@@ -242,10 +203,7 @@ const handleCitySelected = async (city: string) => {
 }
 
 const searchPropertiesInCity = () => {
-  navigateTo({
-    path: '/properties',
-    query: { city: selectedCity.value }
-  })
+  navigateTo({ path: '/properties', query: { city: selectedCity.value } })
   showCityDialog.value = false
 }
 
@@ -258,88 +216,218 @@ useHead({
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400&display=swap');
-
-.market-overview-page {
+.mo-page {
   min-height: 100vh;
-  background-color: #f1f5f9;
+  background: #f1f5f9;
 }
 
-.premium-title {
-  font-family: 'Playfair Display', serif;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-}
-
-.hero-section {
+/* ═══════════════════════════════════════════
+   HERO
+   ═══════════════════════════════════════════ */
+.mo-hero {
   background: #0f172a;
   position: relative;
-  min-height: 400px;
-  display: flex;
-  align-items: center;
+  padding: 100px 0 120px;
+  overflow: hidden;
 }
-
-.hero-bg-overlay {
+.mo-hero-grain {
+  position: absolute; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  opacity: 0.5;
+  pointer-events: none;
+}
+.mo-hero-glow {
   position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  opacity: 0.95;
-}
-
-/* Glassmorphism Elements */
-.premium-glass-card {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  border-radius: 24px !important;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1) !important;
-}
-
-.section-line {
-  width: 60px;
-  height: 4px;
-  background: #1e293b;
-  border-radius: 2px;
-}
-
-.decorative-circle {
-  position: absolute;
-  width: 300px;
-  height: 300px;
   border-radius: 50%;
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), transparent);
-  z-index: 0;
+  filter: blur(80px);
+  pointer-events: none;
+}
+.mo-glow-1 {
+  width: 400px; height: 400px;
+  top: -120px; right: -60px;
+  background: rgba(59, 130, 246, 0.15);
+}
+.mo-glow-2 {
+  width: 300px; height: 300px;
+  bottom: -80px; left: -40px;
+  background: rgba(16, 185, 129, 0.1);
+}
+.mo-hero-content { position: relative; z-index: 1; }
+
+.mo-hero-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 20px;
+  padding: 6px 18px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: rgba(255,255,255,0.7);
+  margin-bottom: 28px;
+  backdrop-filter: blur(8px);
+}
+.mo-chip-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #10b981;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16,185,129,0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(16,185,129,0); }
 }
 
-.top-right { top: -100px; right: -50px; }
-.bottom-left { bottom: -100px; left: -50px; }
+.mo-hero-title {
+  color: #fff;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  margin-bottom: 20px;
+}
+.mo-hero-accent {
+  background: linear-gradient(135deg, #3b82f6, #10b981);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-style: italic;
+  font-weight: 400;
+}
+.mo-hero-desc {
+  color: #94a3b8;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  max-width: 560px;
+  margin: 0 auto;
+}
 
-.max-w-700 { max-width: 700px; }
+/* ═══════════════════════════════════════════
+   CONTENT
+   ═══════════════════════════════════════════ */
+.mo-content { padding-bottom: 80px; }
 
-.text-italic { font-style: italic; }
+.mo-pull-up { margin-top: -60px; position: relative; z-index: 2; }
 
-.tracking-widest { letter-spacing: 0.2em; }
-.tracking-tighter { letter-spacing: -0.05em; }
+.mo-glass-card {
+  background: #fff;
+  border-radius: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.04),
+    0 8px 32px rgba(0,0,0,0.06),
+    0 24px 60px rgba(0,0,0,0.04);
+  overflow: hidden;
+  transition: box-shadow 0.3s;
+}
+.mo-glass-card:hover {
+  box-shadow:
+    0 1px 3px rgba(0,0,0,0.04),
+    0 12px 40px rgba(0,0,0,0.08),
+    0 32px 72px rgba(0,0,0,0.05);
+}
 
-.premium-table :deep(thead th) {
-  font-weight: 800 !important;
+/* ── Section Header ── */
+.mo-section-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.mo-section-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+}
+.mo-section-bar {
+  width: 48px; height: 4px;
+  background: linear-gradient(90deg, #0f172a, #3b82f6);
+  border-radius: 2px;
+  margin-top: 8px;
+}
+.mo-section-chip {
+  display: inline-flex; align-items: center;
+  padding: 5px 14px;
+  border-radius: 8px;
+  background: #0f172a;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 700;
   text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
+}
+
+/* ── Info Banner ── */
+.mo-info-banner {
+  display: flex; align-items: flex-start;
+  background: linear-gradient(135deg, #1e3a5f, #0f172a);
+  border-radius: 14px;
+  padding: 18px 24px;
+  margin-bottom: 20px;
+}
+.mo-banner-title { color: #fff; font-weight: 700; font-size: 0.9rem; margin-bottom: 2px; }
+.mo-banner-desc { color: #94a3b8; font-size: 0.8rem; line-height: 1.5; }
+
+/* ═══════════════════════════════════════════
+   DIALOG
+   ═══════════════════════════════════════════ */
+.mo-dialog-card {
+  border-radius: 20px !important;
+  overflow: hidden;
+}
+.mo-dialog-header {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px !important;
+  background: #f8fafc;
+}
+.mo-dialog-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: #0f172a;
+  display: flex; align-items: center; justify-content: center;
+}
+.mo-dialog-overline {
+  font-size: 0.6rem; text-transform: uppercase;
+  letter-spacing: 0.12em; color: #94a3b8; font-weight: 700;
+}
+.mo-dialog-name { font-size: 1.2rem; font-weight: 800; color: #0f172a; }
+.mo-dialog-loading-text {
+  font-size: 0.75rem; text-transform: uppercase;
+  letter-spacing: 0.1em; color: #64748b;
+}
+
+.mo-dialog-table :deep(thead th) {
+  background: #f8fafc !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  font-size: 0.67rem !important;
+  letter-spacing: 0.08em;
   color: #64748b !important;
-  background-color: #f8fafc !important;
   border-bottom: 2px solid #e2e8f0 !important;
 }
+.mo-dialog-table :deep(tbody tr:hover) { background: #f1f5f9 !important; }
 
-.premium-table :deep(tbody tr:hover) {
-  background-color: #f1f5f9 !important;
+.mo-dialog-count {
+  display: inline-block; padding: 3px 12px; border-radius: 20px;
+  font-weight: 700; font-size: 0.75rem;
 }
+.count-high { background: #0f172a; color: #fff; }
+.count-mid { background: #eff6ff; color: #2563eb; }
+.count-low { background: #ecfdf5; color: #059669; }
+.count-min { background: #f1f5f9; color: #64748b; }
 
-.text-tiny { font-size: 0.65rem; }
-
-@media (max-width: 600px) {
-  .hero-section {
-    min-height: 300px;
-  }
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .mo-hero { padding: 64px 0 80px; }
+  .mo-pull-up { margin-top: -40px; }
+  .mo-section-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
+@media (max-width: 480px) {
+  .mo-hero { padding: 48px 0 64px; }
+  .mo-glass-card { border-radius: 14px; }
 }
 </style>

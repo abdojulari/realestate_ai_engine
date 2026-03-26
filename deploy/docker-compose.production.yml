@@ -1,0 +1,155 @@
+# =============================================================================
+# DeelBot Production Stack — Single VPS
+# =============================================================================
+# Runs both apps (Suhani tenant app + SaaS Control Plane) behind one Nginx
+# reverse proxy with shared PostgreSQL, Redis, and auto-renewing SSL.
+#
+# Usage:
+#   cd /opt/deelbot
+#   docker compose -f docker-compose.production.yml up -d --build
+# =============================================================================
+
+services:
+
+  # ─── PostgreSQL (shared, two databases) ─────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: deelbot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-deelbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: control_plane
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-deelbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - deelbot-net
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+
+  # ─── Redis (for control plane sessions/queues) ─────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: deelbot-redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - deelbot-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  # ─── Suhani (tenant MLS app — *.deelbot.ai) ────────────────────
+  suhani:
+    build:
+      context: ./suhani
+      dockerfile: Dockerfile
+    container_name: deelbot-suhani
+    restart: unless-stopped
+    env_file:
+      - ./suhani.env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-deelbot}:${POSTGRES_PASSWORD}@postgres:5432/suhani?schema=public
+      - APP_BASE_DOMAIN=deelbot.ai
+    volumes:
+      - suhani_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - deelbot-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # ─── SaaS Control Plane (deelbot.com) ──────────────────────────
+  control-plane:
+    build:
+      context: ./saas-control-plane
+      dockerfile: Dockerfile
+    container_name: deelbot-control-plane
+    restart: unless-stopped
+    env_file:
+      - ./control-plane.env
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-deelbot}:${POSTGRES_PASSWORD}@postgres:5432/control_plane?schema=public
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - APP_BASE_DOMAIN=deelbot.ai
+      - SUHANI_API_URL=http://suhani:3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - deelbot-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  # ─── Nginx (single reverse proxy for both domains) ─────────────
+  nginx:
+    image: nginx:alpine
+    container_name: deelbot-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - suhani_uploads:/var/www/uploads:ro
+    depends_on:
+      - suhani
+      - control-plane
+    networks:
+      - deelbot-net
+
+  # ─── Certbot (auto-renewal every 12h) ──────────────────────────
+  certbot:
+    image: certbot/certbot
+    container_name: deelbot-certbot
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c 'trap exit TERM;
+      while :; do certbot renew --webroot -w /var/www/certbot --quiet;
+      sleep 12h & wait $${!}; done;'
+    networks:
+      - deelbot-net
+
+volumes:
+  postgres_data:
+  redis_data:
+  suhani_uploads:
+
+networks:
+  deelbot-net:
+    driver: bridge

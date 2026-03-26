@@ -219,14 +219,14 @@ export function generateEmailTemplate(content: string, options?: {
   ${options?.preheader ? `<div style="display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">${options.preheader}</div>` : ''}
   <div class="container">
     <div class="header">
-      <h1 style="margin: 0; font-size: 24px; letter-spacing: -0.5px;">AgentOS</h1>
+      <h1 style="margin: 0; font-size: 24px; letter-spacing: -0.5px;">DeelBot</h1>
     </div>
     <div class="content">
       ${content}
     </div>
     <div class="footer">
       <p>${options?.footerText || 'You received this email because you subscribed to our newsletter.'}</p>
-      <p>© ${new Date().getFullYear()} AgentOS. All rights reserved.</p>
+      <p>© ${new Date().getFullYear()} DeelBot. All rights reserved.</p>
     </div>
   </div>
 </body>

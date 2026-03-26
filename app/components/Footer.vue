@@ -10,9 +10,9 @@
                 <img :src="logoUrl" :alt="businessName || 'Logo'" class="footer-tenant-logo" />
               </template>
               <template v-else>
-                <img src="/images/logos/agentos-logo.png" alt="AgentOS" class="footer-agentos-logo" />
+                <img src="/images/logos/deelbot.png" alt="DeelBot" class="footer-deelbot-logo" />
               </template>
-              <p class="premium-tagline mt-2">{{ tagline || 'Intelligence for Realtors' }}</p>
+              <p class="premium-tagline mt-[-16px]">{{ tagline || 'Intelligence for Realtors' }}</p>
             </div>
             
             <div class="contact-group">
@@ -209,7 +209,7 @@ const handleSubscribe = async () => {
   object-fit: contain;
 }
 
-.footer-agentos-logo {
+.footer-deelbot-logo {
   max-height: 86px;
   width: auto;
   object-fit: contain;

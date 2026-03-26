@@ -8,6 +8,7 @@
             v-if="Array.isArray(property.images) && property.images.length === 1"
             hide-delimiters
             height="600"
+            class="gallery-single"
           >
             <v-carousel-item
               :src="(Array.isArray(property.images) && property.images.length ? property.images[0] : '/favicon.ico')"
@@ -28,6 +29,7 @@
                   <v-progress-circular indeterminate />
                 </v-row>
               </template>
+              <div class="main-image-overlay"></div>
             </v-img>
 
             <div class="thumbnail-grid">
@@ -42,11 +44,11 @@
               />
               <v-btn
                 v-if="Array.isArray(property.images) && property.images.length > 5"
-                color="grey-darken-3"
                 class="more-photos"
                 @click="openGallery(0)"
               >
-                +{{ (Array.isArray(property.images) ? property.images.length : 0) - 4 }} more photos
+                <v-icon size="18" class="mr-2">mdi-image-multiple</v-icon>
+                +{{ (Array.isArray(property.images) ? property.images.length : 0) - 4 }} photos
               </v-btn>
             </div>
           </div>
@@ -54,496 +56,417 @@
       </v-row>
     </v-container>
 
-    <v-container class="py-8">
-      <!-- Tabs -->
-      <v-tabs v-model="selectedTab" class="mb-6" density="comfortable">
-        <v-tab value="highlights">Highlights</v-tab>
-        <v-tab value="payments">Monthly payments</v-tab>
-        <v-tab value="neighbourhood">Neighbourhood</v-tab>
-        <v-tab value="schools">Schools</v-tab>
-      </v-tabs>
+    <v-container class="py-10">
+      <!-- Premium Tabs -->
+      <div class="tabs-wrapper">
+        <v-tabs v-model="selectedTab" class="premium-tabs" density="comfortable">
+          <v-tab value="highlights">
+            <v-icon size="18" class="mr-2">mdi-star-four-points</v-icon>
+            Highlights
+          </v-tab>
+          <v-tab value="payments">
+            <v-icon size="18" class="mr-2">mdi-calculator-variant</v-icon>
+            Monthly Payments
+          </v-tab>
+          <v-tab value="neighbourhood">
+            <v-icon size="18" class="mr-2">mdi-map-marker-radius</v-icon>
+            Neighbourhood
+          </v-tab>
+          <v-tab value="schools">
+            <v-icon size="18" class="mr-2">mdi-school-outline</v-icon>
+            Schools
+          </v-tab>
+        </v-tabs>
+      </div>
 
-      <v-row>
+      <v-row class="mt-2">
         <v-col cols="12" md="8">
+          <!-- ═══ HIGHLIGHTS TAB ═══ -->
           <div v-show="selectedTab === 'highlights'">
-            <div class="d-flex align-center mb-6 property-header">
+            <!-- Property Header -->
+            <div class="prop-header">
               <div class="flex-grow-1">
-                <h1 class="text-h4 font-weight-bold mb-2" style="color: #1a1a1a; line-height: 1.3;">{{ property.title }} {{ property.city }}, {{ property.province }}, {{ property.postalCode }}</h1>
+                <h1 class="prop-title">{{ property.title }} {{ property.city }}, {{ property.province }}, {{ property.postalCode }}</h1>
               </div>
-              <div class="d-flex align-center">
-                <v-btn icon="mdi-share-variant" variant="tonal" size="large" class="mr-2" @click="shareProperty">
-                  <v-icon>mdi-share-variant</v-icon>
+              <div class="prop-actions">
+                <v-btn icon variant="tonal" size="large" class="action-btn" @click="shareProperty">
+                  <v-icon size="22">mdi-share-variant</v-icon>
+                  <v-tooltip activator="parent" location="bottom">Share</v-tooltip>
                 </v-btn>
-                <v-btn :icon="property.isSaved ? 'mdi-heart' : 'mdi-heart-outline'" :color="property.isSaved ? 'red' : 'grey'" variant="tonal" size="large" @click="toggleSave" />
+                <v-btn :icon="property.isSaved ? 'mdi-heart' : 'mdi-heart-outline'" :color="property.isSaved ? 'red' : undefined" variant="tonal" size="large" class="action-btn" @click="toggleSave" />
               </div>
             </div>
-            <div class="price-badge mb-6 pa-4" style="background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); border-radius: 16px; display: inline-block; box-shadow: 0 4px 20px rgba(25, 118, 210, 0.3);">
-              <div class="text-caption" style="color: rgba(255,255,255,0.9); font-weight: 600; letter-spacing: 1px;">LISTING PRICE</div>
-              <div class="text-h4 font-weight-bold" style="color: white;">${{ formatPrice(property.price) }}</div>
+
+            <!-- Price -->
+            <div class="price-strip">
+              <div class="price-label">Listing Price</div>
+              <div class="price-value">${{ formatPrice(property.price) }}</div>
             </div>
-            <div class="d-flex align-center mb-6 flex-wrap" style="gap: 12px;">
-              <v-chip size="large" class="px-4" color="primary" variant="flat">
-                <v-icon class="mr-2">mdi-home-variant</v-icon>
-                {{ property.type }}
-              </v-chip>
-              <v-chip size="large" class="px-4" color="indigo" variant="tonal">
-                <v-icon class="mr-2">mdi-bed</v-icon>
-                {{ property.beds }} beds
-              </v-chip>
-              <v-chip size="large" class="px-4" color="teal" variant="tonal">
-                <v-icon class="mr-2">mdi-shower</v-icon>
-                {{ property.baths }} baths
-              </v-chip>
-              <v-chip size="large" class="px-4" color="purple" variant="tonal">
-                <v-icon class="mr-2">mdi-ruler-square</v-icon>
-                {{ property.sqft }} sqft
-              </v-chip>
+
+            <!-- Quick Stats -->
+            <div class="quick-stats">
+              <div class="stat-pill">
+                <v-icon size="18">mdi-home-variant-outline</v-icon>
+                <span>{{ property.type }}</span>
+              </div>
+              <div class="stat-pill">
+                <v-icon size="18">mdi-bed-outline</v-icon>
+                <span>{{ property.beds }} beds</span>
+              </div>
+              <div class="stat-pill">
+                <v-icon size="18">mdi-shower-head</v-icon>
+                <span>{{ property.baths }} baths</span>
+              </div>
+              <div class="stat-pill">
+                <v-icon size="18">mdi-ruler-square</v-icon>
+                <span>{{ property.sqft }} sqft</span>
+              </div>
             </div>
-            <v-card class="mb-6 property-details-card" flat elevation="2">
-              <v-card-text class="pa-6">
-                <div class="text-h6 mb-6 d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-home-city</v-icon>
-                  Property Details
+
+            <!-- Property Details Card -->
+            <v-card class="content-card mb-8" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-home-city-outline</v-icon></div>
+                  <span>Property Details</span>
                 </div>
                 <v-row>
-                  <!-- Basic Info -->
                   <v-col cols="6" sm="4">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Property Type</div>
-                      <div class="text-body-1 font-weight-medium text-capitalize">{{ property.type }}</div>
+                      <div class="detail-label">Property Type</div>
+                      <div class="detail-value text-capitalize">{{ property.type }}</div>
                     </div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.yearBuilt">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Year Built</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.yearBuilt }}</div>
+                      <div class="detail-label">Year Built</div>
+                      <div class="detail-value">{{ property.features.yearBuilt }}</div>
                     </div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.stories">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Stories</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.stories }}</div>
+                      <div class="detail-label">Stories</div>
+                      <div class="detail-value">{{ property.features.stories }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Parking -->
                   <v-col cols="6" sm="4" v-if="property.features?.parking">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Parking Spaces</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.parking }}</div>
+                      <div class="detail-label">Parking Spaces</div>
+                      <div class="detail-value">{{ property.features.parking }}</div>
                     </div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.parkingFeatures?.length">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Parking Type</div>
-                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.parkingFeatures) }}</div>
+                      <div class="detail-label">Parking Type</div>
+                      <div class="detail-value">{{ formatArray(property.features.parkingFeatures) }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Climate -->
                   <v-col cols="6" sm="4" v-if="property.features?.heating?.length">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Heating</div>
-                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.heating) }}</div>
+                      <div class="detail-label">Heating</div>
+                      <div class="detail-value">{{ formatArray(property.features.heating) }}</div>
                     </div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.cooling?.length">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Cooling</div>
-                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.cooling) }}</div>
+                      <div class="detail-label">Cooling</div>
+                      <div class="detail-value">{{ formatArray(property.features.cooling) }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Lot Info -->
                   <v-col cols="6" sm="4" v-if="property.features?.lotSizeArea">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Lot Size</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.lotSizeArea }} {{ property.features.lotSizeUnits || 'sqft' }}</div>
+                      <div class="detail-label">Lot Size</div>
+                      <div class="detail-value">{{ property.features.lotSizeArea }} {{ property.features.lotSizeUnits || 'sqft' }}</div>
                     </div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.lotSizeDimensions">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Lot Dimensions</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.lotSizeDimensions }}</div>
+                      <div class="detail-label">Lot Dimensions</div>
+                      <div class="detail-value">{{ property.features.lotSizeDimensions }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Basement -->
                   <v-col cols="6" sm="4" v-if="property.features?.basement?.length">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Basement</div>
-                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.basement) }}</div>
+                      <div class="detail-label">Basement</div>
+                      <div class="detail-value">{{ formatArray(property.features.basement) }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Fireplace -->
                   <v-col cols="6" sm="4" v-if="property.features?.fireplacesTotal">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Fireplaces</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.fireplacesTotal }}</div>
+                      <div class="detail-label">Fireplaces</div>
+                      <div class="detail-value">{{ property.features.fireplacesTotal }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Bathrooms Detail -->
                   <v-col cols="6" sm="4" v-if="property.features?.bathroomsPartial">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Half Baths</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.bathroomsPartial }}</div>
+                      <div class="detail-label">Half Baths</div>
+                      <div class="detail-value">{{ property.features.bathroomsPartial }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Building Details -->
                   <v-col cols="6" sm="4" v-if="property.features?.constructionMaterials?.length">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Construction</div>
-                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.constructionMaterials) }}</div>
+                      <div class="detail-label">Construction</div>
+                      <div class="detail-value">{{ formatArray(property.features.constructionMaterials) }}</div>
                     </div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.roof?.length">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Roof</div>
-                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.roof) }}</div>
+                      <div class="detail-label">Roof</div>
+                      <div class="detail-value">{{ formatArray(property.features.roof) }}</div>
                     </div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.foundationDetails?.length">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Foundation</div>
-                      <div class="text-body-1 font-weight-medium">{{ formatArray(property.features.foundationDetails) }}</div>
+                      <div class="detail-label">Foundation</div>
+                      <div class="detail-value">{{ formatArray(property.features.foundationDetails) }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Tax Info -->
                   <v-col cols="6" sm="4" v-if="property.features?.taxAnnualAmount">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Annual Taxes</div>
-                      <div class="text-body-1 font-weight-medium">${{ formatPrice(property.features.taxAnnualAmount) }} <span v-if="property.features?.taxYear">({{ property.features.taxYear }})</span></div>
+                      <div class="detail-label">Annual Taxes</div>
+                      <div class="detail-value">${{ formatPrice(property.features.taxAnnualAmount) }} <span v-if="property.features?.taxYear" class="detail-note">({{ property.features.taxYear }})</span></div>
                     </div>
                   </v-col>
-                  
-                  <!-- HOA/Association -->
                   <v-col cols="6" sm="4" v-if="property.features?.associationFee">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">HOA/Condo Fee</div>
-                      <div class="text-body-1 font-weight-medium">${{ formatPrice(property.features.associationFee) }}/{{ property.features.associationFeeFrequency || 'month' }}</div>
+                      <div class="detail-label">HOA/Condo Fee</div>
+                      <div class="detail-value">${{ formatPrice(property.features.associationFee) }}/{{ property.features.associationFeeFrequency || 'month' }}</div>
                     </div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.associationName">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Association</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.associationName }}</div>
+                      <div class="detail-label">Association</div>
+                      <div class="detail-value">{{ property.features.associationName }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Zoning -->
                   <v-col cols="6" sm="4" v-if="property.features?.zoning">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Zoning</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.zoning }}</div>
+                      <div class="detail-label">Zoning</div>
+                      <div class="detail-value">{{ property.features.zoning }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Subdivision -->
                   <v-col cols="6" sm="4" v-if="property.features?.subdivisionName">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Subdivision</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.features.subdivisionName }}</div>
+                      <div class="detail-label">Subdivision</div>
+                      <div class="detail-value">{{ property.features.subdivisionName }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- MLS Info -->
                   <v-col cols="6" sm="4" v-if="property.mlsNumber">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">MLS Number</div>
-                      <div class="text-body-1 font-weight-medium">{{ property.mlsNumber }}</div>
+                      <div class="detail-label">MLS Number</div>
+                      <div class="detail-value font-weight-bold" style="font-family: monospace;">{{ property.mlsNumber }}</div>
                     </div>
                   </v-col>
-                  
-                  <!-- Listing Date -->
                   <v-col cols="6" sm="4" v-if="property.features?.originalEntryTimestamp">
                     <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Listed Date</div>
-                      <div class="text-body-1 font-weight-medium">{{ formatListingDate(property.features.originalEntryTimestamp) }}</div>
+                      <div class="detail-label">Listed Date</div>
+                      <div class="detail-value">{{ formatListingDate(property.features.originalEntryTimestamp) }}</div>
                     </div>
                   </v-col>
                 </v-row>
               </v-card-text>
             </v-card>
-            <v-card class="mb-6 description-card" flat elevation="2">
-              <v-card-text class="pa-6">
-                <div class="text-h6 mb-4 d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-text-box-outline</v-icon>
-                  Description
+
+            <!-- Description Card -->
+            <v-card class="content-card mb-8" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-text-box-outline</v-icon></div>
+                  <span>Description</span>
                 </div>
-                <div class="text-body-1 description-text" style="line-height: 1.8; color: #444;">{{ property.description }}</div>
+                <div class="description-text">{{ property.description }}</div>
               </v-card-text>
             </v-card>
-            <v-card class="mb-6 features-card" v-if="hasFeatures" flat elevation="2">
-              <v-card-text class="pa-6">
-                <div class="text-h6 mb-6 d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-star-circle</v-icon>
-                  Features & Amenities
+
+            <!-- Features Card -->
+            <v-card class="content-card mb-8" v-if="hasFeatures" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-star-circle-outline</v-icon></div>
+                  <span>Features &amp; Amenities</span>
                 </div>
-                
-                <!-- Appliances -->
-                <div v-if="property.features?.appliances?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="primary">mdi-fridge</v-icon>
-                    Appliances
+
+                <div v-if="property.features?.appliances?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-fridge-outline</v-icon>Appliances</div>
+                  <div class="feature-chips">
+                    <span v-for="appliance in property.features.appliances" :key="appliance" class="feature-chip chip-blue">{{ appliance }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="appliance in property.features.appliances" :key="appliance" variant="tonal" size="default" color="primary">{{ appliance }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Interior Features -->
-                <div v-if="property.features?.interior?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="primary">mdi-home-outline</v-icon>
-                    Interior Features
+
+                <div v-if="property.features?.interior?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-sofa-outline</v-icon>Interior</div>
+                  <div class="feature-chips">
+                    <span v-for="feature in property.features.interior" :key="feature" class="feature-chip chip-indigo">{{ feature }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="feature in property.features.interior" :key="feature" variant="tonal" size="default" color="indigo">{{ feature }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Exterior Features -->
-                <div v-if="property.features?.exterior?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="primary">mdi-home-siding</v-icon>
-                    Exterior Features
+
+                <div v-if="property.features?.exterior?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-home-siding</v-icon>Exterior</div>
+                  <div class="feature-chips">
+                    <span v-for="feature in property.features.exterior" :key="feature" class="feature-chip chip-green">{{ feature }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="feature in property.features.exterior" :key="feature" variant="tonal" size="default" color="green">{{ feature }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Flooring -->
-                <div v-if="property.features?.flooring?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="primary">mdi-view-grid</v-icon>
-                    Flooring
+
+                <div v-if="property.features?.flooring?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-view-grid-outline</v-icon>Flooring</div>
+                  <div class="feature-chips">
+                    <span v-for="floor in property.features.flooring" :key="floor" class="feature-chip chip-warm">{{ floor }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="floor in property.features.flooring" :key="floor" variant="tonal" size="default" color="brown">{{ floor }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Pool Features -->
-                <div v-if="property.features?.poolFeatures?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="blue">mdi-pool</v-icon>
-                    Pool Features
+
+                <div v-if="property.features?.poolFeatures?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-pool</v-icon>Pool</div>
+                  <div class="feature-chips">
+                    <span v-for="pool in property.features.poolFeatures" :key="pool" class="feature-chip chip-cyan">{{ pool }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="pool in property.features.poolFeatures" :key="pool" variant="tonal" size="default" color="blue">{{ pool }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Fireplace Features -->
-                <div v-if="property.features?.fireplaceFeatures?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="orange">mdi-fireplace</v-icon>
-                    Fireplace Features
+
+                <div v-if="property.features?.fireplaceFeatures?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-fireplace</v-icon>Fireplace</div>
+                  <div class="feature-chips">
+                    <span v-for="fireplace in property.features.fireplaceFeatures" :key="fireplace" class="feature-chip chip-amber">{{ fireplace }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="fireplace in property.features.fireplaceFeatures" :key="fireplace" variant="tonal" size="default" color="orange">{{ fireplace }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Building Features -->
-                <div v-if="property.features?.building?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="grey-darken-1">mdi-office-building</v-icon>
-                    Building Features
+
+                <div v-if="property.features?.building?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-office-building-outline</v-icon>Building</div>
+                  <div class="feature-chips">
+                    <span v-for="feature in property.features.building" :key="feature" class="feature-chip chip-slate">{{ feature }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="feature in property.features.building" :key="feature" variant="tonal" size="default" color="grey">{{ feature }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Lot Features -->
-                <div v-if="property.features?.lot?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="green-darken-2">mdi-grass</v-icon>
-                    Lot Features
+
+                <div v-if="property.features?.lot?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-grass</v-icon>Lot</div>
+                  <div class="feature-chips">
+                    <span v-for="feature in property.features.lot" :key="feature" class="feature-chip chip-green">{{ feature }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="feature in property.features.lot" :key="feature" variant="tonal" size="default" color="green-darken-1">{{ feature }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Views -->
-                <div v-if="property.features?.view?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="cyan">mdi-eye</v-icon>
-                    Views
+
+                <div v-if="property.features?.view?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-eye-outline</v-icon>Views</div>
+                  <div class="feature-chips">
+                    <span v-for="view in property.features.view" :key="view" class="feature-chip chip-cyan">{{ view }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="view in property.features.view" :key="view" variant="tonal" size="default" color="cyan">{{ view }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Waterfront Features -->
-                <div v-if="property.features?.waterfrontFeatures?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="blue-darken-2">mdi-waves</v-icon>
-                    Waterfront Features
+
+                <div v-if="property.features?.waterfrontFeatures?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-waves</v-icon>Waterfront</div>
+                  <div class="feature-chips">
+                    <span v-for="feature in property.features.waterfrontFeatures" :key="feature" class="feature-chip chip-blue">{{ feature }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="feature in property.features.waterfrontFeatures" :key="feature" variant="tonal" size="default" color="blue-darken-1">{{ feature }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Security Features -->
-                <div v-if="property.features?.security?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="red">mdi-shield-home</v-icon>
-                    Security Features
+
+                <div v-if="property.features?.security?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-shield-home-outline</v-icon>Security</div>
+                  <div class="feature-chips">
+                    <span v-for="feature in property.features.security" :key="feature" class="feature-chip chip-rose">{{ feature }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="feature in property.features.security" :key="feature" variant="tonal" size="default" color="red-lighten-1">{{ feature }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Accessibility Features -->
-                <div v-if="property.features?.accessibilityFeatures?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="purple">mdi-wheelchair-accessibility</v-icon>
-                    Accessibility Features
+
+                <div v-if="property.features?.accessibilityFeatures?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-wheelchair-accessibility</v-icon>Accessibility</div>
+                  <div class="feature-chips">
+                    <span v-for="feature in property.features.accessibilityFeatures" :key="feature" class="feature-chip chip-indigo">{{ feature }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="feature in property.features.accessibilityFeatures" :key="feature" variant="tonal" size="default" color="purple-lighten-1">{{ feature }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Community Features -->
-                <div v-if="property.features?.communityFeatures?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="teal">mdi-account-group</v-icon>
-                    Community Features
+
+                <div v-if="property.features?.communityFeatures?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-account-group-outline</v-icon>Community</div>
+                  <div class="feature-chips">
+                    <span v-for="feature in property.features.communityFeatures" :key="feature" class="feature-chip chip-green">{{ feature }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="feature in property.features.communityFeatures" :key="feature" variant="tonal" size="default" color="teal-lighten-1">{{ feature }}</v-chip>
-                  </v-chip-group>
                 </div>
-                
-                <!-- Architectural Style -->
-                <div v-if="property.features?.architecturalStyle?.length" class="mb-6">
-                  <div class="text-subtitle-1 font-weight-semibold mb-3 d-flex align-center">
-                    <v-icon class="mr-2" size="small" color="deep-purple">mdi-home-modern</v-icon>
-                    Architectural Style
+
+                <div v-if="property.features?.architecturalStyle?.length" class="feature-group">
+                  <div class="feature-group-label"><v-icon size="16" class="mr-2">mdi-home-modern</v-icon>Architectural Style</div>
+                  <div class="feature-chips">
+                    <span v-for="style in property.features.architecturalStyle" :key="style" class="feature-chip chip-indigo">{{ style }}</span>
                   </div>
-                  <v-chip-group>
-                    <v-chip v-for="style in property.features.architecturalStyle" :key="style" variant="tonal" size="default" color="deep-purple-lighten-1">{{ style }}</v-chip>
-                  </v-chip-group>
                 </div>
               </v-card-text>
             </v-card>
-            
+
             <!-- Utilities Card -->
-            <v-card class="mb-6 utilities-card" v-if="hasUtilities" flat elevation="2">
-              <v-card-text class="pa-6">
-                <div class="text-h6 mb-6 d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-lightning-bolt</v-icon>
-                  Utilities & Infrastructure
+            <v-card class="content-card mb-8" v-if="hasUtilities" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-lightning-bolt-outline</v-icon></div>
+                  <span>Utilities &amp; Infrastructure</span>
                 </div>
                 <v-row>
                   <v-col cols="6" sm="4" v-if="property.features?.utilities?.length">
-                    <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Utilities</div>
-                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.utilities) }}</div>
-                    </div>
+                    <div class="detail-item"><div class="detail-label">Utilities</div><div class="detail-value">{{ formatArray(property.features.utilities) }}</div></div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.waterSource?.length">
-                    <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Water Source</div>
-                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.waterSource) }}</div>
-                    </div>
+                    <div class="detail-item"><div class="detail-label">Water Source</div><div class="detail-value">{{ formatArray(property.features.waterSource) }}</div></div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.sewer?.length">
-                    <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Sewer</div>
-                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.sewer) }}</div>
-                    </div>
+                    <div class="detail-item"><div class="detail-label">Sewer</div><div class="detail-value">{{ formatArray(property.features.sewer) }}</div></div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.electric?.length">
-                    <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Electric</div>
-                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.electric) }}</div>
-                    </div>
+                    <div class="detail-item"><div class="detail-label">Electric</div><div class="detail-value">{{ formatArray(property.features.electric) }}</div></div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.irrigationSource?.length">
-                    <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Irrigation</div>
-                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.irrigationSource) }}</div>
-                    </div>
+                    <div class="detail-item"><div class="detail-label">Irrigation</div><div class="detail-value">{{ formatArray(property.features.irrigationSource) }}</div></div>
                   </v-col>
                   <v-col cols="6" sm="4" v-if="property.features?.roadSurfaceType?.length">
-                    <div class="detail-item">
-                      <div class="text-caption text-medium-emphasis mb-1">Road Surface</div>
-                      <div class="text-body-2 font-weight-medium">{{ formatArray(property.features.roadSurfaceType) }}</div>
-                    </div>
+                    <div class="detail-item"><div class="detail-label">Road Surface</div><div class="detail-value">{{ formatArray(property.features.roadSurfaceType) }}</div></div>
                   </v-col>
                 </v-row>
               </v-card-text>
             </v-card>
-            
+
             <!-- Room Details Card -->
-            <v-card class="mb-6 rooms-card" v-if="property.features?.rooms?.length" flat elevation="2">
-              <v-card-text class="pa-6">
-                <div class="text-h6 mb-6 d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-floor-plan</v-icon>
-                  Room Details
+            <v-card class="content-card mb-8" v-if="property.features?.rooms?.length" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-floor-plan</v-icon></div>
+                  <span>Room Details</span>
                 </div>
-                <v-table density="compact">
-                  <thead>
-                    <tr>
-                      <th>Room</th>
-                      <th>Level</th>
-                      <th>Dimensions</th>
-                      <th>Description</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="room in property.features.rooms" :key="room.RoomKey">
-                      <td class="font-weight-medium">{{ room.RoomType || 'Room' }}</td>
-                      <td>{{ room.RoomLevel || '—' }}</td>
-                      <td>{{ room.RoomDimensions || (room.RoomLength && room.RoomWidth ? `${room.RoomLength} x ${room.RoomWidth}` : '—') }}</td>
-                      <td class="text-caption">{{ room.RoomDescription || '—' }}</td>
-                    </tr>
-                  </tbody>
-                </v-table>
+                <div class="table-wrap">
+                  <v-table density="compact" class="rooms-table">
+                    <thead>
+                      <tr><th>Room</th><th>Level</th><th>Dimensions</th><th>Description</th></tr>
+                    </thead>
+                    <tbody>
+                      <tr v-for="room in property.features.rooms" :key="room.RoomKey">
+                        <td class="font-weight-bold">{{ room.RoomType || 'Room' }}</td>
+                        <td>{{ room.RoomLevel || '—' }}</td>
+                        <td>{{ room.RoomDimensions || (room.RoomLength && room.RoomWidth ? `${room.RoomLength} x ${room.RoomWidth}` : '—') }}</td>
+                        <td class="text-caption" style="color: #64748b;">{{ room.RoomDescription || '—' }}</td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                </div>
               </v-card-text>
             </v-card>
-            <v-card class="mb-6 location-card" flat elevation="2">
-              <v-card-text class="pa-6">
-                <div class="text-h6 mb-4 d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-map-marker</v-icon>
-                  Location
+
+            <!-- Location Card -->
+            <v-card class="content-card mb-8" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-map-marker-outline</v-icon></div>
+                  <span>Location</span>
                 </div>
-                <div class="mb-4 text-body-1 font-weight-medium" style="color: #555;">
-                  <v-icon class="mr-1" size="small" color="primary">mdi-home-map-marker</v-icon>
+                <div class="location-address">
+                  <v-icon size="16" class="mr-2" style="color: #3b82f6;">mdi-home-map-marker</v-icon>
                   {{ property.address }}, {{ property.city }}, {{ property.province }}, {{ property.postalCode }}
                 </div>
                 <client-only>
                   <div v-if="property.latitude && property.longitude" class="map-container">
-                    <l-map :zoom="15" :center="[property.latitude, property.longitude]" style="height: 400px; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.1);">
+                    <l-map :zoom="15" :center="[property.latitude, property.longitude]" style="height: 400px; border-radius: 16px; overflow: hidden;">
                       <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                       <l-marker :lat-lng="[property.latitude, property.longitude]"><l-popup>{{ property.address }}</l-popup></l-marker>
                     </l-map>
                   </div>
-                  <div v-else class="d-flex align-center justify-center" style="height: 400px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px;">
-                    <div class="text-center">
-                      <v-icon size="64" class="text-grey mb-2">mdi-map-marker-off</v-icon>
-                      <div class="text-grey">Location not available</div>
-                    </div>
+                  <div v-else class="map-placeholder">
+                    <v-icon size="48" color="#cbd5e1">mdi-map-marker-off</v-icon>
+                    <div style="color: #94a3b8; margin-top: 8px;">Location not available</div>
                   </div>
                   <template #fallback>
-                    <div class="d-flex align-center justify-center" style="height: 400px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 12px;">
-                      <div class="text-center">
-                        <v-progress-circular indeterminate color="primary" size="48" />
-                        <div class="mt-4 text-body-1 text-medium-emphasis">Loading map...</div>
-                      </div>
+                    <div class="map-placeholder">
+                      <v-progress-circular indeterminate color="#3b82f6" size="44" width="3" />
+                      <div style="color: #94a3b8; margin-top: 12px;">Loading map&hellip;</div>
                     </div>
                   </template>
                 </client-only>
@@ -551,479 +474,237 @@
             </v-card>
           </div>
 
+          <!-- ═══ PAYMENTS TAB ═══ -->
           <div v-show="selectedTab === 'payments'">
-            <v-card flat elevation="2" class="payment-card">
-              <v-card-text class="pa-6">
-                <div class="text-h6 mb-6 d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-calculator</v-icon>
-                  Monthly Payment Calculator
+            <v-card class="content-card" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-calculator-variant-outline</v-icon></div>
+                  <span>Monthly Payment Calculator</span>
                 </div>
-                <v-form class="mb-6">
-                  <v-text-field v-model.number="calc.price" label="Home price" prefix="$" variant="outlined" density="comfortable" class="mb-3" />
-                  <v-text-field v-model.number="calc.downPercent" label="Down payment (%)" suffix="%" variant="outlined" density="comfortable" class="mb-3" />
-                  <v-text-field v-model.number="calc.rate" label="Interest rate (APR %)" suffix="%" variant="outlined" density="comfortable" class="mb-3" />
-                  <v-text-field v-model.number="calc.years" label="Amortization (years)" variant="outlined" density="comfortable" />
+                <v-form class="calc-form">
+                  <v-text-field v-model.number="calc.price" label="Home price" prefix="$" variant="outlined" density="comfortable" class="mb-3 calc-field" />
+                  <v-text-field v-model.number="calc.downPercent" label="Down payment (%)" suffix="%" variant="outlined" density="comfortable" class="mb-3 calc-field" />
+                  <v-text-field v-model.number="calc.rate" label="Interest rate (APR %)" suffix="%" variant="outlined" density="comfortable" class="mb-3 calc-field" />
+                  <v-text-field v-model.number="calc.years" label="Amortization (years)" variant="outlined" density="comfortable" class="calc-field" />
                 </v-form>
-                <v-divider class="my-6" />
-                <div class="payment-result pa-4" style="background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); border-radius: 12px; color: white;">
-                  <div class="text-subtitle-2 mb-2 opacity-90">Estimated Monthly Payment</div>
-                  <div class="text-h4 font-weight-bold mb-3">${{ formatPrice(monthlyPayment) }}</div>
-                  <div class="text-caption opacity-90" style="line-height: 1.6;">
-                    Principal & interest on a ${{ formatPrice(loanAmount) }} mortgage at {{ calc.rate }}% for {{ calc.years }} years
+                <div class="calc-result">
+                  <div class="calc-result-label">Estimated Monthly Payment</div>
+                  <div class="calc-result-value">${{ formatPrice(monthlyPayment) }}</div>
+                  <div class="calc-result-detail">
+                    Principal &amp; interest on a ${{ formatPrice(loanAmount) }} mortgage at {{ calc.rate }}% for {{ calc.years }} years
                   </div>
                 </div>
               </v-card-text>
             </v-card>
           </div>
 
+          <!-- ═══ NEIGHBOURHOOD TAB ═══ -->
           <div v-show="selectedTab === 'neighbourhood'">
-            <v-card flat elevation="2" class="neighbourhood-card">
-              <v-card-text class="pa-6">
-                <div class="text-h6 mb-6 d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-map-marker-radius</v-icon>
-                  Nearby Points of Interest
+            <v-card class="content-card" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-map-marker-radius-outline</v-icon></div>
+                  <span>Nearby Points of Interest</span>
                 </div>
                 <div class="mb-6">
-                  <v-btn-toggle v-model="transportMode" mandatory class="transport-toggle" divided elevation="2">
-                    <v-btn value="walk" prepend-icon="mdi-walk" class="px-6">Walking</v-btn>
-                    <v-btn value="bike" prepend-icon="mdi-bike" class="px-6">Biking</v-btn>
-                    <v-btn value="car" prepend-icon="mdi-car" class="px-6">Car</v-btn>
+                  <v-btn-toggle v-model="transportMode" mandatory class="transport-toggle" divided>
+                    <v-btn value="walk" prepend-icon="mdi-walk" class="px-5">Walking</v-btn>
+                    <v-btn value="bike" prepend-icon="mdi-bike" class="px-5">Biking</v-btn>
+                    <v-btn value="car" prepend-icon="mdi-car" class="px-5">Car</v-btn>
                   </v-btn-toggle>
                 </div>
-                <v-alert v-if="poiError" type="error" variant="tonal" density="comfortable" class="mb-4" rounded="lg">{{ poiError }}</v-alert>
+                <v-alert v-if="poiError" type="error" variant="tonal" density="comfortable" class="mb-4 rounded-xl">{{ poiError }}</v-alert>
                 <v-skeleton-loader v-if="poiLoading" type="table-row@5" />
-                <v-table v-else class="premium-table">
-                  <thead>
-                    <tr>
-                      <th class="text-left">Category</th>
-                      <th class="text-left">Name</th>
-                      <th class="text-left">Distance</th>
-                      <th class="text-left">ETA</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="item in pois" :key="item.id">
-                      <td><v-chip size="small" variant="tonal" color="primary">{{ item.category }}</v-chip></td>
-                      <td class="font-weight-medium">{{ item.name }}</td>
-                      <td>{{ (item.distance/1000).toFixed(2) }} km</td>
-                      <td>{{ formatEtaMinutes(item.distance) }} min ({{ transportMode }})</td>
-                    </tr>
-                  </tbody>
-                </v-table>
+                <div v-else class="table-wrap">
+                  <v-table class="poi-table">
+                    <thead><tr><th>Category</th><th>Name</th><th>Distance</th><th>ETA</th></tr></thead>
+                    <tbody>
+                      <tr v-for="item in pois" :key="item.id">
+                        <td><span class="table-badge">{{ item.category }}</span></td>
+                        <td class="font-weight-medium" style="color: #1e293b;">{{ item.name }}</td>
+                        <td style="color: #475569;">{{ (item.distance/1000).toFixed(2) }} km</td>
+                        <td><span class="table-eta">{{ formatEtaMinutes(item.distance) }} min</span></td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                </div>
               </v-card-text>
             </v-card>
           </div>
 
+          <!-- ═══ SCHOOLS TAB ═══ -->
           <div v-show="selectedTab === 'schools'">
-            <v-card flat elevation="2" class="schools-card">
-              <v-card-text class="pa-6">
-                <div class="d-flex align-center justify-space-between mb-6">
-                  <div class="text-h6 d-flex align-center">
-                    <v-icon class="mr-2" color="primary">mdi-school</v-icon>
-                    Nearby Schools
+            <v-card class="content-card" flat>
+              <v-card-text class="pa-7">
+                <div class="d-flex align-center justify-space-between flex-wrap gap-4 mb-8">
+                  <div class="card-section-header mb-0">
+                    <div class="card-section-icon"><v-icon size="20">mdi-school-outline</v-icon></div>
+                    <span>Nearby Schools</span>
                   </div>
-                  
-                  <!-- Transportation Mode Selector -->
-                  <div class="transport-selector">
-                    <v-btn-toggle
-                      v-model="schoolTransportMode"
-                      mandatory
-                      density="comfortable"
-                      divided
-                      elevation="2"
-                      @update:model-value="updateSchoolETAs"
-                    >
-                      <v-btn value="walking" size="small" class="px-4">
-                        <v-icon>mdi-walk</v-icon>
-                        <span class="ml-1">Walk</span>
-                      </v-btn>
-                      <v-btn value="biking" size="small" class="px-4">
-                        <v-icon>mdi-bike</v-icon>
-                        <span class="ml-1">Bike</span>
-                      </v-btn>
-                      <v-btn value="car" size="small" class="px-4">
-                        <v-icon>mdi-car</v-icon>
-                        <span class="ml-1">Car</span>
-                      </v-btn>
-                    </v-btn-toggle>
-                  </div>
+                  <v-btn-toggle v-model="schoolTransportMode" mandatory density="comfortable" divided class="transport-toggle" @update:model-value="updateSchoolETAs">
+                    <v-btn value="walking" size="small" class="px-4"><v-icon size="18">mdi-walk</v-icon><span class="ml-1">Walk</span></v-btn>
+                    <v-btn value="biking" size="small" class="px-4"><v-icon size="18">mdi-bike</v-icon><span class="ml-1">Bike</span></v-btn>
+                    <v-btn value="car" size="small" class="px-4"><v-icon size="18">mdi-car</v-icon><span class="ml-1">Car</span></v-btn>
+                  </v-btn-toggle>
                 </div>
-                
-                <v-alert v-if="schoolsError" type="error" variant="tonal" density="comfortable" class="mb-4" rounded="lg">{{ schoolsError }}</v-alert>
+                <v-alert v-if="schoolsError" type="error" variant="tonal" density="comfortable" class="mb-4 rounded-xl">{{ schoolsError }}</v-alert>
                 <v-skeleton-loader v-if="schoolsLoading" type="table-row@5" />
-                <v-table v-else class="premium-table">
-                  <thead>
-                    <tr>
-                      <th class="text-left">School Name</th>
-                      <th class="text-left">Distance</th>
-                      <th class="text-left">ETA</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="s in schools" :key="s.id">
-                      <td class="font-weight-medium">{{ s.name }}</td>
-                      <td>{{ (s.distance/1000).toFixed(2) }} km</td>
-                      <td><v-chip size="small" variant="tonal" color="success">{{ formatEtaMinutes(s.distance, schoolTransportMode) }} min</v-chip></td>
-                    </tr>
-                  </tbody>
-                </v-table>
+                <div v-else class="table-wrap">
+                  <v-table class="poi-table">
+                    <thead><tr><th>School Name</th><th>Distance</th><th>ETA</th></tr></thead>
+                    <tbody>
+                      <tr v-for="s in schools" :key="s.id">
+                        <td class="font-weight-medium" style="color: #1e293b;">{{ s.name }}</td>
+                        <td style="color: #475569;">{{ (s.distance/1000).toFixed(2) }} km</td>
+                        <td><span class="table-eta">{{ formatEtaMinutes(s.distance, schoolTransportMode) }} min</span></td>
+                      </tr>
+                    </tbody>
+                  </v-table>
+                </div>
               </v-card-text>
             </v-card>
           </div>
         </v-col>
 
-        <!-- Persistent Contact Form -->
+        <!-- ═══ SIDEBAR ═══ -->
         <v-col cols="12" md="4">
           <div class="sticky-sidebar">
-            <v-card class="mb-4 contact-form-card" flat elevation="3">
-              <v-card-text class="pa-6">
-                <div class="text-h6 mb-6 d-flex align-center">
-                  <v-icon class="mr-2" color="primary">mdi-email-outline</v-icon>
-                  Contact Agent
+            <!-- Contact Form -->
+            <v-card class="sidebar-card mb-5" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-email-fast-outline</v-icon></div>
+                  <span>Contact Agent</span>
                 </div>
                 <v-form v-model="isFormValid" @submit.prevent="handleSubmit">
-                  <v-text-field 
-                    v-model="contactForm.name" 
-                    label="Your Name" 
-                    :rules="nameRules" 
-                    required 
-                    variant="outlined" 
-                    density="comfortable"
-                    id="property-contact-name"
-                    class="mb-3"
-                    prepend-inner-icon="mdi-account"
-                  />
-                  <v-text-field 
-                    v-model="contactForm.email" 
-                    label="Email" 
-                    type="email" 
-                    :rules="emailRules" 
-                    required 
-                    variant="outlined" 
-                    density="comfortable"
-                    id="property-contact-email"
-                    class="mb-3"
-                    prepend-inner-icon="mdi-email"
-                  />
-                  <v-text-field 
-                    v-model="contactForm.phone" 
-                    label="Phone" 
-                    :rules="phoneRules" 
-                    variant="outlined" 
-                    density="comfortable"
-                    id="property-contact-phone"
-                    class="mb-3"
-                    prepend-inner-icon="mdi-phone"
-                  />
-                  <v-textarea 
-                    v-model="contactForm.message" 
-                    label="Message" 
-                    :rules="messageRules" 
-                    required 
-                    variant="outlined" 
-                    density="comfortable" 
-                    rows="4"
-                    id="property-contact-message"
-                    class="mb-4"
-                    prepend-inner-icon="mdi-message-text"
-                  />
-                  <v-btn type="submit" color="primary" block size="large" :loading="loading" :disabled="!isFormValid" class="mb-4 text-none font-weight-bold" elevation="4">
-                    <v-icon class="mr-2">mdi-send</v-icon>
-                    Contact Agent
+                  <v-text-field v-model="contactForm.name" label="Your Name" :rules="nameRules" required variant="outlined" density="comfortable" id="property-contact-name" class="mb-3 form-field" prepend-inner-icon="mdi-account-outline" />
+                  <v-text-field v-model="contactForm.email" label="Email" type="email" :rules="emailRules" required variant="outlined" density="comfortable" id="property-contact-email" class="mb-3 form-field" prepend-inner-icon="mdi-email-outline" />
+                  <v-text-field v-model="contactForm.phone" label="Phone" :rules="phoneRules" variant="outlined" density="comfortable" id="property-contact-phone" class="mb-3 form-field" prepend-inner-icon="mdi-phone-outline" />
+                  <v-textarea v-model="contactForm.message" label="Message" :rules="messageRules" required variant="outlined" density="comfortable" rows="4" id="property-contact-message" class="mb-5 form-field" prepend-inner-icon="mdi-message-text-outline" />
+                  <v-btn type="submit" block size="large" :loading="loading" :disabled="!isFormValid" class="submit-btn mb-4">
+                    <v-icon class="mr-2" size="18">mdi-send</v-icon>
+                    Send Message
                   </v-btn>
                 </v-form>
-                <v-divider class="my-6" />
-                <div class="action-buttons">
-                  <v-btn variant="outlined" color="primary" block size="large" class="mb-3 text-none font-weight-semibold" @click="scheduleViewing">
-                    <v-icon class="mr-2">mdi-calendar-clock</v-icon>
-                    Schedule Viewing
-                  </v-btn>
-                  <v-btn variant="tonal" color="success" block size="large" prepend-icon="mdi-phone" :href="`tel:${property.agent?.phone}`" class="text-none font-weight-semibold">
-                    Call Agent Now
-                  </v-btn>
+                <div class="sidebar-divider"></div>
+                <v-btn variant="outlined" block size="large" class="mb-3 secondary-btn" @click="scheduleViewing">
+                  <v-icon class="mr-2" size="18">mdi-calendar-clock-outline</v-icon>
+                  Schedule Viewing
+                </v-btn>
+                <v-btn variant="tonal" block size="large" prepend-icon="mdi-phone" :href="`tel:${property.agent?.phone}`" class="call-btn">
+                  Call Agent Now
+                </v-btn>
+              </v-card-text>
+            </v-card>
+
+            <!-- Agent Card -->
+            <v-card flat class="sidebar-card">
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-account-tie-outline</v-icon></div>
+                  <span>Listing Agent</span>
+                </div>
+
+                <!-- CREA Agent Data -->
+                <div v-if="property.listingAgentData" class="agent-info">
+                  <div class="d-flex align-start mb-4">
+                    <v-avatar size="72" class="agent-avatar mr-4" :color="property.listingAgentData.photoURL ? 'transparent' : '#e2e8f0'">
+                      <v-img v-if="property.listingAgentData.photoURL" :src="property.listingAgentData.photoURL" :alt="property.listingAgentData.fullName || `${property.listingAgentData.firstName || ''} ${property.listingAgentData.lastName || ''}`.trim() || 'Agent'" cover />
+                      <v-icon v-else size="36" color="#64748b">mdi-account</v-icon>
+                    </v-avatar>
+                    <div class="flex-grow-1">
+                      <div class="agent-name">
+                        {{ property.listingAgentData.fullName ||
+                            (property.listingAgentData.firstName && property.listingAgentData.lastName
+                              ? `${property.listingAgentData.firstName} ${property.listingAgentData.lastName}`
+                              : property.listingAgentData.firstName || property.listingAgentData.lastName || 'Agent Name Not Available') }}
+                      </div>
+                      <div v-if="property.listingAgentData.designations?.length" class="agent-designation">{{ property.listingAgentData.designations.join(', ') }}</div>
+                      <div v-if="property.listingAgentData.license" class="agent-license">License: {{ property.listingAgentData.license }}</div>
+                      <div class="agent-contact-list">
+                        <a v-if="property.listingAgentData.directPhone" :href="`tel:${property.listingAgentData.directPhone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone</v-icon>{{ property.listingAgentData.directPhone }} <span class="link-note">(Direct)</span></a>
+                        <a v-if="property.listingAgentData.mobilePhone && property.listingAgentData.mobilePhone !== property.listingAgentData.directPhone" :href="`tel:${property.listingAgentData.mobilePhone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-cellphone</v-icon>{{ property.listingAgentData.mobilePhone }} <span class="link-note">(Mobile)</span></a>
+                        <a v-if="property.listingAgentData.officePhone && property.listingAgentData.officePhone !== property.listingAgentData.directPhone && property.listingAgentData.officePhone !== property.listingAgentData.mobilePhone" :href="`tel:${property.listingAgentData.officePhone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>{{ property.listingAgentData.officePhone }} <span class="link-note">(Office)</span></a>
+                        <a v-if="property.listingAgentData.email" :href="`mailto:${property.listingAgentData.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ property.listingAgentData.email }}</a>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="property.listingOfficeData" class="office-block">
+                    <div class="office-name">{{ property.listingOfficeData.name }}</div>
+                    <a v-if="property.listingOfficeData.phone" :href="`tel:${property.listingOfficeData.phone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>{{ property.listingOfficeData.phone }}</a>
+                    <a v-if="property.listingOfficeData.email" :href="`mailto:${property.listingOfficeData.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ property.listingOfficeData.email }}</a>
+                    <div v-if="property.listingOfficeData.address" class="office-addr"><v-icon size="14" class="mr-1">mdi-map-marker-outline</v-icon>{{ property.listingOfficeData.address }}<span v-if="property.listingOfficeData.city">, {{ property.listingOfficeData.city }}</span><span v-if="property.listingOfficeData.province">, {{ property.listingOfficeData.province }}</span><span v-if="property.listingOfficeData.postalCode">, {{ property.listingOfficeData.postalCode }}</span></div>
+                    <a v-if="property.listingOfficeData.website" :href="property.listingOfficeData.website" target="_blank" class="agent-link"><v-icon size="14" class="mr-1">mdi-web</v-icon>{{ property.listingOfficeData.website }}</a>
+                  </div>
+                </div>
+
+                <!-- Fallback Agent -->
+                <div v-else-if="property.agent || property.listingAgent" class="agent-info">
+                  <div class="d-flex align-start mb-4">
+                    <v-avatar size="72" class="agent-avatar mr-4" :color="property.agent?.photo ? 'transparent' : '#e2e8f0'">
+                      <v-img v-if="property.agent?.photo" :src="property.agent.photo" :alt="property.agent.name || `${property.agent.firstName} ${property.agent.lastName}`" cover />
+                      <v-icon v-else size="36" color="#64748b">mdi-account</v-icon>
+                    </v-avatar>
+                    <div class="flex-grow-1">
+                      <div class="agent-name">{{ property.agent?.name || `${property.agent?.firstName || ''} ${property.agent?.lastName || ''}`.trim() || property.listingAgent }}</div>
+                      <div v-if="property.agent?.agency" class="agent-designation">{{ property.agent.agency }}</div>
+                      <div class="agent-contact-list">
+                        <a v-if="property.agent?.phone" :href="`tel:${property.agent.phone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone</v-icon>{{ property.agent.phone }}</a>
+                        <a v-if="property.agent?.email" :href="`mailto:${property.agent.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ property.agent.email }}</a>
+                      </div>
+                    </div>
+                  </div>
+                  <div v-if="property.listingOffice" class="office-block">
+                    <div class="office-name">{{ property.listingOffice }}</div>
+                  </div>
+                </div>
+
+                <!-- No Agent -->
+                <div v-else class="text-center py-6">
+                  <v-icon size="40" color="#cbd5e1">mdi-account-question-outline</v-icon>
+                  <div style="color: #94a3b8; margin-top: 8px; font-size: 0.85rem;">Agent information not available</div>
+                </div>
+
+                <!-- Co-listing Agents -->
+                <div v-if="property.coListingAgentsData?.length" class="co-agents-block">
+                  <div class="co-agents-title">Co-Listing Agents</div>
+                  <div v-for="coAgent in property.coListingAgentsData" :key="coAgent.memberKey" class="co-agent-row">
+                    <v-avatar size="48" class="agent-avatar mr-3" :color="coAgent.photoURL ? 'transparent' : '#e2e8f0'">
+                      <v-img v-if="coAgent.photoURL" :src="coAgent.photoURL" :alt="coAgent.fullName || `${coAgent.firstName || ''} ${coAgent.lastName || ''}`.trim() || 'Co-Agent'" cover />
+                      <v-icon v-else size="24" color="#64748b">mdi-account</v-icon>
+                    </v-avatar>
+                    <div class="flex-grow-1">
+                      <div class="agent-name" style="font-size: 0.9rem;">{{ coAgent.fullName || (coAgent.firstName && coAgent.lastName ? `${coAgent.firstName} ${coAgent.lastName}` : coAgent.firstName || coAgent.lastName || 'Co-Agent') }}</div>
+                      <div v-if="coAgent.designations?.length" class="agent-designation">{{ coAgent.designations.join(', ') }}</div>
+                      <div class="agent-contact-list" style="margin-top: 4px;">
+                        <a v-if="coAgent.directPhone" :href="`tel:${coAgent.directPhone}`" class="agent-link small"><v-icon size="12" class="mr-1">mdi-phone</v-icon>{{ coAgent.directPhone }}</a>
+                        <a v-if="coAgent.mobilePhone && coAgent.mobilePhone !== coAgent.directPhone" :href="`tel:${coAgent.mobilePhone}`" class="agent-link small"><v-icon size="12" class="mr-1">mdi-cellphone</v-icon>{{ coAgent.mobilePhone }}</a>
+                        <a v-if="coAgent.email" :href="`mailto:${coAgent.email}`" class="agent-link small"><v-icon size="12" class="mr-1">mdi-email-outline</v-icon>{{ coAgent.email }}</a>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </v-card-text>
             </v-card>
-            
-            <!-- Agent Information Card -->
-            <v-card flat elevation="3" class="agent-card">
-            <v-card-text>
-              <div class="text-h6 mb-4">Listing Agent</div>
-              
-              <!-- Enhanced CREA Agent Data (if available) -->
-              <div v-if="property.listingAgentData" class="agent-info">
-                <div class="d-flex align-start mb-4">
-                  <!-- Agent Photo -->
-                  <v-avatar 
-                    size="80" 
-                    class="mr-4"
-                    :color="property.listingAgentData.photoURL ? 'transparent' : 'primary'"
-                  >
-                    <v-img 
-                      v-if="property.listingAgentData.photoURL"
-                      :src="property.listingAgentData.photoURL"
-                      :alt="property.listingAgentData.fullName || `${property.listingAgentData.firstName || ''} ${property.listingAgentData.lastName || ''}`.trim() || 'Agent Photo'"
-                      cover
-                    />
-                    <v-icon v-else size="40" color="white">mdi-account</v-icon>
-                  </v-avatar>
-                  
-                  <!-- Agent Details -->
-                  <div class="flex-grow-1">
-                    <div class="text-h6 mb-1">
-                      {{ property.listingAgentData.fullName || 
-                          (property.listingAgentData.firstName && property.listingAgentData.lastName 
-                            ? `${property.listingAgentData.firstName} ${property.listingAgentData.lastName}` 
-                            : property.listingAgentData.firstName || property.listingAgentData.lastName || 'Agent Name Not Available') }}
-                    </div>
-                    <div v-if="property.listingAgentData.designations?.length" class="text-caption text-primary mb-2">
-                      {{ property.listingAgentData.designations.join(', ') }}
-                    </div>
-                    <div v-if="property.listingAgentData.license" class="text-caption text-grey mb-2">
-                      License: {{ property.listingAgentData.license }}
-                    </div>
-                    
-                    <!-- Contact Information -->
-                    <div class="contact-info">
-                      <!-- Direct Phone (Primary) -->
-                      <div v-if="property.listingAgentData.directPhone" class="d-flex align-center mb-1">
-                        <v-icon size="small" class="mr-2">mdi-phone</v-icon>
-                        <a :href="`tel:${property.listingAgentData.directPhone}`" class="text-decoration-none">
-                          {{ property.listingAgentData.directPhone }}
-                        </a>
-                        <span class="text-caption text-grey ml-2">(Direct)</span>
-                      </div>
-                      
-                      <!-- Mobile Phone (if different from direct) -->
-                      <div v-if="property.listingAgentData.mobilePhone && property.listingAgentData.mobilePhone !== property.listingAgentData.directPhone" class="d-flex align-center mb-1">
-                        <v-icon size="small" class="mr-2">mdi-cellphone</v-icon>
-                        <a :href="`tel:${property.listingAgentData.mobilePhone}`" class="text-decoration-none">
-                          {{ property.listingAgentData.mobilePhone }}
-                        </a>
-                        <span class="text-caption text-grey ml-2">(Mobile)</span>
-                      </div>
-                      
-                      <!-- Office Phone (if different from direct and mobile) -->
-                      <div v-if="property.listingAgentData.officePhone && 
-                                 property.listingAgentData.officePhone !== property.listingAgentData.directPhone && 
-                                 property.listingAgentData.officePhone !== property.listingAgentData.mobilePhone" 
-                           class="d-flex align-center mb-1">
-                        <v-icon size="small" class="mr-2">mdi-phone-classic</v-icon>
-                        <a :href="`tel:${property.listingAgentData.officePhone}`" class="text-decoration-none">
-                          {{ property.listingAgentData.officePhone }}
-                        </a>
-                        <span class="text-caption text-grey ml-2">(Office)</span>
-                      </div>
-                      
-                      <!-- Email -->
-                      <div v-if="property.listingAgentData.email" class="d-flex align-center mb-1">
-                        <v-icon size="small" class="mr-2">mdi-email</v-icon>
-                        <a :href="`mailto:${property.listingAgentData.email}`" class="text-decoration-none">
-                          {{ property.listingAgentData.email }}
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Office Information -->
-                <div v-if="property.listingOfficeData" class="office-info mt-4 pt-4" style="border-top: 1px solid #e0e0e0;">
-                  <div class="text-subtitle-1 font-weight-medium mb-2">{{ property.listingOfficeData.name }}</div>
-                  
-                  <div class="office-details">
-                    <div v-if="property.listingOfficeData.phone" class="d-flex align-center mb-1">
-                      <v-icon size="small" class="mr-2">mdi-phone-classic</v-icon>
-                      <a :href="`tel:${property.listingOfficeData.phone}`" class="text-decoration-none">
-                        {{ property.listingOfficeData.phone }}
-                      </a>
-                    </div>
-                    <div v-if="property.listingOfficeData.email" class="d-flex align-center mb-1">
-                      <v-icon size="small" class="mr-2">mdi-email-outline</v-icon>
-                      <a :href="`mailto:${property.listingOfficeData.email}`" class="text-decoration-none">
-                        {{ property.listingOfficeData.email }}
-                      </a>
-                    </div>
-                    <div v-if="property.listingOfficeData.address" class="d-flex align-start mb-1">
-                      <v-icon size="small" class="mr-2 mt-1">mdi-map-marker</v-icon>
-                      <div>
-                        {{ property.listingOfficeData.address }}
-                        <span v-if="property.listingOfficeData.city">, {{ property.listingOfficeData.city }}</span>
-                        <span v-if="property.listingOfficeData.province">, {{ property.listingOfficeData.province }}</span>
-                        <span v-if="property.listingOfficeData.postalCode">, {{ property.listingOfficeData.postalCode }}</span>
-                      </div>
-                    </div>
-                    <div v-if="property.listingOfficeData.website" class="d-flex align-center mb-1">
-                      <v-icon size="small" class="mr-2">mdi-web</v-icon>
-                      <a :href="property.listingOfficeData.website" target="_blank" class="text-decoration-none">
-                        {{ property.listingOfficeData.website }}
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <!-- Fallback to Simple Agent Data -->
-              <div v-else-if="property.agent || property.listingAgent" class="agent-info">
-                <div class="d-flex align-start mb-4">
-                  <!-- Agent Photo Placeholder -->
-                  <v-avatar size="80" class="mr-4" color="primary">
-                    <v-img 
-                      v-if="property.agent?.photo"
-                      :src="property.agent.photo"
-                      :alt="property.agent.name || `${property.agent.firstName} ${property.agent.lastName}`"
-                      cover
-                    />
-                    <v-icon v-else size="40" color="white">mdi-account</v-icon>
-                  </v-avatar>
-                  
-                  <!-- Agent Details -->
-                  <div class="flex-grow-1">
-                    <div class="text-h6 mb-1">
-                      {{ property.agent?.name || `${property.agent?.firstName || ''} ${property.agent?.lastName || ''}`.trim() || property.listingAgent }}
-                    </div>
-                    <div v-if="property.agent?.agency" class="text-caption text-grey mb-2">
-                      {{ property.agent.agency }}
-                    </div>
-                    
-                    <!-- Contact Information -->
-                    <div class="contact-info">
-                      <div v-if="property.agent?.phone" class="d-flex align-center mb-1">
-                        <v-icon size="small" class="mr-2">mdi-phone</v-icon>
-                        <a :href="`tel:${property.agent.phone}`" class="text-decoration-none">
-                          {{ property.agent.phone }}
-                        </a>
-                      </div>
-                      <div v-if="property.agent?.email" class="d-flex align-center mb-1">
-                        <v-icon size="small" class="mr-2">mdi-email</v-icon>
-                        <a :href="`mailto:${property.agent.email}`" class="text-decoration-none">
-                          {{ property.agent.email }}
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Office Information (Simple) -->
-                <div v-if="property.listingOffice" class="office-info mt-4 pt-4" style="border-top: 1px solid #e0e0e0;">
-                  <div class="text-subtitle-1 font-weight-medium">{{ property.listingOffice }}</div>
-                </div>
-              </div>
-              
-              <!-- No Agent Data Available -->
-              <div v-else class="text-center py-4">
-                <v-icon size="48" color="grey-lighten-1">mdi-account-question</v-icon>
-                <div class="text-body-2 text-grey mt-2">Agent information not available</div>
-              </div>
-              
-              <!-- Co-Listing Agents (if available) -->
-              <div v-if="property.coListingAgentsData?.length" class="co-agents mt-4 pt-4" style="border-top: 1px solid #e0e0e0;">
-                <div class="text-subtitle-1 font-weight-medium mb-3">Co-Listing Agents</div>
-                <div v-for="coAgent in property.coListingAgentsData" :key="coAgent.memberKey" class="d-flex align-start mb-3">
-                  <v-avatar 
-                    size="60" 
-                    class="mr-3"
-                    :color="coAgent.photoURL ? 'transparent' : 'secondary'"
-                  >
-                    <v-img 
-                      v-if="coAgent.photoURL"
-                      :src="coAgent.photoURL"
-                      :alt="coAgent.fullName || `${coAgent.firstName || ''} ${coAgent.lastName || ''}`.trim() || 'Co-Agent Photo'"
-                      cover
-                    />
-                    <v-icon v-else size="30" color="white">mdi-account</v-icon>
-                  </v-avatar>
-                  
-                  <div class="flex-grow-1">
-                    <div class="text-body-1 font-weight-medium">
-                      {{ coAgent.fullName || 
-                          (coAgent.firstName && coAgent.lastName 
-                            ? `${coAgent.firstName} ${coAgent.lastName}` 
-                            : coAgent.firstName || coAgent.lastName || 'Co-Agent Name Not Available') }}
-                    </div>
-                    <div v-if="coAgent.designations?.length" class="text-caption text-secondary mb-1">
-                      {{ coAgent.designations.join(', ') }}
-                    </div>
-                    
-                    <!-- Co-Agent Contact Info -->
-                    <div class="co-agent-contact">
-                      <div v-if="coAgent.directPhone" class="text-caption mb-1">
-                        <v-icon size="small" class="mr-1">mdi-phone</v-icon>
-                        <a :href="`tel:${coAgent.directPhone}`" class="text-decoration-none">
-                          {{ coAgent.directPhone }}
-                        </a>
-                        <span class="text-grey ml-1">(Direct)</span>
-                      </div>
-                      <div v-if="coAgent.mobilePhone && coAgent.mobilePhone !== coAgent.directPhone" class="text-caption mb-1">
-                        <v-icon size="small" class="mr-1">mdi-cellphone</v-icon>
-                        <a :href="`tel:${coAgent.mobilePhone}`" class="text-decoration-none">
-                          {{ coAgent.mobilePhone }}
-                        </a>
-                        <span class="text-grey ml-1">(Mobile)</span>
-                      </div>
-                      <div v-if="coAgent.email" class="text-caption">
-                        <v-icon size="small" class="mr-1">mdi-email</v-icon>
-                        <a :href="`mailto:${coAgent.email}`" class="text-decoration-none">
-                          {{ coAgent.email }}
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </v-card-text>
-          </v-card>
           </div>
         </v-col>
       </v-row>
-
     </v-container>
 
-    <!-- Image Gallery Dialog -->
-    <v-dialog
-      v-model="showGallery"
-      fullscreen
-      :scrim="true"
-      transition="dialog-bottom-transition"
-      class="gallery-dialog"
-    >
+    <!-- Gallery Dialog -->
+    <v-dialog v-model="showGallery" fullscreen :scrim="true" transition="dialog-bottom-transition" class="gallery-dialog">
       <v-card flat class="gallery-card">
-        <v-toolbar 
-          color="rgba(0, 0, 0, 0.85)" 
-          class="gallery-toolbar"
-          style="backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);"
-        >
-          <v-btn
-            icon="mdi-close"
-            size="large"
-            variant="text"
-            @click="showGallery = false"
-          />
+        <v-toolbar color="rgba(0,0,0,0.85)" class="gallery-toolbar" style="backdrop-filter: blur(12px);">
+          <v-btn icon="mdi-close" size="large" variant="text" @click="showGallery = false" />
           <v-toolbar-title class="text-h6 font-weight-medium">Property Gallery</v-toolbar-title>
           <v-spacer />
-          <div class="text-body-1 font-weight-medium">
-            {{ currentImageIndex + 1 }} / {{ property.images?.length }}
-          </div>
+          <div class="text-body-1 font-weight-medium">{{ currentImageIndex + 1 }} / {{ property.images?.length }}</div>
         </v-toolbar>
-
         <div class="gallery-carousel-container">
-          <v-carousel
-            v-model="currentImageIndex"
-            height="calc(100vh - 64px)"
-            hide-delimiters
-            show-arrows="hover"
-            class="gallery-carousel"
-          >
-            <v-carousel-item
-              v-for="(image, index) in property.images"
-              :key="index"
-              :src="image"
-              contain
-            >
-              <template v-slot:placeholder>
-                <v-row class="fill-height ma-0" align="center" justify="center">
-                  <v-progress-circular indeterminate color="white" size="64" />
-                </v-row>
-              </template>
+          <v-carousel v-model="currentImageIndex" height="calc(100vh - 64px)" hide-delimiters show-arrows="hover" class="gallery-carousel">
+            <v-carousel-item v-for="(image, index) in property.images" :key="index" :src="image" contain>
+              <template v-slot:placeholder><v-row class="fill-height ma-0" align="center" justify="center"><v-progress-circular indeterminate color="white" size="64" /></v-row></template>
             </v-carousel-item>
           </v-carousel>
         </div>
@@ -1032,64 +713,21 @@
 
     <!-- Schedule Viewing Dialog -->
     <v-dialog v-model="showViewingDialog" max-width="600" class="viewing-dialog">
-      <v-card rounded="xl" elevation="24">
-        <v-card-title class="pa-6 d-flex align-center" style="background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); color: white;">
-          <v-icon class="mr-3" size="large">mdi-calendar-clock</v-icon>
-          <span class="text-h5 font-weight-bold">Schedule a Viewing</span>
-        </v-card-title>
-        <v-card-text class="pa-6">
+      <v-card class="dialog-card">
+        <div class="dialog-header">
+          <v-icon size="24" class="mr-3" style="color: #3b82f6;">mdi-calendar-clock-outline</v-icon>
+          <span>Schedule a Viewing</span>
+        </div>
+        <v-card-text class="pa-7">
           <v-form v-model="isViewingFormValid" @submit.prevent="submitViewingRequest">
-            <v-text-field
-              v-model="viewingForm.date"
-              label="Preferred Date"
-              type="date"
-              class="mb-4"
-              variant="outlined"
-              density="comfortable"
-              required
-              prepend-inner-icon="mdi-calendar"
-            />
-
-            <v-select
-              v-model="viewingForm.time"
-              :items="availableTimes"
-              label="Preferred Time"
-              required
-              variant="outlined"
-              density="comfortable"
-              class="mb-4"
-              prepend-inner-icon="mdi-clock-outline"
-            />
-
-            <v-textarea
-              v-model="viewingForm.notes"
-              label="Additional Notes (Optional)"
-              variant="outlined"
-              rows="4"
-              density="comfortable"
-              prepend-inner-icon="mdi-note-text"
-            />
-
-            <v-card-actions class="px-0 pt-4">
-              <v-btn
-                variant="text"
-                size="large"
-                @click="showViewingDialog = false"
-                class="text-none font-weight-semibold"
-              >
-                Cancel
-              </v-btn>
+            <v-text-field v-model="viewingForm.date" label="Preferred Date" type="date" class="mb-4 form-field" variant="outlined" density="comfortable" required prepend-inner-icon="mdi-calendar" />
+            <v-select v-model="viewingForm.time" :items="availableTimes" label="Preferred Time" required variant="outlined" density="comfortable" class="mb-4 form-field" prepend-inner-icon="mdi-clock-outline" />
+            <v-textarea v-model="viewingForm.notes" label="Additional Notes (Optional)" variant="outlined" rows="4" density="comfortable" class="form-field" prepend-inner-icon="mdi-note-text-outline" />
+            <v-card-actions class="px-0 pt-6">
+              <v-btn variant="text" size="large" @click="showViewingDialog = false" class="text-none" style="color: #64748b;">Cancel</v-btn>
               <v-spacer />
-              <v-btn
-                color="primary"
-                type="submit"
-                size="large"
-                :loading="viewingLoading"
-                :disabled="!isViewingFormValid"
-                elevation="4"
-                class="px-8 text-none font-weight-bold"
-              >
-                <v-icon class="mr-2">mdi-check-circle</v-icon>
+              <v-btn type="submit" size="large" :loading="viewingLoading" :disabled="!isViewingFormValid" class="submit-btn px-8">
+                <v-icon class="mr-2" size="18">mdi-check-circle-outline</v-icon>
                 Confirm Viewing
               </v-btn>
             </v-card-actions>
@@ -1592,445 +1230,510 @@ const toggleSave = async () => {
 </script>
 
 <style scoped>
+/* ═══════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════ */
 .property-detail {
   min-height: 100vh;
-  background: linear-gradient(to bottom, #fafafa 0%, #ffffff 100%);
+  background: #f8fafc;
 }
 
+/* ═══════════════════════════════════════════
+   IMAGE GALLERY
+   ═══════════════════════════════════════════ */
+.gallery-single { border-radius: 0 0 24px 24px; overflow: hidden; }
 .image-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 8px;
+  gap: 6px;
   height: 600px;
-  border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
-
 .main-image {
   grid-row: 1 / span 4;
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+  transition: filter 0.3s;
 }
-
-.main-image:hover {
-  transform: scale(1.02);
+.main-image:hover { filter: brightness(0.95); }
+.main-image-overlay {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 120px;
+  background: linear-gradient(transparent, rgba(0,0,0,0.15));
+  pointer-events: none;
 }
-
 .thumbnail-grid {
   display: grid;
   grid-template-rows: repeat(4, 1fr);
-  gap: 8px;
+  gap: 6px;
   position: relative;
 }
-
-.thumbnail-grid > * {
-  min-height: 0;
-  min-width: 0;
-}
-
+.thumbnail-grid > * { min-height: 0; min-width: 0; }
 .thumbnail {
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
-  border-radius: 8px;
+  transition: filter 0.25s, transform 0.25s;
   overflow: hidden;
 }
-
-.thumbnail:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  opacity: 0.9;
-}
-
+.thumbnail:hover { filter: brightness(0.92); transform: scale(1.02); }
 .more-photos {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  background: rgba(0, 0, 0, 0.7) !important;
-  border-radius: 12px;
-  padding: 12px 24px;
+  position: absolute; bottom: 12px; right: 12px;
+  background: rgba(255,255,255,0.92) !important;
+  backdrop-filter: blur(12px);
+  border-radius: 10px !important;
+  padding: 8px 18px !important;
+  font-weight: 700 !important;
+  font-size: 0.82rem !important;
+  color: #1e293b !important;
+  text-transform: none !important;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1) !important;
+  letter-spacing: 0 !important;
+}
+
+/* ═══════════════════════════════════════════
+   TABS
+   ═══════════════════════════════════════════ */
+.tabs-wrapper {
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 28px;
+}
+.premium-tabs :deep(.v-tab) {
+  text-transform: none !important;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: none;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  font-size: 0.88rem;
+  letter-spacing: 0;
+  color: #64748b;
+  border-radius: 0;
+  min-width: auto;
+  padding: 0 20px;
+}
+.premium-tabs :deep(.v-tab--selected) { color: #1e293b; }
+.premium-tabs :deep(.v-tabs-slider) { color: #3b82f6; }
+
+/* ═══════════════════════════════════════════
+   PROPERTY HEADER
+   ═══════════════════════════════════════════ */
+.prop-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 24px;
+}
+.prop-title {
+  font-size: clamp(1.4rem, 2.5vw, 1.75rem);
+  font-weight: 800; color: #0f172a;
+  letter-spacing: -0.03em; line-height: 1.3;
+}
+.prop-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.action-btn {
+  background: #f1f5f9 !important;
+  color: #475569 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+}
+.action-btn:hover {
+  background: #e2e8f0 !important;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
-.sticky-sidebar {
-  position: sticky;
-  top: 24px;
-}
-
-.sticky-card {
-  position: sticky;
-  top: 24px;
-}
-
-/* Premium Card Styling */
-:deep(.v-card) {
-  border-radius: 16px !important;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08) !important;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
-}
-
-:deep(.v-card:hover) {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
-}
-
-/* Premium Typography */
-:deep(.text-h4) {
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  color: #1a1a1a;
-}
-
-:deep(.text-h5) {
-  font-weight: 700;
-  letter-spacing: -0.5px;
-  color: #2c3e50;
-}
-
-:deep(.text-h6) {
-  font-weight: 600;
-  letter-spacing: -0.3px;
-  color: #2c3e50;
-}
-
-/* Premium Chips */
-:deep(.v-chip) {
-  border-radius: 12px;
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  padding: 8px 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-/* Premium Buttons */
-:deep(.v-btn) {
-  border-radius: 12px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: none;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-}
-
-:deep(.v-btn:hover) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-}
-
-/* Premium Form Fields */
-:deep(.v-text-field), :deep(.v-textarea), :deep(.v-select) {
-  border-radius: 12px;
-}
-
-:deep(.v-field) {
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
-
-/* Premium Tabs */
-:deep(.v-tab) {
-  font-weight: 600;
-  letter-spacing: 0.3px;
-  text-transform: none;
-  border-radius: 12px;
-  margin: 0 4px;
-}
-
-/* Agent Card Premium Styling */
-.agent-info {
-  padding: 8px;
-}
-
-.agent-info :deep(.v-avatar) {
-  border: 4px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-}
-
-.agent-info a {
-  color: #1976d2;
-  font-weight: 500;
-  transition: color 0.3s ease;
-}
-
-.agent-info a:hover {
-  color: #1565c0;
-  text-decoration: underline;
-}
-
-.office-info {
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  padding: 16px;
-  border-radius: 12px;
-}
-
-.co-agents {
-  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
-  padding: 16px;
-  border-radius: 12px;
-}
-
-/* Gallery Dialog Premium Styling */
-.gallery-dialog :deep(.v-overlay__scrim) {
-  background: rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-
-.gallery-card {
-  background: #000000 !important;
-}
-
-.gallery-toolbar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 10;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.gallery-toolbar :deep(.v-btn) {
-  color: white;
-  box-shadow: none;
-}
-
-.gallery-toolbar :deep(.v-btn:hover) {
-  background: rgba(255, 255, 255, 0.1);
-  transform: none;
-}
-
-.gallery-carousel-container {
-  background: #000000;
-  height: 100vh;
-  padding-top: 64px;
-}
-
-.gallery-carousel {
-  background: #000000;
-}
-
-.gallery-carousel :deep(.v-carousel__controls) {
-  background: transparent;
-}
-
-.gallery-carousel :deep(.v-btn) {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-
-.gallery-carousel :deep(.v-btn:hover) {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* Premium Table Styling */
-:deep(.v-table) {
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-:deep(.v-table thead) {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-}
-
-:deep(.v-table thead th) {
-  font-weight: 700;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  font-size: 0.75rem;
-  color: #495057;
-}
-
-:deep(.v-table tbody tr) {
-  transition: background-color 0.3s ease;
-}
-
-:deep(.v-table tbody tr:hover) {
-  background: rgba(25, 118, 210, 0.04);
-}
-
-/* Detail Item Styling */
-.detail-item {
-  padding: 12px;
-  border-radius: 8px;
-  transition: background-color 0.3s ease, transform 0.3s ease;
-}
-
-.detail-item:hover {
-  background: rgba(25, 118, 210, 0.04);
-  transform: translateX(4px);
-}
-
-/* Contact Form Premium Styling */
-.sticky-sidebar :deep(.v-card) {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
-}
-
-.contact-form-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
-  border: 2px solid rgba(25, 118, 210, 0.1) !important;
-}
-
-.agent-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%) !important;
-}
-
-/* Property Details Card */
-.property-details-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
-}
-
-/* Description Card */
-.description-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
-}
-
-.description-text {
-  text-align: justify;
-  hyphens: auto;
-}
-
-/* Features Card */
-.features-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
-}
-
-/* Location Card */
-.location-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
-}
-
-/* Payment Card */
-.payment-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
-}
-
-.payment-result {
-  box-shadow: 0 8px 32px rgba(25, 118, 210, 0.25);
-}
-
-/* Neighbourhood Card */
-.neighbourhood-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
-}
-
-/* Schools Card */
-.schools-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
-}
-
-/* Utilities Card */
-.utilities-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
-}
-
-/* Rooms Card */
-.rooms-card {
-  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%) !important;
-}
-
-/* Transport Toggle Premium Styling */
-.transport-toggle :deep(.v-btn) {
-  font-weight: 600;
-  letter-spacing: 0.5px;
-}
-
-/* Premium Table Enhancements */
-.premium-table :deep(tbody td) {
-  padding: 16px;
-  font-size: 0.95rem;
-}
-
-.premium-table :deep(thead th) {
-  padding: 16px;
-}
-
-/* Property Header */
-.property-header {
-  padding: 16px;
+/* ── Price ── */
+.price-strip {
+  display: inline-flex; flex-direction: column;
+  background: #fff;
+  border: 2px solid #e2e8f0;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(25, 118, 210, 0.03) 0%, rgba(255, 255, 255, 0.8) 100%);
+  padding: 16px 28px;
+  margin-bottom: 24px;
+}
+.price-label {
+  font-size: 0.65rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: #94a3b8; margin-bottom: 2px;
+}
+.price-value {
+  font-size: 1.8rem; font-weight: 800;
+  color: #0f172a; letter-spacing: -0.03em;
 }
 
-.price-badge {
-  animation: pulse-subtle 3s ease-in-out infinite;
+/* ── Quick Stats ── */
+.quick-stats {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 32px;
+}
+.stat-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: #fff; border: 1px solid #e2e8f0;
+  border-radius: 10px; padding: 8px 16px;
+  font-size: 0.85rem; font-weight: 600;
+  color: #334155;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.stat-pill:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.stat-pill .v-icon { color: #64748b; }
+
+/* ═══════════════════════════════════════════
+   CONTENT CARDS
+   ═══════════════════════════════════════════ */
+.content-card {
+  background: #fff !important;
+  border: 1px solid #e8ecf1 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.02) !important;
+  transition: box-shadow 0.25s !important;
+}
+.content-card:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05), 0 8px 24px rgba(0,0,0,0.04) !important;
 }
 
-@keyframes pulse-subtle {
-  0%, 100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.02);
-  }
+.card-section-header {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 24px;
+  font-size: 1.1rem; font-weight: 700;
+  color: #1e293b; letter-spacing: -0.01em;
+}
+.card-section-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  display: flex; align-items: center; justify-content: center;
+  color: #3b82f6;
+  flex-shrink: 0;
 }
 
-/* Viewing Dialog Styling */
-.viewing-dialog :deep(.v-card) {
+/* ── Detail Items ── */
+.detail-item {
+  padding: 10px 12px;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.detail-item:hover { background: #f8fafc; }
+.detail-label {
+  font-size: 0.7rem; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: #94a3b8; margin-bottom: 4px;
+}
+.detail-value {
+  font-size: 0.92rem; font-weight: 600;
+  color: #1e293b;
+}
+.detail-note { color: #94a3b8; font-weight: 400; }
+
+/* ── Description ── */
+.description-text {
+  font-size: 0.95rem; line-height: 1.85;
+  color: #475569; text-align: justify; hyphens: auto;
+}
+
+/* ── Feature Groups ── */
+.feature-group { margin-bottom: 24px; }
+.feature-group:last-child { margin-bottom: 0; }
+.feature-group-label {
+  display: flex; align-items: center;
+  font-size: 0.82rem; font-weight: 700;
+  color: #475569; margin-bottom: 10px;
+}
+.feature-group-label .v-icon { color: #64748b; }
+.feature-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.feature-chip {
+  display: inline-block;
+  padding: 5px 14px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+.chip-blue { background: #eff6ff; color: #2563eb; }
+.chip-indigo { background: #eef2ff; color: #4f46e5; }
+.chip-green { background: #ecfdf5; color: #059669; }
+.chip-warm { background: #fef3c7; color: #92400e; }
+.chip-cyan { background: #ecfeff; color: #0891b2; }
+.chip-amber { background: #fffbeb; color: #b45309; }
+.chip-slate { background: #f1f5f9; color: #475569; }
+.chip-rose { background: #fff1f2; color: #be123c; }
+
+/* ── Map ── */
+.location-address {
+  display: flex; align-items: center;
+  font-size: 0.92rem; font-weight: 500;
+  color: #475569; margin-bottom: 20px;
+}
+.map-container { border-radius: 16px; overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.map-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  height: 400px; background: #f1f5f9; border-radius: 16px;
+}
+
+/* ═══════════════════════════════════════════
+   CALCULATOR
+   ═══════════════════════════════════════════ */
+.calc-form { margin-bottom: 28px; }
+.calc-field :deep(.v-field) { border-radius: 12px !important; }
+.calc-result {
+  background: linear-gradient(135deg, #f0f9ff, #eff6ff);
+  border: 1px solid #bfdbfe;
+  border-radius: 16px;
+  padding: 24px 28px;
+}
+.calc-result-label {
+  font-size: 0.72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.1em;
+  color: #3b82f6; margin-bottom: 4px;
+}
+.calc-result-value {
+  font-size: 2rem; font-weight: 800;
+  color: #1e293b; letter-spacing: -0.03em;
+  margin-bottom: 8px;
+}
+.calc-result-detail {
+  font-size: 0.82rem; color: #64748b; line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════
+   TABLES
+   ═══════════════════════════════════════════ */
+.table-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
   overflow: hidden;
 }
+.poi-table :deep(thead), .rooms-table :deep(thead) {
+  background: #f8fafc;
+}
+.poi-table :deep(thead th), .rooms-table :deep(thead th) {
+  font-size: 0.68rem !important; font-weight: 700 !important;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: #64748b !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  padding: 14px 16px !important;
+}
+.poi-table :deep(tbody tr), .rooms-table :deep(tbody tr) { transition: background 0.15s; }
+.poi-table :deep(tbody tr:hover), .rooms-table :deep(tbody tr:hover) { background: #f8fafc !important; }
+.poi-table :deep(tbody td), .rooms-table :deep(tbody td) {
+  border-bottom: 1px solid #f1f5f9 !important;
+  padding: 12px 16px !important;
+}
+.table-badge {
+  display: inline-block; padding: 3px 10px; border-radius: 6px;
+  background: #eff6ff; color: #2563eb;
+  font-size: 0.72rem; font-weight: 700;
+}
+.table-eta {
+  display: inline-block; padding: 3px 10px; border-radius: 6px;
+  background: #ecfdf5; color: #059669;
+  font-size: 0.78rem; font-weight: 600;
+}
+.transport-toggle {
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06) !important;
+}
+.transport-toggle :deep(.v-btn) {
+  text-transform: none !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+.transport-toggle :deep(.v-btn:hover) { transform: none !important; }
 
-.viewing-dialog :deep(.v-overlay__scrim) {
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+/* ═══════════════════════════════════════════
+   SIDEBAR
+   ═══════════════════════════════════════════ */
+.sticky-sidebar { position: sticky; top: 24px; }
+.sidebar-card {
+  background: #fff !important;
+  border: 1px solid #e8ecf1 !important;
+  border-radius: 18px !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.03), 0 4px 16px rgba(0,0,0,0.02) !important;
+}
+.sidebar-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+  margin: 20px 0;
 }
 
+/* ── Form Fields ── */
+.form-field :deep(.v-field) {
+  border-radius: 12px !important;
+  transition: box-shadow 0.2s;
+}
+.form-field :deep(.v-field--focused) {
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+
+/* ── Buttons ── */
+.submit-btn {
+  background: linear-gradient(135deg, #2563eb, #3b82f6) !important;
+  color: #fff !important;
+  border-radius: 12px !important;
+  text-transform: none !important;
+  font-weight: 700 !important;
+  letter-spacing: 0 !important;
+  box-shadow: 0 2px 12px rgba(37,99,235,0.25) !important;
+  transition: box-shadow 0.2s !important;
+}
+.submit-btn:hover {
+  box-shadow: 0 4px 20px rgba(37,99,235,0.35) !important;
+  transform: none !important;
+}
+.secondary-btn {
+  border-color: #e2e8f0 !important;
+  color: #334155 !important;
+  border-radius: 12px !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+.secondary-btn:hover {
+  background: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+.call-btn {
+  background: #ecfdf5 !important;
+  color: #059669 !important;
+  border-radius: 12px !important;
+  text-transform: none !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  box-shadow: none !important;
+}
+.call-btn:hover {
+  background: #d1fae5 !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ═══════════════════════════════════════════
+   AGENT INFO
+   ═══════════════════════════════════════════ */
+.agent-avatar {
+  border: 3px solid #f1f5f9 !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  flex-shrink: 0;
+}
+.agent-name {
+  font-size: 1.05rem; font-weight: 700;
+  color: #1e293b; margin-bottom: 2px;
+}
+.agent-designation {
+  font-size: 0.78rem; color: #3b82f6;
+  font-weight: 600; margin-bottom: 4px;
+}
+.agent-license {
+  font-size: 0.72rem; color: #94a3b8;
+  margin-bottom: 8px;
+}
+.agent-contact-list {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-top: 8px;
+}
+.agent-link {
+  display: flex; align-items: center;
+  font-size: 0.82rem; color: #475569;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.agent-link:hover { color: #2563eb; }
+.agent-link.small { font-size: 0.75rem; }
+.agent-link .v-icon { color: #94a3b8; }
+.link-note { color: #94a3b8; font-size: 0.72rem; margin-left: 4px; }
+
+.office-block {
+  margin-top: 20px; padding-top: 20px;
+  border-top: 1px solid #f1f5f9;
+}
+.office-name {
+  font-size: 0.92rem; font-weight: 700;
+  color: #334155; margin-bottom: 8px;
+}
+.office-addr {
+  display: flex; align-items: flex-start;
+  font-size: 0.82rem; color: #475569;
+  margin-bottom: 4px;
+}
+.office-addr .v-icon { color: #94a3b8; margin-top: 2px; }
+
+.co-agents-block {
+  margin-top: 20px; padding-top: 20px;
+  border-top: 1px solid #f1f5f9;
+}
+.co-agents-title {
+  font-size: 0.82rem; font-weight: 700;
+  color: #475569; text-transform: uppercase;
+  letter-spacing: 0.05em; margin-bottom: 16px;
+}
+.co-agent-row {
+  display: flex; align-items: flex-start;
+  margin-bottom: 16px;
+}
+.co-agent-row:last-child { margin-bottom: 0; }
+
+/* ═══════════════════════════════════════════
+   GALLERY DIALOG
+   ═══════════════════════════════════════════ */
+.gallery-dialog :deep(.v-overlay__scrim) {
+  background: rgba(0,0,0,0.92);
+  backdrop-filter: blur(8px);
+}
+.gallery-card { background: #000 !important; border-radius: 0 !important; box-shadow: none !important; border: none !important; }
+.gallery-toolbar {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.gallery-toolbar :deep(.v-btn) { color: #fff; box-shadow: none !important; }
+.gallery-toolbar :deep(.v-btn:hover) { background: rgba(255,255,255,0.1); transform: none !important; box-shadow: none !important; }
+.gallery-carousel-container { background: #000; height: 100vh; padding-top: 64px; }
+.gallery-carousel { background: #000; }
+.gallery-carousel :deep(.v-btn) { background: rgba(255,255,255,0.12); backdrop-filter: blur(8px); box-shadow: none !important; }
+.gallery-carousel :deep(.v-btn:hover) { background: rgba(255,255,255,0.2); transform: none !important; box-shadow: none !important; }
+
+/* ═══════════════════════════════════════════
+   VIEWING DIALOG
+   ═══════════════════════════════════════════ */
+.dialog-card {
+  border-radius: 20px !important;
+  overflow: hidden;
+  border: none !important;
+  box-shadow: 0 24px 48px rgba(0,0,0,0.12) !important;
+}
+.dialog-header {
+  display: flex; align-items: center;
+  padding: 24px 28px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 1.15rem; font-weight: 700;
+  color: #1e293b;
+}
+
+/* ═══════════════════════════════════════════
+   GLOBAL OVERRIDES (scoped)
+   ═══════════════════════════════════════════ */
+:deep(.v-card) {
+  border-radius: 18px !important;
+  box-shadow: none !important;
+}
+:deep(.v-btn) {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
 @media (max-width: 960px) {
-  .image-grid {
-    grid-template-columns: 1fr;
-    height: auto;
-    border-radius: 0;
-  }
-
-  .main-image {
-    height: 300px;
-  }
-
-  .thumbnail-grid {
-    display: none;
-  }
+  .image-grid { grid-template-columns: 1fr; height: auto; }
+  .main-image { height: 320px; }
+  .thumbnail-grid { display: none; }
+  .prop-header { flex-direction: column; }
 }
-
-/* Agent Card Mobile Responsiveness */
 @media (max-width: 768px) {
-  .sticky-sidebar {
-    position: relative;
-    top: auto;
-  }
-  
-  .agent-info .d-flex {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-  
-  .agent-info .v-avatar {
-    margin-right: 0 !important;
-    margin-bottom: 1rem;
-  }
-  
-  .office-details .d-flex {
-    flex-direction: row;
-    align-items: center;
-    text-align: left;
-  }
-  
-  .co-agents .d-flex {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-  
-  .co-agents .v-avatar {
-    margin-right: 0 !important;
-    margin-bottom: 0.5rem;
-  }
+  .sticky-sidebar { position: relative; top: auto; }
+  .agent-info .d-flex.align-start { flex-direction: column; align-items: center; text-align: center; }
+  .agent-info .agent-avatar { margin-right: 0 !important; margin-bottom: 12px; }
+  .agent-contact-list { align-items: center; }
+  .co-agent-row { flex-direction: column; align-items: center; text-align: center; }
+  .co-agent-row .agent-avatar { margin-right: 0 !important; margin-bottom: 8px; }
 }
 </style>

@@ -1,0 +1,25 @@
+# /etc/systemd/system/deelbot.service
+# Ensures the Docker stack starts on boot and restarts on failure.
+#
+# Install:
+#   cp deploy/deelbot.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   systemctl enable deelbot
+#   systemctl start deelbot
+
+[Unit]
+Description=DeelBot Production Stack
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/deelbot
+ExecStart=/usr/bin/docker compose -f docker-compose.production.yml up -d --remove-orphans
+ExecStop=/usr/bin/docker compose -f docker-compose.production.yml down
+ExecReload=/usr/bin/docker compose -f docker-compose.production.yml up -d --build --remove-orphans
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

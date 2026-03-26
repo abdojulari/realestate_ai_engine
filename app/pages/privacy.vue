@@ -13,7 +13,7 @@
         <div class="premium-badge-light mb-4">PIPEDA Compliant</div>
         <h1 class="display-serif-large text-white mb-4">Privacy Policy</h1>
         <div class="elegant-divider-gold"></div>
-        <p class="text-overline text-white mt-6 letter-spacing-2">AgentOS &mdash; Intelligence for Realtors</p>
+        <p class="text-overline text-white mt-6 letter-spacing-2">DeelBot &mdash; Intelligence for Realtors</p>
       </v-container>
     </v-img>
 
@@ -72,7 +72,7 @@
             <!-- Introduction -->
             <section id="introduction" class="intro-text mb-12">
               <p class="text-h5 font-weight-light line-height-relaxed text-grey-darken-3">
-                At AgentOS, we are committed to protecting the privacy and personal information of our users 
+                At DeelBot, we are committed to protecting the privacy and personal information of our users 
                 in accordance with Canada's Personal Information Protection and Electronic Documents Act (PIPEDA). 
                 This policy explains how we collect, use, disclose, and safeguard your personal information.
               </p>
@@ -94,7 +94,7 @@
                 </div>
                 <div class="def-item">
                   <span class="def-term">Service</span>
-                  <span class="def-desc">The AgentOS real estate platform, including property search, client management, AI-powered features, document management, and all related services.</span>
+                  <span class="def-desc">The DeelBot real estate platform, including property search, client management, AI-powered features, document management, and all related services.</span>
                 </div>
                 <div class="def-item">
                   <span class="def-term">Privacy Officer</span>
@@ -107,7 +107,7 @@
             <section id="accountability" class="mb-12">
               <h2 class="section-title-premium mb-6">02. Accountability</h2>
               <p class="mb-4">
-                AgentOS is responsible for all personal information under our control. We have designated a Privacy Officer 
+                DeelBot is responsible for all personal information under our control. We have designated a Privacy Officer 
                 who is accountable for our compliance with PIPEDA and this privacy policy.
               </p>
               <div class="purpose-card mb-4">
@@ -389,8 +389,8 @@
                   />
                   <v-list-item 
                     prepend-icon="mdi-web-golden" 
-                    title="www.agentos.ai" 
-                    subtitle="AgentOS Platform"
+                    title="www.deelbot.ai" 
+                    subtitle="DeelBot Platform"
                     class="px-0"
                   />
                 </v-list>

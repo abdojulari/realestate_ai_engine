@@ -20,8 +20,13 @@ export const FEATURES = {
   NEWSLETTER_AUTOMATION: 'newsletter_automation',
   CREA_SYNC: 'crea_sync',
   PILLAR9_SYNC: 'pillar9_sync',
-  DOCUMENTS_LEGAL_REVIEW: 'documents_legal_review',
   BEST_DEALS: 'best_deals',
+  BOOKKEEPING: 'bookkeeping',
+  DOCUMENTS_LEGAL_REVIEW: 'documents_legal_review',
+  DOCUMENTS: 'documents',
+  REPORTS: 'reports',
+  LEAD_GENERATION: 'lead_generation',
+  LISTING_TEMPLATES: 'listing_templates',
 } as const
 
 export type Feature = typeof FEATURES[keyof typeof FEATURES]
@@ -123,6 +128,11 @@ export function useLicense() {
   const canUsePillar9Sync = computed(() => hasFeature(FEATURES.PILLAR9_SYNC))
   const canUseDocumentsLegalReview = computed(() => hasFeature(FEATURES.DOCUMENTS_LEGAL_REVIEW))
   const canUseBestDeals = computed(() => hasFeature(FEATURES.BEST_DEALS))
+  const canUseBookkeeping = computed(() => hasFeature(FEATURES.BOOKKEEPING))
+  const canUseDocuments = computed(() => hasFeature(FEATURES.DOCUMENTS))
+  const canUseReports = computed(() => hasFeature(FEATURES.REPORTS))
+  const canUseLeadGeneration = computed(() => hasFeature(FEATURES.LEAD_GENERATION))
+  const canUseListingTemplates = computed(() => hasFeature(FEATURES.LISTING_TEMPLATES))
 
   // Check if current plan has any AI features
   const hasAnyAI = computed(() => {
@@ -134,21 +144,26 @@ export function useLicense() {
     if (hasFeature(feature)) return null
 
     const featureToTier: Record<Feature, LicenseTier> = {
+      [FEATURES.NEWSLETTER]: 'basic',
+      [FEATURES.CREA_SYNC]: 'basic',
+      [FEATURES.PILLAR9_SYNC]: 'basic',
+      [FEATURES.BEST_DEALS]: 'basic',
+      [FEATURES.BOOKKEEPING]: 'basic',
       [FEATURES.CMA]: 'silver',
       [FEATURES.CMA_REPORT]: 'silver',
+      [FEATURES.NEWSLETTER_AUTOMATION]: 'silver',
+      [FEATURES.DOCUMENTS]: 'silver',
+      [FEATURES.DOCUMENTS_LEGAL_REVIEW]: 'silver',
+      [FEATURES.REPORTS]: 'silver',
       [FEATURES.CHATBOT]: 'gold',
-      [FEATURES.AI_SEARCH]: 'platinum',
       [FEATURES.AI_DESCRIPTION]: 'gold',
+      [FEATURES.LEAD_GENERATION]: 'gold',
+      [FEATURES.LISTING_TEMPLATES]: 'gold',
+      [FEATURES.AI_SEARCH]: 'platinum',
       [FEATURES.AI_INSIGHTS]: 'platinum',
       [FEATURES.FORECAST]: 'platinum',
       [FEATURES.ML_ANALYTICS]: 'platinum',
       [FEATURES.ML_TRAINING]: 'platinum',
-      [FEATURES.NEWSLETTER]: 'basic',
-      [FEATURES.NEWSLETTER_AUTOMATION]: 'silver',
-      [FEATURES.CREA_SYNC]: 'platinum',
-      [FEATURES.PILLAR9_SYNC]: 'platinum',
-      [FEATURES.DOCUMENTS_LEGAL_REVIEW]: 'silver',
-      [FEATURES.BEST_DEALS]: 'gold',
     }
 
     return featureToTier[feature] || 'platinum'
@@ -199,6 +214,11 @@ export function useLicense() {
     canUsePillar9Sync,
     canUseDocumentsLegalReview,
     canUseBestDeals,
+    canUseBookkeeping,
+    canUseDocuments,
+    canUseReports,
+    canUseLeadGeneration,
+    canUseListingTemplates,
     hasAnyAI,
 
     // Constants

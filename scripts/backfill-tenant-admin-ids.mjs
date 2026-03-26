@@ -59,7 +59,7 @@ async function main() {
     await prisma.tenantSettings.create({
       data: {
         adminId: admin.id,
-        businessName: 'AgentOS',
+        businessName: 'DeelBot',
         tagline: 'Intelligence for Realtors',
         phone: '+1 (647) 563 7235',
         email: 'abdul.ojulari@exprealty.com',

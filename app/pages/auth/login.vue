@@ -12,7 +12,7 @@
         <!-- Floating Glassmorphism Layer -->
         <div class="hero-content-wrapper pa-12">
           <div class="brand-badge mb-12 animate-fade-in">
-            <img src="/images/logos/agentos-logo.png" alt="AgentOS" class="auth-logo-light" />
+            <img src="/images/logos/deelbot.png" alt="DeelBot" class="auth-logo-light" />
           </div>
           
           <div class="mt-auto">
@@ -62,7 +62,7 @@
       <div class="form-inner-container">
         <!-- Logo for Mobile -->
         <div class="d-md-none text-center mb-12">
-           <img src="/images/logos/agentos-logo.png" alt="AgentOS" class="auth-logo-mobile" />
+           <img src="/images/logos/deelbot.png" alt="DeelBot" class="auth-logo-mobile" />
         </div>
 
         <div class="mb-10 text-center text-md-left">

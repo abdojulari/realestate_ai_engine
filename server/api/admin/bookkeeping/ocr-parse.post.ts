@@ -1,9 +1,11 @@
 import { requireAdmin } from '../../../utils/auth'
 import { parseReceiptText } from '../../../utils/bookkeeping/ocr.service'
+import { requireFeatureForUser, FEATURES } from '../../../utils/license'
 
 export default defineEventHandler(async (event) => {
   try {
-    await requireAdmin(event)
+    const user = await requireAdmin(event)
+    await requireFeatureForUser(FEATURES.BOOKKEEPING, user, event)
     const body = await readBody(event)
 
     const { ocrText } = body

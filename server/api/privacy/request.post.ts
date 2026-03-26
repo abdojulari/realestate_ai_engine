@@ -93,7 +93,7 @@ export default defineEventHandler(async (event) => {
       <p style="color:#666;font-size:13px;">PIPEDA requires a response within 30 calendar days.</p>
     `, {
       title: 'New Privacy Request — Action Required',
-      footerText: 'PIPEDA Privacy Request Notification — AgentOS',
+      footerText: 'PIPEDA Privacy Request Notification — DeelBot',
     })
 
     await sendEmail({

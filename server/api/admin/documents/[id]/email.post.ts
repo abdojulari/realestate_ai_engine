@@ -61,7 +61,7 @@ export default defineEventHandler(async (event: H3Event) => {
   const mimeType = ext === 'pdf' ? 'application/pdf' : 'application/octet-stream'
 
   // Build email content
-  const senderName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'AgentOS'
+  const senderName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'DeelBot'
   const greeting = recipientName ? `Hi ${recipientName},` : 'Hello,'
   const messageBody = customMessage
     || `Please find the attached document for your review.`
@@ -71,7 +71,7 @@ export default defineEventHandler(async (event: H3Event) => {
       <p>${greeting}</p>
       <p>${messageBody.replace(/\n/g, '<br>')}</p>
       <p style="margin-top: 20px; color: #666; font-size: 14px;">
-        Sent by <strong>${senderName}</strong> via AgentOS Document Management.
+        Sent by <strong>${senderName}</strong> via DeelBot Document Management.
       </p>
     `,
     {

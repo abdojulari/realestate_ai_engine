@@ -8,7 +8,7 @@
             <span class="font-weight-bold text-body-1">Your Privacy Matters</span>
           </div>
           <p class="cookie-message">
-            AgentOS uses cookies and similar technologies to provide our services. In accordance with PIPEDA, 
+            DeelBot uses cookies and similar technologies to provide our services. In accordance with PIPEDA, 
             we request your consent for optional data processing. Essential cookies are required for the platform to function.
           </p>
         </div>

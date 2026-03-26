@@ -10,19 +10,28 @@
         :class="{ 'panel-hidden': !showPanel }"
       >
         <div class="search-panel">
-          <!-- Premium Header -->
-          <div class="panel-header px-6 py-6">
-            <div class="d-flex align-center justify-space-between mb-4">
-              <h1 class="premium-title">Properties</h1>
+          <!-- Premium Dark Header -->
+          <div class="panel-header">
+            <div class="panel-header-top">
+              <div class="d-flex align-center gap-3">
+                <div class="header-icon-badge">
+                  <v-icon size="20" color="white">mdi-home-search</v-icon>
+                </div>
+                <div>
+                  <h1 class="premium-title">Properties</h1>
+                  <p class="premium-subtitle">Search &amp; explore listings</p>
+                </div>
+              </div>
               <v-btn
                 icon="mdi-close"
                 variant="text"
                 density="comfortable"
+                color="white"
                 @click="showPanel = false"
-                class="d-lg-none"
+                class="d-lg-none close-panel-btn"
               />
             </div>
-            
+
             <!-- Location Selection Group -->
             <div class="location-group">
               <CitySelector
@@ -30,7 +39,7 @@
                 @city-selected="handleCitySelected"
                 class="premium-input mb-3"
               />
-              
+
               <NeighborhoodDropdown
                 v-model="selectedNeighborhoodId"
                 label="Neighborhood"
@@ -41,36 +50,35 @@
               />
 
               <v-expand-transition>
-                <v-alert 
-                  v-if="selectedCity || selectedNeighborhoodId"
-                  variant="tonal"
-                  color="black"
-                  density="compact"
-                  class="mt-4 selection-alert"
-                  rounded="lg"
-                >
+                <div v-if="selectedCity || selectedNeighborhoodId" class="selection-badge">
                   <div class="d-flex align-center justify-space-between">
-                    <span class="text-caption font-weight-bold">
-                      {{ selectedNeighborhoodInfo?.name || selectedCity }}
-                    </span>
-                    <v-btn 
-                      size="x-small" 
-                      variant="plain" 
+                    <div class="d-flex align-center gap-2">
+                      <span class="selection-dot"></span>
+                      <span class="selection-label">
+                        {{ selectedNeighborhoodInfo?.name || selectedCity }}
+                      </span>
+                    </div>
+                    <v-btn
+                      size="x-small"
+                      variant="text"
+                      color="white"
+                      class="selection-reset"
                       @click="clearLocationSelection"
-                      class="text-decoration-underline"
                     >Reset</v-btn>
                   </div>
-                </v-alert>
+                </div>
               </v-expand-transition>
             </div>
           </div>
 
-          <v-divider />
-
           <!-- Main Scrollable Content Area -->
           <div class="panel-main-content">
             <!-- Filter Section -->
-            <div class="filters-section px-6 py-6">
+            <div class="filters-section">
+              <div class="filters-label">
+                <v-icon size="14" class="mr-1">mdi-tune-variant</v-icon>
+                Filters
+              </div>
               <SearchFilters
                 :initial-filters="filters"
                 @search="handleSearch"
@@ -81,17 +89,24 @@
               />
             </div>
 
-            <v-divider class="mx-6" />
+            <div class="section-divider"></div>
 
             <!-- Results List -->
-            <div class="results-container px-6 py-6">
-              <div class="d-flex align-center justify-space-between mb-6">
+            <div class="results-container">
+              <div class="results-header">
                 <div>
-                  <div class="text-h6 font-weight-bold leading-tight">
-                    {{ initialLoading ? 'Searching...' : `${totalProperties} Found` }}
+                  <div class="results-count">
+                    <template v-if="initialLoading">
+                      <span class="count-shimmer"></span>
+                      Searching&hellip;
+                    </template>
+                    <template v-else>
+                      <span class="count-number">{{ totalProperties }}</span>
+                      Found
+                    </template>
                   </div>
-                  <div class="text-caption text-medium-emphasis tracking-wide" v-if="!initialLoading">
-                    Showing results in {{ selectedCity || 'All Areas' }}
+                  <div class="results-area" v-if="!initialLoading">
+                    in {{ selectedCity || 'All Areas' }}
                   </div>
                 </div>
                 <v-select
@@ -100,7 +115,7 @@
                   variant="plain"
                   density="compact"
                   hide-details
-                  class="sort-minimal"
+                  class="sort-select"
                   @update:model-value="handleSortChange"
                 />
               </div>
@@ -108,13 +123,13 @@
               <!-- Property List -->
               <div class="property-list-container">
                 <v-row v-if="initialLoading || loading" no-gutters>
-                  <v-col v-for="n in 3" :key="n" cols="12" class="mb-6">
-                    <v-skeleton-loader type="image, article" class="rounded-xl" />
+                  <v-col v-for="n in 3" :key="n" cols="12" class="mb-5">
+                    <v-skeleton-loader type="image, article" class="skeleton-premium" />
                   </v-col>
                 </v-row>
-                
+
                 <template v-else-if="properties.length > 0">
-                  <div v-for="property in paginatedProperties" :key="property.id" class="mb-6">
+                  <div v-for="property in paginatedProperties" :key="property.id" class="property-item">
                     <PropertyCard
                       :property="property"
                       class="premium-card"
@@ -125,37 +140,47 @@
                   </div>
                 </template>
 
-                <!-- Premium Pagination -->
-                <div v-if="totalPagesComputed > 1 && !loading" class="pagination-footer pt-4 pb-12">
-                  <div class="d-flex align-center justify-center gap-4">
+                <!-- Pagination -->
+                <div v-if="totalPagesComputed > 1 && !loading" class="pagination-footer">
+                  <div class="pagination-inner">
                     <v-btn
                       :disabled="currentPage === 1"
-                      variant="outlined"
-                      icon="mdi-arrow-left"
+                      variant="flat"
+                      icon="mdi-chevron-left"
                       size="small"
+                      class="page-btn"
                       @click="goToPage(currentPage - 1)"
                     />
                     <div class="page-indicator">
-                      <span class="current">{{ currentPage }}</span>
-                      <span class="separator">/</span>
-                      <span class="total">{{ totalPagesComputed }}</span>
+                      <span class="page-current">{{ currentPage }}</span>
+                      <span class="page-sep">/</span>
+                      <span class="page-total">{{ totalPagesComputed }}</span>
                     </div>
                     <v-btn
                       :disabled="currentPage === totalPagesComputed"
-                      variant="outlined"
-                      icon="mdi-arrow-right"
+                      variant="flat"
+                      icon="mdi-chevron-right"
                       size="small"
+                      class="page-btn"
                       @click="goToPage(currentPage + 1)"
                     />
                   </div>
                 </div>
 
                 <!-- Empty State -->
-                <div v-if="!loading && properties.length === 0" class="text-center py-16">
-                  <v-icon size="48" color="grey-lighten-1" class="mb-4">mdi-map-marker-off-outline</v-icon>
-                  <div class="text-h6 font-weight-bold">No results found</div>
-                  <div class="text-body-2 text-medium-emphasis mb-6">Try adjusting your filters or area</div>
-                  <v-btn variant="outlined" rounded="pill" @click="clearCitySelection">Clear All</v-btn>
+                <div v-if="!loading && properties.length === 0" class="empty-state">
+                  <div class="empty-icon-wrap">
+                    <v-icon size="32" color="#94a3b8">mdi-map-marker-off-outline</v-icon>
+                  </div>
+                  <div class="empty-title">No results found</div>
+                  <div class="empty-desc">Try adjusting your filters or area</div>
+                  <v-btn
+                    variant="outlined"
+                    rounded="pill"
+                    size="small"
+                    class="empty-btn"
+                    @click="clearCitySelection"
+                  >Clear All</v-btn>
                 </div>
               </div>
             </div>
@@ -169,9 +194,8 @@
         <v-btn
           v-if="!showPanel"
           class="mobile-panel-toggle d-lg-none"
-          color="black"
           icon="mdi-filter-variant"
-          elevation="8"
+          elevation="0"
           @click="showPanel = true"
         />
 
@@ -187,13 +211,12 @@
 
           <!-- Floating Selected Detail -->
           <v-slide-y-reverse-transition>
-            <div v-if="selectedProperty" class="floating-property-detail shadow-2xl">
-              <div class="relative">
+            <div v-if="selectedProperty" class="floating-property-detail">
+              <div class="floating-inner">
                 <v-btn
                   icon="mdi-close"
-                  size="small"
+                  size="x-small"
                   variant="flat"
-                  color="white"
                   class="close-floating-btn"
                   @click="selectedProperty = null"
                 />
@@ -458,18 +481,22 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ═══════════════════════════════════════════
+   BASE
+   ═══════════════════════════════════════════ */
 .map-search-wrapper {
   height: calc(100vh - 64px);
-  background-color: #fff;
+  background-color: #f8fafc;
   overflow: hidden;
 }
-
 .layout-row {
   height: 100%;
   flex-wrap: nowrap;
 }
 
-/* Sidebar Structure */
+/* ═══════════════════════════════════════════
+   SIDEBAR PANEL
+   ═══════════════════════════════════════════ */
 .search-panel-col {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 10;
@@ -478,151 +505,394 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
 }
-
 .search-panel {
   display: flex;
   flex-direction: column;
   height: 100%;
-  border-right: 1px solid #f0f0f0;
+  border-right: 1px solid #e2e8f0;
 }
 
-/* Scrollable Container for Filters + List */
+/* ── Dark Header ── */
+.panel-header {
+  background: linear-gradient(145deg, #0f172a, #1e293b);
+  padding: 24px 24px 20px;
+  flex-shrink: 0;
+}
+.panel-header-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.header-icon-badge {
+  width: 40px; height: 40px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #3b82f6, #6366f1);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 14px rgba(59,130,246,0.3);
+  flex-shrink: 0;
+}
+.premium-title {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  line-height: 1.2;
+}
+.premium-subtitle {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin: 1px 0 0;
+  letter-spacing: 0.02em;
+}
+.close-panel-btn { opacity: 0.6; }
+.close-panel-btn:hover { opacity: 1; }
+
+/* ── Location Inputs ── */
+.location-group {
+  display: flex;
+  flex-direction: column;
+}
+.premium-input :deep(.v-field) {
+  border-radius: 10px !important;
+  background: rgba(255,255,255,0.07) !important;
+  border: 1px solid rgba(255,255,255,0.1) !important;
+  backdrop-filter: blur(4px);
+  transition: all 0.2s;
+}
+.premium-input :deep(.v-field:hover) {
+  background: rgba(255,255,255,0.1) !important;
+  border-color: rgba(255,255,255,0.18) !important;
+}
+.premium-input :deep(.v-field--focused) {
+  background: rgba(255,255,255,0.12) !important;
+  border-color: rgba(59,130,246,0.5) !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+}
+.premium-input :deep(.v-field__input),
+.premium-input :deep(.v-label),
+.premium-input :deep(.v-field__append-inner .v-icon) {
+  color: rgba(255,255,255,0.8) !important;
+}
+
+/* ── Selection Badge ── */
+.selection-badge {
+  margin-top: 12px;
+  background: rgba(59,130,246,0.15);
+  border: 1px solid rgba(59,130,246,0.2);
+  border-radius: 10px;
+  padding: 10px 14px;
+  backdrop-filter: blur(4px);
+}
+.selection-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59,130,246,0.5);
+  flex-shrink: 0;
+}
+.selection-label {
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.selection-reset {
+  font-size: 0.68rem !important;
+  text-decoration: underline;
+  opacity: 0.7;
+}
+.selection-reset:hover { opacity: 1; }
+
+/* ═══════════════════════════════════════════
+   SCROLLABLE CONTENT
+   ═══════════════════════════════════════════ */
 .panel-main-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  background: #fafbfc;
 }
-
-.panel-main-content::-webkit-scrollbar {
-  width: 5px;
-}
+.panel-main-content::-webkit-scrollbar { width: 4px; }
+.panel-main-content::-webkit-scrollbar-track { background: transparent; }
 .panel-main-content::-webkit-scrollbar-thumb {
-  background: #e0e0e0;
+  background: #cbd5e1;
   border-radius: 10px;
 }
+.panel-main-content::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-.premium-title {
-  font-family: 'Playfair Display', serif;
-  font-size: 1.75rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.premium-input :deep(.v-field) {
-  border-radius: 12px !important;
-  background-color: #f9f9f9 !important;
-}
-
-/* Spacing and Visibility Fixes */
+/* ── Filters ── */
 .filters-section {
   flex-shrink: 0;
+  padding: 20px 24px;
+}
+.filters-label {
+  display: flex;
+  align-items: center;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  margin-bottom: 14px;
+}
+.custom-filters :deep(.v-field) {
+  border-radius: 10px !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  transition: all 0.2s;
+}
+.custom-filters :deep(.v-field:hover) {
+  background: #e8edf3 !important;
+}
+.custom-filters :deep(.v-field--focused) {
+  background: #fff !important;
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
 }
 
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #e2e8f0 20%, #e2e8f0 80%, transparent);
+  margin: 0 24px;
+}
+
+/* ═══════════════════════════════════════════
+   RESULTS
+   ═══════════════════════════════════════════ */
 .results-container {
   flex: 1;
+  padding: 20px 24px;
+}
+.results-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.results-count {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.count-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f172a;
+  color: #fff;
+  border-radius: 7px;
+  padding: 2px 10px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  min-width: 32px;
+}
+.count-shimmer {
+  width: 36px; height: 22px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  display: inline-block;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.results-area {
+  font-size: 0.7rem;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+.sort-select { max-width: 130px; flex-shrink: 0; }
+.sort-select :deep(.v-field__input) { font-size: 0.78rem; color: #64748b; }
+
+/* ── Property Items ── */
+.property-list-container { min-height: 400px; }
+.property-item {
+  margin-bottom: 16px;
+  transition: transform 0.15s;
+}
+.property-item:hover { transform: translateY(-1px); }
+.premium-card {
+  border-radius: 14px !important;
+  overflow: hidden;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.03) !important;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+.premium-card:hover {
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.04) !important;
 }
 
-.property-list-container {
-  min-height: 400px;
+.skeleton-premium {
+  border-radius: 14px !important;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
 }
 
-/* Pagination Styles */
+/* ── Pagination ── */
+.pagination-footer {
+  padding: 20px 0 40px;
+}
+.pagination-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+.page-btn {
+  width: 36px !important; height: 36px !important;
+  border-radius: 10px !important;
+  background: #f1f5f9 !important;
+  color: #334155 !important;
+  transition: all 0.15s;
+}
+.page-btn:hover:not(:disabled) {
+  background: #0f172a !important;
+  color: #fff !important;
+}
+.page-btn:disabled { opacity: 0.3; }
 .page-indicator {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
-  font-size: 0.9rem;
+  gap: 4px;
+  background: #f1f5f9;
+  padding: 6px 16px;
+  border-radius: 10px;
 }
-.page-indicator .separator {
-  color: #ccc;
-  font-weight: 400;
+.page-current { font-weight: 800; color: #0f172a; font-size: 0.88rem; }
+.page-sep { color: #cbd5e1; font-weight: 400; }
+.page-total { color: #94a3b8; font-weight: 600; font-size: 0.85rem; }
+
+/* ── Empty State ── */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
 }
-.page-indicator .total {
-  color: #999;
+.empty-icon-wrap {
+  width: 64px; height: 64px;
+  border-radius: 16px;
+  background: #f1f5f9;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+.empty-title {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #334155;
+  margin-bottom: 4px;
+}
+.empty-desc {
+  font-size: 0.82rem;
+  color: #94a3b8;
+  margin-bottom: 20px;
+}
+.empty-btn {
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
 }
 
-/* Map Section Fixes */
+/* ═══════════════════════════════════════════
+   MAP SECTION
+   ═══════════════════════════════════════════ */
 .map-container-col {
   position: relative;
   height: 100%;
   flex-grow: 1;
-  min-width: 0; /* Prevents overflow-x issues in flex */
+  min-width: 0;
 }
-
 .map-wrapper {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #f8f8f8;
+  inset: 0;
+  background: #eef2f7;
 }
 
+/* ── Mobile Toggle ── */
 .mobile-panel-toggle {
   position: absolute;
-  top: 20px;
-  left: 20px;
+  top: 16px;
+  left: 16px;
   z-index: 100;
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 12px !important;
+  background: #0f172a !important;
+  color: #fff !important;
+  box-shadow: 0 4px 20px rgba(15,23,42,0.3) !important;
+  transition: transform 0.2s;
 }
+.mobile-panel-toggle:hover { transform: scale(1.05); }
 
+/* ── Floating Card ── */
 .floating-property-detail {
   position: absolute;
-  bottom: 40px;
+  bottom: 32px;
   left: 50%;
   transform: translateX(-50%);
   width: 90%;
   max-width: 420px;
   z-index: 100;
 }
-
+.floating-inner {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(226,232,240,0.8);
+  box-shadow:
+    0 4px 6px rgba(0,0,0,0.04),
+    0 12px 32px rgba(0,0,0,0.1),
+    0 24px 60px rgba(0,0,0,0.06);
+}
 .close-floating-btn {
   position: absolute;
-  top: -12px;
-  right: -12px;
+  top: 8px;
+  right: 8px;
   z-index: 110;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 8px !important;
+  background: rgba(15,23,42,0.7) !important;
+  color: #fff !important;
+  backdrop-filter: blur(8px);
+}
+.close-floating-btn:hover {
+  background: #0f172a !important;
 }
 
-/* Utility */
-.leading-tight { line-height: 1.2; }
-.tracking-wide { letter-spacing: 0.05em; }
-.shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
-
+/* ═══════════════════════════════════════════
+   RESPONSIVE
+   ═══════════════════════════════════════════ */
 @media (max-width: 1263px) {
-  .layout-row {
-    flex-wrap: wrap;
-  }
-  
+  .layout-row { flex-wrap: wrap; }
   .search-panel-col {
     position: fixed;
-    top: 0;
-    left: 0;
-    bottom: 0;
+    top: 0; left: 0; bottom: 0;
     width: 100% !important;
     max-width: 400px;
-    box-shadow: 20px 0 50px rgba(0,0,0,0.1);
+    box-shadow: 12px 0 40px rgba(0,0,0,0.15);
   }
-  
-  .panel-hidden {
-    transform: translateX(-110%);
-  }
-  
-  .map-container-col {
-    width: 100%;
-    flex: 1 1 100%;
-  }
-
-  .floating-property-detail {
-    bottom: 20px;
-  }
+  .panel-hidden { transform: translateX(-110%); }
+  .map-container-col { width: 100%; flex: 1 1 100%; }
+  .floating-property-detail { bottom: 20px; }
 }
-
 @media (max-width: 600px) {
-  .search-panel-col {
-    max-width: 100%;
-  }
+  .search-panel-col { max-width: 100%; }
+  .panel-header { padding: 20px 20px 16px; }
+  .filters-section { padding: 16px 20px; }
+  .results-container { padding: 16px 20px; }
 }
 </style>

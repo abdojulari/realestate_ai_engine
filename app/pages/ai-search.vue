@@ -24,6 +24,13 @@
 
     <!-- Main Interface -->
     <v-container class="mt-n12 pb-16 relative z-20">
+      <!-- Market Insights Panel — full-width, top of page -->
+      <v-row class="mb-6">
+        <v-col cols="12">
+          <MarketInsightsPanel :city="selectedCity" />
+        </v-col>
+      </v-row>
+
       <v-row>
         <!-- Search Controls -->
         <v-col cols="12" lg="8">
@@ -424,7 +431,8 @@
                   The more specific you are about <strong>materials</strong> (e.g., hardwood floors), <strong>lifestyle</strong> (e.g., quiet home office), and <strong>location</strong>, the better the matches.
                 </p>
               </v-card>
-            </v-card>
+              </v-card>
+
           </div>
         </v-col>
       </v-row>

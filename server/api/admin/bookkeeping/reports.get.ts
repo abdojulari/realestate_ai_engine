@@ -9,10 +9,12 @@ import {
   getCustomRange,
 } from '../../../utils/bookkeeping/accounting.service'
 import type { DateRange } from '../../../utils/bookkeeping/accounting.service'
+import { requireFeatureForUser, FEATURES } from '../../../utils/license'
 
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    await requireFeatureForUser(FEATURES.BOOKKEEPING, user, event)
     const query = getQuery(event)
 
     const period = (query.period as string) || 'monthly'

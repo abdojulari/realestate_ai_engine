@@ -1,6 +1,7 @@
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantAdminId } from '../../../utils/tenant'
 import { TaxFacade, getProvinceList } from '../../../utils/bookkeeping/tax/index'
+import { requireFeatureForUser, FEATURES } from '../../../utils/license'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -13,6 +14,7 @@ if (process.env.NODE_ENV !== 'production') {
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    await requireFeatureForUser(FEATURES.BOOKKEEPING, user, event)
     const query = getQuery(event)
 
     const province = (query.province as string) || 'ON'

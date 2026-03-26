@@ -133,7 +133,7 @@
               >
                 <template v-slot:label>
                   <span class="text-body-2">
-                    I understand that AgentOS will respond within 30 days and may request additional verification of my identity.
+                    I understand that DeelBot will respond within 30 days and may request additional verification of my identity.
                   </span>
                 </template>
               </v-checkbox>

@@ -1,4 +1,5 @@
 <template>
+  <FeatureGate :feature="FEATURES.DOCUMENTS" :show-upgrade-prompt="true">
   <v-container fluid class="fill-height pa-0 premium-bg">
     <!-- ─── Dashboard View ──────────────────────────────── -->
     <v-fade-transition hide-on-leave>
@@ -212,9 +213,12 @@
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000">{{ snackbarText }}</v-snackbar>
   </v-container>
+  </FeatureGate>
 </template>
 
 <script setup lang="ts">
+import FeatureGate from '~/components/FeatureGate.vue'
+import { FEATURES } from '~/composables/useLicense'
 import { useDocumentEditor } from '~/composables/useDocumentEditor'
 
 definePageMeta({ layout: 'admin', middleware: ['admin'] })

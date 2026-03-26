@@ -116,7 +116,7 @@
       <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">FOOTER &amp; LEGAL</div>
       <v-row dense class="mb-2">
         <v-col cols="12" md="6">
-          <v-text-field v-model="branding.copyrightName" label="Copyright Name" variant="outlined" density="compact" hint="e.g. AgentOS" persistent-hint />
+          <v-text-field v-model="branding.copyrightName" label="Copyright Name" variant="outlined" density="compact" hint="e.g. DeelBot" persistent-hint />
         </v-col>
         <v-col cols="12" md="6">
           <v-text-field v-model="branding.primaryColor" label="Primary Color" variant="outlined" density="compact" prepend-inner-icon="mdi-palette" hint="Hex color, e.g. #1976D2" persistent-hint />

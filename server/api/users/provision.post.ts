@@ -11,7 +11,6 @@ if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prisma = prisma
 }
 
-// Generate a random secure password
 function generateRandomPassword(length = 12): string {
   const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const lowercase = 'abcdefghijklmnopqrstuvwxyz'
@@ -20,18 +19,15 @@ function generateRandomPassword(length = 12): string {
   const allChars = uppercase + lowercase + numbers + special
   
   let password = ''
-  // Ensure at least one of each type
   password += uppercase[Math.floor(Math.random() * uppercase.length)]
   password += lowercase[Math.floor(Math.random() * lowercase.length)]
   password += numbers[Math.floor(Math.random() * numbers.length)]
   password += special[Math.floor(Math.random() * special.length)]
   
-  // Fill the rest randomly
   for (let i = password.length; i < length; i++) {
     password += allChars[Math.floor(Math.random() * allChars.length)]
   }
   
-  // Shuffle the password
   return password.split('').sort(() => Math.random() - 0.5).join('')
 }
 
@@ -59,7 +55,7 @@ export default defineEventHandler(async (event) => {
 
     const body = await readBody(event)
     
-    const { email, firstName, lastName, phone, plan, tenantId, domain } = body
+    const { email, firstName, lastName, phone, plan, tenantId, domain, defaultPassword } = body
     
     if (!email || !firstName || !lastName || !plan) {
       throw createError({
@@ -106,11 +102,10 @@ export default defineEventHandler(async (event) => {
       }
     }
     
-    // Generate random password
-    const rawPassword = generateRandomPassword(14)
+    // Use provided default password or generate random
+    const rawPassword = defaultPassword || generateRandomPassword(14)
     const hashedPassword = await bcrypt.hash(rawPassword, 12)
     
-    // All subscribers become admins with their subscription tier
     const user = await prisma.user.create({
       data: {
         email,
@@ -118,12 +113,14 @@ export default defineEventHandler(async (event) => {
         firstName,
         lastName,
         phone: phone || null,
-        role: 'admin', // All subscribers are admins
-        subscriptionTier, // Their plan determines feature access
+        role: 'admin',
+        subscriptionTier,
         provider: 'saas-control-plane',
         providerId: tenantId || null,
         marketingConsent: true,
         consentDate: new Date(),
+        twoFactorEnabled: true,
+        mustChangePassword: !!defaultPassword,
       }
     })
     

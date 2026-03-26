@@ -62,7 +62,7 @@ export function useTenantSettings() {
 
   const businessName = computed(() => tenantSettings.value?.businessName || '')
   const tagline = computed(() => tenantSettings.value?.tagline || 'Intelligence for Realtors')
-  const logoUrl = computed(() => tenantSettings.value?.logoUrl || '/images/logos/logo.png')
+  const logoUrl = computed(() => tenantSettings.value?.logoUrl || '/images/logos/deelbot.png')
   const faviconUrl = computed(() => tenantSettings.value?.faviconUrl || '')
   const primaryColor = computed(() => tenantSettings.value?.primaryColor || '#1976D2')
   const phone = computed(() => tenantSettings.value?.phone || '')

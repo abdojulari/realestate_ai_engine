@@ -1,10 +1,12 @@
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantAdminId } from '../../../utils/tenant'
 import { getFinancialDashboard } from '../../../utils/bookkeeping/accounting.service'
+import { requireFeatureForUser, FEATURES } from '../../../utils/license'
 
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
+    await requireFeatureForUser(FEATURES.BOOKKEEPING, user, event)
     const query = getQuery(event)
 
     const year = parseInt(query.year as string) || new Date().getFullYear()

@@ -1,5 +1,5 @@
 <template>
-  <FeatureGate :feature="FEATURES.FORECAST" :show-upgrade-prompt="true">
+  <FeatureGate :feature="FEATURES.REPORTS" :show-upgrade-prompt="true">
     <div class="premium-reports-wrapper bg-[#F8FAFC] min-h-screen">
       <!-- PREMIUM TOP BAR -->
       <div class="header-glass sticky top-0 z-50 px-8 py-4 border-b border-slate-200 backdrop-blur-md bg-white/80">
