@@ -58,6 +58,19 @@ export function useTenantSettings() {
     }
   }
 
+  const refresh = async () => {
+    loading.value = true
+    try {
+      const data = await $fetch<TenantSettingsData>('/api/tenant-settings')
+      tenantSettings.value = data
+      loaded.value = true
+    } catch (e: any) {
+      console.error('Failed to refresh tenant settings:', e)
+    } finally {
+      loading.value = false
+    }
+  }
+
   // ── Computed helpers ──
 
   const businessName = computed(() => tenantSettings.value?.businessName || '')
@@ -92,6 +105,7 @@ export function useTenantSettings() {
     tenantSettings,
     loading,
     fetchSettings,
+    refresh,
 
     // Computed
     businessName,

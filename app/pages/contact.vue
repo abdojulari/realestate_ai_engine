@@ -9,7 +9,7 @@
           <div class="content-overlay pa-12 d-flex flex-column h-100">
             <div class="brand-badge mb-12 animate-fade-in">
               <NuxtLink to="/" class="text-decoration-none">
-                <span class="text-h4 font-weight-black tracking-tighter text-white">AO<span class="text-primary">.</span></span>
+                <span class="text-h4 font-weight-black tracking-tighter text-white">DeelBot<span class="text-primary">.</span></span>
               </NuxtLink>
             </div>
 
@@ -25,11 +25,11 @@
               <div class="contact-details d-flex gap-8">
                 <div class="detail-item">
                   <span class="premium-label text-white opacity-50 d-block mb-1">Direct Line</span>
-                  <span class="text-body-1 text-white font-weight-medium">+1 (403) 555-0123</span>
+                  <span class="text-body-1 text-white font-weight-medium">+1 (647) 563-7235</span>
                 </div>
                 <div class="detail-item">
                   <span class="premium-label text-white opacity-50 d-block mb-1">Inquiry Support</span>
-                  <span class="text-body-1 text-white font-weight-medium">concierge@albertaone.ca</span>
+                  <span class="text-body-1 text-white font-weight-medium">info@deelbot.com</span>
                 </div>
               </div>
             </div>

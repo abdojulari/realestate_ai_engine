@@ -16,6 +16,8 @@ services:
       - GOOGLE_CLIENT_SECRET=your-google-client-secret
       - FACEBOOK_APP_ID=your-facebook-app-id
       - FACEBOOK_APP_SECRET=your-facebook-app-secret
+    volumes:
+      - uploads_data:/app/public/uploads
     depends_on:
       - db
 
@@ -32,3 +34,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads_data:

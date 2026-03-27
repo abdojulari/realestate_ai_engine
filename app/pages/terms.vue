@@ -6,7 +6,7 @@
         <div class="text-center mb-12">
           <div class="premium-badge mb-4">Legal Documentation</div>
           <h1 class="display-serif mb-4">Terms & Conditions</h1>
-          <p class="subtitle-text">Homes By Abdul Ojulari</p>
+          <p class="subtitle-text">DeelBot</p>
           <div class="elegant-divider mx-auto"></div>
         </div>
 
@@ -22,7 +22,7 @@
                 </div>
                 
                 <p class="text-body-1 text-secondary mb-8">
-                  By accessing our digital services, you enter into a binding agreement with Homes By Abdul Ojulari. 
+                  By accessing our digital services, you enter into a binding agreement with DeelBot. 
                   These terms govern your usage of our property platforms and the protection of your digital rights.
                 </p>
 
@@ -48,7 +48,7 @@
                 </div>
                 <div class="metadata-item">
                   <span class="label">Jurisdiction</span>
-                  <span class="value">Edmonton, Alberta, CA</span>
+                  <span class="value ml-5">Edmonton, Alberta, CA</span>
                 </div>
                 
                 <v-alert
@@ -80,7 +80,7 @@
           <div class="dialog-header px-8 py-6 d-flex align-center">
             <div>
               <h2 class="text-h5 font-weight-black mb-1">Detailed Terms of Service</h2>
-              <p class="text-caption text-uppercase letter-spacing-1">Homes By Abdul Ojulari</p>
+              <p class="text-caption text-uppercase letter-spacing-1">DeelBot</p>
             </div>
             <v-spacer />
             <v-btn 
@@ -101,7 +101,7 @@
             <div class="summary-box mb-12 pa-6 rounded-xl">
               <h3 class="text-subtitle-1 font-weight-bold mb-3">Key Highlights</h3>
               <p class="text-body-2 text-secondary mb-0">
-                Welcome to <strong>Homes By Abdul Ojulari</strong>. By using our App, you agree to these Terms. 
+                Welcome to <strong>DeelBot</strong>. By using our App, you agree to these Terms. 
                 If you do not agree, please cease use immediately.
               </p>
             </div>
@@ -147,7 +147,7 @@
                   <div class="contact-grid mt-6">
                     <div class="contact-card">
                       <v-icon icon="mdi-email-outline" size="small" />
-                      <span>info@homesbyabdulojulari.ca</span>
+                      <span>info@deelbot.com</span>
                     </div>
                     <div class="contact-card">
                       <v-icon icon="mdi-phone-outline" size="small" />
@@ -192,9 +192,9 @@ const dialog = ref(false)
 // Optional: SEO logic remains functional
 if (typeof useHead !== 'undefined') {
   useHead({
-    title: 'Legal | Homes By Abdul Ojulari',
+    title: 'Legal | DeelBot',
     meta: [
-      { name: 'description', content: 'Official Terms and Conditions for Homes By Abdul Ojulari real estate services.' }
+      { name: 'description', content: 'Official Terms and Conditions for DeelBot real estate services.' }
     ]
   })
 }

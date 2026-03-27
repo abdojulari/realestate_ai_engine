@@ -161,7 +161,7 @@
               </p>
               <p class="text-body-2">
                 <v-icon icon="mdi-email-outline" size="16" class="mr-1" />
-                <a href="mailto:abdulkabirojulari@gmail.com" class="text-primary">abdulkabirojulari@gmail.com</a>
+                <a href="mailto:info@deelbot.com" class="text-primary">info@deelbot.com</a>
                 &nbsp;&bull;&nbsp;
                 <v-icon icon="mdi-phone-outline" size="16" class="mr-1" />
                 <a href="tel:6475637235" class="text-primary">647-563-7235</a>

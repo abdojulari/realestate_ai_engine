@@ -149,6 +149,9 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 // @ts-ignore
 import { api } from '~/utils/api'
+import { useTenantSettings } from '~/composables/useTenantSettings'
+
+const { refresh: refreshTenantSettings } = useTenantSettings()
 
 const branding = reactive({
   businessName: '',
@@ -174,7 +177,7 @@ const branding = reactive({
 const logoFile = ref<File | null>(null)
 const faviconFile = ref<File | null>(null)
 const brokerageLogoFile = ref<File | null>(null)
-const siteLogoPreview = computed(() => branding.logoUrl || '/images/logos/logo.png')
+const siteLogoPreview = computed(() => branding.logoUrl || '/images/logos/deelbot.png')
 const faviconPreview = computed(() => branding.faviconUrl || '/favicon.ico')
 const loading = ref(false)
 const brandingSaving = ref(false)
@@ -219,6 +222,7 @@ async function saveBranding() {
   try {
     await api.post('/api/admin/tenant-settings', { ...branding })
     saved.value = true
+    await refreshTenantSettings()
   } catch (e: any) {
     error.value = e?.message || 'Failed to save branding'
   } finally {
@@ -231,7 +235,10 @@ async function uploadImageField(file: File, fieldName: string) {
     const formData = new FormData()
     formData.append('logo', file)
     const res: any = await api.post('/api/admin/tenant-settings/upload-logo', formData)
-    if (res?.logoUrl) (branding as any)[fieldName] = res.logoUrl
+    if (res?.logoUrl) {
+      (branding as any)[fieldName] = res.logoUrl
+      await saveBranding()
+    }
   } catch (e: any) {
     error.value = `Failed to upload ${fieldName}`
   }
@@ -243,7 +250,10 @@ async function uploadLogo(file: File | File[] | null) {
     const formData = new FormData()
     formData.append('logo', file)
     const res: any = await api.post('/api/admin/tenant-settings/upload-logo', formData)
-    if (res?.logoUrl) branding.logoUrl = res.logoUrl
+    if (res?.logoUrl) {
+      branding.logoUrl = res.logoUrl
+      await saveBranding()
+    }
   } catch (e: any) {
     error.value = 'Failed to upload logo'
   } finally {
