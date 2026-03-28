@@ -6,12 +6,7 @@
           <!-- Brand & Contact (from TenantSettings DB) -->
           <v-col cols="12" md="4" class="mb-8 mb-md-0">
             <div class="footer-brand mb-6">
-              <!-- <template v-if="logoUrl && logoUrl !== '/images/logos/logo.png'">
-                <img :src="logoUrl" :alt="businessName || 'Logo'" class="footer-tenant-logo" />
-              </template> -->
-              <template>
-                <img src="/images/logos/deelbot.png" alt="DeelBot" class="footer-deelbot-logo" />
-              </template>
+              <img src="/images/logos/deelbot.png" alt="DeelBot" class="footer-deelbot-logo" />
               <p class="premium-tagline mt-[-16px]">{{ tagline || 'Intelligence for Realtors' }}</p>
             </div>
             
@@ -210,7 +205,7 @@ const handleSubscribe = async () => {
 }
 
 .footer-deelbot-logo {
-  max-height: 86px;
+  max-height: 70px;
   width: auto;
   object-fit: contain;
 }

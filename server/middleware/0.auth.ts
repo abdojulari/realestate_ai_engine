@@ -87,6 +87,11 @@ export default defineEventHandler(async (event) => {
     return
   }
 
+  // Public lead capture forms (GET form data + POST submissions)
+  if (url.startsWith('/api/lead-form/')) {
+    return
+  }
+
   console.log(`[AUTH MIDDLEWARE] 🔒 Checking auth for: ${url}`)
 
   try {

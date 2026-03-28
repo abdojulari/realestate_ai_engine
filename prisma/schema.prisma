@@ -95,6 +95,7 @@ model User {
   tenantFacebookIntegration FacebookIntegration?    @relation("TenantFacebookIntegration")
   tenantFacebookPosts      FacebookPost[]           @relation("TenantFacebookPosts")
   tenantPriceCutSearches   PriceCutSearch[]         @relation("TenantPriceCutSearches")
+  tenantLeadForms          LeadForm[]               @relation("TenantLeadForms")
 
   // ── Bookkeeping relations (tenant-scoped) ──
   tenantBkExpenses         BkExpense[]              @relation("TenantBkExpenses")
@@ -1186,4 +1187,29 @@ model PrivacyRequest {
 
   @@index([email])
   @@index([status])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LEAD CAPTURE FORMS (shareable links for social media)
+// ═══════════════════════════════════════════════════════════════
+
+model LeadForm {
+  id              Int      @id @default(autoincrement())
+  adminId         Int
+  admin           User     @relation("TenantLeadForms", fields: [adminId], references: [id])
+  slug            String   @unique
+  title           String
+  description     String?
+  fields          Json     @default("[\"name\",\"email\",\"phone\",\"message\"]")
+  disclaimerText  String?  @db.Text
+  privacyText     String?  @db.Text
+  thankYouMessage String?
+  brandColor      String?  @default("#1976D2")
+  status          String   @default("active")
+  submissions     Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([adminId])
+  @@index([slug])
 }

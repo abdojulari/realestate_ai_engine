@@ -70,5 +70,5 @@ ENV PORT=3000
 # Expose port
 EXPOSE 3000
 
-# Start application with dumb-init
-CMD ["dumb-init", "node", "server/index.mjs"]
+# Start application: run migrations then start server
+CMD ["dumb-init", "sh", "-c", "npx prisma migrate deploy && node server/index.mjs"]
