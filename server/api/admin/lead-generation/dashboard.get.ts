@@ -193,6 +193,9 @@ export default defineEventHandler(async (event) => {
       recentLeads: allRecentLeads,
     }
   } catch (error: any) {
+    console.error('[Lead Dashboard] Error:', error?.message || error)
+    if (error?.code) console.error('[Lead Dashboard] Prisma code:', error.code)
+    if (error?.meta) console.error('[Lead Dashboard] Prisma meta:', JSON.stringify(error.meta))
     throw createError({
       statusCode: error.statusCode || 500,
       message: error.message || 'Failed to load lead generation dashboard',

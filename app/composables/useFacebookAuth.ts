@@ -17,51 +17,60 @@ export const useFacebookAuth = () => {
   const userAccessToken = ref<string | null>(null)
   const userId = ref<string | null>(null)
 
-  /**
-   * Initialize Facebook SDK
-   */
+  const initAndResolve = (resolve: () => void) => {
+    FB.init({
+      appId: config.public.facebookAppId,
+      cookie: true,
+      xfbml: true,
+      version: 'v24.0'
+    })
+    isInitialized.value = true
+
+    FB.getLoginStatus((response: any) => {
+      if (response.status === 'connected') {
+        isLoggedIn.value = true
+        userAccessToken.value = response.authResponse.accessToken
+        userId.value = response.authResponse.userID
+      }
+    })
+
+    resolve()
+  }
+
   const initFacebookSDK = (): Promise<void> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       if (isInitialized.value) {
         resolve()
         return
       }
 
+      if (typeof FB !== 'undefined') {
+        initAndResolve(resolve)
+        return
+      }
+
       window.fbAsyncInit = function () {
         if (typeof FB !== 'undefined') {
-          FB.init({
-            appId: config.public.facebookAppId,
-            cookie: true,
-            xfbml: true,
-            version: 'v18.0'
-          })
-          isInitialized.value = true
-
-          // Check login status
-          FB.getLoginStatus((response: any) => {
-            if (response.status === 'connected') {
-              isLoggedIn.value = true
-              userAccessToken.value = response.authResponse.accessToken
-              userId.value = response.authResponse.userID
-            }
-          })
-
-          resolve()
+          initAndResolve(resolve)
         }
       }
 
-      // Load SDK if not already loaded
-      if (!document.getElementById('facebook-jssdk')) {
+      const existingScript = document.querySelector('script[src*="connect.facebook.net"]')
+      if (!existingScript) {
         const js = document.createElement('script')
         js.id = 'facebook-jssdk'
         js.src = 'https://connect.facebook.net/en_US/sdk.js'
+        js.onerror = () => reject(new Error('Failed to load Facebook SDK'))
         document.body.appendChild(js)
-      } else {
-        // SDK already loaded
-        if (typeof window.fbAsyncInit === 'function') {
-          window.fbAsyncInit()
-        }
       }
+
+      setTimeout(() => {
+        if (!isInitialized.value) {
+          reject(new Error(
+            'Facebook SDK failed to initialize. Check that FACEBOOK_APP_ID is set correctly.'
+          ))
+        }
+      }, 10000)
     })
   }
 
@@ -90,7 +99,7 @@ export const useFacebookAuth = () => {
           }
         },
         {
-          scope: 'pages_manage_posts,pages_read_engagement,pages_show_list'
+          scope: 'email,pages_manage_posts,pages_read_engagement,pages_show_list'
         }
       )
     })

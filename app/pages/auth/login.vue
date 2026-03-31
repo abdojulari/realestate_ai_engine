@@ -170,11 +170,11 @@
               block
               size="large"
               class="social-btn rounded-xl"
-              @click="loginWithApple"
-              :loading="appleLoading"
+              @click="loginWithFacebook"
+              :loading="facebookLoading"
             >
-              <v-icon start size="20">mdi-apple</v-icon>
-              Apple
+              <v-icon start size="20" color="#1877F2">mdi-facebook</v-icon>
+              Facebook
             </v-btn>
           </v-col>
         </v-row>
@@ -221,7 +221,7 @@ const showPassword = ref(false)
 const rememberMe = ref(false)
 const loading = ref(false)
 const googleLoading = ref(false)
-const appleLoading = ref(false)
+const facebookLoading = ref(false)
 const errorMessage = ref('')
 
 const handleSubmit = async () => {
@@ -288,13 +288,37 @@ const loginWithGoogle = async () => {
   }
 }
 
-const loginWithApple = async () => {
-  appleLoading.value = true
+const { initFacebookSDK, login: fbLogin, userAccessToken: fbToken } = useFacebookAuth()
+
+const loginWithFacebook = async () => {
+  facebookLoading.value = true
+  errorMessage.value = ''
   try {
-    // Apple login implementation
-    window.location.href = '/api/auth/apple'
+    await initFacebookSDK()
+    await fbLogin()
+
+    if (!fbToken.value) {
+      errorMessage.value = 'Facebook login failed. No access token returned.'
+      return
+    }
+
+    const res = await $fetch('/api/auth/facebook/callback', {
+      method: 'POST',
+      body: { accessToken: fbToken.value }
+    }) as any
+
+    if (res.token) {
+      authStore.setToken(res.token)
+      await authStore.checkAuth()
+      const route = useRoute()
+      const redirectTo = route.query.redirect as string || localStorage.getItem('redirectAfterLogin') || '/'
+      localStorage.removeItem('redirectAfterLogin')
+      router.push(redirectTo)
+    }
+  } catch (e: any) {
+    errorMessage.value = e.data?.statusMessage || e.message || 'Facebook login failed. Please try again.'
   } finally {
-    appleLoading.value = false
+    facebookLoading.value = false
   }
 }
 

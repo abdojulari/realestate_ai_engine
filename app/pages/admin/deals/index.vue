@@ -299,7 +299,7 @@
                   Share
                 </v-btn>
                 <v-spacer />
-                <v-btn variant="text" size="small" :to="`/admin/properties?id=${property.id}`">
+                <v-btn variant="text" size="small" :to="`/admin/properties/${property.id}`">
                   Details
                 </v-btn>
               </v-card-actions>

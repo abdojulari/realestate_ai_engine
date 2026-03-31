@@ -23,6 +23,7 @@ export default defineEventHandler(async (event) => {
     '/api/auth/verify-2fa',
     '/api/auth/google',
     '/api/auth/google/callback',
+    '/api/auth/facebook/callback',
     // Admin content management endpoints (whitelisted)
     '/api/admin/content',
     '/api/admin/content/upload',

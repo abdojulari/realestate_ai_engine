@@ -15,16 +15,18 @@
           </p>
         </v-col>
         <v-col cols="12" md="4" class="text-md-right">
-          <v-btn-toggle v-model="chartPeriod" mandatory density="compact" class="period-toggle mr-3">
-            <v-btn value="monthly" size="small">Monthly</v-btn>
-            <v-btn value="quarterly" size="small">Quarterly</v-btn>
-          </v-btn-toggle>
-          <v-btn color="primary" class="premium-action-btn mr-3" prepend-icon="mdi-link-plus" to="/admin/lead-generation/forms" variant="tonal">
-            Capture Forms
-          </v-btn>
-          <v-btn color="primary" class="premium-action-btn" prepend-icon="mdi-refresh" @click="loadDashboard" :loading="loading">
-            Refresh
-          </v-btn>
+          <div class="d-flex flex-wrap align-center justify-md-end ga-3">
+            <v-btn-toggle v-model="chartPeriod" mandatory density="compact" class="period-toggle">
+              <v-btn value="monthly" size="small">Monthly</v-btn>
+              <v-btn value="quarterly" size="small">Quarterly</v-btn>
+            </v-btn-toggle>
+            <v-btn color="primary" class="premium-action-btn" prepend-icon="mdi-link-plus" to="/admin/lead-generation/forms" variant="tonal">
+              Capture Forms
+            </v-btn>
+            <v-btn color="primary" class="premium-action-btn" prepend-icon="mdi-refresh" @click="loadDashboard" :loading="loading">
+              Refresh
+            </v-btn>
+          </div>
         </v-col>
       </v-row>
 
@@ -318,7 +320,7 @@ const funnelStages = computed(() => {
     { label: 'Converted', value: f.converted, icon: 'mdi-handshake', colorClass: 'funnel-success', width: f.captured ? Math.max(15, (f.converted / f.captured) * 100) : 0 },
   ]
   for (let i = 0; i < stages.length - 1; i++) {
-    stages[i].dropRate = stages[i].value > 0 ? Math.round((stages[i + 1].value / stages[i].value) * 100) : 0
+    (stages[i] as any).dropRate = (stages[i] as any).value > 0 ? Math.round(((stages[i + 1] as any).value / (stages[i] as any).value) * 100) : 0
   }
   return stages
 })

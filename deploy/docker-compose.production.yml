@@ -73,6 +73,8 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://${POSTGRES_USER:-deelbot}:${POSTGRES_PASSWORD}@postgres:5432/suhani?schema=public
       - APP_BASE_DOMAIN=deelbot.ai
+      - NUXT_PUBLIC_FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
+      - NUXT_FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
     volumes:
       - suhani_uploads:/app/uploads
     depends_on:
