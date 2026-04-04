@@ -181,7 +181,12 @@ export function useFacebookAdmin() {
       const fullContent = buildFullContent()
       const res = await $fetch('/api/admin/facebook/posts', {
         method: 'POST', headers: getAuthHeaders(),
-        body: { ...postForm.value, content: fullContent, templateImage }
+        body: {
+          ...postForm.value,
+          content: fullContent,
+          templateImage,
+          imageUrls: imagePreviews.value.filter(u => u.startsWith('http')),
+        }
       }) as any
       if (res.success) {
         postSuccess.value = res.message || 'Posted successfully!'

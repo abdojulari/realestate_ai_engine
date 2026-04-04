@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     const {
       propertyId, content, images, link,
       scheduledFor, postType = 'listing',
-      templateImage
+      templateImage, imageUrls
     } = body
 
     if (!content) {
@@ -76,7 +76,7 @@ export default defineEventHandler(async (event) => {
     // If not scheduled, attempt to post immediately
     if (!scheduledFor) {
       try {
-        const fbPostId = await publishToFacebook(integration, content, images, link, templateImage)
+        const fbPostId = await publishToFacebook(integration, content, images, link, templateImage, imageUrls)
 
         await prisma.facebookPost.update({
           where: { id: post.id },
@@ -218,12 +218,87 @@ async function getPageToken(userToken: string, pageId: string): Promise<string |
   }
 }
 
+async function uploadImageBufferToFacebook(
+  pageId: string,
+  token: string,
+  imageBuffer: Buffer,
+  filename: string,
+  published: boolean = false
+): Promise<string> {
+  const boundary = '----FormBoundary' + Math.random().toString(36).substring(2) + Date.now()
+  const parts: Buffer[] = []
+
+  parts.push(Buffer.from(
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="source"; filename="${filename}"\r\n` +
+    `Content-Type: image/jpeg\r\n\r\n`
+  ))
+  parts.push(imageBuffer)
+  parts.push(Buffer.from('\r\n'))
+
+  parts.push(Buffer.from(
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="published"\r\n\r\n` +
+    (published ? 'true' : 'false') + '\r\n'
+  ))
+
+  parts.push(Buffer.from(
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="access_token"\r\n\r\n` +
+    token + '\r\n'
+  ))
+
+  parts.push(Buffer.from(`--${boundary}--\r\n`))
+
+  const body = Buffer.concat(parts)
+  const url = `https://graph.facebook.com/${FB_API_VERSION}/${pageId}/photos`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+    body,
+  })
+
+  const data = await response.json() as any
+  if (!response.ok) {
+    console.error('[Facebook] Image upload failed:', JSON.stringify(data.error, null, 2))
+    handleFacebookError(data.error, response.status)
+  }
+
+  return data.id
+}
+
+async function uploadImageUrlToFacebook(
+  pageId: string,
+  token: string,
+  imageUrl: string,
+  published: boolean = false
+): Promise<string> {
+  const params = new URLSearchParams()
+  params.append('url', imageUrl)
+  params.append('published', published ? 'true' : 'false')
+  params.append('access_token', token)
+
+  const url = `https://graph.facebook.com/${FB_API_VERSION}/${pageId}/photos`
+
+  const response = await fetch(url, { method: 'POST', body: params })
+  const data = await response.json() as any
+
+  if (!response.ok) {
+    console.error(`[Facebook] Image URL upload failed for ${imageUrl}:`, JSON.stringify(data.error, null, 2))
+    handleFacebookError(data.error, response.status)
+  }
+
+  return data.id
+}
+
 async function publishToFacebook(
   integration: any,
   content: string,
   images?: string[],
   link?: string,
-  templateImage?: string
+  templateImage?: string,
+  imageUrls?: string[]
 ): Promise<string> {
   const pageId = integration.pageId
   const userToken = integration.accessToken
@@ -245,13 +320,66 @@ async function publishToFacebook(
 
   console.log(`[Facebook] Posting to page ${pageId}`)
 
-  // If a template image is provided, post as a photo so the styled template appears on Facebook
+  const validImageUrls = (imageUrls || []).filter(u => u && u.startsWith('http'))
+  const hasMultipleImages = validImageUrls.length > 0
+
+  // Multi-photo post: upload each image URL as unpublished, then create feed post with attached_media
+  if (hasMultipleImages) {
+    console.log(`[Facebook] Creating multi-photo post with ${validImageUrls.length} property images`)
+
+    const photoIds: string[] = []
+    const urlsToUpload = validImageUrls.slice(0, 10)
+
+    const uploadResults = await Promise.allSettled(
+      urlsToUpload.map((url, i) => {
+        console.log(`[Facebook] Uploading image ${i + 1}/${urlsToUpload.length}: ${url.substring(0, 80)}...`)
+        return uploadImageUrlToFacebook(pageId, postToken, url, false)
+      })
+    )
+
+    for (const result of uploadResults) {
+      if (result.status === 'fulfilled') {
+        photoIds.push(result.value)
+      } else {
+        console.warn('[Facebook] One image upload failed:', result.reason?.message)
+      }
+    }
+
+    if (photoIds.length === 0) {
+      throw new Error('All image uploads failed. Please check your image URLs and try again.')
+    }
+
+    console.log(`[Facebook] ${photoIds.length} images uploaded, creating multi-photo post`)
+
+    // Create the multi-photo feed post
+    const params = new URLSearchParams()
+    params.append('message', content)
+    params.append('access_token', postToken)
+    photoIds.forEach((id, i) => {
+      params.append(`attached_media[${i}]`, JSON.stringify({ media_fbid: id }))
+    })
+
+    const feedUrl = `https://graph.facebook.com/${FB_API_VERSION}/${pageId}/feed`
+    const response = await fetch(feedUrl, { method: 'POST', body: params })
+    const data = await response.json() as any
+
+    if (!response.ok) {
+      console.error('[Facebook] Multi-photo post failed:', JSON.stringify(data.error, null, 2))
+      handleFacebookError(data.error, response.status)
+    }
+
+    console.log('[Facebook] Multi-photo post created:', data.id)
+    return data.id
+  }
+
+  // Single template image post (no property images)
   if (templateImage) {
     const base64Data = templateImage.replace(/^data:image\/\w+;base64,/, '')
     const imageBuffer = Buffer.from(base64Data, 'base64')
 
-    const boundary = '----FormBoundary' + Math.random().toString(36).substring(2) + Date.now()
+    console.log(`[Facebook] Uploading single template image (${imageBuffer.length} bytes)`)
 
+    const boundary = '----FormBoundary' + Math.random().toString(36).substring(2) + Date.now()
     const parts: Buffer[] = []
 
     parts.push(Buffer.from(
@@ -277,32 +405,26 @@ async function publishToFacebook(
     parts.push(Buffer.from(`--${boundary}--\r\n`))
 
     const body = Buffer.concat(parts)
-
     const photoUrl = `https://graph.facebook.com/${FB_API_VERSION}/${pageId}/photos`
-
-    console.log(`[Facebook] Uploading template image (${imageBuffer.length} bytes) to ${photoUrl}`)
 
     const response = await fetch(photoUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': `multipart/form-data; boundary=${boundary}`,
-      },
-      body: body,
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+      body,
     })
 
     const data = await response.json() as any
 
     if (!response.ok) {
-      const fbErr = data.error
-      console.error('[Facebook] Photo post failed:', JSON.stringify(fbErr, null, 2))
-      handleFacebookError(fbErr, response.status)
+      console.error('[Facebook] Photo post failed:', JSON.stringify(data.error, null, 2))
+      handleFacebookError(data.error, response.status)
     }
 
     console.log('[Facebook] Photo posted successfully:', data.id || data.post_id)
     return data.id || data.post_id
   }
 
-  // Text-only / link post (fallback when no template image)
+  // Text-only / link post
   const params = new URLSearchParams()
   params.append('message', content)
   params.append('access_token', postToken)
@@ -312,17 +434,12 @@ async function publishToFacebook(
 
   const url = `https://graph.facebook.com/${FB_API_VERSION}/${pageId}/feed`
 
-  const response = await fetch(url, {
-    method: 'POST',
-    body: params
-  })
-
+  const response = await fetch(url, { method: 'POST', body: params })
   const data = await response.json() as any
 
   if (!response.ok) {
-    const fbErr = data.error
-    console.error('[Facebook] Post failed:', JSON.stringify(fbErr, null, 2))
-    handleFacebookError(fbErr, response.status)
+    console.error('[Facebook] Post failed:', JSON.stringify(data.error, null, 2))
+    handleFacebookError(data.error, response.status)
   }
 
   return data.id

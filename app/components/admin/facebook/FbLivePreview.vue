@@ -31,12 +31,20 @@
             <div class="tpl__hero"><img :src="imagePreviews[activeImageIndex] || imagePreviews[0]" /></div>
             <div v-if="imagePreviews.length > 1" class="tpl__thumbstrip">
               <div
-                v-for="(img, i) in imagePreviews.slice(0, 4)"
+                v-for="(img, i) in imagePreviews"
                 :key="i"
                 class="tpl__thumb"
                 :class="{ 'tpl__thumb--active': i === activeImageIndex }"
                 @click="$emit('update:activeImageIndex', i)"
-              ><img :src="img" /></div>
+              >
+                <img :src="img" />
+                <div v-if="i === 0" class="tpl__thumb-badge">
+                  <v-icon size="8" color="white">mdi-star</v-icon>
+                </div>
+              </div>
+              <div v-if="imagePreviews.length > 1" class="tpl__thumb-count">
+                {{ activeImageIndex + 1 }}/{{ imagePreviews.length }}
+              </div>
             </div>
           </div>
 
@@ -243,13 +251,24 @@ const contactStyle = computed((): Record<string, string> => {
 .tpl--magazine .tpl__hero { border-radius: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
 
 /* Thumbnail strip */
-.tpl__thumbstrip { display: flex; gap: 8px; margin-top: 10px; }
+.tpl__thumbstrip { display: flex; gap: 6px; margin-top: 10px; overflow-x: auto; align-items: center; padding-bottom: 4px; scrollbar-width: thin; }
+.tpl__thumbstrip::-webkit-scrollbar { height: 4px; }
+.tpl__thumbstrip::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
 .tpl__thumb {
-  width: 52px; height: 52px; border-radius: 8px; overflow: hidden;
+  position: relative;
+  width: 48px; height: 48px; border-radius: 8px; overflow: hidden;
   cursor: pointer; opacity: 0.45; transition: all 0.2s; border: 2px solid transparent; flex-shrink: 0;
 }
 .tpl__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .tpl__thumb--active { opacity: 1; border-color: #1877F2; box-shadow: 0 2px 10px rgba(0,0,0,0.15); transform: translateY(-1px); }
+.tpl__thumb-badge {
+  position: absolute; top: 2px; left: 2px; width: 14px; height: 14px;
+  background: #1877F2; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+}
+.tpl__thumb-count {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; color: #888;
+  padding: 0 6px; white-space: nowrap;
+}
 .tpl--bold .tpl__thumb--active,
 .tpl--gradient .tpl__thumb--active { border-color: rgba(255,255,255,0.7); }
 .tpl--luxury .tpl__thumb--active { border-color: #d4a537; }

@@ -28,7 +28,7 @@
             </transition>
             
             <p class="text-h6 text-white opacity-70 font-weight-light leading-relaxed max-w-400">
-              Access the private portal for Alberta's premier real estate valuation network.
+              Access the private portal for Alberta's premier real estate valuation network by DeelBot.
             </p>
           </div>
 
@@ -118,6 +118,13 @@
             />
           </div>
 
+          <!-- Cloudflare Turnstile -->
+          <div class="turnstile-wrapper mb-6">
+            <p class="premium-label mb-2">Verify you're human</p>
+            <div id="turnstile-container" class="cf-turnstile"></div>
+            <p v-if="turnstileError" class="text-caption text-error mt-1">{{ turnstileError }}</p>
+          </div>
+
           <!-- Error Message Display -->
           <v-alert
             v-if="errorMessage"
@@ -138,7 +145,7 @@
             class="login-btn mb-8 shadow-xl"
             rounded="pill"
             :loading="loading"
-            :disabled="!email || !password || loading"
+            :disabled="!email || !password || !turnstileVerified || loading"
           >
             Sign In
           </v-btn>
@@ -159,6 +166,7 @@
               class="social-btn rounded-xl"
               @click="loginWithGoogle"
               :loading="googleLoading"
+              :disabled="!turnstileVerified"
             >
               <v-icon start size="20">mdi-google</v-icon>
               Google
@@ -172,6 +180,7 @@
               class="social-btn rounded-xl"
               @click="loginWithFacebook"
               :loading="facebookLoading"
+              :disabled="!turnstileVerified"
             >
               <v-icon start size="20" color="#1877F2">mdi-facebook</v-icon>
               Facebook
@@ -183,7 +192,7 @@
         <div class="text-center pt-4 border-t">
           <span class="text-body-2 text-grey-darken-1">New to the platform?</span>
           <NuxtLink to="/auth/register" class="signup-link-btn ml-2 font-weight-bold text-black text-decoration-none">
-            Join Abdul Ojulari's Network
+            Join DeelBot's Network
           </NuxtLink>
         </div>
       </div>
@@ -194,6 +203,16 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
+
+declare const turnstile: any
+
+const runtimeConfig = useRuntimeConfig()
+const siteKey = runtimeConfig.public.turnstileSiteKey as string
+
+// Turnstile state
+const turnstileToken = ref<string | null>(null)
+const turnstileVerified = ref(false)
+const turnstileError = ref('')
 
 // UI State
 const currentImageIndex = ref(0)
@@ -224,10 +243,39 @@ const googleLoading = ref(false)
 const facebookLoading = ref(false)
 const errorMessage = ref('')
 
+const verifyTurnstile = async (): Promise<boolean> => {
+  if (!turnstileToken.value) {
+    errorMessage.value = 'Please complete the human verification challenge.'
+    return false
+  }
+  try {
+    await $fetch('/api/auth/turnstile', {
+      method: 'POST',
+      body: { token: turnstileToken.value },
+    })
+    return true
+  } catch {
+    errorMessage.value = 'Human verification failed. Please try again.'
+    resetTurnstile()
+    return false
+  }
+}
+
+const resetTurnstile = () => {
+  turnstileToken.value = null
+  turnstileVerified.value = false
+  if (typeof turnstile !== 'undefined') {
+    turnstile.reset('#turnstile-container')
+  }
+}
+
 const handleSubmit = async () => {
   loading.value = true
   errorMessage.value = ''
   try {
+    const verified = await verifyTurnstile()
+    if (!verified) return
+
     const result = await authStore.login(email.value, password.value)
     
     // Check if 2FA is required
@@ -280,10 +328,12 @@ const handleSubmit = async () => {
 
 const loginWithGoogle = async () => {
   googleLoading.value = true
+  errorMessage.value = ''
   try {
+    const verified = await verifyTurnstile()
+    if (!verified) return
     window.location.href = '/api/auth/google'
   } finally {
-    // let redirect occur
     googleLoading.value = false
   }
 }
@@ -294,6 +344,9 @@ const loginWithFacebook = async () => {
   facebookLoading.value = true
   errorMessage.value = ''
   try {
+    const verified = await verifyTurnstile()
+    if (!verified) return
+
     await initFacebookSDK()
     await fbLogin()
 
@@ -328,13 +381,39 @@ definePageMeta({
   guestOnly: true
 })
 
-// Consolidated onMounted hook
+const initTurnstile = () => {
+  if (typeof turnstile === 'undefined') {
+    setTimeout(initTurnstile, 200)
+    return
+  }
+  turnstile.render('#turnstile-container', {
+    sitekey: siteKey,
+    theme: 'light',
+    callback: (token: string) => {
+      turnstileToken.value = token
+      turnstileVerified.value = true
+      turnstileError.value = ''
+    },
+    'expired-callback': () => {
+      turnstileToken.value = null
+      turnstileVerified.value = false
+      turnstileError.value = 'Verification expired. Please verify again.'
+    },
+    'error-callback': () => {
+      turnstileError.value = 'Verification failed. Please try again.'
+    },
+  })
+}
+
 onMounted(async () => {
-  // Start hero image carousel
   timer = setInterval(() => {
     currentImageIndex.value = (currentImageIndex.value + 1) % heroImages.length
   }, 6000)
-  
+
+  if (process.client) {
+    initTurnstile()
+  }
+
   // Auto-consume token from Google callback and handle OAuth
   if (process.client && typeof window !== 'undefined') {
     // First check if user is already authenticated
@@ -557,6 +636,12 @@ onUnmounted(() => {
   height: 48px;
   width: auto;
   object-fit: contain;
+}
+
+.turnstile-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
 .gap-6 { gap: 24px; }

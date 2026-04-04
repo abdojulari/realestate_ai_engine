@@ -126,6 +126,11 @@ export default defineNuxtConfig({
           src: 'https://connect.facebook.net/en_US/sdk.js',
           async: true,
           defer: true
+        },
+        {
+          src: 'https://challenges.cloudflare.com/turnstile/v0/api.js',
+          async: true,
+          defer: true
         }
       ]
     },
@@ -135,7 +140,10 @@ export default defineNuxtConfig({
       apiBase: '/api',
       siteUrl: process.env.NUXT_PUBLIC_SITE_URL || '',
       facebookAppId: process.env.FACEBOOK_APP_ID,
+      turnstileSiteKey: process.env.NUXT_PUBLIC_SITE_KEY || '',
     },
+    turnstileSecretKey: process.env.NUXT_PUBLIC_SECRET_KEY || '',
+    turnstileVerifyUrl: process.env.NUXT_TURNSTILE_VERIFY_URL || 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
     smtpUsername: process.env.SMTP_USERNAME || '',
     smtpPassword: process.env.SMTP_PASSWORD || '',
     smtpHostname: process.env.SMTP_HOSTNAME || 'smtp.gmail.com',
