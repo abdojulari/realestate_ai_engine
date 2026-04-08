@@ -1,5 +1,11 @@
 import { defineEventHandler, readBody, createError, setHeader } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import {
+  mergeTenantUserListWhere,
+  mergeWhereOmitExcludedUserLink,
+  mergeWhereOmitExcludedUserLinkRequired,
+  shouldRedactUserId,
+} from '../../../utils/delegateUserManagement'
 import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -14,9 +20,6 @@ export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
   const tenantFilter = getTenantFilter(user)
 
-  // For User model: admin's team members have adminId = admin's id
-  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
-
   const { format, dateRange, customRange, type } = await readBody(event)
 
   try {
@@ -25,19 +28,19 @@ export default defineEventHandler(async (event) => {
     
     switch (type) {
       case 'listings':
-        data = await getListingsData(dateRange, customRange, tenantFilter)
+        data = await getListingsData(dateRange, customRange, tenantFilter, user)
         break
       case 'users':
-        data = await getUsersData(dateRange, customRange, userTenantFilter, undefined)
+        data = await getUsersData(dateRange, customRange, user, undefined)
         break
       case 'crm':
-        data = await getUsersData(dateRange, customRange, userTenantFilter, 'crm')
+        data = await getUsersData(dateRange, customRange, user, 'crm')
         break
       case 'inquiries':
-        data = await getInquiriesData(dateRange, customRange, tenantFilter)
+        data = await getInquiriesData(dateRange, customRange, tenantFilter, user)
         break
       case 'viewings':
-        data = await getViewingsData(dateRange, customRange, tenantFilter)
+        data = await getViewingsData(dateRange, customRange, tenantFilter, user)
         break
       default:
         data = await getListingsData(dateRange, customRange, tenantFilter)
@@ -62,9 +65,14 @@ export default defineEventHandler(async (event) => {
   }
 })
 
-async function getListingsData(dateRange: string, customRange: any, tenantFilter: { adminId?: number }) {
+async function getListingsData(
+  dateRange: string,
+  customRange: any,
+  tenantFilter: { adminId?: number },
+  actor: any
+) {
   const where: any = { ...tenantFilter, status: 'for_sale' }
-  
+
   // Add date filtering if needed
   if (dateRange !== 'all') {
     const dateFilter = getDateFilter(dateRange, customRange)
@@ -76,12 +84,12 @@ async function getListingsData(dateRange: string, customRange: any, tenantFilter
   const properties = await prisma.property.findMany({
     where,
     include: {
-      user: { select: { firstName: true, lastName: true, email: true } }
+      user: { select: { firstName: true, lastName: true, email: true } },
     },
-    orderBy: { createdAt: 'desc' }
+    orderBy: { createdAt: 'desc' },
   })
 
-  return properties.map(p => ({
+  return properties.map((p) => ({
     id: p.id,
     title: p.title,
     price: p.price,
@@ -91,30 +99,34 @@ async function getListingsData(dateRange: string, customRange: any, tenantFilter
     type: p.type,
     city: p.city,
     address: p.address,
-    agent: `${p.user?.firstName} ${p.user?.lastName}`,
+    agent: shouldRedactUserId(actor, p.userId)
+      ? 'Restricted'
+      : `${p.user?.firstName ?? ''} ${p.user?.lastName ?? ''}`.trim() || 'N/A',
     views: p.views,
     createdAt: p.createdAt,
-    source: p.source
+    source: p.source,
   }))
 }
 
-async function getUsersData(dateRange: string, customRange: any, userTenantFilter: { adminId?: number }, role?: string) {
-  const where: any = { ...userTenantFilter }
-  
+async function getUsersData(dateRange: string, customRange: any, actor: any, role?: string) {
+  const base: Record<string, unknown> = {}
+
   if (dateRange !== 'all') {
     const dateFilter = getDateFilter(dateRange, customRange)
     if (dateFilter) {
-      where.createdAt = dateFilter
+      base.createdAt = dateFilter
     }
   }
 
   if (role) {
     if (role === 'crm') {
-      where.role = { notIn: ['admin', 'agent'] }
+      base.role = { notIn: ['admin', 'agent'] }
     } else {
-      where.role = role
+      base.role = role
     }
   }
+
+  const where = mergeTenantUserListWhere(actor, base)
 
   const users = await prisma.user.findMany({
     where,
@@ -131,15 +143,22 @@ async function getUsersData(dateRange: string, customRange: any, userTenantFilte
   }))
 }
 
-async function getInquiriesData(dateRange: string, customRange: any, tenantFilter: { adminId?: number }) {
-  const where: any = { ...tenantFilter }
+async function getInquiriesData(
+  dateRange: string,
+  customRange: any,
+  tenantFilter: { adminId?: number },
+  actor: any
+) {
+  const base: Record<string, unknown> = { ...tenantFilter }
 
   if (dateRange !== 'all') {
     const dateFilter = getDateFilter(dateRange, customRange)
     if (dateFilter) {
-      where.createdAt = dateFilter
+      base.createdAt = dateFilter
     }
   }
+
+  const where = mergeWhereOmitExcludedUserLink(actor, base)
 
   const inquiries = await prisma.propertyInquiry.findMany({
     where,
@@ -161,17 +180,24 @@ async function getInquiriesData(dateRange: string, customRange: any, tenantFilte
   }))
 }
 
-async function getViewingsData(dateRange: string, customRange: any, tenantFilter: { adminId?: number }) {
-  const where: any = {
-    property: tenantFilter
+async function getViewingsData(
+  dateRange: string,
+  customRange: any,
+  tenantFilter: { adminId?: number },
+  actor: any
+) {
+  const base: Record<string, unknown> = {
+    property: tenantFilter,
   }
 
   if (dateRange !== 'all') {
     const dateFilter = getDateFilter(dateRange, customRange)
     if (dateFilter) {
-      where.dateTime = dateFilter
+      base.dateTime = dateFilter
     }
   }
+
+  const where = mergeWhereOmitExcludedUserLinkRequired(actor, base)
 
   const viewings = await prisma.viewingRequest.findMany({
     where,

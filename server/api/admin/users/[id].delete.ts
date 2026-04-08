@@ -1,5 +1,6 @@
 import { defineEventHandler, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { assertCanAccessTenantUser } from '../../../utils/delegateUserManagement'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -39,6 +40,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  assertCanAccessTenantUser(currentUser as any, {
+    id: userToDelete.id,
+    adminId: userToDelete.adminId,
+  })
+
   // Prevent admin from deleting themselves
   if (userToDelete.id === currentUser.id) {
     throw createError({
@@ -60,14 +66,6 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 400,
       statusMessage: 'Cannot delete super admin users'
-    })
-  }
-
-  // Tenant scoping: admin can only delete users under their own team
-  if (currentUser.role !== 'super_admin' && userToDelete.adminId !== currentUser.id) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'You do not have permission to delete this user'
     })
   }
 

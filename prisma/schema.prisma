@@ -47,6 +47,13 @@ model User {
   // Subscription tier for admins (basic, silver, gold, platinum)
   subscriptionTier     String?
 
+  // When set on a team member (role user), grants scoped /admin API + UI access for the delegator's tenant.
+  // Shape: { "crm": { "read": true, "write": false, "edit": false, "delete": false }, ... }
+  delegatedAdminPermissions Json?
+
+  // Users under the same tenant this delegated assistant must not see (e.g. high-profile clients).
+  delegationExcludedUserIds Int[] @default([])
+
   // Admin relationship – users belong to an admin (tenant)
   adminId              Int?
   admin                User?             @relation("AdminUsers", fields: [adminId], references: [id])
@@ -96,6 +103,8 @@ model User {
   tenantFacebookPosts      FacebookPost[]           @relation("TenantFacebookPosts")
   tenantPriceCutSearches   PriceCutSearch[]         @relation("TenantPriceCutSearches")
   tenantLeadForms          LeadForm[]               @relation("TenantLeadForms")
+  tenantMarketingResources MarketingResource[]      @relation("TenantMarketingResources")
+  tenantWorkspaceTools     WorkspaceTool[]          @relation("TenantWorkspaceTools")
 
   // ── Bookkeeping relations (tenant-scoped) ──
   tenantBkExpenses         BkExpense[]              @relation("TenantBkExpenses")
@@ -845,6 +854,30 @@ model ListingTemplate {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// WORKSPACE TOOLS (admin whiteboards, brainstorming, etc.)
+// ═══════════════════════════════════════════════════════════════
+
+model WorkspaceTool {
+  id          Int      @id @default(autoincrement())
+  adminId     Int?
+  admin       User?    @relation("TenantWorkspaceTools", fields: [adminId], references: [id], onDelete: Cascade)
+  name        String
+  slug        String
+  description String?  @db.Text
+  icon        String   @default("mdi-draw")
+  /** whiteboard = Excalidraw scene in sceneData */
+  kind        String   @default("whiteboard")
+  sceneData   Json?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([adminId, slug])
+  @@index([adminId, isActive, sortOrder])
+}
+
+// ═══════════════════════════════════════════════════════════════
 // CRM – CLIENTS & TRANSACTIONS (tenant-scoped)
 // ═══════════════════════════════════════════════════════════════
 
@@ -1212,4 +1245,48 @@ model LeadForm {
 
   @@index([adminId])
   @@index([slug])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MARKETING RESOURCES (gated downloads — PDF / images, lead capture)
+// ═══════════════════════════════════════════════════════════════
+
+model MarketingResource {
+  id               Int      @id @default(autoincrement())
+  adminId          Int
+  admin            User     @relation("TenantMarketingResources", fields: [adminId], references: [id], onDelete: Cascade)
+  publicSlug       String   @unique
+  title            String
+  description      String?  @db.Text
+  /** Filename only; files live under storage/marketing-resources (not web-public). */
+  storageKey       String
+  originalFileName String
+  mimeType         String
+  fileSize         Int
+  published        Boolean  @default(false)
+  thankYouMessage  String?  @db.Text
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  downloadLeads ResourceDownloadLead[]
+
+  @@index([adminId])
+  @@index([adminId, published])
+}
+
+model ResourceDownloadLead {
+  id         Int               @id @default(autoincrement())
+  resourceId Int
+  resource   MarketingResource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  adminId    Int
+  firstName  String
+  lastName   String
+  email      String
+  phone      String
+  ipAddress  String?
+  userAgent  String?           @db.Text
+  createdAt  DateTime          @default(now())
+
+  @@index([resourceId])
+  @@index([adminId, createdAt])
 }

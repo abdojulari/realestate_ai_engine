@@ -2,6 +2,9 @@ services:
   app:
     build:
       context: .
+      args:
+        # Raise if build still OOMs; Docker Desktop must allow enough RAM (e.g. 10GB+).
+        NODE_MEMORY: ${DOCKER_NODE_MEMORY:-8192}
     env_file:
       - .env
     ports:
@@ -21,6 +24,14 @@ services:
       - NUXT_PUBLIC_SITE_KEY=${NUXT_PUBLIC_SITE_KEY}
       - NUXT_PUBLIC_SECRET_KEY=${NUXT_PUBLIC_SECRET_KEY}
       - NUXT_TURNSTILE_VERIFY_URL=${NUXT_TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
+      # Verdocs e-sign (server only). env_file: .env also injects keys; these lines mirror compose interpolation.
+      # Use API host only for VERDOCS_API_BASE (e.g. https://api.verdocs.com). If you paste a token URL into API_BASE,
+      # the server normalizes it. VERDOCS_API_URL is a fallback base when API_BASE is unset.
+      - VERDOCS_CLIENT_ID=${VERDOCS_CLIENT_ID}
+      - VERDOCS_CLIENT_SECRET=${VERDOCS_CLIENT_SECRET}
+      - VERDOCS_API_BASE=${VERDOCS_API_BASE:-https://api.verdocs.com}
+      - VERDOCS_TOKEN_URL=${VERDOCS_TOKEN_URL:-}
+      - VERDOCS_API_URL=${VERDOCS_API_URL:-}
     volumes:
       - uploads_data:/app/public/uploads
     depends_on:

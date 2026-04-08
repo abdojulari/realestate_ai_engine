@@ -92,20 +92,23 @@
         <v-col cols="12">
           <v-card class="posts-table-card" elevation="0">
             <v-data-table
+              v-model:page="pagination.page"
+              v-model:items-per-page="pagination.limit"
               :headers="headers"
               :items="posts"
               :loading="loading"
-              :items-per-page="pagination.limit"
               :items-length="pagination.total"
+              item-value="id"
               class="premium-data-table"
-              @update:page="handlePageChange"
+              @update:page="fetchPosts"
+              @update:items-per-page="onItemsPerPageChange"
             >
               <!-- Title Column -->
               <template v-slot:item.title="{ item }">
                 <div class="d-flex align-center py-2">
                   <v-img
-                    v-if="item.coverImage"
-                    :src="item.coverImage"
+                    v-if="row(item).coverImage"
+                    :src="row(item).coverImage"
                     width="60"
                     height="40"
                     cover
@@ -115,8 +118,8 @@
                     <v-icon size="20" color="grey">mdi-image</v-icon>
                   </div>
                   <div>
-                    <div class="font-weight-bold text-body-1">{{ item.title }}</div>
-                    <div class="text-caption text-medium-emphasis">/blog/{{ item.slug }}</div>
+                    <div class="font-weight-bold text-body-1">{{ row(item).title }}</div>
+                    <div class="text-caption text-medium-emphasis">/blog/{{ row(item).slug }}</div>
                   </div>
                 </div>
               </template>
@@ -124,26 +127,28 @@
               <!-- Category Column -->
               <template v-slot:item.category="{ item }">
                 <v-chip
-                  v-if="item.category"
-                  :color="item.category.color"
+                  v-if="row(item).category"
+                  :color="categoryChipColor(row(item).category)"
                   size="small"
                   variant="tonal"
                 >
-                  {{ item.category.name }}
+                  {{ row(item).category.name }}
                 </v-chip>
                 <span v-else class="text-grey">—</span>
               </template>
 
               <!-- Author Column -->
               <template v-slot:item.author="{ item }">
-                <div v-if="item.author" class="d-flex align-center">
+                <div v-if="row(item).author" class="d-flex align-center">
                   <v-avatar size="28" class="mr-2" color="primary">
-                    <v-img v-if="item.author.avatar" :src="item.author.avatar" />
+                    <v-img v-if="row(item).author.avatar" :src="row(item).author.avatar" />
                     <span v-else class="text-caption text-white">
-                      {{ item.author.firstName?.[0] }}{{ item.author.lastName?.[0] }}
+                      {{ row(item).author.firstName?.[0] }}{{ row(item).author.lastName?.[0] }}
                     </span>
                   </v-avatar>
-                  <span class="text-body-2">{{ item.author.firstName }} {{ item.author.lastName }}</span>
+                  <span class="text-body-2">
+                    {{ row(item).author.firstName }} {{ row(item).author.lastName }}
+                  </span>
                 </div>
                 <span v-else class="text-grey">—</span>
               </template>
@@ -151,60 +156,71 @@
               <!-- Status Column -->
               <template v-slot:item.status="{ item }">
                 <v-chip
-                  :color="getStatusColor(item.status)"
+                  :color="getStatusColor(row(item).status)"
                   size="small"
                   variant="flat"
                   class="text-uppercase font-weight-bold"
                 >
-                  {{ item.status }}
+                  {{ row(item).status }}
                 </v-chip>
               </template>
 
               <!-- Date Column -->
               <template v-slot:item.publishedAt="{ item }">
                 <div class="text-body-2">
-                  {{ item.publishedAt ? formatDate(item.publishedAt) : formatDate(item.createdAt) }}
+                  {{
+                    row(item).publishedAt
+                      ? formatDate(row(item).publishedAt)
+                      : formatDate(row(item).createdAt)
+                  }}
                 </div>
                 <div class="text-caption text-medium-emphasis">
-                  {{ item.views }} views
+                  {{ row(item).views ?? 0 }} views
                 </div>
               </template>
 
               <!-- Actions Column -->
               <template v-slot:item.actions="{ item }">
-                <div class="d-flex gap-1">
-                  <v-btn
-                    icon
-                    size="small"
-                    variant="text"
-                    color="primary"
-                    :to="`/admin/blog/${item.id}`"
-                  >
-                    <v-icon>mdi-pencil</v-icon>
-                    <v-tooltip activator="parent">Edit</v-tooltip>
-                  </v-btn>
-                  <v-btn
-                    icon
-                    size="small"
-                    variant="text"
-                    color="info"
-                    :href="`/blog/${item.slug}`"
-                    target="_blank"
-                    :disabled="item.status !== 'published'"
-                  >
-                    <v-icon>mdi-eye</v-icon>
-                    <v-tooltip activator="parent">View</v-tooltip>
-                  </v-btn>
-                  <v-btn
-                    icon
-                    size="small"
-                    variant="text"
-                    color="error"
-                    @click="confirmDelete(item)"
-                  >
-                    <v-icon>mdi-delete</v-icon>
-                    <v-tooltip activator="parent">Delete</v-tooltip>
-                  </v-btn>
+                <div class="d-flex gap-1 justify-end">
+                  <v-tooltip text="Edit" location="top">
+                    <template #activator="{ props: tip }">
+                      <v-btn
+                        v-bind="tip"
+                        icon="mdi-pencil"
+                        size="small"
+                        variant="text"
+                        color="primary"
+                        :to="`/admin/blog/${row(item).id}`"
+                      />
+                    </template>
+                  </v-tooltip>
+                  <v-tooltip text="View live" location="top">
+                    <template #activator="{ props: tip }">
+                      <v-btn
+                        v-bind="tip"
+                        icon="mdi-eye"
+                        size="small"
+                        variant="text"
+                        color="info"
+                        :href="`/blog/${row(item).slug}`"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        :disabled="row(item).status !== 'published'"
+                      />
+                    </template>
+                  </v-tooltip>
+                  <v-tooltip text="Delete" location="top">
+                    <template #activator="{ props: tip }">
+                      <v-btn
+                        v-bind="tip"
+                        icon="mdi-delete"
+                        size="small"
+                        variant="text"
+                        color="error"
+                        @click="confirmDelete(row(item))"
+                      />
+                    </template>
+                  </v-tooltip>
                 </div>
               </template>
 
@@ -250,11 +266,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 // @ts-ignore
 import { api } from '~/utils/api'
 // @ts-ignore
 import { formatDate } from '~/utils/formatters'
+
+/** Vuetify data-table may pass either the row object or `{ raw }` depending on version / mode */
+const row = (item: any) => (item?.raw != null ? item.raw : item) as any
+
+const categoryChipColor = (cat: { color?: string | null }) => {
+  const c = cat?.color?.trim()
+  if (!c) return 'primary'
+  if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c)) return c
+  return c
+}
 
 definePageMeta({
   layout: 'admin',
@@ -361,9 +387,8 @@ const fetchCategories = async () => {
   }
 }
 
-// Handle page change
-const handlePageChange = (page: number) => {
-  pagination.value.page = page
+const onItemsPerPageChange = () => {
+  pagination.value.page = 1
   fetchPosts()
 }
 
@@ -395,6 +420,20 @@ const deletePost = async () => {
 watch([activeTab, selectedCategory], () => {
   pagination.value.page = 1
   fetchPosts()
+})
+
+let searchDebounce: ReturnType<typeof setTimeout> | null = null
+watch(searchQuery, () => {
+  if (searchDebounce) clearTimeout(searchDebounce)
+  searchDebounce = setTimeout(() => {
+    searchDebounce = null
+    pagination.value.page = 1
+    fetchPosts()
+  }, 400)
+})
+
+onBeforeUnmount(() => {
+  if (searchDebounce) clearTimeout(searchDebounce)
 })
 
 // Initialize

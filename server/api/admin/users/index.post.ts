@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { getAdminIdForCreate } from '../../../utils/tenant'
 import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
 
@@ -29,6 +30,13 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 403,
       statusMessage: 'Only super admins can create super admin users'
+    })
+  }
+
+  if (user.role === 'user' && (role === 'admin' || role === 'super_admin')) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: 'Delegated users cannot create administrator accounts',
     })
   }
 
@@ -65,8 +73,8 @@ export default defineEventHandler(async (event) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Tenant scoping: admin creates user under themselves, super_admin can create top-level
-    const adminId = user.role === 'super_admin' ? undefined : user.id
+    // Tenant scoping: super_admin legacy (no adminId); otherwise attach to tenant principal
+    const adminId = user.role === 'super_admin' ? undefined : getAdminIdForCreate(user as any)
 
     // Create user
     const newUser = await prisma.user.create({

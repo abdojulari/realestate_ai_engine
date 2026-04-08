@@ -20,6 +20,9 @@
               <v-btn value="monthly" size="small">Monthly</v-btn>
               <v-btn value="quarterly" size="small">Quarterly</v-btn>
             </v-btn-toggle>
+            <v-btn color="primary" class="premium-action-btn" prepend-icon="mdi-folder-download" to="/admin/resources" variant="tonal">
+              Resources
+            </v-btn>
             <v-btn color="primary" class="premium-action-btn" prepend-icon="mdi-link-plus" to="/admin/lead-generation/forms" variant="tonal">
               Capture Forms
             </v-btn>
@@ -176,7 +179,7 @@
                   </div>
                 </div>
                 <v-divider class="my-4" />
-                <div class="pipeline-section">
+                <div class="pipeline-section mb-5">
                   <div class="pipeline-title mb-2">
                     <v-icon size="16" class="mr-1">mdi-calculator</v-icon> Home Estimates
                   </div>
@@ -184,6 +187,17 @@
                     <span class="pipeline-status-dot" :class="'dot-' + status"></span>
                     <span class="pipeline-status-label">{{ formatStatus(status as string) }}</span>
                     <span class="pipeline-status-count">{{ count }}</span>
+                  </div>
+                </div>
+                <v-divider class="my-4" />
+                <div class="pipeline-section">
+                  <div class="pipeline-title mb-2">
+                    <v-icon size="16" class="mr-1">mdi-folder-download</v-icon> Resource downloads
+                  </div>
+                  <div class="pipeline-row">
+                    <span class="pipeline-status-dot dot-new"></span>
+                    <span class="pipeline-status-label">Gated downloads (all time)</span>
+                    <span class="pipeline-status-count">{{ data.pipeline.resourceLeadsTotal ?? 0 }}</span>
                   </div>
                 </div>
               </v-card-text>
@@ -333,6 +347,7 @@ const sourceCards = computed(() => {
     { label: 'Inquiries', value: s.inquiries, icon: 'mdi-home-search', colorClass: 'src-blue' },
     { label: 'Chat', value: s.chatLeads, icon: 'mdi-chat', colorClass: 'src-purple' },
     { label: 'Estimates', value: s.estimates, icon: 'mdi-calculator', colorClass: 'src-orange' },
+    { label: 'Resources', value: s.resourceLeads ?? 0, icon: 'mdi-folder-download', colorClass: 'src-brown' },
     { label: 'Newsletter', value: s.subscribers, icon: 'mdi-email', colorClass: 'src-green' },
     { label: 'CRM', value: s.crmLeads, icon: 'mdi-account-group', colorClass: 'src-red' },
   ]
@@ -354,6 +369,7 @@ const sourceChartOption = computed(() => {
         { value: s.inquiries, name: 'Inquiries', itemStyle: { color: '#4285f4' } },
         { value: s.chatLeads, name: 'Chat', itemStyle: { color: '#9c27b0' } },
         { value: s.estimates, name: 'Estimates', itemStyle: { color: '#ff9800' } },
+        { value: s.resourceLeads ?? 0, name: 'Resources', itemStyle: { color: '#795548' } },
         { value: s.subscribers, name: 'Newsletter', itemStyle: { color: '#43a047' } },
         { value: s.crmLeads, name: 'CRM Direct', itemStyle: { color: '#e53935' } },
       ].filter(d => d.value > 0),
@@ -378,6 +394,7 @@ const trendChartOption = computed(() => {
       { name: 'Inquiries', type: 'bar', stack: 'total', data: tData.map((d: any) => d.inquiries), itemStyle: { color: '#4285f4' }, barWidth: isMonthly ? 20 : 40 },
       { name: 'Chat', type: 'bar', stack: 'total', data: tData.map((d: any) => d.chatLeads), itemStyle: { color: '#9c27b0' } },
       { name: 'Estimates', type: 'bar', stack: 'total', data: tData.map((d: any) => d.estimates), itemStyle: { color: '#ff9800' } },
+      { name: 'Resources', type: 'bar', stack: 'total', data: tData.map((d: any) => d.resourceLeads ?? 0), itemStyle: { color: '#795548' } },
       { name: 'Newsletter', type: 'bar', stack: 'total', data: tData.map((d: any) => d.subscribers), itemStyle: { color: '#43a047' } },
       { name: 'Total', type: 'line', data: tData.map((d: any) => d.total), smooth: true, itemStyle: { color: '#1a1a1a' }, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6 },
     ],
@@ -412,11 +429,16 @@ function formatDate(d: string) { return new Date(d).toLocaleDateString('en', { m
 function getInitials(name: string) { return (name || 'U').split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2) }
 
 function getSourceColor(type: string) {
-  const m: Record<string, string> = { inquiry: 'blue', chat: 'purple', estimate: 'orange' }
+  const m: Record<string, string> = { inquiry: 'blue', chat: 'purple', estimate: 'orange', resource: 'brown' }
   return m[type] || 'primary'
 }
 function getSourceIcon(type: string) {
-  const m: Record<string, string> = { inquiry: 'mdi-home-search', chat: 'mdi-chat', estimate: 'mdi-calculator' }
+  const m: Record<string, string> = {
+    inquiry: 'mdi-home-search',
+    chat: 'mdi-chat',
+    estimate: 'mdi-calculator',
+    resource: 'mdi-folder-download',
+  }
   return m[type] || 'mdi-account'
 }
 function getStatusColor(s: string) {
@@ -433,17 +455,20 @@ async function doConvert() {
   if (!convertTarget.value) return
   converting.value = true
   try {
+    const t = convertTarget.value
+    const source =
+      t.type === 'resource' ? 'resource_download' : t.type === 'chat' ? t.source || 'chat' : t.type
     await $fetch('/api/admin/crm/clients', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: {
-        firstName: (convertTarget.value.name || '').split(' ')[0] || 'Unknown',
-        lastName: (convertTarget.value.name || '').split(' ').slice(1).join(' ') || '',
-        email: convertTarget.value.email,
-        phone: convertTarget.value.phone,
+        firstName: t.firstName || (t.name || '').split(' ')[0] || 'Unknown',
+        lastName: t.lastName || (t.name || '').split(' ').slice(1).join(' ') || '',
+        email: t.email,
+        phone: t.phone,
         type: convertType.value,
-        source: convertTarget.value.type,
-        sourceId: convertTarget.value.id,
+        source,
+        sourceId: t.id,
       },
     })
     showConvert.value = false
@@ -545,6 +570,7 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
 .src-orange { background: rgba(255,152,0,0.08); color: #e65100; }
 .src-green { background: rgba(67,160,71,0.08); color: #2e7d32; }
 .src-red { background: rgba(229,57,53,0.08); color: #c62828; }
+.src-brown { background: rgba(121,85,72,0.1); color: #5d4037; }
 
 /* Pipeline */
 .pipeline-title { font-size: 13px; font-weight: 700; color: #333; display: flex; align-items: center; }

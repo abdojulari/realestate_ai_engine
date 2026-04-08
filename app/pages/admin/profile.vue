@@ -10,14 +10,25 @@
           <h1 class="text-h4 font-serif text-slate-900 font-weight-bold">Admin Profile</h1>
         </div>
         <v-spacer />
-        <v-chip 
-          color="success" 
-          variant="flat" 
+        <v-chip
+          v-if="auth.isPrincipalAdmin"
+          color="success"
+          variant="flat"
           class="premium-chip font-weight-bold"
           elevation="0"
         >
           <v-icon start size="18">mdi-check-circle</v-icon>
-          Active Admin
+          Account owner
+        </v-chip>
+        <v-chip
+          v-else
+          color="info"
+          variant="flat"
+          class="premium-chip font-weight-bold"
+          elevation="0"
+        >
+          <v-icon start size="18">mdi-shield-account-outline</v-icon>
+          Delegated access
         </v-chip>
       </div>
     </div>
@@ -279,9 +290,245 @@
               </v-btn>
             </v-card-actions>
           </v-card>
+
+          <v-card v-if="auth.isPrincipalAdmin" class="premium-card mb-8">
+            <div class="p-8 border-b border-slate-100 d-flex align-center">
+              <div class="icon-orb mr-4 bg-teal-50">
+                <v-icon color="teal" size="24">mdi-account-supervisor</v-icon>
+              </div>
+              <div>
+                <h2 class="text-h6 font-weight-bold">Team admin access</h2>
+                <p class="text-caption text-slate-500 mb-0">
+                  Grant assistants access to the admin panel and set permissions per product area (CRM, CMA, Facebook, etc.).
+                </p>
+              </div>
+            </div>
+            <v-card-text class="p-8">
+              <v-select
+                v-model="delegationUserId"
+                :items="assistants"
+                item-title="label"
+                item-value="id"
+                label="Team member"
+                variant="outlined"
+                density="comfortable"
+                clearable
+                :loading="delegationLoading"
+                class="mb-2"
+                hint="Users on your team (standard accounts only). Create one below if the list is empty."
+                persistent-hint
+              />
+              <div class="d-flex flex-wrap align-center gap-2 mb-6">
+                <v-btn
+                  color="primary"
+                  variant="tonal"
+                  prepend-icon="mdi-account-plus"
+                  @click="openAddTeamMemberDialog"
+                >
+                  Add team member
+                </v-btn>
+                <v-btn
+                  variant="text"
+                  color="primary"
+                  size="small"
+                  prepend-icon="mdi-open-in-new"
+                  to="/admin/users"
+                >
+                  User management
+                </v-btn>
+              </div>
+              <template v-if="delegationUserId">
+                <p class="text-body-2 text-slate-600 mb-4">
+                  Read: view and lists. Write: create. Edit: update. Delete: remove records.
+                </p>
+                <v-expansion-panels variant="accordion" multiple>
+                  <v-expansion-panel
+                    v-for="key in delegationFeatureKeys"
+                    :key="key"
+                    :title="delegationLabel(key)"
+                  >
+                    <v-expansion-panel-text>
+                      <div class="d-flex flex-wrap gap-2 align-center">
+                        <v-checkbox
+                          v-model="delegationPerm[key].read"
+                          label="Read"
+                          hide-details
+                          density="compact"
+                        />
+                        <v-checkbox
+                          v-model="delegationPerm[key].write"
+                          label="Write"
+                          hide-details
+                          density="compact"
+                        />
+                        <v-checkbox
+                          v-model="delegationPerm[key].edit"
+                          label="Edit"
+                          hide-details
+                          density="compact"
+                        />
+                        <v-checkbox
+                          v-model="delegationPerm[key].delete"
+                          label="Delete"
+                          hide-details
+                          density="compact"
+                        />
+                        <v-spacer />
+                        <v-btn size="small" variant="tonal" @click="setDelegationRowAll(key, true)">All</v-btn>
+                        <v-btn size="small" variant="text" @click="setDelegationRowAll(key, false)">Clear</v-btn>
+                      </div>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+
+                <v-divider class="my-8" />
+                <h3 class="text-subtitle-1 font-weight-bold mb-2">Hide specific users</h3>
+                <p class="text-body-2 text-slate-600 mb-4">
+                  Accounts you add here stay on your team but are hidden from this assistant in user management,
+                  contact search, and related actions (e.g. high-profile clients).
+                </p>
+                <v-select
+                  v-model="exclusionIds"
+                  :items="tenantUserOptions"
+                  item-title="title"
+                  item-value="value"
+                  label="Excluded users"
+                  variant="outlined"
+                  multiple
+                  chips
+                  closable-chips
+                  density="comfortable"
+                  class="mb-4"
+                />
+                <v-btn
+                  variant="tonal"
+                  color="secondary"
+                  :loading="exclusionSaving"
+                  :disabled="!delegationUserId"
+                  class="mb-6"
+                  @click="saveDelegationExclusions"
+                >
+                  Save exclusion list
+                </v-btn>
+
+                <div class="d-flex flex-wrap gap-3 mt-2">
+                  <v-btn
+                    color="primary"
+                    :loading="delegationSaving"
+                    @click="saveDelegationMatrix"
+                  >
+                    Save access
+                  </v-btn>
+                  <v-btn
+                    color="error"
+                    variant="tonal"
+                    :loading="delegationSaving"
+                    @click="revokeDelegationAccess"
+                  >
+                    Revoke all
+                  </v-btn>
+                </div>
+              </template>
+              <v-alert v-else type="info" variant="tonal" density="comfortable" class="mb-0">
+                <span v-if="assistants.length === 0">
+                  No standard team accounts yet. Use <strong>Add team member</strong> to create one with a login, then choose them above to grant admin access.
+                </span>
+                <span v-else>
+                  Select a team member to configure delegated admin permissions.
+                </span>
+              </v-alert>
+            </v-card-text>
+          </v-card>
         </v-col>
       </v-row>
     </v-container>
+
+    <!-- Add team member (standard user on your tenant) -->
+    <v-dialog v-model="showAddTeamMemberDialog" max-width="520" persistent>
+      <v-card class="premium-card">
+        <div class="p-6 border-b border-slate-100 d-flex align-center justify-space-between">
+          <div>
+            <div class="text-overline text-slate-500 letter-spacing-1 mb-1">Team</div>
+            <h2 class="text-h6 font-weight-bold mb-0">Add team member</h2>
+            <p class="text-caption text-slate-500 mb-0">
+              Creates a <strong>standard</strong> account on your team. They can sign in with this email and password; then you can assign admin permissions.
+            </p>
+          </div>
+          <v-btn icon="mdi-close" variant="text" @click="showAddTeamMemberDialog = false" />
+        </div>
+        <v-card-text class="pa-6 pt-4">
+          <v-form v-model="isAddTeamMemberFormValid">
+            <v-row dense>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model="addTeamMemberForm.firstName"
+                  label="First name"
+                  variant="outlined"
+                  density="comfortable"
+                  :rules="[(v: string) => !!v || 'Required']"
+                  required
+                />
+              </v-col>
+              <v-col cols="12" sm="6">
+                <v-text-field
+                  v-model="addTeamMemberForm.lastName"
+                  label="Last name"
+                  variant="outlined"
+                  density="comfortable"
+                  :rules="[(v: string) => !!v || 'Required']"
+                  required
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="addTeamMemberForm.email"
+                  label="Email"
+                  type="email"
+                  variant="outlined"
+                  density="comfortable"
+                  :rules="emailRules"
+                  required
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="addTeamMemberForm.phone"
+                  label="Phone (optional)"
+                  variant="outlined"
+                  density="comfortable"
+                  :rules="phoneRules"
+                />
+              </v-col>
+              <v-col cols="12">
+                <v-text-field
+                  v-model="addTeamMemberForm.password"
+                  label="Initial password"
+                  type="password"
+                  variant="outlined"
+                  density="comfortable"
+                  :rules="passwordRules"
+                  hint="At least 8 characters. They can change it after signing in."
+                  persistent-hint
+                  required
+                />
+              </v-col>
+            </v-row>
+          </v-form>
+        </v-card-text>
+        <v-card-actions class="px-6 pb-6 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="showAddTeamMemberDialog = false">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            :loading="addTeamMemberSaving"
+            :disabled="!isAddTeamMemberFormValid"
+            @click="submitAddTeamMember"
+          >
+            Create & select
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Change Password Dialog -->
     <v-dialog v-model="showPasswordDialog" max-width="500">
@@ -389,10 +636,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 // @ts-ignore
 import { api } from '~/utils/api'
 import { useAuthStore } from '~/stores/auth'
+import {
+  DELEGATION_FEATURE_LABELS,
+  DELEGATION_FEATURE_ORDER,
+} from '~/utils/delegatedAdminClient'
 
 const auth = useAuthStore()
 
@@ -445,6 +696,220 @@ const passwordForm = reactive({
   newPassword: '',
   confirmPassword: ''
 })
+
+type PermRow = { read: boolean; write: boolean; edit: boolean; delete: boolean }
+
+const delegationFeatureKeys = DELEGATION_FEATURE_ORDER
+const delegationLabel = (k: string) => DELEGATION_FEATURE_LABELS[k] || k
+
+const assistants = ref<
+  { id: number; email: string; firstName: string; lastName: string; label?: string }[]
+>([])
+const delegationUserId = ref<number | null>(null)
+const delegationLoading = ref(false)
+const delegationSaving = ref(false)
+const exclusionIds = ref<number[]>([])
+const tenantUserOptions = ref<{ title: string; value: number }[]>([])
+const exclusionSaving = ref(false)
+
+const showAddTeamMemberDialog = ref(false)
+const addTeamMemberSaving = ref(false)
+const isAddTeamMemberFormValid = ref(false)
+const addTeamMemberForm = reactive({
+  firstName: '',
+  lastName: '',
+  email: '',
+  phone: '',
+  password: '',
+})
+
+const delegationPerm = reactive<Record<string, PermRow>>({})
+
+function emptyPerm(): PermRow {
+  return { read: false, write: false, edit: false, delete: false }
+}
+
+function resetDelegationMatrix() {
+  for (const key of DELEGATION_FEATURE_ORDER) {
+    delegationPerm[key] = emptyPerm()
+  }
+}
+resetDelegationMatrix()
+
+function openAddTeamMemberDialog() {
+  addTeamMemberForm.firstName = ''
+  addTeamMemberForm.lastName = ''
+  addTeamMemberForm.email = ''
+  addTeamMemberForm.phone = ''
+  addTeamMemberForm.password = ''
+  showAddTeamMemberDialog.value = true
+}
+
+async function submitAddTeamMember() {
+  if (!isAddTeamMemberFormValid.value) return
+  addTeamMemberSaving.value = true
+  try {
+    const created: any = await api.post('/api/admin/users', {
+      firstName: addTeamMemberForm.firstName.trim(),
+      lastName: addTeamMemberForm.lastName.trim(),
+      email: addTeamMemberForm.email.trim(),
+      phone: addTeamMemberForm.phone.trim() || null,
+      password: addTeamMemberForm.password,
+      role: 'user',
+      status: 'active',
+    })
+    showAddTeamMemberDialog.value = false
+    await loadAssistantsList()
+    const id = Number(created?.id)
+    if (Number.isInteger(id)) {
+      delegationUserId.value = id
+    }
+    showToast('Team member created. Set their admin access below.')
+  } catch (e: any) {
+    const msg =
+      e?.data?.statusMessage ||
+      e?.statusMessage ||
+      e?.message ||
+      'Could not create team member'
+    showToast(msg, 'error')
+  } finally {
+    addTeamMemberSaving.value = false
+  }
+}
+
+async function loadAssistantsList() {
+  if (!auth.isPrincipalAdmin) return
+  delegationLoading.value = true
+  try {
+    const data: any = await api.get('/api/admin/delegation/assistants')
+    const list = data.assistants || []
+    assistants.value = list.map((a: any) => ({
+      ...a,
+      label:
+        `${a.firstName || ''} ${a.lastName || ''}`.trim() + ` (${a.email})`,
+    }))
+  } catch (e) {
+    console.error(e)
+    showToast('Could not load team members', 'error')
+  } finally {
+    delegationLoading.value = false
+  }
+}
+
+async function loadTenantUserOptions() {
+  if (!auth.isPrincipalAdmin || !delegationUserId.value) {
+    tenantUserOptions.value = []
+    return
+  }
+  try {
+    const rows: any[] = await api.get('/api/admin/users')
+    const sid = delegationUserId.value
+    tenantUserOptions.value = rows
+      .filter((u: any) => u.id !== sid)
+      .map((u: any) => ({
+        value: u.id,
+        title:
+          `${u.firstName || ''} ${u.lastName || ''}`.trim() + ` (${u.email})`,
+      }))
+  } catch (e) {
+    console.error(e)
+    tenantUserOptions.value = []
+  }
+}
+
+watch(delegationUserId, async (id) => {
+  resetDelegationMatrix()
+  exclusionIds.value = []
+  tenantUserOptions.value = []
+  if (!id) return
+  try {
+    const data: any = await api.get(`/api/admin/delegation/${id}`)
+    const raw = data.delegatedAdminPermissions
+    if (raw && typeof raw === 'object') {
+      for (const key of DELEGATION_FEATURE_ORDER) {
+        const p = (raw as Record<string, unknown>)[key]
+        if (p && typeof p === 'object' && p !== null && !Array.isArray(p)) {
+          const o = p as Record<string, unknown>
+          delegationPerm[key] = {
+            read: Boolean(o.read),
+            write: Boolean(o.write),
+            edit: Boolean(o.edit),
+            delete: Boolean(o.delete),
+          }
+        }
+      }
+    }
+    const ex = data.delegationExcludedUserIds
+    exclusionIds.value = Array.isArray(ex) ? ex.map((n: unknown) => Number(n)).filter((n) => Number.isInteger(n)) : []
+    await loadTenantUserOptions()
+  } catch (e) {
+    showToast('Could not load permissions', 'error')
+  }
+})
+
+function setDelegationRowAll(key: string, on: boolean) {
+  delegationPerm[key] = {
+    read: on,
+    write: on,
+    edit: on,
+    delete: on,
+  }
+}
+
+async function saveDelegationMatrix() {
+  if (!delegationUserId.value) return
+  delegationSaving.value = true
+  try {
+    const permissions: Record<string, PermRow> = {}
+    for (const key of DELEGATION_FEATURE_ORDER) {
+      const r = delegationPerm[key]
+      if (r?.read || r?.write || r?.edit || r?.delete) {
+        permissions[key] = { ...r }
+      }
+    }
+    await api.put(`/api/admin/delegation/${delegationUserId.value}`, { permissions })
+    showToast('Team access saved')
+  } catch (e) {
+    showToast('Failed to save access', 'error')
+  } finally {
+    delegationSaving.value = false
+  }
+}
+
+async function revokeDelegationAccess() {
+  if (!delegationUserId.value) return
+  delegationSaving.value = true
+  try {
+    await api.put(`/api/admin/delegation/${delegationUserId.value}`, {
+      permissions: null,
+    })
+    await api.put(`/api/admin/delegation/${delegationUserId.value}/exclusions`, {
+      excludedUserIds: [],
+    })
+    resetDelegationMatrix()
+    exclusionIds.value = []
+    showToast('Delegated admin access removed')
+  } catch (e) {
+    showToast('Failed to revoke access', 'error')
+  } finally {
+    delegationSaving.value = false
+  }
+}
+
+async function saveDelegationExclusions() {
+  if (!delegationUserId.value) return
+  exclusionSaving.value = true
+  try {
+    await api.put(`/api/admin/delegation/${delegationUserId.value}/exclusions`, {
+      excludedUserIds: exclusionIds.value,
+    })
+    showToast('Exclusion list saved')
+  } catch (e) {
+    showToast('Failed to save exclusions', 'error')
+  } finally {
+    exclusionSaving.value = false
+  }
+}
 
 // Validation Rules
 const emailRules = [
@@ -602,6 +1067,7 @@ onMounted(async () => {
   }
   
   await loadProfile()
+  await loadAssistantsList()
 })
 
 definePageMeta({
@@ -651,6 +1117,10 @@ definePageMeta({
 
 .bg-purple-50 {
   background: rgba(156, 39, 176, 0.08) !important;
+}
+
+.bg-teal-50 {
+  background: rgba(0, 150, 136, 0.1) !important;
 }
 
 /* Avatar Styling */

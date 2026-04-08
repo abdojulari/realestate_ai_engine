@@ -32,8 +32,8 @@ export default defineEventHandler(async (event) => {
 
     await writeFile(filepath, file.data)
 
-    // Determine image type from form field name
-    const imageType = formData.find(f => f.name === 'type')?.data?.toString() || 'gallery'
+    const rawType = formData.find(f => f.name === 'type')?.data?.toString() || 'gallery'
+    const imageType = ['gallery', 'floorplan', 'branding'].includes(rawType) ? rawType : 'gallery'
 
     return {
       success: true,

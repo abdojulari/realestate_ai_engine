@@ -1,5 +1,9 @@
 import { H3Event } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import {
+  mergeTenantUserListWhere,
+  mergeWhereOmitExcludedUserLink,
+} from '../../../utils/delegateUserManagement'
 import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -13,16 +17,14 @@ if (process.env.NODE_ENV !== 'production') {
 /**
  * GET /api/admin/contacts/search?q=...&limit=20
  *
- * Unified CRM contact search across Users, ChatLeads, HomeEstimates,
- * and NewsletterSubscribers. Returns deduplicated contacts by email.
- * All searches are scoped by tenant (super_admin sees all).
+ * Unified contact search for CRM + signing UI: **CrmClient first** (canonical per-tenant customers),
+ * then Users, ChatLeads, HomeEstimates, NewsletterSubscribers, Testimonials.
+ * Deduplicated by email (first source wins — CRM rows win when present).
+ * Scoped by tenant (`requireAdmin` + `getTenantFilter`); super_admin sees all tenants.
  */
 export default defineEventHandler(async (event: H3Event) => {
   const user = await requireAdmin(event)
   const tenantFilter = getTenantFilter(user)
-
-  // For User model: admin's team members have adminId = admin's id
-  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
 
   const query = getQuery(event)
   const q = ((query.q as string) || '').trim().toLowerCase()
@@ -51,10 +53,10 @@ export default defineEventHandler(async (event: H3Event) => {
   }
 
   try {
-    // Search Users (scoped by tenant)
-    const users = await prisma.user.findMany({
+    // CRM clients (tenant-scoped; @@unique [adminId, email] — primary customer list)
+    const crmClients = await prisma.crmClient.findMany({
       where: {
-        ...userTenantFilter,
+        ...tenantFilter,
         ...(q
           ? {
               OR: [
@@ -65,6 +67,35 @@ export default defineEventHandler(async (event: H3Event) => {
             }
           : {}),
       },
+      select: { email: true, firstName: true, lastName: true, phone: true },
+      take: limit,
+      orderBy: { updatedAt: 'desc' },
+    })
+    for (const c of crmClients) {
+      const em = c.email?.trim()
+      if (!em) continue
+      addContact(
+        em,
+        [c.firstName, c.lastName].filter(Boolean).join(' ').trim() || em,
+        'CRM',
+        c.phone
+      )
+    }
+
+    // Search Users (scoped by tenant; delegates omit VIP-excluded accounts)
+    const userSearchWhere = mergeTenantUserListWhere(user as any, {
+      ...(q
+        ? {
+            OR: [
+              { email: { contains: q, mode: 'insensitive' } },
+              { firstName: { contains: q, mode: 'insensitive' } },
+              { lastName: { contains: q, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    })
+    const users = await prisma.user.findMany({
+      where: userSearchWhere,
       select: { email: true, firstName: true, lastName: true, phone: true },
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -100,19 +131,20 @@ export default defineEventHandler(async (event: H3Event) => {
 
     // Search HomeEstimates (scoped by tenant – has adminId)
     try {
+      const estimateBase: Record<string, unknown> = {
+        ...tenantFilter,
+        ...(q
+          ? {
+              OR: [
+                { email: { contains: q, mode: 'insensitive' } },
+                { firstName: { contains: q, mode: 'insensitive' } },
+                { lastName: { contains: q, mode: 'insensitive' } },
+              ],
+            }
+          : {}),
+      }
       const estimates = await (prisma as any).homeEstimate.findMany({
-        where: {
-          ...tenantFilter,
-          ...(q
-            ? {
-                OR: [
-                  { email: { contains: q, mode: 'insensitive' } },
-                  { firstName: { contains: q, mode: 'insensitive' } },
-                  { lastName: { contains: q, mode: 'insensitive' } },
-                ],
-              }
-            : {}),
-        },
+        where: mergeWhereOmitExcludedUserLink(user as any, estimateBase),
         select: { email: true, firstName: true, lastName: true, phone: true },
         take: limit,
         orderBy: { createdAt: 'desc' },

@@ -39,7 +39,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
       console.log('[Admin Middleware] Have token but no user, checking auth')
       try {
         await auth.checkAuth()
-        console.log('[Admin Middleware] Auth check successful, user:', auth.user?.email)
+        console.log('[Admin Middleware] Auth check successful, user:', (auth.user as any).email)
       } catch (error) {
         // Auth check failed, clear everything and redirect
         console.error('[Admin Middleware] Auth check failed:', error)
@@ -60,10 +60,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
       })
     }
 
-    // Check if user is an admin or super_admin
-    if (auth.user.role !== 'admin' && auth.user.role !== 'super_admin') {
-      // User exists but is not admin, redirect to home
-      console.log('[Admin Middleware] User is not admin, role:', auth.user.role)
+    // Admin panel: principal admins or delegated team members with permissions
+    if (!auth.isAdmin) {
+      console.log('[Admin Middleware] User cannot access admin, role:', auth.user.role)
       return navigateTo('/')
     }
     

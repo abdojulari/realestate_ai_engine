@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { assertCanAccessTenantUser } from '../../../utils/delegateUserManagement'
 import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
 
@@ -71,14 +72,6 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 403,
       statusMessage: 'Only super admins can assign the super admin role'
-    })
-  }
-
-  // Tenant scoping: admin can only update users under their own team
-  if (user.role !== 'super_admin' && existingUser.adminId !== user.id) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'You do not have permission to update this user'
     })
   }
 

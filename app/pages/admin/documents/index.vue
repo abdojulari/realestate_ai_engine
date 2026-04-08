@@ -3,88 +3,267 @@
   <v-container fluid class="fill-height pa-0 premium-bg">
     <!-- ─── Dashboard View ──────────────────────────────── -->
     <v-fade-transition hide-on-leave>
-      <div v-if="!editor.isEditing.value" class="w-100 pa-6 dashboard-container">
-        <v-row align="center" class="mb-6">
-          <v-col>
-            <h1 class="text-h4 font-weight-bold text-grey-darken-4">Document Management</h1>
-            <p class="text-subtitle-1 text-grey">Edit, sign, and convert your professional documents.</p>
+      <div v-if="!editor.isEditing.value" class="w-100 docs-dashboard pa-6 pa-md-10 dashboard-container">
+        <!-- Hero -->
+        <v-row class="mb-8 align-center" align="center">
+          <v-col cols="12" lg="7">
+            <div class="d-flex align-center mb-3">
+              <div class="docs-hero-accent mr-4" />
+              <span class="text-overline letter-spacing-1 text-primary font-weight-bold">Document workspace</span>
+            </div>
+            <h1 class="text-h3 text-md-h2 font-weight-bold docs-hero-title mb-3">
+              Manage, sign &amp; send with confidence
+            </h1>
+            <p class="text-body-1 text-medium-emphasis docs-hero-sub max-w-lg">
+              Upload PDFs and Word files, annotate in the editor, run AI contract review when enabled, and send
+              <strong class="text-high-emphasis">remote signature</strong> requests through Verdocs — similar to DocuSign-style workflows.
+            </p>
           </v-col>
-          <v-col cols="auto">
-            <v-btn color="primary" prepend-icon="mdi-plus" rounded="lg" elevation="2" @click="triggerFileUpload" :loading="uploading">
-              Upload Document
+          <v-col cols="12" lg="5" class="text-lg-right">
+            <v-btn
+              color="primary"
+              size="x-large"
+              rounded="xl"
+              class="docs-cta-btn px-8"
+              prepend-icon="mdi-cloud-upload-outline"
+              :loading="uploading"
+              @click="triggerFileUpload"
+            >
+              Upload document
             </v-btn>
+            <p class="text-caption text-medium-emphasis mt-3 mb-0">PDF, DOCX · up to 50&nbsp;MB</p>
             <input type="file" ref="fileInput" class="d-none" accept=".pdf,.docx" @change="handleFileUpload" />
           </v-col>
         </v-row>
 
-        <!-- Contract & Legal info banner -->
-        <v-card v-if="canUseDocumentsLegalReview" variant="tonal" color="primary" class="mb-6 legal-info-card" rounded="xl">
-          <v-card-text class="d-flex align-center flex-wrap gap-4">
-            <div class="d-flex align-center">
-              <v-avatar color="primary" variant="flat" size="48" class="mr-3"><v-icon icon="mdi-gavel" size="28" /></v-avatar>
-              <div>
-                <div class="text-subtitle-1 font-weight-bold">Contract & Legal</div>
-                <div class="text-caption text-medium-emphasis">Review terms, get AI advice, and set email reminders for important dates like financing deadlines.</div>
+        <!-- Workflow + Verdocs -->
+        <v-row class="mb-8">
+          <v-col cols="12" lg="7">
+            <v-card class="docs-panel pa-6" rounded="xl" elevation="0">
+              <div class="d-flex align-center mb-4">
+                <v-icon icon="mdi-routes" color="primary" class="mr-2" />
+                <span class="text-subtitle-1 font-weight-bold">Typical workflow</span>
               </div>
-            </div>
-            <div class="text-caption" style="flex:1; min-width:280px; opacity:.9;">
-              <span class="font-weight-medium">1.</span> Upload PDF → <span class="font-weight-medium">2.</span> Legal Review (AI analysis) → <span class="font-weight-medium">3.</span> Legal Advise (summary + set reminders)
-            </div>
-          </v-card-text>
-        </v-card>
-
-        <!-- Stats -->
-        <v-row>
-          <v-col cols="12" md="4" v-for="stat in stats" :key="stat.title">
-            <v-card rounded="xl" elevation="0" class="pa-4 glass-card stat-card">
-              <div class="d-flex align-center">
-                <v-avatar :color="stat.color + '-lighten-4'" size="56" class="mr-4"><v-icon :color="stat.color" :icon="stat.icon" size="28" /></v-avatar>
+              <v-row dense>
+                <v-col v-for="(step, i) in workflowSteps" :key="i" cols="12" sm="4">
+                  <div class="workflow-step pa-4 rounded-xl h-100">
+                    <div class="step-index mb-2">{{ i + 1 }}</div>
+                    <div class="d-flex align-center mb-2">
+                      <v-icon :icon="step.icon" size="22" class="mr-2 text-primary" />
+                      <span class="text-body-2 font-weight-bold">{{ step.title }}</span>
+                    </div>
+                    <p class="text-caption text-medium-emphasis mb-0">{{ step.text }}</p>
+                  </div>
+                </v-col>
+              </v-row>
+            </v-card>
+          </v-col>
+          <v-col cols="12" lg="5">
+            <v-card
+              class="docs-panel pa-6 verdocs-panel h-100"
+              rounded="xl"
+              elevation="0"
+              :class="{ 'verdocs-off': !verdocsConfigured }"
+            >
+              <div class="d-flex align-center mb-3">
+                <v-avatar color="deep-purple" variant="flat" size="44" class="mr-3">
+                  <v-icon icon="mdi-file-sign" color="white" size="26" />
+                </v-avatar>
                 <div>
-                  <div class="text-caption text-grey-darken-1 font-weight-medium">{{ stat.title }}</div>
-                  <div class="text-h5 font-weight-bold">{{ stat.value }}</div>
+                  <div class="text-subtitle-1 font-weight-bold">Remote signing</div>
+                  <div class="text-caption text-medium-emphasis">Verdocs e‑sign</div>
+                </div>
+              </div>
+              <p class="text-body-2 text-medium-emphasis mb-4">
+                Add signers with name, email, and phone. We create the envelope in Verdocs and return signing links.
+              </p>
+              <v-chip
+                :color="verdocsConfigured ? 'success' : 'warning'"
+                variant="flat"
+                size="small"
+                class="font-weight-bold"
+              >
+                <v-icon start size="16">{{ verdocsConfigured ? 'mdi-check-circle' : 'mdi-alert-circle-outline' }}</v-icon>
+                {{ verdocsConfigured ? 'Connected' : 'Configure credentials' }}
+              </v-chip>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <v-row v-if="canUseDocumentsLegalReview" class="mb-8">
+          <v-col cols="12">
+            <v-card class="docs-panel legal-strip pa-5" rounded="xl" elevation="0">
+              <div class="d-flex flex-wrap align-center gap-4">
+                <div class="d-flex align-center">
+                  <v-avatar color="primary" variant="flat" size="48" class="mr-3">
+                    <v-icon icon="mdi-gavel" size="28" color="white" />
+                  </v-avatar>
+                  <div>
+                    <div class="text-subtitle-1 font-weight-bold">Contract &amp; legal intelligence</div>
+                    <div class="text-caption text-medium-emphasis">AI review, red flags, and email reminders for critical dates.</div>
+                  </div>
+                </div>
+                <v-spacer />
+                <div class="d-flex flex-wrap ga-2">
+                  <v-chip prepend-icon="mdi-robot-outline" variant="tonal" color="primary" size="small">Legal review</v-chip>
+                  <v-chip prepend-icon="mdi-calendar-clock" variant="tonal" color="primary" size="small">Date alerts</v-chip>
+                  <v-chip prepend-icon="mdi-file-document-outline" variant="tonal" color="primary" size="small">Summary</v-chip>
                 </div>
               </div>
             </v-card>
           </v-col>
         </v-row>
 
-        <!-- Document Table -->
-        <v-card rounded="xl" elevation="0" class="mt-8 overflow-hidden glass-card">
-          <v-table hover class="premium-table">
+        <!-- KPI stats -->
+        <v-row class="mb-8">
+          <v-col cols="12" md="4" v-for="stat in stats" :key="stat.title">
+            <v-card rounded="xl" elevation="0" class="pa-5 docs-kpi h-100">
+              <div class="d-flex align-center justify-space-between">
+                <div>
+                  <div class="text-overline text-medium-emphasis font-weight-bold letter-spacing-1">{{ stat.title }}</div>
+                  <div class="text-h4 font-weight-bold mt-1">{{ stat.value }}</div>
+                  <div v-if="stat.hint" class="text-caption text-medium-emphasis mt-1">{{ stat.hint }}</div>
+                </div>
+                <v-avatar :class="'kpi-orb kpi-orb--' + stat.tone" size="56" rounded="xl">
+                  <v-icon :icon="stat.icon" size="28" />
+                </v-avatar>
+              </div>
+            </v-card>
+          </v-col>
+        </v-row>
+
+        <!-- Document table -->
+        <v-card rounded="xl" elevation="0" class="docs-table-card overflow-hidden">
+          <div class="docs-table-head pa-6 pa-md-8 d-flex flex-wrap align-center gap-4">
+            <div>
+              <h2 class="text-h5 font-weight-bold mb-1">Your documents</h2>
+              <p class="text-body-2 text-medium-emphasis mb-0">Open the editor, send for signature, or share by email.</p>
+            </div>
+            <v-spacer />
+            <v-text-field
+              v-model="docSearch"
+              density="comfortable"
+              variant="outlined"
+              placeholder="Search by name…"
+              prepend-inner-icon="mdi-magnify"
+              hide-details
+              clearable
+              class="docs-search"
+              rounded="lg"
+            />
+          </div>
+          <v-divider class="opacity-10" />
+          <v-table hover class="docs-table">
             <thead>
-              <tr class="table-header-row">
-                <th class="text-overline font-weight-bold">Name</th>
+              <tr>
+                <th class="text-overline font-weight-bold">Document</th>
+                <th class="text-overline text-center font-weight-bold d-none d-md-table-cell">E‑sign</th>
                 <th class="text-overline text-center font-weight-bold">Type</th>
                 <th class="text-overline text-center font-weight-bold">Status</th>
-                <th class="text-overline text-center font-weight-bold">Size</th>
+                <th class="text-overline text-center font-weight-bold d-none d-sm-table-cell">Size</th>
                 <th class="text-overline text-right font-weight-bold">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-if="loading"><td colspan="5" class="text-center py-8"><v-progress-circular indeterminate color="primary" /></td></tr>
-              <tr v-else-if="documents.length === 0"><td colspan="5" class="text-center py-8 text-grey">No documents yet. Upload your first document to get started.</td></tr>
-              <tr v-else v-for="doc in documents" :key="doc.id" class="document-row">
+              <tr v-if="loading">
+                <td colspan="6" class="text-center py-12">
+                  <v-progress-circular indeterminate color="primary" size="48" />
+                </td>
+              </tr>
+              <tr v-else-if="filteredDocuments.length === 0">
+                <td colspan="6" class="text-center py-12 text-medium-emphasis">
+                  <v-icon icon="mdi-folder-open-outline" size="48" class="mb-2 opacity-40" />
+                  <div>No documents match your search. Upload a file to get started.</div>
+                </td>
+              </tr>
+              <tr v-else v-for="doc in filteredDocuments" :key="doc.id" class="docs-row">
                 <td>
                   <div class="d-flex align-center py-2">
-                    <v-icon :icon="doc.type === 'pdf' ? 'mdi-file-pdf-box' : 'mdi-file-word-box'" :color="doc.type === 'pdf' ? 'red' : 'blue'" class="mr-3" size="large" />
-                    <div>
-                      <div class="font-weight-medium">{{ doc.originalName }}</div>
-                      <div class="text-caption text-grey">{{ editor.formatDate(doc.createdAt) }}</div>
+                    <div class="file-type-badge mr-4" :class="doc.type === 'pdf' ? 'is-pdf' : 'is-doc'">
+                      <v-icon :icon="doc.type === 'pdf' ? 'mdi-file-pdf-box' : 'mdi-file-word-box'" size="26" />
+                    </div>
+                    <div class="min-width-0">
+                      <div class="font-weight-semibold text-body-1 text-truncate">{{ doc.originalName }}</div>
+                      <div class="text-caption text-medium-emphasis">{{ editor.formatDate(doc.createdAt) }}</div>
                     </div>
                   </div>
                 </td>
-                <td class="text-center"><v-chip size="x-small" label class="text-uppercase">{{ doc.type }}</v-chip></td>
-                <td class="text-center"><v-chip :color="editor.getStatusColor(doc.status)" size="x-small" variant="flat">{{ doc.status }}</v-chip></td>
-                <td class="text-center text-caption">{{ editor.formatFileSize(doc.fileSize) }}</td>
+                <td class="text-center d-none d-md-table-cell">
+                  <v-chip
+                    v-if="verdocsStatus(doc)"
+                    size="x-small"
+                    variant="flat"
+                    color="deep-purple"
+                    class="font-weight-medium"
+                  >
+                    {{ verdocsStatus(doc) }}
+                  </v-chip>
+                  <span v-else class="text-caption text-disabled">—</span>
+                </td>
+                <td class="text-center">
+                  <v-chip size="small" variant="tonal" class="text-uppercase font-weight-bold">{{ doc.type }}</v-chip>
+                </td>
+                <td class="text-center">
+                  <v-chip :color="editor.getStatusColor(doc.status)" size="small" variant="flat" class="font-weight-medium text-capitalize">
+                    {{ doc.status }}
+                  </v-chip>
+                </td>
+                <td class="text-center text-body-2 text-medium-emphasis d-none d-sm-table-cell">
+                  {{ editor.formatFileSize(doc.fileSize) }}
+                </td>
                 <td class="text-right">
-                  <template v-if="canUseDocumentsLegalReview && doc.type === 'pdf'">
-                    <v-tooltip text="Run AI legal review"><template #activator="{ props }"><v-btn icon="mdi-gavel" variant="text" size="small" v-bind="props" @click="runLegalReview(doc)" :loading="legalReviewLoading && legalReviewDocId === doc.id" /></template></v-tooltip>
-                    <v-tooltip text="View legal summary and set date alerts"><template #activator="{ props }"><v-btn icon="mdi-file-document-outline" variant="text" size="small" v-bind="props" @click="openLegalAdvise(doc)" /></template></v-tooltip>
-                  </template>
-                  <v-tooltip text="Email document to a CRM contact"><template #activator="{ props }"><v-btn icon="mdi-email-outline" variant="text" size="small" v-bind="props" @click="emailDoc = doc; showEmailDialog = true" /></template></v-tooltip>
-                  <v-btn icon="mdi-pencil-outline" variant="text" size="small" @click="handleOpenEditor(doc)" />
-                  <v-btn icon="mdi-download-outline" variant="text" size="small" @click="downloadDocument(doc)" />
-                  <v-btn icon="mdi-delete-outline" variant="text" color="error" size="small" @click="documentToDelete = doc; showDeleteDialog = true" />
+                  <v-menu location="bottom end">
+                    <template #activator="{ props: menuProps }">
+                      <v-btn
+                        v-bind="menuProps"
+                        variant="flat"
+                        color="primary"
+                        size="small"
+                        rounded="lg"
+                        append-icon="mdi-chevron-down"
+                        class="text-none font-weight-bold"
+                      >
+                        Actions
+                      </v-btn>
+                    </template>
+                    <v-list density="compact" class="docs-action-menu py-2" min-width="240" rounded="lg">
+                      <v-list-subheader class="text-uppercase">Open &amp; export</v-list-subheader>
+                      <v-list-item prepend-icon="mdi-pencil-outline" title="Open in editor" @click="handleOpenEditor(doc)" />
+                      <v-list-item prepend-icon="mdi-download-outline" title="Download" @click="downloadDocument(doc)" />
+                      <v-divider class="my-2" />
+                      <v-list-subheader class="text-uppercase">Share</v-list-subheader>
+                      <v-list-item
+                        prepend-icon="mdi-email-send-outline"
+                        title="Email to CRM contact"
+                        @click="emailDoc = doc; showEmailDialog = true"
+                      />
+                      <v-list-item
+                        v-if="verdocsConfigured && doc.type === 'pdf'"
+                        prepend-icon="mdi-file-sign"
+                        title="Send for signature (Verdocs)"
+                        subtitle="Remote signing links"
+                        @click="verdocsTargetDoc = doc; showVerdocsDialog = true"
+                      />
+                      <template v-if="canUseDocumentsLegalReview && doc.type === 'pdf'">
+                        <v-divider class="my-2" />
+                        <v-list-subheader class="text-uppercase">Legal</v-list-subheader>
+                        <v-list-item
+                          prepend-icon="mdi-gavel"
+                          title="Run AI legal review"
+                          :disabled="legalReviewLoading && legalReviewDocId === doc.id"
+                          @click="runLegalReview(doc)"
+                        />
+                        <v-list-item prepend-icon="mdi-file-document-outline" title="Legal advise &amp; alerts" @click="openLegalAdvise(doc)" />
+                      </template>
+                      <v-divider class="my-2" />
+                      <v-list-item
+                        prepend-icon="mdi-delete-outline"
+                        title="Delete"
+                        base-color="error"
+                        @click="documentToDelete = doc; showDeleteDialog = true"
+                      />
+                    </v-list>
+                  </v-menu>
                 </td>
               </tr>
             </tbody>
@@ -208,6 +387,12 @@
     <FileConverterDialog v-model="showConverterDialog" :loading="converting" @convert="convertFile" />
     <LegalAdviseDialog v-model="showLegalAdviseDialog" :doc="legalAdviseDoc" :review-data="legalReviewData" :loading="legalReviewLoading" :date-alerts="dateAlertItems" :saving-alerts="savingAlerts" @save-alerts="saveDateAlerts" />
     <EmailDocumentDialog v-model="showEmailDialog" :doc="emailDoc" @sent="showSnackbar('Document emailed successfully', 'success')" />
+    <SendForSignatureDialog
+      v-model="showVerdocsDialog"
+      :doc="verdocsTargetDoc"
+      :auth-headers="editor.getAuthHeaders()"
+      @sent="onVerdocsSent"
+    />
     <PdfMarkupDialog v-model="showMarkupDialog" :total-pages="editor.totalPages.value" :current-page="editor.currentPage.value" :canvas-refs="editor.canvasRefs" @apply-markup="onApplyMarkup" />
 
     <!-- Snackbar -->
@@ -218,6 +403,7 @@
 
 <script setup lang="ts">
 import FeatureGate from '~/components/FeatureGate.vue'
+import SendForSignatureDialog from '~/components/documents/SendForSignatureDialog.vue'
 import { FEATURES } from '~/composables/useLicense'
 import { useDocumentEditor } from '~/composables/useDocumentEditor'
 
@@ -237,10 +423,57 @@ const pdfViewerContainer = ref<HTMLDivElement | null>(null)
 const documentToDelete = ref<any>(null)
 const savedSignatures = ref<any[]>([])
 const stats = ref([
-  { title: 'Total Documents', value: 0, icon: 'mdi-file-multiple', color: 'blue' },
-  { title: 'Signed Today', value: 0, icon: 'mdi-pen', color: 'green' },
-  { title: 'Pending Review', value: 0, icon: 'mdi-clock-outline', color: 'orange' },
+  { title: 'Total documents', value: 0, icon: 'mdi-file-document-multiple-outline', tone: 'blue' as const, hint: 'All files in your workspace' },
+  { title: 'Signed', value: 0, icon: 'mdi-signature-freehand', tone: 'green' as const, hint: 'Marked complete / executed' },
+  { title: 'Pending', value: 0, icon: 'mdi-clock-outline', tone: 'amber' as const, hint: 'Drafts & in progress' },
 ])
+
+const workflowSteps = [
+  { icon: 'mdi-upload-outline', title: 'Upload', text: 'PDF or Word — stored securely for your account.' },
+  { icon: 'mdi-draw-pen', title: 'Edit & sign', text: 'Text, signatures, markup, watermark, OCR.' },
+  { icon: 'mdi-send-check-outline', title: 'Send', text: 'Email to contacts or Verdocs links for remote signing.' },
+]
+
+const docSearch = ref('')
+const filteredDocuments = computed(() => {
+  const q = docSearch.value.trim().toLowerCase()
+  if (!q) return documents.value
+  return documents.value.filter(
+    (d: any) =>
+      (d.originalName || '').toLowerCase().includes(q) ||
+      (d.name || '').toLowerCase().includes(q) ||
+      (d.status || '').toLowerCase().includes(q)
+  )
+})
+
+const verdocsConfigured = ref(false)
+const showVerdocsDialog = ref(false)
+const verdocsTargetDoc = ref<any>(null)
+
+function verdocsStatus(doc: any): string | null {
+  const v = doc?.metadata?.verdocs
+  if (!v?.status && !v?.documentId) return null
+  if (v.status === 'sent') return 'Sent'
+  if (v.status === 'completed') return 'Completed'
+  if (v.status === 'partially_signed') return 'In progress'
+  if (v.status === 'viewed') return 'Viewed'
+  if (v.documentId) return 'Verdocs'
+  return null
+}
+
+async function loadVerdocsConfig() {
+  try {
+    const res: any = await $fetch('/api/admin/documents/verdocs-config', { headers: editor.getAuthHeaders() })
+    verdocsConfigured.value = Boolean(res?.configured)
+  } catch {
+    verdocsConfigured.value = false
+  }
+}
+
+function onVerdocsSent() {
+  showSnackbar('Remote signing envelope created. Links copied from the dialog if shown.', 'success')
+  loadDocuments()
+}
 
 // ─── Dialog visibility ───────────────────────────────────
 const showTextDialog = ref(false)
@@ -438,28 +671,92 @@ async function saveDateAlerts(alerts: any[]) {
 }
 
 // ─── Lifecycle ───────────────────────────────────────────
-onMounted(() => { loadDocuments(); loadSignatures() })
+onMounted(() => {
+  loadDocuments()
+  loadSignatures()
+  loadVerdocsConfig()
+})
 </script>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
 /* ─── Layout ─── */
-.premium-bg { background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%); min-height: 100vh; }
+.premium-bg { background: linear-gradient(160deg, #f0f4f8 0%, #e8ecf1 45%, #f5f7fa 100%); min-height: 100vh; }
 .dashboard-container { animation: fadeIn .5s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-/* ─── Glass cards ─── */
-.glass-card { background: rgba(255,255,255,.85) !important; backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,.8); box-shadow: 0 8px 32px rgba(31,38,135,.15) !important; transition: all .3s cubic-bezier(.4,0,.2,1); }
-.glass-card:hover { box-shadow: 0 12px 40px rgba(31,38,135,.25) !important; transform: translateY(-2px); }
-.stat-card { position: relative; overflow: hidden; }
-.stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,#1976D2,#64B5F6); opacity:0; transition:opacity .3s ease; }
-.stat-card:hover::before { opacity:1; }
+.docs-dashboard { font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif; max-width: 1400px; margin: 0 auto; }
+.docs-hero-accent { width: 4px; height: 28px; border-radius: 4px; background: linear-gradient(180deg, #1976d2, #42a5f5); }
+.docs-hero-title { letter-spacing: -0.02em; color: #0f172a; }
+.docs-hero-sub { line-height: 1.6; max-width: 36rem; }
+.text-high-emphasis { color: #0f172a; }
+.docs-cta-btn { font-weight: 700 !important; letter-spacing: 0.02em !important; text-transform: none !important; box-shadow: 0 12px 32px rgba(25, 118, 210, 0.35) !important; }
 
-/* ─── Table ─── */
-.premium-table { background: transparent !important; }
-.table-header-row { background: linear-gradient(180deg, rgba(249,250,251,.8), rgba(243,244,246,.8)) !important; }
-.table-header-row th { border-bottom: 2px solid rgba(25,118,210,.2) !important; padding: 16px !important; }
-.document-row { transition: all .2s ease; cursor: pointer; }
-.document-row:hover { background: linear-gradient(90deg, rgba(25,118,210,.03), rgba(25,118,210,.08)) !important; transform: translateX(4px); }
+.docs-panel {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06) !important;
+}
+.verdocs-panel { background: linear-gradient(145deg, rgba(103, 58, 183, 0.06), rgba(255, 255, 255, 0.95)) !important; border-color: rgba(103, 58, 183, 0.15); }
+.verdocs-off { opacity: 0.92; }
+.docs-code { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: rgba(0, 0, 0, 0.05); }
+
+.workflow-step { background: rgba(25, 118, 210, 0.04); border: 1px solid rgba(25, 118, 210, 0.1); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.workflow-step:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(25, 118, 210, 0.1); }
+.step-index {
+  width: 28px; height: 28px; border-radius: 8px;
+  background: linear-gradient(135deg, #1976d2, #2196f3);
+  color: white; font-size: 13px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.legal-strip { border-left: 4px solid #1976d2; background: linear-gradient(90deg, rgba(25, 118, 210, 0.06), rgba(255, 255, 255, 0.95)) !important; }
+
+.docs-kpi {
+  background: #fff !important;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06) !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.docs-kpi:hover { transform: translateY(-4px); box-shadow: 0 16px 40px rgba(15, 23, 42, 0.1) !important; }
+.kpi-orb { display: flex; align-items: center; justify-content: center; }
+.kpi-orb--blue { background: linear-gradient(135deg, rgba(25, 118, 210, 0.15), rgba(66, 165, 245, 0.12)); color: #1565c0; }
+.kpi-orb--green { background: linear-gradient(135deg, rgba(46, 125, 50, 0.15), rgba(102, 187, 106, 0.12)); color: #2e7d32; }
+.kpi-orb--amber { background: linear-gradient(135deg, rgba(245, 124, 0, 0.15), rgba(255, 183, 77, 0.12)); color: #e65100; }
+
+.docs-table-card {
+  background: #fff !important;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 12px 48px rgba(15, 23, 42, 0.08) !important;
+}
+.docs-table-head { background: linear-gradient(180deg, #fafbfc 0%, #fff 100%); }
+.docs-search { max-width: 280px; min-width: 200px; }
+
+.docs-table { background: transparent !important; }
+.docs-table thead th {
+  font-size: 11px !important;
+  letter-spacing: 0.08em !important;
+  color: #64748b !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+  padding: 14px 20px !important;
+}
+.docs-table tbody td { padding: 12px 20px !important; vertical-align: middle; border-bottom: 1px solid rgba(15, 23, 42, 0.04) !important; }
+.docs-row { transition: background 0.2s ease; }
+.docs-row:hover { background: rgba(25, 118, 210, 0.03) !important; }
+
+.file-type-badge {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.file-type-badge.is-pdf { background: linear-gradient(135deg, #ffebee, #ffcdd2); color: #c62828; }
+.file-type-badge.is-doc { background: linear-gradient(135deg, #e3f2fd, #bbdefb); color: #1565c0; }
+
+.font-weight-semibold { font-weight: 600 !important; }
+.min-width-0 { min-width: 0; }
+
+.docs-action-menu :deep(.v-list-subheader) { font-size: 10px; letter-spacing: 0.12em; color: #94a3b8; min-height: 28px; }
 
 /* ─── Editor ─── */
 .editor-workspace { background: linear-gradient(135deg, #f0f4f8 0%, #e2e8f0 100%); }

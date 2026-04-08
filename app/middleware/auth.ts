@@ -59,6 +59,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (to.meta.requiresAdmin && !auth.isAdmin) {
     return navigateTo('/')
   }
+  // requiresPrincipalAdmin: account owner only (e.g. team user management)
+  if (to.meta.requiresPrincipalAdmin && !auth.isPrincipalAdmin) {
+    return navigateTo('/admin')
+  }
 
   // Redirect authenticated users away from guest-only pages
   if (to.meta.guestOnly && auth.isAuthenticated) {

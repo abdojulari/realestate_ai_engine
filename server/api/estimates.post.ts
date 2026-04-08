@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken'
 import { rateLimit, rateLimitConfigs } from '../utils/rateLimiter'
 import { queueEmail } from '../utils/emailQueue'
 import { resolveTenantFromRequest } from '../utils/tenant'
+import { upsertCrmClientFromPlatformContact } from '../utils/crmClientSync'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -172,6 +173,18 @@ export default defineEventHandler(async (event) => {
         } : false
       }
     })
+
+    if (adminId && estimate.email) {
+      await upsertCrmClientFromPlatformContact(prisma, {
+        adminId,
+        email: estimate.email,
+        firstName: estimate.firstName,
+        lastName: estimate.lastName,
+        phone: estimate.phone,
+        source: 'home_estimate',
+        sourceId: estimate.id,
+      })
+    }
 
     // Queue email notifications (non-blocking)
     const requestId = event.context.requestId

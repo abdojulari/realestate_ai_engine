@@ -1,5 +1,7 @@
+import { createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { PrismaClient } from '@prisma/client'
+import { sanitizeListingDescriptionHtml } from '../../../utils/listingTemplatePayload'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -13,10 +15,17 @@ export default defineEventHandler(async (event) => {
     await requireAdmin(event)
     const body = await readBody(event)
 
-    const { propertyAddress, beds, baths, sqft, type, features, price, description } = body
-
-    if (!propertyAddress) {
-      throw createError({ statusCode: 400, message: 'Property address is required' })
+    const propertyAddress = assertPlainAddress(body?.propertyAddress)
+    const beds = sanitizeOptionalNumber(body?.beds)
+    const baths = sanitizeOptionalNumber(body?.baths)
+    const sqft = sanitizeOptionalNumber(body?.sqft)
+    const type = assertOptionalShortString(body?.type, 'type', 80)
+    const features = sanitizeFeatures(body?.features)
+    const price = sanitizeOptionalNumber(body?.price)
+    let descriptionPlain = ''
+    if (body?.description !== undefined && body?.description !== null && body?.description !== '') {
+      const html = sanitizeListingDescriptionHtml(body.description)
+      descriptionPlain = html ? html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 4000) : ''
     }
 
     // Build AI prompt for listing description
@@ -28,7 +37,7 @@ export default defineEventHandler(async (event) => {
       type,
       features,
       price,
-      existingDescription: description
+      existingDescription: descriptionPlain
     })
 
     // Try Google Generative AI if available
@@ -54,7 +63,13 @@ export default defineEventHandler(async (event) => {
 
     // Fallback: Generate a professional template-based description
     const generatedDescription = generateTemplateDescription({
-      propertyAddress, beds, baths, sqft, type, features, price
+      propertyAddress,
+      beds,
+      baths,
+      sqft,
+      type,
+      features,
+      price
     })
 
     return {
@@ -70,6 +85,50 @@ export default defineEventHandler(async (event) => {
     })
   }
 })
+
+function assertPlainAddress(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) {
+    throw createError({ statusCode: 400, message: 'Property address is required' })
+  }
+  const t = value
+    .replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '')
+    .replace(/[<>]/g, '')
+    .trim()
+    .slice(0, 500)
+  if (!t) {
+    throw createError({ statusCode: 400, message: 'Property address is required' })
+  }
+  return t
+}
+
+function sanitizeOptionalNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < 0 || n > 1e9) return undefined
+  return Math.round(n * 100) / 100
+}
+
+function assertOptionalShortString(value: unknown, _label: string, max: number): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  if (typeof value !== 'string') return undefined
+  const t = value.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, max)
+  return t || undefined
+}
+
+function sanitizeFeatures(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return undefined
+  if (Array.isArray(value)) {
+    return value
+      .filter((x): x is string => typeof x === 'string')
+      .map((s) => s.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 120))
+      .filter(Boolean)
+      .slice(0, 40)
+  }
+  if (typeof value === 'string') {
+    return [value.replace(/[\x00-\x1f\x7f]/g, '').trim().slice(0, 500)].filter(Boolean)
+  }
+  return undefined
+}
 
 function buildListingPrompt(data: any): string {
   return `Write a premium, professional real estate listing description for:

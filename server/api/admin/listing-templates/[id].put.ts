@@ -1,6 +1,8 @@
+import { createError, defineEventHandler, readBody } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { requireTenantAccess } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
+import { parseListingTemplateUpdateBody } from '../../../utils/listingTemplatePayload'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -13,7 +15,7 @@ export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
     const id = parseInt(event.context.params?.id || '0')
-    const body = await readBody(event)
+    const raw = await readBody(event)
 
     if (!id) throw createError({ statusCode: 400, message: 'Invalid template ID' })
 
@@ -21,30 +23,26 @@ export default defineEventHandler(async (event) => {
     if (!existing) throw createError({ statusCode: 404, message: 'Template not found' })
     requireTenantAccess(user, existing.adminId)
 
-    const {
-      name, propertyId, propertyAddress, description, aiDescription,
-      theme, primaryColor, accentColor, fontFamily,
-      images, floorPlans, brandingLogo, features, layout, status
-    } = body
+    const patch = parseListingTemplateUpdateBody(raw)
 
     const template = await prisma.listingTemplate.update({
       where: { id },
       data: {
-        ...(name !== undefined && { name }),
-        ...(propertyId !== undefined && { propertyId }),
-        ...(propertyAddress !== undefined && { propertyAddress }),
-        ...(description !== undefined && { description }),
-        ...(aiDescription !== undefined && { aiDescription }),
-        ...(theme !== undefined && { theme }),
-        ...(primaryColor !== undefined && { primaryColor }),
-        ...(accentColor !== undefined && { accentColor }),
-        ...(fontFamily !== undefined && { fontFamily }),
-        ...(images !== undefined && { images }),
-        ...(floorPlans !== undefined && { floorPlans }),
-        ...(brandingLogo !== undefined && { brandingLogo }),
-        ...(features !== undefined && { features }),
-        ...(layout !== undefined && { layout }),
-        ...(status !== undefined && { status }),
+        ...(patch.name !== undefined && { name: patch.name }),
+        ...(patch.propertyId !== undefined && { propertyId: patch.propertyId }),
+        ...(patch.propertyAddress !== undefined && { propertyAddress: patch.propertyAddress }),
+        ...(patch.description !== undefined && { description: patch.description }),
+        ...(patch.aiDescription !== undefined && { aiDescription: patch.aiDescription }),
+        ...(patch.theme !== undefined && { theme: patch.theme }),
+        ...(patch.primaryColor !== undefined && { primaryColor: patch.primaryColor }),
+        ...(patch.accentColor !== undefined && { accentColor: patch.accentColor }),
+        ...(patch.fontFamily !== undefined && { fontFamily: patch.fontFamily }),
+        ...(patch.images !== undefined && { images: patch.images }),
+        ...(patch.floorPlans !== undefined && { floorPlans: patch.floorPlans }),
+        ...(patch.brandingLogo !== undefined && { brandingLogo: patch.brandingLogo }),
+        ...(patch.features !== undefined && { features: patch.features }),
+        ...(patch.layout !== undefined && { layout: patch.layout }),
+        ...(patch.status !== undefined && { status: patch.status }),
       }
     })
 

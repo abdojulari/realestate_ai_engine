@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { mergeWhereOmitExcludedUserLink } from '../../../utils/delegateUserManagement'
 import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -36,9 +37,11 @@ export default defineEventHandler(async (event) => {
     where.status = status
   }
 
+  const scopedWhere = mergeWhereOmitExcludedUserLink(user as any, where)
+
   const [estimates, total] = await Promise.all([
     prisma.homeEstimate.findMany({
-      where,
+      where: scopedWhere,
       orderBy: { createdAt: 'desc' },
       skip: offset,
       take: limit,
@@ -53,7 +56,7 @@ export default defineEventHandler(async (event) => {
         }
       }
     }),
-    prisma.homeEstimate.count({ where })
+    prisma.homeEstimate.count({ where: scopedWhere })
   ])
 
   return {

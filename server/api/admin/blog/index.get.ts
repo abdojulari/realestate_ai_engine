@@ -1,4 +1,4 @@
-import { defineEventHandler, getQuery } from 'h3'
+import { createError, defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'

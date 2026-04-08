@@ -19,6 +19,7 @@ export default defineEventHandler(async (event) => {
   const publicRoutes = [
     '/api/auth/login',
     '/api/auth/register',
+    '/api/auth/turnstile',
     '/api/auth/resend-2fa',
     '/api/auth/verify-2fa',
     '/api/auth/google',
@@ -62,7 +63,9 @@ export default defineEventHandler(async (event) => {
     // Tenant settings (public - for branding, social links, contact info)
     '/api/tenant-settings',
     // User provisioning from SaaS control plane (uses API key auth)
-    '/api/users/provision'
+    '/api/users/provision',
+    // Verdocs e-sign webhooks (verify signatures in handler when Verdocs documents a header)
+    '/api/webhooks/verdocs',
   ]
 
   // Skip auth for non-API routes (pages, assets, etc.)
@@ -90,6 +93,11 @@ export default defineEventHandler(async (event) => {
 
   // Public lead capture forms (GET form data + POST submissions)
   if (url.startsWith('/api/lead-form/')) {
+    return
+  }
+
+  // Gated marketing resources (catalog, metadata, unlock, file — no Bearer auth)
+  if (url.startsWith('/api/public/resources')) {
     return
   }
 
@@ -139,6 +147,8 @@ export default defineEventHandler(async (event) => {
         role: true,
         adminId: true,
         subscriptionTier: true,
+        delegatedAdminPermissions: true,
+        delegationExcludedUserIds: true,
       }
     })
 
@@ -159,12 +169,12 @@ export default defineEventHandler(async (event) => {
     if (error.statusCode) {
       throw error
     }
-    
-    // Otherwise, throw a generic error
+
+    // DB / Prisma / network failures are not invalid tokens — avoid misleading "log in again"
     console.error('[Auth Middleware] Unexpected error:', error)
     throw createError({
-      statusCode: 401,
-      statusMessage: 'Authentication failed. Please log in again.'
+      statusCode: 503,
+      statusMessage: 'Service temporarily unavailable. Please try again.',
     })
   }
 })

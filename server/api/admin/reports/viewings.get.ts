@@ -1,5 +1,6 @@
 import { defineEventHandler } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { mergeWhereOmitExcludedUserLinkRequired } from '../../../utils/delegateUserManagement'
 import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -17,9 +18,9 @@ export default defineEventHandler(async (event) => {
   // ViewingRequest doesn't have adminId directly, but Property does.
   // Scope via the property relation.
   const rows = await prisma.viewingRequest.findMany({
-    where: {
-      property: tenantFilter
-    },
+    where: mergeWhereOmitExcludedUserLinkRequired(user as any, {
+      property: tenantFilter,
+    }),
     orderBy: { dateTime: 'desc' },
     take: 50,
     include: { property: { select: { title: true, images: true } }, user: { select: { firstName: true, lastName: true } } }

@@ -1,5 +1,6 @@
 import { defineEventHandler } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { mergeWhereOmitExcludedUserLink } from '../../../utils/delegateUserManagement'
 import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -15,7 +16,7 @@ export default defineEventHandler(async (event) => {
   const tenantFilter = getTenantFilter(user)
 
   const rows = await prisma.propertyInquiry.findMany({
-    where: tenantFilter,
+    where: mergeWhereOmitExcludedUserLink(user as any, tenantFilter as Record<string, unknown>),
     orderBy: { createdAt: 'desc' },
     take: 50,
     include: { property: { select: { title: true, images: true } }, user: { select: { firstName: true, lastName: true } } }

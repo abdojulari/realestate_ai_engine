@@ -9,8 +9,10 @@ RUN apk add --no-cache python3 make g++
 # Enable pnpm (project package manager)
 RUN corepack enable
 
-# Increase Node heap for Nuxt production build in container
-ENV NODE_OPTIONS=--max-old-space-size=4096
+# Nuxt client + Vite SSR builds are memory-heavy (3k+ modules). 4GB often OOMs in Docker.
+# Override at build time: docker compose build --build-arg NODE_MEMORY=12288 app
+ARG NODE_MEMORY=8192
+ENV NODE_OPTIONS=--max-old-space-size=${NODE_MEMORY}
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
@@ -25,8 +27,8 @@ COPY . .
 # Generate Prisma client
 RUN pnpm exec prisma generate
 
-# Build application
-RUN pnpm run build
+# Build application (NODE_OPTIONS must apply to this process)
+RUN NODE_OPTIONS="--max-old-space-size=${NODE_MEMORY}" pnpm run build
 
 # Production stage
 FROM node:20-alpine
@@ -43,6 +45,8 @@ RUN corepack enable
 COPY --from=builder /app/.output ./
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
+# Source shim (Nitro usually inlines it; kept for tooling / future requires)
+COPY --from=builder /app/server/shims ./server/shims
 
 # Install dependencies (includes Prisma CLI for generate step)
 RUN pnpm install --frozen-lockfile

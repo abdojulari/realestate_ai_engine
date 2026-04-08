@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import type { User, AuthResponse, RegisterData } from '../../types'
+import { userHasDelegatedAdminAccess } from '~/utils/delegatedAdminClient'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -20,7 +21,16 @@ export const useAuthStore = defineStore('auth', {
       return true
     },
     isSuperAdmin: (state) => state.user?.role === 'super_admin',
-    isAdmin: (state) => state.user?.role === 'admin' || state.user?.role === 'super_admin',
+    /** Account owner (not a delegated team member). */
+    isPrincipalAdmin: (state) =>
+      state.user?.role === 'admin' || state.user?.role === 'super_admin',
+    /** Can open the admin panel: owners or users with delegated permissions. */
+    isAdmin: (state) => {
+      const u = state.user
+      if (!u) return false
+      if (u.role === 'admin' || u.role === 'super_admin') return true
+      return userHasDelegatedAdminAccess(u)
+    },
     isAgent: (state) => state.user?.role === 'agent',
     isTokenExpired: (state) => {
       if (!state.tokenExpiry) return false

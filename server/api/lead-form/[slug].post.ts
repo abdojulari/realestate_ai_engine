@@ -1,5 +1,6 @@
 import { readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { upsertCrmClientFromPlatformContact } from '../../utils/crmClientSync'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -31,6 +32,15 @@ export default defineEventHandler(async (event) => {
       status: 'new',
       conversationLog: { formId: form.id, formTitle: form.title, formSlug: slug },
     },
+  })
+
+  await upsertCrmClientFromPlatformContact(prisma, {
+    adminId: form.adminId,
+    email: lead.email,
+    fullName: lead.name,
+    phone: lead.phone,
+    source: 'lead_form',
+    sourceId: lead.id,
   })
 
   await prisma.leadForm.update({

@@ -1,4 +1,12 @@
 // User types
+/** Per-feature flags when a team member has delegated admin access (role user). */
+export type DelegatedFeaturePermission = Partial<{
+  read: boolean
+  write: boolean
+  edit: boolean
+  delete: boolean
+}>
+
 export interface User {
   id: number
   email: string
@@ -7,6 +15,9 @@ export interface User {
   phone?: string | null
   preferredContactTime?: string | null
   role: string
+  adminId?: number | null
+  delegatedAdminPermissions?: Record<string, DelegatedFeaturePermission> | null
+  delegationExcludedUserIds?: number[]
   provider?: string | null
   providerId?: string | null
   createdAt: string

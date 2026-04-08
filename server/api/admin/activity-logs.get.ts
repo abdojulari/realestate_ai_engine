@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery, createError } from 'h3'
 import { requireAdmin } from '../../utils/auth'
+import { getActivityLogAllowedUserIds } from '../../utils/delegateUserManagement'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -18,18 +19,10 @@ export default defineEventHandler(async (event) => {
     const limit = parseInt(query.limit as string) || 50
     const skip = (page - 1) * limit
 
-    // ActivityLog has userId, not adminId.
-    // For admin: scope to the admin's own activity + their team members' activity.
-    // For super_admin: no filter (sees all).
-    let userIdFilter: any = {}
-    if (user.role !== 'super_admin') {
-      const teamMembers = await prisma.user.findMany({
-        where: { adminId: user.id },
-        select: { id: true }
-      })
-      const teamIds = [user.id, ...teamMembers.map(m => m.id)]
-      userIdFilter = { userId: { in: teamIds } }
-    }
+    // ActivityLog.userId: tenant principal + team; delegates omit VIP-excluded user ids.
+    const allowedIds = await getActivityLogAllowedUserIds(prisma, user as any)
+    const userIdFilter: Record<string, unknown> =
+      allowedIds === 'all' ? {} : { userId: { in: allowedIds } }
 
     // Get total count
     const total = await prisma.activityLog.count({ where: userIdFilter })

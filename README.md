@@ -249,6 +249,23 @@ docker-compose pull
 docker-compose up -d
 ```
 
+## Verdocs Configuration
+
+1. Get Verdocs API credentials:
+   - Go to https://app.verdocs.com/api-keys
+   - Create a new API key
+   - Copy the Client ID and Client Secret
+   - Set the API Base to https://api.verdocs.com
+   - Set the Token URL to https://api.verdocs.com/oauth/token
+   - Set the API URL to https://api.verdocs.com/api/v1
+
+2. run the following command to generate the verdocs.ts file:
+```bash
+npx prisma generate
+```
+```bash
+pnpm run verdocs:smoke
+```
 ## Contributing
 
 1. Fork the repository

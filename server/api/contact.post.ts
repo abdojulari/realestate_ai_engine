@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
 import nodemailer from 'nodemailer'
 import { resolveTenantFromRequest } from '../utils/tenant'
+import { upsertCrmClientFromPlatformContact } from '../utils/crmClientSync'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -32,7 +33,7 @@ export default defineEventHandler(async (event) => {
 
   // Try to save as a ChatLead for the tenant
   try {
-    await prisma.chatLead.create({
+    const lead = await prisma.chatLead.create({
       data: {
         name: `${body.firstName} ${body.lastName}`.trim(),
         email: body.email,
@@ -43,6 +44,17 @@ export default defineEventHandler(async (event) => {
         ...(adminId ? { adminId } : {})
       }
     })
+    if (adminId) {
+      await upsertCrmClientFromPlatformContact(prisma, {
+        adminId,
+        email: lead.email,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        phone: lead.phone,
+        source: 'contact_form',
+        sourceId: lead.id,
+      })
+    }
   } catch (err) {
     console.error('Failed to save contact as lead:', err)
     // Don't fail the request if lead save fails

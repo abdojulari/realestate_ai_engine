@@ -1,0 +1,25 @@
+import { createError, defineEventHandler } from 'h3'
+import { requireAdmin } from '../../../utils/auth'
+import { requireFeatureForUser, FEATURES } from '../../../utils/license'
+import { requireTenantAccess } from '../../../utils/tenant'
+import { PrismaClient } from '@prisma/client'
+
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
+const prisma = globalForPrisma.prisma ?? new PrismaClient()
+
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma
+}
+
+export default defineEventHandler(async (event) => {
+  const user = await requireAdmin(event)
+  await requireFeatureForUser(FEATURES.WORKSPACE_TOOLS, user, event)
+  const id = parseInt(event.context.params?.id || '0', 10)
+  if (!id) throw createError({ statusCode: 400, statusMessage: 'Invalid id' })
+
+  const tool = await prisma.workspaceTool.findUnique({ where: { id } })
+  if (!tool) throw createError({ statusCode: 404, statusMessage: 'Tool not found' })
+  requireTenantAccess(user, tool.adminId)
+
+  return { tool }
+})

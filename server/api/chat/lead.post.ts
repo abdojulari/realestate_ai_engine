@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import nodemailer from 'nodemailer'
 import { resolveTenantFromRequest } from '../../utils/tenant'
+import { upsertCrmClientFromPlatformContact } from '../../utils/crmClientSync'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -50,6 +51,17 @@ export default defineEventHandler(async (event) => {
       ...(adminId ? { adminId } : {})
     }
   })
+
+  if (adminId) {
+    await upsertCrmClientFromPlatformContact(prisma, {
+      adminId,
+      email: lead.email,
+      fullName: lead.name,
+      phone: lead.phone,
+      source: 'chat_widget',
+      sourceId: lead.id,
+    })
+  }
 
   // Send email notification to agent
   try {

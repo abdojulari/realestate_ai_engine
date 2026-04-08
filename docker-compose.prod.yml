@@ -6,6 +6,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
+    env_file:
+      - .env
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL}
@@ -31,6 +33,13 @@ services:
       - NUXT_PUBLIC_SITE_KEY=${NUXT_PUBLIC_SITE_KEY}
       - NUXT_PUBLIC_SECRET_KEY=${NUXT_PUBLIC_SECRET_KEY}
       - NUXT_TURNSTILE_VERIFY_URL=${NUXT_TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
+      # Verdocs e-sign (server only). env_file: .env loads values; these pass the same vars as docker-compose.yml.
+      # VERDOCS_API_BASE should be the API origin (https://api.verdocs.com). Server normalizes mistaken /v2 or oauth paths.
+      - VERDOCS_CLIENT_ID=${VERDOCS_CLIENT_ID}
+      - VERDOCS_CLIENT_SECRET=${VERDOCS_CLIENT_SECRET}
+      - VERDOCS_API_BASE=${VERDOCS_API_BASE:-https://api.verdocs.com}
+      - VERDOCS_TOKEN_URL=${VERDOCS_TOKEN_URL:-}
+      - VERDOCS_API_URL=${VERDOCS_API_URL:-}
     volumes:
       - ./uploads:/app/uploads
     networks:

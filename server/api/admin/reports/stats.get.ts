@@ -1,5 +1,9 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import {
+  mergeTenantUserListWhere,
+  mergeWhereOmitExcludedUserLink,
+} from '../../../utils/delegateUserManagement'
 import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -37,8 +41,7 @@ export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
   const tenantFilter = getTenantFilter(user)
 
-  // For User model: admin's team members have adminId = admin's id
-  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
+  const userWhereAll = mergeTenantUserListWhere(user as any, {})
 
   const q = getQuery(event)
   const { from, to } = rangeToDates(q.range as string, q.start as string, q.end as string)
@@ -46,7 +49,7 @@ export default defineEventHandler(async (event) => {
   const whereDate = from && to ? { gte: from, lte: to } : undefined
 
   const [totalUsers, totalListings, viewsCount, inquiriesCount, soldRevenue] = await Promise.all([
-    prisma.user.count({ where: userTenantFilter }),
+    prisma.user.count({ where: userWhereAll }),
     prisma.property.count({ where: tenantFilter }),
     prisma.propertyView.count({
       where: {
@@ -55,10 +58,10 @@ export default defineEventHandler(async (event) => {
       }
     }),
     prisma.propertyInquiry.count({
-      where: {
+      where: mergeWhereOmitExcludedUserLink(user as any, {
         ...tenantFilter,
-        ...(whereDate ? { createdAt: whereDate } : {})
-      }
+        ...(whereDate ? { createdAt: whereDate } : {}),
+      } as Record<string, unknown>),
     }),
     prisma.property.aggregate({
       _sum: { price: true },

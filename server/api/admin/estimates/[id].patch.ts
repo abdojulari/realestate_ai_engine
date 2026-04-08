@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, createError, getRouterParam } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { assertCanAccessTenantUser } from '../../../utils/delegateUserManagement'
 import { requireTenantAccess } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -24,7 +25,7 @@ export default defineEventHandler(async (event) => {
   // Verify tenant ownership
   const existing = await prisma.homeEstimate.findUnique({
     where: { id },
-    select: { adminId: true }
+    select: { adminId: true, userId: true }
   })
 
   if (!existing) {
@@ -35,6 +36,16 @@ export default defineEventHandler(async (event) => {
   }
 
   requireTenantAccess(user, existing.adminId)
+
+  if (existing.userId != null) {
+    const linked = await prisma.user.findUnique({
+      where: { id: existing.userId },
+      select: { id: true, adminId: true },
+    })
+    if (linked) {
+      assertCanAccessTenantUser(user as any, linked)
+    }
+  }
 
   const body = await readBody<{
     status?: string

@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { mergeTenantUserListWhere } from '../../../utils/delegateUserManagement'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -12,20 +13,19 @@ if (process.env.NODE_ENV !== 'production') {
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
 
-  // For User model: admin's team members have adminId = admin's id
-  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
-
   const q = getQuery(event)
   const role = (q.role as string) || undefined
 
-  const where: any = { ...userTenantFilter }
+  const base: Record<string, unknown> = {}
   if (role) {
     if (role === 'crm') {
-      where.role = { notIn: ['admin', 'agent'] }
+      base.role = { notIn: ['admin', 'agent'] }
     } else {
-      where.role = role
+      base.role = role
     }
   }
+
+  const where: any = mergeTenantUserListWhere(user as any, base)
 
   const users = await prisma.user.findMany({
     where,

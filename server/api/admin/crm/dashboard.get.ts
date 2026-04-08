@@ -1,4 +1,5 @@
 import { requireAdmin } from '../../../utils/auth'
+import { mergeWhereOmitExcludedUserLink } from '../../../utils/delegateUserManagement'
 import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -13,6 +14,12 @@ export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
     const tenantFilter = getTenantFilter(user)
+
+    const inquiryWhere = (extra: Record<string, unknown> = {}) =>
+      mergeWhereOmitExcludedUserLink(user as any, { ...tenantFilter, ...extra } as Record<string, unknown>)
+    const estimateWhere = (extra: Record<string, unknown> = {}) =>
+      mergeWhereOmitExcludedUserLink(user as any, { ...tenantFilter, ...extra } as Record<string, unknown>)
+
 // @ts-ignore
     const [
       clientCounts,
@@ -53,9 +60,9 @@ export default defineEventHandler(async (event) => {
 
     // Recent leads from various sources
     const [inquiries, chatLeads, estimates] = await Promise.all([
-      prisma.propertyInquiry.count({ where: { ...tenantFilter, status: 'new' } }),
+      prisma.propertyInquiry.count({ where: inquiryWhere({ status: 'new' }) }),
       prisma.chatLead.count({ where: { ...tenantFilter, status: 'new' } }),
-      prisma.homeEstimate.count({ where: { ...tenantFilter, status: 'pending' } })
+      prisma.homeEstimate.count({ where: estimateWhere({ status: 'pending' }) })
     ])
 
     return {

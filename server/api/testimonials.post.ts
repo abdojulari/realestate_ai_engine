@@ -3,6 +3,7 @@ import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { resolveTenantFromRequest } from '../utils/tenant'
+import { upsertCrmClientFromPlatformContact } from '../utils/crmClientSync'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -118,6 +119,17 @@ export default defineEventHandler(async (event) => {
         ...(adminId ? { adminId } : {})
       }
     })
+
+    if (adminId && data.email) {
+      await upsertCrmClientFromPlatformContact(prisma, {
+        adminId,
+        email: data.email,
+        fullName: data.name,
+        phone: data.phone || null,
+        source: 'testimonial',
+        sourceId: testimonial.id,
+      })
+    }
 
     // Send notification email to admin (optional)
     try {

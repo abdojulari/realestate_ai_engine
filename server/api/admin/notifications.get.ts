@@ -1,5 +1,6 @@
 import { defineEventHandler } from 'h3'
 import { requireAdmin } from '../../utils/auth'
+import { mergeTenantUserListWhere } from '../../utils/delegateUserManagement'
 import { getTenantFilter } from '../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -14,12 +15,11 @@ export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
   const tenantFilter = getTenantFilter(user)
 
-  // For User model: admin's team members have adminId = admin's id
-  const userTenantFilter = user.role === 'super_admin' ? {} : { adminId: user.id }
+  const userWhere = mergeTenantUserListWhere(user as any, {})
 
   const [latestUsers, latestProps, settings] = await Promise.all([
     prisma.user.findMany({
-      where: userTenantFilter,
+      where: userWhere,
       orderBy: { createdAt: 'desc' },
       take: 10,
       select: { id: true, firstName: true, lastName: true, email: true, createdAt: true }

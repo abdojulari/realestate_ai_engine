@@ -1,4 +1,5 @@
 import { requireAdmin } from '../../../utils/auth'
+import { mergeWhereOmitExcludedUserLink } from '../../../utils/delegateUserManagement'
 import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -52,41 +53,52 @@ export default defineEventHandler(async (event) => {
     const user = await requireAdmin(event)
     const tenantFilter = getTenantFilter(user)
 
+    const inquiryWhere = (extra: Record<string, unknown> = {}) =>
+      mergeWhereOmitExcludedUserLink(user as any, { ...tenantFilter, ...extra } as Record<string, unknown>)
+    const estimateWhere = (extra: Record<string, unknown> = {}) =>
+      mergeWhereOmitExcludedUserLink(user as any, { ...tenantFilter, ...extra } as Record<string, unknown>)
+
     const [
       totalInquiries,
       totalChatLeads,
       totalEstimates,
       totalSubscribers,
       totalCrmLeads,
+      totalResourceLeads,
       newInquiries,
       newChatLeads,
       newEstimates,
       newSubscribers,
+      newResourceLeads,
       inquiryStatuses,
       chatLeadStatuses,
       estimateStatuses,
       crmLeadSources,
       recentLeads,
     ] = await Promise.all([
-      prisma.propertyInquiry.count({ where: tenantFilter }),
+      prisma.propertyInquiry.count({ where: inquiryWhere() }),
       prisma.chatLead.count({ where: tenantFilter }),
-      prisma.homeEstimate.count({ where: tenantFilter }),
+      prisma.homeEstimate.count({ where: estimateWhere() }),
       prisma.newsletterSubscriber.count({ where: { ...tenantFilter, status: 'active' } }),
       prisma.crmClient.count({ where: { ...tenantFilter, type: 'lead' } }),
+      prisma.resourceDownloadLead.count({ where: tenantFilter }),
 
-      prisma.propertyInquiry.count({ where: { ...tenantFilter, status: 'new' } }),
+      prisma.propertyInquiry.count({ where: inquiryWhere({ status: 'new' }) }),
       prisma.chatLead.count({ where: { ...tenantFilter, status: 'new' } }),
-      prisma.homeEstimate.count({ where: { ...tenantFilter, status: 'pending' } }),
+      prisma.homeEstimate.count({ where: estimateWhere({ status: 'pending' }) }),
       prisma.newsletterSubscriber.count({
         where: { ...tenantFilter, status: 'active', subscribedAt: getDateRange('month') },
       }),
+      prisma.resourceDownloadLead.count({
+        where: { ...tenantFilter, createdAt: getDateRange('month') },
+      }),
 
       // @ts-ignore
-      prisma.propertyInquiry.groupBy({ by: ['status'], where: tenantFilter, _count: true }),
+      prisma.propertyInquiry.groupBy({ by: ['status'], where: inquiryWhere(), _count: true }),
       // @ts-ignore
       prisma.chatLead.groupBy({ by: ['status'], where: tenantFilter, _count: true }),
       // @ts-ignore
-      prisma.homeEstimate.groupBy({ by: ['status'], where: tenantFilter, _count: true }),
+      prisma.homeEstimate.groupBy({ by: ['status'], where: estimateWhere(), _count: true }),
       // @ts-ignore
       prisma.crmClient.groupBy({ by: ['source'], where: { ...tenantFilter, type: 'lead' }, _count: true }),
 
@@ -103,13 +115,22 @@ export default defineEventHandler(async (event) => {
     const monthlyData = await Promise.all(
       months.map(async (m) => {
         const range = { gte: m.start, lte: m.end }
-        const [inq, chat, est, subs] = await Promise.all([
-          prisma.propertyInquiry.count({ where: { ...tenantFilter, createdAt: range } }),
+        const [inq, chat, est, subs, res] = await Promise.all([
+          prisma.propertyInquiry.count({ where: inquiryWhere({ createdAt: range }) }),
           prisma.chatLead.count({ where: { ...tenantFilter, createdAt: range } }),
-          prisma.homeEstimate.count({ where: { ...tenantFilter, createdAt: range } }),
+          prisma.homeEstimate.count({ where: estimateWhere({ createdAt: range }) }),
           prisma.newsletterSubscriber.count({ where: { ...tenantFilter, subscribedAt: range } }),
+          prisma.resourceDownloadLead.count({ where: { ...tenantFilter, createdAt: range } }),
         ])
-        return { month: m.label, inquiries: inq, chatLeads: chat, estimates: est, subscribers: subs, total: inq + chat + est + subs }
+        return {
+          month: m.label,
+          inquiries: inq,
+          chatLeads: chat,
+          estimates: est,
+          subscribers: subs,
+          resourceLeads: res,
+          total: inq + chat + est + subs + res,
+        }
       })
     )
 
@@ -124,11 +145,13 @@ export default defineEventHandler(async (event) => {
         chatLeads: chunk.reduce((s, c) => s + c.chatLeads, 0),
         estimates: chunk.reduce((s, c) => s + c.estimates, 0),
         subscribers: chunk.reduce((s, c) => s + c.subscribers, 0),
+        resourceLeads: chunk.reduce((s, c) => s + c.resourceLeads, 0),
       })
     }
 
     // Funnel stages
-    const totalLeads = totalInquiries + totalChatLeads + totalEstimates + totalCrmLeads
+    const totalLeads =
+      totalInquiries + totalChatLeads + totalEstimates + totalCrmLeads + totalResourceLeads
     const contacted = inquiryStatuses.find((s: any) => s.status === 'responded')?._count || 0
     const qualified = crmLeadSources.reduce((s: number, c: any) => s + c._count, 0)
     const converted = await prisma.crmClient.count({
@@ -137,17 +160,32 @@ export default defineEventHandler(async (event) => {
 
     // Recent combined leads from all sources
     const recentInquiries = await prisma.propertyInquiry.findMany({
-      where: tenantFilter,
+      where: inquiryWhere(),
       orderBy: { createdAt: 'desc' },
       take: 10,
       select: { id: true, message: true, status: true, createdAt: true, user: { select: { firstName: true, lastName: true, email: true, phone: true } } },
     })
 
     const recentEstimates = await prisma.homeEstimate.findMany({
-      where: tenantFilter,
+      where: estimateWhere(),
       orderBy: { createdAt: 'desc' },
       take: 10,
       select: { id: true, firstName: true, lastName: true, email: true, phone: true, address: true, status: true, createdAt: true },
+    })
+
+    const recentResourceLeads = await prisma.resourceDownloadLead.findMany({
+      where: tenantFilter,
+      orderBy: { createdAt: 'desc' },
+      take: 15,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        createdAt: true,
+        resource: { select: { title: true, publicSlug: true } },
+      },
     })
 
     const allRecentLeads = [
@@ -162,12 +200,25 @@ export default defineEventHandler(async (event) => {
         email: e.email, phone: e.phone,
         source: 'Home Estimate', status: e.status, createdAt: e.createdAt, type: 'estimate',
       })),
-    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 25)
+      ...recentResourceLeads.map((r) => ({
+        id: r.id,
+        firstName: r.firstName,
+        lastName: r.lastName,
+        name: `${r.firstName} ${r.lastName}`.trim(),
+        email: r.email,
+        phone: r.phone,
+        source: r.resource?.title ? `Resource · ${r.resource.title}` : 'Resource download',
+        status: 'new',
+        createdAt: r.createdAt,
+        type: 'resource',
+        resourceSlug: r.resource?.publicSlug,
+      })),
+    ].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 30)
 
     return {
       kpis: {
         totalLeads,
-        newLeads: newInquiries + newChatLeads + newEstimates,
+        newLeads: newInquiries + newChatLeads + newEstimates + newResourceLeads,
         activeSubscribers: totalSubscribers,
         conversionRate: totalLeads > 0 ? Math.round((converted / totalLeads) * 100) : 0,
       },
@@ -177,6 +228,7 @@ export default defineEventHandler(async (event) => {
         estimates: totalEstimates,
         subscribers: totalSubscribers,
         crmLeads: totalCrmLeads,
+        resourceLeads: totalResourceLeads,
       },
       funnel: {
         captured: totalLeads,
@@ -188,6 +240,7 @@ export default defineEventHandler(async (event) => {
         inquiryStatuses: inquiryStatuses.reduce((a: any, s: any) => ({ ...a, [s.status]: s._count }), {}),
         chatLeadStatuses: chatLeadStatuses.reduce((a: any, s: any) => ({ ...a, [s.status]: s._count }), {}),
         estimateStatuses: estimateStatuses.reduce((a: any, s: any) => ({ ...a, [s.status]: s._count }), {}),
+        resourceLeadsTotal: totalResourceLeads,
       },
       trends: { monthly: monthlyData, quarterly: quarterlyData },
       recentLeads: allRecentLeads,

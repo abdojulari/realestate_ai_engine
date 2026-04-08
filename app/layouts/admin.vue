@@ -47,11 +47,13 @@
       <template v-slot:append>
         <v-list nav>
           <v-list-item
+            v-if="showSettingsDrawerLink"
             prepend-icon="mdi-cog"
             :title="rail ? '' : 'Settings'"
             to="/admin/settings"
           />
           <v-list-item
+            v-if="showHelpDrawerLink"
             prepend-icon="mdi-help-circle"
             :title="rail ? '' : 'Help'"
             to="/admin/help"
@@ -141,7 +143,7 @@
             </v-avatar>
             <div class="d-flex flex-column align-start mr-2 d-none d-sm-flex">
               <span class="text-body-2 font-weight-bold">{{ user.firstName }} {{ user.lastName }}</span>
-              <span class="text-caption text-medium-emphasis">{{ user.role || 'Admin' }}</span>
+              <span class="text-caption text-medium-emphasis">{{ displayRoleLabel(user.role) }}</span>
             </div>
             <v-icon>mdi-chevron-down</v-icon>
           </v-btn>
@@ -182,6 +184,7 @@
             class="rounded-lg mx-2"
           />
           <v-list-item
+            v-if="showSettingsDrawerLink"
             prepend-icon="mdi-cog"
             title="Settings"
             subtitle="Preferences & configuration"
@@ -277,6 +280,10 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useLicense, FEATURES } from '~/composables/useLicense'
+import {
+  delegateFeatureAllowsRead,
+  userHasDelegatedAdminAccess,
+} from '~/utils/delegatedAdminClient'
 // @ts-ignore
 import { formatTime } from '~/utils/formatters'
 import { useRouter, useRoute } from 'vue-router'
@@ -323,44 +330,75 @@ const notifications = ref<any[]>([])
 const userBadge = ref<number | undefined>(undefined)
 const crmBadge = ref<number | undefined>(undefined)
 
-// All menu items with license requirements
+// Menu metadata: delegateFeature = key needed for read access; principalOnly = owners only; skipDelegateFeatureCheck = always for delegates (e.g. public site link)
 const allMenuItems = [
-  { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/admin', requiresFeature: null },
-  { title: 'Site', icon: 'mdi-home', to: '/', requiresFeature: null },
-  { title: 'Site Management', icon: 'mdi-palette', to: '/admin/site-management', requiresFeature: null },
-  { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', requiresFeature: null, getBadge: () => userBadge.value },
-  { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/crm', requiresFeature: null, getBadge: () => crmBadge.value },
-  { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties', requiresFeature: null },
-  { title: 'Listing Templates', icon: 'mdi-image-multiple', to: '/admin/listing-templates', requiresFeature: FEATURES.LISTING_TEMPLATES, tier: 'gold' },
-  { title: 'Best Deals', icon: 'mdi-tag-arrow-down', to: '/admin/deals', requiresFeature: FEATURES.BEST_DEALS, tier: 'basic' },
-  { title: 'Off-Market', icon: 'mdi-home-off-outline', to: '/admin/off-market', requiresFeature: null, superAdminOnly: true },
-  { title: 'Calendar', icon: 'mdi-calendar-clock', to: '/admin/calendar', requiresFeature: null },
-  { title: 'Facebook', icon: 'mdi-facebook', to: '/admin/facebook', requiresFeature: null },
-  { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null },
-  { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma', requiresFeature: FEATURES.CMA, tier: 'silver' },
-  { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync', requiresFeature: FEATURES.CREA_SYNC, tier: 'basic' },
-  { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync', requiresFeature: FEATURES.PILLAR9_SYNC, tier: 'basic' },
-  { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter', requiresFeature: FEATURES.NEWSLETTER, tier: 'basic' },
-  { title: 'Lead Generation', icon: 'mdi-account-search', to: '/admin/lead-generation', requiresFeature: FEATURES.LEAD_GENERATION, tier: 'gold' },
-  { title: 'Content', icon: 'mdi-file-document', to: '/admin/content', requiresFeature: null },
-  { title: 'Documents', icon: 'mdi-file-cabinet', to: '/admin/documents', requiresFeature: FEATURES.DOCUMENTS, tier: 'silver' },
-  { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports', requiresFeature: FEATURES.REPORTS, tier: 'silver' },
-  { title: 'Book Keeping', icon: 'mdi-book-open-page-variant', to: '/admin/bookkeeping', requiresFeature: FEATURES.BOOKKEEPING, tier: 'basic' },
+  { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/admin', requiresFeature: null, delegateFeature: 'core' },
+  { title: 'Site', icon: 'mdi-home', to: '/', requiresFeature: null, skipDelegateFeatureCheck: true },
+  { title: 'Site Management', icon: 'mdi-palette', to: '/admin/site-management', requiresFeature: null, delegateFeature: 'site_management' },
+  { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', requiresFeature: null, delegateFeature: 'user_management', getBadge: () => userBadge.value },
+  { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/crm', requiresFeature: null, delegateFeature: 'crm', getBadge: () => crmBadge.value },
+  { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties', requiresFeature: null, delegateFeature: 'properties' },
+  { title: 'Listing Templates', icon: 'mdi-image-multiple', to: '/admin/listing-templates', requiresFeature: FEATURES.LISTING_TEMPLATES, tier: 'gold', delegateFeature: 'listing_templates' },
+  { title: 'Best Deals', icon: 'mdi-tag-arrow-down', to: '/admin/deals', requiresFeature: FEATURES.BEST_DEALS, tier: 'basic', delegateFeature: 'best_deals' },
+  { title: 'Off-Market', icon: 'mdi-home-off-outline', to: '/admin/off-market', requiresFeature: null, superAdminOnly: true, delegateFeature: 'off_market' },
+  { title: 'Calendar', icon: 'mdi-calendar-clock', to: '/admin/calendar', requiresFeature: null, delegateFeature: 'calendar' },
+  { title: 'Facebook', icon: 'mdi-facebook', to: '/admin/facebook', requiresFeature: null, delegateFeature: 'facebook' },
+  { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null, delegateFeature: 'blog' },
+  { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma', requiresFeature: FEATURES.CMA, tier: 'silver', delegateFeature: 'cma' },
+  { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync', requiresFeature: FEATURES.CREA_SYNC, tier: 'basic', delegateFeature: 'crea_sync' },
+  { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync', requiresFeature: FEATURES.PILLAR9_SYNC, tier: 'basic', delegateFeature: 'pillar9_sync' },
+  { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter', requiresFeature: FEATURES.NEWSLETTER, tier: 'basic', delegateFeature: 'newsletter' },
+  { title: 'Lead Generation', icon: 'mdi-account-search', to: '/admin/lead-generation', requiresFeature: FEATURES.LEAD_GENERATION, tier: 'gold', delegateFeature: 'lead_generation' },
+  { title: 'Tools', icon: 'mdi-draw', to: '/admin/tools', requiresFeature: FEATURES.WORKSPACE_TOOLS, tier: 'silver', delegateFeature: 'workspace_tools' },
+  { title: 'Content', icon: 'mdi-file-document', to: '/admin/content', requiresFeature: null, delegateFeature: 'content' },
+  { title: 'Resources', icon: 'mdi-folder-download', to: '/admin/resources', requiresFeature: null, delegateFeature: 'resources' },
+  { title: 'Documents', icon: 'mdi-file-cabinet', to: '/admin/documents', requiresFeature: FEATURES.DOCUMENTS, tier: 'silver', delegateFeature: 'documents' },
+  { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports', requiresFeature: FEATURES.REPORTS, tier: 'silver', delegateFeature: 'reports' },
+  { title: 'Book Keeping', icon: 'mdi-book-open-page-variant', to: '/admin/bookkeeping', requiresFeature: FEATURES.BOOKKEEPING, tier: 'basic', delegateFeature: 'bookkeeping' },
 ]
 
-// Filter menu items based on license
+const isDelegatedAssistant = computed(
+  () => auth.user != null && userHasDelegatedAdminAccess(auth.user as any)
+)
+
+const showSettingsDrawerLink = computed(() => {
+  if (auth.user?.role === 'admin' || auth.user?.role === 'super_admin') return true
+  return delegateFeatureAllowsRead(auth.user as any, 'settings')
+})
+
+const showHelpDrawerLink = computed(() => {
+  if (auth.user?.role === 'admin' || auth.user?.role === 'super_admin') return true
+  return delegateFeatureAllowsRead(auth.user as any, 'core')
+})
+
+// Filter menu items based on license + delegated feature matrix
 const menuItems = computed(() => {
-  // Super admin always sees all menu items
+  const u = auth.user as any
+
+  const passDelegate = (item: any) => {
+    if (!isDelegatedAssistant.value) return true
+    if (item.principalOnly) return false
+    if (item.skipDelegateFeatureCheck) return true
+    if (item.delegateFeature != null && item.delegateFeature !== '') {
+      return delegateFeatureAllowsRead(u, item.delegateFeature)
+    }
+    return true
+  }
+
+  // Super admin always sees all menu items (license not applied)
   if (auth.user?.role === 'super_admin') {
-    return allMenuItems.map(item => ({
-      title: item.title,
-      icon: item.icon,
-      to: item.to,
-      badge: item.getBadge ? (item.getBadge() ? String(item.getBadge()) : undefined) : undefined
-    }))
+    return allMenuItems
+      .filter(passDelegate)
+      .map(item => ({
+        title: item.title,
+        icon: item.icon,
+        to: item.to,
+        badge: item.getBadge ? (item.getBadge() ? String(item.getBadge()) : undefined) : undefined
+      }))
   }
   return allMenuItems
     .filter((item: any) => {
+      if (!passDelegate(item)) return false
       if (item.superAdminOnly) return false
       if (!item.requiresFeature) return true
       return hasFeature(item.requiresFeature as any)
@@ -377,7 +415,11 @@ const menuItems = computed(() => {
 const currentPageTitle = computed(() => {
   const currentRoute = route.path
   const item = menuItems.value.find(item => item.to === currentRoute)
-  return item ? item.title : 'Admin Panel'
+  if (item) return item.title
+  if (currentRoute.startsWith('/admin/tools/') && currentRoute !== '/admin/tools') {
+    return 'Workspace tool'
+  }
+  return 'Admin Panel'
 })
 
 const unreadNotifications = computed(() => notifications.value.filter(n => !n.read).length)
@@ -411,6 +453,13 @@ const getUserInitials = () => {
   return (first + last).toUpperCase() || 'U'
 }
 
+function displayRoleLabel(role: string | undefined | null) {
+  if (auth.user && userHasDelegatedAdminAccess(auth.user as any)) return 'Delegated access'
+  if (role === 'super_admin') return 'Super Admin'
+  if (role === 'admin') return 'Admin'
+  return role || 'Admin'
+}
+
 // Load header data
 async function loadHeaderData() {
   try {
@@ -435,8 +484,18 @@ async function loadHeaderData() {
     // Load notifications and counts
     const data: any = await api.get('/api/admin/notifications')
     notifications.value = data.notifications || []
-    userBadge.value = await api.get('/api/admin/users').then((arr: any) => arr?.length || 0)
-    crmBadge.value = await api.get('/api/admin/users?role=crm').then((arr: any) => arr?.length || 0)
+    if (auth.user?.role === 'admin' || auth.user?.role === 'super_admin') {
+      try {
+        userBadge.value = await api.get('/api/admin/users').then((arr: any) => arr?.length || 0)
+        crmBadge.value = await api.get('/api/admin/users?role=crm').then((arr: any) => arr?.length || 0)
+      } catch {
+        userBadge.value = undefined
+        crmBadge.value = undefined
+      }
+    } else {
+      userBadge.value = undefined
+      crmBadge.value = undefined
+    }
   } catch (e) {
     console.error('Header data load failed:', e)
     // Fallback to auth store on error

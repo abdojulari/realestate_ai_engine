@@ -1,5 +1,6 @@
 import { defineEventHandler, createError } from 'h3'
 import { requireAdmin } from '../../../../utils/auth'
+import { assertCanAccessTenantUser } from '../../../../utils/delegateUserManagement'
 import bcrypt from 'bcryptjs'
 import { PrismaClient } from '@prisma/client'
 
@@ -41,19 +42,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  assertCanAccessTenantUser(currentUser as any, {
+    id: targetUser.id,
+    adminId: targetUser.adminId,
+  })
+
   // Prevent non-super_admin from resetting a super_admin's password
   if (targetUser.role === 'super_admin' && currentUser.role !== 'super_admin') {
     throw createError({
       statusCode: 403,
       statusMessage: 'You do not have permission to reset a super admin\'s password'
-    })
-  }
-
-  // Tenant scoping: admin can only reset passwords for users under their own team
-  if (currentUser.role !== 'super_admin' && targetUser.adminId !== currentUser.id) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'You do not have permission to reset this user\'s password'
     })
   }
 

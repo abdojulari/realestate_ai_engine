@@ -568,7 +568,8 @@ watch(
 
 definePageMeta({
   layout: 'admin',
-  middleware: ['admin']
+  middleware: ['admin', 'delegate-feature'],
+  delegateFeature: 'user_management',
 })
 </script>
 

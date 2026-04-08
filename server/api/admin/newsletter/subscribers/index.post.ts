@@ -1,5 +1,6 @@
 import { requireAdmin } from '../../../../utils/auth'
 import { getTenantFilter, getAdminIdForCreate } from '../../../../utils/tenant'
+import { upsertCrmClientFromPlatformContact } from '../../../../utils/crmClientSync'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -28,6 +29,7 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'Email already exists' })
     }
 
+    const adminId = getAdminIdForCreate(user)
     const subscriber = await prisma.newsletterSubscriber.create({
       data: {
         email: email.toLowerCase(),
@@ -36,8 +38,17 @@ export default defineEventHandler(async (event) => {
         status,
         source: 'manual',
         tags: tags || null,
-        adminId: getAdminIdForCreate(user)
+        adminId
       }
+    })
+
+    await upsertCrmClientFromPlatformContact(prisma, {
+      adminId,
+      email: subscriber.email,
+      firstName: subscriber.firstName || undefined,
+      lastName: subscriber.lastName || undefined,
+      source: 'newsletter_manual',
+      sourceId: subscriber.id,
     })
 
     return {

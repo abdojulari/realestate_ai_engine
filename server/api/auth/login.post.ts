@@ -1,4 +1,8 @@
 import { defineEventHandler, readBody, createError } from 'h3'
+import {
+  assertLoginEmail,
+  assertLoginPassword,
+} from '../../utils/authInputValidation'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
@@ -14,14 +18,15 @@ if (process.env.NODE_ENV !== 'production') {
 
 export default defineEventHandler(async (event) => {
   try {
-    const { email, password, twoFactorCode } = await readBody(event)
-
-    if (!email || !password) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Email and password are required'
-      })
-    }
+    const body = await readBody(event)
+    const email = assertLoginEmail(body?.email)
+    const password = assertLoginPassword(body?.password)
+    const twoFactorCode =
+      body?.twoFactorCode === undefined || body?.twoFactorCode === null || body?.twoFactorCode === ''
+        ? undefined
+        : typeof body.twoFactorCode === 'string'
+          ? body.twoFactorCode.trim().slice(0, 16)
+          : undefined
 
     const user = await prisma.user.findUnique({
       where: { email },
@@ -32,6 +37,9 @@ export default defineEventHandler(async (event) => {
         firstName: true,
         lastName: true,
         role: true,
+        adminId: true,
+        delegatedAdminPermissions: true,
+        delegationExcludedUserIds: true,
         twoFactorEnabled: true,
         twoFactorCode: true,
         twoFactorCodeExpiry: true,
@@ -291,10 +299,16 @@ If you didn't request this code, please ignore this email and ensure your accoun
       token,
       mustChangePassword: user.mustChangePassword || false,
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
+    // Preserve H3 errors (validation 400, invalid credentials 401, etc.) — do not wrap or status becomes 500.
+    const e = error as { statusCode?: number; statusMessage?: string; message?: string }
+    if (typeof e?.statusCode === 'number') {
+      throw error
+    }
+    console.error('[auth/login] unexpected error:', error)
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.statusMessage || 'Authentication failed'
+      statusCode: 500,
+      statusMessage: e?.message || 'Authentication failed',
     })
   }
 })

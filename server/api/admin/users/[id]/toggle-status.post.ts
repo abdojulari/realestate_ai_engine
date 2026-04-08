@@ -1,5 +1,6 @@
 import { defineEventHandler, createError } from 'h3'
 import { requireAdmin } from '../../../../utils/auth'
+import { assertCanAccessTenantUser } from '../../../../utils/delegateUserManagement'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -40,19 +41,16 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  assertCanAccessTenantUser(currentUser as any, {
+    id: targetUser.id,
+    adminId: targetUser.adminId,
+  })
+
   // Prevent non-super_admin from modifying a super_admin's status
   if (targetUser.role === 'super_admin' && currentUser.role !== 'super_admin') {
     throw createError({
       statusCode: 403,
       statusMessage: 'You do not have permission to modify a super admin user'
-    })
-  }
-
-  // Tenant scoping: admin can only toggle status for users under their own team
-  if (currentUser.role !== 'super_admin' && targetUser.adminId !== currentUser.id) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'You do not have permission to modify this user'
     })
   }
 

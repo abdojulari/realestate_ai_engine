@@ -27,6 +27,7 @@ export const FEATURES = {
   REPORTS: 'reports',
   LEAD_GENERATION: 'lead_generation',
   LISTING_TEMPLATES: 'listing_templates',
+  WORKSPACE_TOOLS: 'workspace_tools',
 } as const
 
 export type Feature = typeof FEATURES[keyof typeof FEATURES]
@@ -159,6 +160,7 @@ export function useLicense() {
       [FEATURES.AI_DESCRIPTION]: 'gold',
       [FEATURES.LEAD_GENERATION]: 'gold',
       [FEATURES.LISTING_TEMPLATES]: 'gold',
+      [FEATURES.WORKSPACE_TOOLS]: 'silver',
       [FEATURES.AI_SEARCH]: 'platinum',
       [FEATURES.AI_INSIGHTS]: 'platinum',
       [FEATURES.FORECAST]: 'platinum',

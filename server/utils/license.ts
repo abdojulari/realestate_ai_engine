@@ -49,6 +49,9 @@ export const FEATURES = {
   // Lead Generation & Listing Templates
   LEAD_GENERATION: 'lead_generation',
   LISTING_TEMPLATES: 'listing_templates',
+
+  /** Admin workspace tools (whiteboards, etc.) */
+  WORKSPACE_TOOLS: 'workspace_tools',
 } as const
 
 export type Feature = typeof FEATURES[keyof typeof FEATURES]
@@ -84,6 +87,7 @@ const TIER_FEATURES: Record<LicenseTier, Feature[]> = {
     FEATURES.DOCUMENTS,
     FEATURES.DOCUMENTS_LEGAL_REVIEW,
     FEATURES.REPORTS,
+    FEATURES.WORKSPACE_TOOLS,
   ],
   
   gold: [
@@ -102,6 +106,7 @@ const TIER_FEATURES: Record<LicenseTier, Feature[]> = {
     FEATURES.AI_DESCRIPTION,
     FEATURES.LEAD_GENERATION,
     FEATURES.LISTING_TEMPLATES,
+    FEATURES.WORKSPACE_TOOLS,
   ],
   
   platinum: [
@@ -120,6 +125,7 @@ const TIER_FEATURES: Record<LicenseTier, Feature[]> = {
     FEATURES.AI_DESCRIPTION,
     FEATURES.LEAD_GENERATION,
     FEATURES.LISTING_TEMPLATES,
+    FEATURES.WORKSPACE_TOOLS,
     FEATURES.AI_SEARCH,
     FEATURES.AI_INSIGHTS,
     FEATURES.FORECAST,
@@ -143,6 +149,7 @@ const TIER_FEATURES: Record<LicenseTier, Feature[]> = {
     FEATURES.AI_DESCRIPTION,
     FEATURES.LEAD_GENERATION,
     FEATURES.LISTING_TEMPLATES,
+    FEATURES.WORKSPACE_TOOLS,
     FEATURES.AI_SEARCH,
     FEATURES.AI_INSIGHTS,
     FEATURES.FORECAST,
@@ -168,6 +175,7 @@ const ALL_FEATURES: Feature[] = [
   FEATURES.AI_DESCRIPTION,
   FEATURES.LEAD_GENERATION,
   FEATURES.LISTING_TEMPLATES,
+  FEATURES.WORKSPACE_TOOLS,
   FEATURES.AI_SEARCH,
   FEATURES.AI_INSIGHTS,
   FEATURES.FORECAST,

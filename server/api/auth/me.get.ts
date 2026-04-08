@@ -41,6 +41,9 @@ export default defineEventHandler(async (event) => {
         phone: true,
         preferredContactTime: true,
         role: true,
+        adminId: true,
+        delegatedAdminPermissions: true,
+        delegationExcludedUserIds: true,
         createdAt: true,
         updatedAt: true
       }

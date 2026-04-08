@@ -1,4 +1,5 @@
 import { resolveTenantFromRequest } from '../../utils/tenant'
+import { upsertCrmClientFromPlatformContact } from '../../utils/crmClientSync'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -36,7 +37,7 @@ export default defineEventHandler(async (event) => {
     if (existingSubscriber) {
       // If they were unsubscribed, reactivate them
       if (existingSubscriber.status === 'unsubscribed') {
-        await prisma.newsletterSubscriber.update({
+        const updated = await prisma.newsletterSubscriber.update({
           where: { id: existingSubscriber.id },
           data: {
             status: 'active',
@@ -48,6 +49,17 @@ export default defineEventHandler(async (event) => {
             userAgent
           }
         })
+
+        if (adminId) {
+          await upsertCrmClientFromPlatformContact(prisma, {
+            adminId,
+            email: updated.email,
+            firstName: updated.firstName || undefined,
+            lastName: updated.lastName || undefined,
+            source: 'newsletter',
+            sourceId: updated.id,
+          })
+        }
 
         return {
           success: true,
@@ -62,7 +74,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Create new subscriber
-    await prisma.newsletterSubscriber.create({
+    const created = await prisma.newsletterSubscriber.create({
       data: {
         email: email.toLowerCase(),
         firstName,
@@ -74,6 +86,17 @@ export default defineEventHandler(async (event) => {
         ...(adminId ? { adminId } : {})
       }
     })
+
+    if (adminId) {
+      await upsertCrmClientFromPlatformContact(prisma, {
+        adminId,
+        email: created.email,
+        firstName: created.firstName || undefined,
+        lastName: created.lastName || undefined,
+        source: 'newsletter',
+        sourceId: created.id,
+      })
+    }
 
     return {
       success: true,

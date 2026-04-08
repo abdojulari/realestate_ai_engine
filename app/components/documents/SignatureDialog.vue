@@ -1,3 +1,4 @@
+<!-- In-editor signatures (draw / type / upload). For remote multi-party signing, use Send for signature (Verdocs) on the documents dashboard. -->
 <template>
   <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="700" persistent>
     <v-card rounded="xl" class="premium-dialog">

@@ -20,7 +20,7 @@
             size="large"
             prepend-icon="mdi-plus"
             class="premium-action-btn"
-            @click="showCreateDialog = true"
+            @click="openCreateDialog"
           >
             Create Template
           </v-btn>
@@ -137,7 +137,7 @@
             <div class="text-body-1 text-medium-emphasis mb-6">
               Create your first premium listing page with automated styling
             </div>
-            <v-btn color="primary" size="large" prepend-icon="mdi-plus" @click="showCreateDialog = true">
+            <v-btn color="primary" size="large" prepend-icon="mdi-plus" @click="openCreateDialog">
               Create Your First Template
             </v-btn>
           </v-card>
@@ -145,197 +145,265 @@
       </v-row>
 
       <!-- Create/Edit Dialog -->
-      <v-dialog v-model="showCreateDialog" max-width="1000" persistent scrollable>
-        <v-card class="rounded-xl">
-          <v-card-title class="pa-6 d-flex align-center">
-            <span class="display-serif text-h5">{{ editingTemplate ? 'Edit' : 'Create' }} Listing Template</span>
-            <v-spacer />
-            <v-btn icon variant="text" @click="closeDialog"><v-icon>mdi-close</v-icon></v-btn>
+      <v-dialog v-model="showCreateDialog" max-width="1040" persistent scrollable>
+        <v-card class="rounded-xl template-dialog-card" elevation="8">
+          <v-card-title class="pa-6 pb-4 d-flex flex-column flex-sm-row align-sm-center ga-3">
+            <div class="d-flex align-center flex-grow-1">
+              <v-avatar class="mr-3" color="primary" variant="tonal" size="48">
+                <v-icon icon="mdi-palette-swatch" />
+              </v-avatar>
+              <div>
+                <div class="display-serif text-h5">{{ editingTemplate ? 'Edit' : 'Create' }} listing template</div>
+                <div class="text-caption text-medium-emphasis">
+                  {{ editingTemplate ? 'Update styling, copy, and media.' : 'Modern workflow · draft auto-saved in this browser' }}
+                </div>
+              </div>
+            </div>
+            <div class="d-flex align-center ga-2">
+              <v-btn v-if="!editingTemplate" size="small" variant="text" @click="discardDraftAndReset">
+                Clear draft
+              </v-btn>
+              <v-btn icon variant="text" @click="closeDialog"><v-icon>mdi-close</v-icon></v-btn>
+            </div>
           </v-card-title>
 
-          <v-divider />
+          <v-alert
+            v-if="draftBanner && !editingTemplate"
+            type="info"
+            variant="tonal"
+            density="compact"
+            class="mx-6 mb-0"
+            rounded="lg"
+          >
+            Resumed your last in-progress template from this device.
+          </v-alert>
 
-          <v-card-text class="pa-6" style="max-height: 70vh; overflow-y: auto;">
-            <v-row>
-              <!-- Basic Info -->
-              <v-col cols="12">
-                <div class="text-overline text-gold mb-3">Basic Information</div>
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-text-field density="compact" v-model="form.name" label="Template Name" variant="outlined" required />
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-text-field density="compact" v-model="form.propertyAddress" label="Property Address" variant="outlined" />
-              </v-col>
+          <v-alert v-if="formAlert" type="warning" variant="tonal" density="compact" class="mx-6 mt-4" rounded="lg">
+            {{ formAlert }}
+          </v-alert>
 
-              <!-- Theme Selection -->
-              <v-col cols="12">
-                <div class="text-overline text-gold mb-3">Design Theme</div>
-              </v-col>
-              <v-col cols="12">
-                <v-row>
-                  <v-col v-for="theme in themes" :key="theme.id" cols="6" sm="3">
-                    <v-card
-                      :class="['theme-card', { 'selected': form.theme === theme.id }]"
-                      elevation="0"
-                      @click="selectTheme(theme)"
-                    >
-                      <div class="theme-preview" :style="{ background: theme.gradient }">
-                        <div class="text-body-2 font-weight-bold text-white">{{ theme.name }}</div>
-                      </div>
-                    </v-card>
-                  </v-col>
-                </v-row>
-              </v-col>
+          <v-divider class="mt-4" />
 
-              <!-- Layout Selection -->
-              <v-col cols="12" md="6">
-                <v-select density="compact"
-                  v-model="form.layout"
-                  :items="layouts"
-                  item-title="name"
-                  item-value="id"
-                  label="Page Layout"
-                  variant="outlined"
-                />
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-select density="compact"
-                  v-model="form.fontFamily"
-                  :items="fonts"
-                  label="Font Family"
-                  variant="outlined"
-                />
-              </v-col>
+          <v-card-text class="pa-0">
+            <v-tabs v-model="dialogTab" color="primary" class="px-6 pt-4" slider-color="primary">
+              <v-tab value="overview">Overview</v-tab>
+              <v-tab value="design">Design</v-tab>
+              <v-tab value="content">Content</v-tab>
+              <v-tab value="media">Media &amp; brand</v-tab>
+            </v-tabs>
 
-              <!-- Description -->
-              <v-col cols="12">
-                <div class="d-flex align-center mb-3">
-                  <span class="text-overline text-gold">Description</span>
-                  <v-spacer />
-                  <v-btn
-                    size="small"
-                    variant="tonal"
-                    color="primary"
-                    prepend-icon="mdi-auto-fix"
-                    :loading="generatingDescription"
-                    @click="generateDescription"
-                  >
-                    AI Generate
-                  </v-btn>
-                </div>
-              </v-col>
-              <v-col cols="12">
-                <v-textarea density="compact"
-                  v-model="form.description"
-                  label="Listing Description"
-                  variant="outlined"
-                  rows="5"
-                  hint="Write or AI-generate a compelling listing description"
-                />
-              </v-col>
-
-              <!-- Image Upload -->
-              <v-col cols="12">
-                <div class="text-overline text-gold mb-3">Property Images</div>
-              </v-col>
-              <v-col cols="12">
-                <v-file-input
-                  v-model="selectedImages"
-                  label="Upload Images"
-                  variant="outlined"
-                  multiple
-                  accept="image/*"
-                  prepend-icon="mdi-camera"
-                  hint="Upload high-quality property photos (max 10MB each)"
-                  @update:model-value="uploadImages"
-                  :loading="uploadingImages"
-                />
-              </v-col>
-
-              <!-- Uploaded Images Grid -->
-              <v-col v-if="form.images && form.images.length > 0" cols="12">
-                <v-row>
-                  <v-col v-for="(img, idx) in form.images" :key="idx" cols="6" sm="4" md="3">
-                    <v-card class="image-card" elevation="0">
-                      <v-img :src="img.url" height="120" cover class="rounded-lg" />
-                      <div class="image-actions">
-                        <v-btn icon size="x-small" color="error" variant="flat" @click="removeImage(idx)">
-                          <v-icon size="small">mdi-close</v-icon>
-                        </v-btn>
-                      </div>
-                      <v-select
-                        v-model="img.type"
-                        :items="['hero', 'gallery', 'floorplan']"
-                        density="compact"
-                        variant="plain"
-                        class="mt-1"
-                        hide-details
+            <v-window v-model="dialogTab" class="dialog-window">
+              <v-window-item value="overview">
+                <div class="pa-6">
+                  <v-row>
+                    <v-col cols="12">
+                      <div class="text-overline text-gold mb-3">Basics</div>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="form.name"
+                        label="Template name"
+                        variant="outlined"
+                        density="comfortable"
+                        :rules="nameRules"
+                        counter="200"
+                        maxlength="200"
+                        required
                       />
-                    </v-card>
-                  </v-col>
-                </v-row>
-              </v-col>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-text-field
+                        v-model="form.propertyAddress"
+                        label="Property address"
+                        variant="outlined"
+                        density="comfortable"
+                        :rules="addressRules"
+                        counter="500"
+                        maxlength="500"
+                        hint="Used for AI copy and previews"
+                        persistent-hint
+                      />
+                    </v-col>
+                    <v-col cols="12">
+                      <v-combobox
+                        v-model="form.features"
+                        label="Key features (Enter to add)"
+                        variant="outlined"
+                        density="comfortable"
+                        multiple
+                        chips
+                        closable-chips
+                        :rules="featuresRules"
+                        hint="Up to 80 items · max 200 characters each"
+                        persistent-hint
+                      />
+                    </v-col>
+                  </v-row>
+                </div>
+              </v-window-item>
 
-              <!-- Floor Plans -->
-              <v-col cols="12">
-                <div class="text-overline text-gold mb-3">Floor Plans (Optional)</div>
-                <v-file-input
-                  v-model="selectedFloorPlans"
-                  label="Upload Floor Plans"
-                  variant="outlined"
-                  multiple
-                  accept="image/*,.pdf"
-                  prepend-icon="mdi-floor-plan"
-                  @update:model-value="uploadFloorPlans"
-                  :loading="uploadingFloorPlans"
-                />
-              </v-col>
+              <v-window-item value="design">
+                <div class="pa-6">
+                  <v-row>
+                    <v-col cols="12">
+                      <div class="text-overline text-gold mb-2">Visual theme</div>
+                      <p class="text-body-2 text-medium-emphasis mb-4">
+                        Pick a preset — colors update automatically (you can fine-tune on the Media tab).
+                      </p>
+                    </v-col>
+                    <v-col v-for="theme in themes" :key="theme.id" cols="12" sm="6" md="3">
+                      <v-card
+                        :class="['theme-card theme-card--large', { selected: form.theme === theme.id }]"
+                        elevation="0"
+                        @click="selectTheme(theme)"
+                      >
+                        <div class="theme-preview theme-preview--tall" :style="{ background: theme.gradient }">
+                          <v-icon class="theme-icon-pill" color="white" icon="mdi-sparkles" size="small" />
+                          <div class="text-subtitle-1 font-weight-bold text-white">{{ theme.name }}</div>
+                          <div class="text-caption text-white text-opacity-90">{{ theme.tagline }}</div>
+                        </div>
+                      </v-card>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-select
+                        v-model="form.layout"
+                        :items="layouts"
+                        item-title="name"
+                        item-value="id"
+                        label="Page layout"
+                        variant="outlined"
+                        density="comfortable"
+                      />
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-select
+                        v-model="form.fontFamily"
+                        :items="fonts"
+                        label="Font family"
+                        variant="outlined"
+                        density="comfortable"
+                      />
+                    </v-col>
+                  </v-row>
+                </div>
+              </v-window-item>
 
-              <!-- Branding -->
-              <v-col cols="12">
-                <div class="text-overline text-gold mb-3">Branding (Optional)</div>
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-file-input
-                  v-model="selectedLogo"
-                  label="Upload Logo"
-                  variant="outlined"
-                  accept="image/*"
-                  prepend-icon="mdi-image"
-                  @update:model-value="uploadLogo"
-                />
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field density="compact"
-                  v-model="form.primaryColor"
-                  label="Primary Color"
-                  variant="outlined"
-                  type="color"
-                />
-              </v-col>
-              <v-col cols="12" md="3">
-                <v-text-field density="compact"
-                  v-model="form.accentColor"
-                  label="Accent Color"
-                  variant="outlined"
-                  type="color"
-                />
-              </v-col>
+              <v-window-item value="content">
+                <div class="pa-6">
+                  <div class="d-flex flex-wrap align-center mb-4 ga-3">
+                    <div>
+                      <div class="text-overline text-gold">Description</div>
+                      <div class="text-caption text-medium-emphasis">TipTap rich text (sanitized on save)</div>
+                    </div>
+                    <v-spacer />
+                    <v-btn
+                      variant="tonal"
+                      color="primary"
+                      prepend-icon="mdi-auto-fix"
+                      :loading="generatingDescription"
+                      @click="generateDescription"
+                    >
+                      AI generate
+                    </v-btn>
+                  </div>
+                  <client-only>
+                    <RichTextDescriptionEditor v-model="form.description" />
+                  </client-only>
+                </div>
+              </v-window-item>
 
-              <!-- Features -->
-              <v-col cols="12">
-                <div class="text-overline text-gold mb-3">Key Features</div>
-                <v-combobox density="compact"
-                  v-model="form.features"
-                  label="Add features (press Enter)"
-                  variant="outlined"
-                  multiple
-                  chips
-                  closable-chips
-                />
-              </v-col>
-            </v-row>
+              <v-window-item value="media">
+                <div class="pa-6">
+                  <v-row>
+                    <v-col cols="12">
+                      <div class="text-overline text-gold mb-3">Property images</div>
+                      <v-file-input
+                        v-model="selectedImages"
+                        label="Upload images"
+                        variant="outlined"
+                        density="comfortable"
+                        multiple
+                        accept="image/*"
+                        prepend-icon="mdi-camera"
+                        hint="High-quality photos (max 10MB each)"
+                        persistent-hint
+                        @update:model-value="uploadImages"
+                        :loading="uploadingImages"
+                      />
+                    </v-col>
+                    <v-col v-if="form.images && form.images.length > 0" cols="12">
+                      <v-row>
+                        <v-col v-for="(img, idx) in form.images" :key="idx" cols="6" sm="4" md="3">
+                          <v-card class="image-card" elevation="0">
+                            <v-img :src="img.url" height="120" cover class="rounded-lg" />
+                            <div class="image-actions">
+                              <v-btn icon size="x-small" color="error" variant="flat" @click="removeImage(idx)">
+                                <v-icon size="small">mdi-close</v-icon>
+                              </v-btn>
+                            </div>
+                            <v-select
+                              v-model="img.type"
+                              :items="['hero', 'gallery', 'floorplan']"
+                              density="compact"
+                              variant="plain"
+                              class="mt-1"
+                              hide-details
+                            />
+                          </v-card>
+                        </v-col>
+                      </v-row>
+                    </v-col>
+                    <v-col cols="12">
+                      <div class="text-overline text-gold mb-3">Floor plans (optional)</div>
+                      <v-file-input
+                        v-model="selectedFloorPlans"
+                        label="Upload floor plans"
+                        variant="outlined"
+                        density="comfortable"
+                        multiple
+                        accept="image/*,.pdf"
+                        prepend-icon="mdi-floor-plan"
+                        @update:model-value="uploadFloorPlans"
+                        :loading="uploadingFloorPlans"
+                      />
+                    </v-col>
+                    <v-col cols="12">
+                      <div class="text-overline text-gold mb-3">Branding (optional)</div>
+                    </v-col>
+                    <v-col cols="12" md="6">
+                      <v-file-input
+                        v-model="selectedLogo"
+                        label="Upload logo"
+                        variant="outlined"
+                        density="comfortable"
+                        accept="image/*"
+                        prepend-icon="mdi-image"
+                        @update:model-value="uploadLogo"
+                      />
+                      <v-img v-if="form.brandingLogo" :src="form.brandingLogo" max-height="80" contain class="mt-2 rounded" />
+                    </v-col>
+                    <v-col cols="12" md="3">
+                      <v-text-field
+                        v-model="form.primaryColor"
+                        label="Primary color"
+                        variant="outlined"
+                        density="comfortable"
+                        type="color"
+                      />
+                    </v-col>
+                    <v-col cols="12" md="3">
+                      <v-text-field
+                        v-model="form.accentColor"
+                        label="Accent color"
+                        variant="outlined"
+                        density="comfortable"
+                        type="color"
+                      />
+                    </v-col>
+                  </v-row>
+                </div>
+              </v-window-item>
+            </v-window>
           </v-card-text>
 
           <v-divider />
@@ -343,10 +411,10 @@
           <v-card-actions class="pa-6">
             <v-btn variant="text" @click="closeDialog">Cancel</v-btn>
             <v-spacer />
-            <v-btn variant="tonal" @click="saveTemplate('draft')" :loading="saving">
-              Save as Draft
+            <v-btn variant="tonal" :loading="saving" @click="saveTemplate('draft')">
+              Save as draft
             </v-btn>
-            <v-btn color="primary" @click="saveTemplate('published')" :loading="saving">
+            <v-btn color="primary" :loading="saving" @click="saveTemplate('published')">
               Publish
             </v-btn>
           </v-card-actions>
@@ -372,7 +440,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch, onBeforeUnmount, nextTick } from 'vue'
+import RichTextDescriptionEditor from '~/components/listing-templates/RichTextDescriptionEditor.vue'
+
+const DRAFT_STORAGE_KEY = 'suhani-listing-template-draft-v1'
 
 const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
@@ -385,6 +456,9 @@ const getAuthHeaders = (): Record<string, string> => {
 const templates = ref<any[]>([])
 const showCreateDialog = ref(false)
 const showDeleteDialog = ref(false)
+const dialogTab = ref('overview')
+const draftBanner = ref(false)
+const formAlert = ref('')
 const editingTemplate = ref<any>(null)
 const deletingTemplate = ref<any>(null)
 const saving = ref(false)
@@ -399,7 +473,7 @@ const selectedLogo = ref<File | null>(null)
 const form = ref({
   name: '',
   propertyAddress: '',
-  description: '',
+  description: '<p></p>',
   theme: 'luxury',
   layout: 'hero-gallery',
   fontFamily: 'Playfair Display',
@@ -411,11 +485,43 @@ const form = ref({
   features: [] as string[]
 })
 
+const nameRules = [
+  (v: string) => !!(v && v.trim().length >= 2) || 'At least 2 characters',
+  (v: string) => !v || v.length <= 200 || 'Max 200 characters',
+]
+const addressRules = [(v: string) => !v || v.length <= 500 || 'Max 500 characters']
+const featuresRules = [
+  (v: string[] | null | undefined) =>
+    !v || v.length <= 80 || 'Maximum 80 features',
+  (v: string[] | null | undefined) =>
+    !v || v.every((s) => typeof s === 'string' && s.length <= 200) || 'Each feature max 200 characters',
+]
+
 const themes = [
-  { id: 'luxury', name: 'Luxury', gradient: 'linear-gradient(135deg, #1a1a2e, #c9a96e)' },
-  { id: 'modern', name: 'Modern', gradient: 'linear-gradient(135deg, #0f172a, #3b82f6)' },
-  { id: 'classic', name: 'Classic', gradient: 'linear-gradient(135deg, #2c1810, #8b6914)' },
-  { id: 'minimal', name: 'Minimal', gradient: 'linear-gradient(135deg, #111111, #666666)' },
+  {
+    id: 'luxury',
+    name: 'Luxury',
+    tagline: 'Gold accents · editorial serif',
+    gradient: 'linear-gradient(135deg, #1a1a2e, #c9a96e)',
+  },
+  {
+    id: 'modern',
+    name: 'Modern',
+    tagline: 'Cool blues · glassmorphism',
+    gradient: 'linear-gradient(135deg, #0f172a, #3b82f6)',
+  },
+  {
+    id: 'classic',
+    name: 'Classic',
+    tagline: 'Warm heritage tones',
+    gradient: 'linear-gradient(135deg, #2c1810, #8b6914)',
+  },
+  {
+    id: 'minimal',
+    name: 'Minimal',
+    tagline: 'Monochrome · Swiss spacing',
+    gradient: 'linear-gradient(135deg, #111111, #666666)',
+  },
 ]
 
 const layouts = [
@@ -431,6 +537,20 @@ const totalViews = computed(() => templates.value.reduce((sum, t) => sum + (t.vi
 
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+function plainToTipTapHtml(text: string) {
+  if (!text) return '<p></p>'
+  const t = text.trim()
+  if (!t) return '<p></p>'
+  if (/<[a-z][\s/>]/i.test(t)) return t
+  const esc = t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return `<p>${esc}</p>`
+}
+
+function isDescriptionEmpty(html: string) {
+  const s = html.replace(/\s/g, '').toLowerCase()
+  return !s || s === '<p></p>' || s === '<p><br></p>' || s === '<br>'
 }
 
 const getPreviewStyle = (template: any) => {
@@ -462,21 +582,109 @@ function selectTheme(theme: any) {
 
 function editTemplate(template: any) {
   editingTemplate.value = template
+  draftBanner.value = false
+  formAlert.value = ''
+  dialogTab.value = 'overview'
+  const desc = template.description || ''
   form.value = {
     name: template.name,
     propertyAddress: template.propertyAddress || '',
-    description: template.description || '',
+    description: plainToTipTapHtml(typeof desc === 'string' ? desc : ''),
     theme: template.theme || 'luxury',
     layout: template.layout || 'hero-gallery',
     fontFamily: template.fontFamily || 'Playfair Display',
     primaryColor: template.primaryColor || '#1a1a2e',
     accentColor: template.accentColor || '#c9a96e',
-    images: template.images || [],
-    floorPlans: template.floorPlans || [],
+    images: Array.isArray(template.images) ? [...template.images] : [],
+    floorPlans: Array.isArray(template.floorPlans) ? [...template.floorPlans] : [],
     brandingLogo: template.brandingLogo || '',
-    features: template.features || []
+    features: Array.isArray(template.features) ? [...template.features] : [],
   }
   showCreateDialog.value = true
+}
+
+function persistDraft() {
+  if (!process.client || !showCreateDialog.value || editingTemplate.value) return
+  try {
+    localStorage.setItem(
+      DRAFT_STORAGE_KEY,
+      JSON.stringify({ form: form.value, savedAt: Date.now() })
+    )
+  } catch {
+    /* quota or private mode */
+  }
+}
+
+let draftTimer: ReturnType<typeof setTimeout> | null = null
+watch(
+  () => form.value,
+  () => {
+    if (!showCreateDialog.value || editingTemplate.value) return
+    if (draftTimer) clearTimeout(draftTimer)
+    draftTimer = setTimeout(() => {
+      draftTimer = null
+      persistDraft()
+    }, 700)
+  },
+  { deep: true }
+)
+
+watch(showCreateDialog, (open) => {
+  if (!open) {
+    formAlert.value = ''
+    draftBanner.value = false
+  }
+})
+
+function loadDraftIntoForm(): boolean {
+  if (!process.client) return false
+  try {
+    const raw = localStorage.getItem(DRAFT_STORAGE_KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw) as { form?: typeof form.value }
+    if (!parsed?.form || typeof parsed.form !== 'object') return false
+    const f = parsed.form
+    form.value = {
+      name: typeof f.name === 'string' ? f.name : '',
+      propertyAddress: typeof f.propertyAddress === 'string' ? f.propertyAddress : '',
+      description: typeof f.description === 'string' ? f.description : '<p></p>',
+      theme: typeof f.theme === 'string' ? f.theme : 'luxury',
+      layout: typeof f.layout === 'string' ? f.layout : 'hero-gallery',
+      fontFamily: typeof f.fontFamily === 'string' ? f.fontFamily : 'Playfair Display',
+      primaryColor: typeof f.primaryColor === 'string' ? f.primaryColor : '#1a1a2e',
+      accentColor: typeof f.accentColor === 'string' ? f.accentColor : '#c9a96e',
+      images: Array.isArray(f.images) ? f.images : [],
+      floorPlans: Array.isArray(f.floorPlans) ? f.floorPlans : [],
+      brandingLogo: typeof f.brandingLogo === 'string' ? f.brandingLogo : '',
+      features: Array.isArray(f.features) ? f.features.filter((x) => typeof x === 'string') : [],
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+function openCreateDialog() {
+  editingTemplate.value = null
+  formAlert.value = ''
+  dialogTab.value = 'overview'
+  resetForm()
+  showCreateDialog.value = true
+  nextTick(() => {
+    if (loadDraftIntoForm()) {
+      draftBanner.value = true
+    }
+  })
+}
+
+function discardDraftAndReset() {
+  try {
+    localStorage.removeItem(DRAFT_STORAGE_KEY)
+  } catch {
+    /* ignore */
+  }
+  draftBanner.value = false
+  resetForm()
 }
 
 function closeDialog() {
@@ -487,15 +695,27 @@ function closeDialog() {
 
 function resetForm() {
   form.value = {
-    name: '', propertyAddress: '', description: '', theme: 'luxury',
-    layout: 'hero-gallery', fontFamily: 'Playfair Display',
-    primaryColor: '#1a1a2e', accentColor: '#c9a96e',
-    images: [], floorPlans: [], brandingLogo: '', features: []
+    name: '',
+    propertyAddress: '',
+    description: '<p></p>',
+    theme: 'luxury',
+    layout: 'hero-gallery',
+    fontFamily: 'Playfair Display',
+    primaryColor: '#1a1a2e',
+    accentColor: '#c9a96e',
+    images: [],
+    floorPlans: [],
+    brandingLogo: '',
+    features: [],
   }
   selectedImages.value = []
   selectedFloorPlans.value = []
   selectedLogo.value = null
 }
+
+onBeforeUnmount(() => {
+  if (draftTimer) clearTimeout(draftTimer)
+})
 
 async function uploadImages() {
   if (!selectedImages.value?.length) return
@@ -570,7 +790,7 @@ async function generateDescription() {
       headers: getAuthHeaders(),
       body: { propertyAddress: form.value.propertyAddress, features: form.value.features, description: form.value.description }
     }) as any
-    if (res.success) form.value.description = res.description
+    if (res.success) form.value.description = plainToTipTapHtml(res.description || '')
   } catch (e) {
     console.error('Failed to generate description:', e)
   } finally {
@@ -579,7 +799,24 @@ async function generateDescription() {
 }
 
 async function saveTemplate(status: string) {
-  if (!form.value.name) return
+  formAlert.value = ''
+  const n = form.value.name?.trim() || ''
+  if (n.length < 2) {
+    formAlert.value = 'Add a template name (at least 2 characters) on the Overview tab.'
+    dialogTab.value = 'overview'
+    return
+  }
+  if (form.value.propertyAddress && form.value.propertyAddress.length > 500) {
+    formAlert.value = 'Property address is too long (max 500).'
+    dialogTab.value = 'overview'
+    return
+  }
+  if (form.value.features?.length > 80) {
+    formAlert.value = 'Too many features (max 80).'
+    dialogTab.value = 'overview'
+    return
+  }
+
   saving.value = true
   try {
     const method = editingTemplate.value ? 'PUT' : 'POST'
@@ -587,14 +824,31 @@ async function saveTemplate(status: string) {
       ? `/api/admin/listing-templates/${editingTemplate.value.id}`
       : '/api/admin/listing-templates'
 
+    const body: Record<string, unknown> = {
+      ...form.value,
+      name: n,
+      status,
+    }
+    if (isDescriptionEmpty(form.value.description)) {
+      body.description = null
+    }
+
     await $fetch(url, {
       method,
       headers: getAuthHeaders(),
-      body: { ...form.value, status }
+      body,
     })
 
     await loadTemplates()
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY)
+    } catch {
+      /* ignore */
+    }
     closeDialog()
+  } catch (err: any) {
+    formAlert.value =
+      err?.data?.message || err?.data?.statusMessage || err?.message || 'Could not save template.'
   } finally {
     saving.value = false
   }
@@ -699,6 +953,33 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
   align-items: center;
   justify-content: center;
   border-radius: 10px;
+}
+
+.theme-preview--tall {
+  height: 140px;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  padding: 12px;
+  gap: 4px;
+}
+
+.theme-card--large .theme-preview {
+  border-radius: 12px;
+}
+
+.theme-icon-pill {
+  opacity: 0.95;
+  margin-bottom: auto;
+}
+
+.template-dialog-card {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.dialog-window {
+  max-height: 68vh;
+  overflow-y: auto;
 }
 
 .image-card { position: relative; border-radius: 12px !important; border: 1px solid rgba(0,0,0,0.05) !important; }
