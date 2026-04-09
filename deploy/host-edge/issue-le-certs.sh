@@ -16,6 +16,7 @@
 #   sudo ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-only
 #   sudo CLOUDFLARE_CREDENTIALS=/root/.secrets/cloudflare.ini \
 #     ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-wildcard
+#   ./deploy/host-edge/issue-le-certs.sh --skip-preflight   # skip :80 listen check
 #
 # Cloudflare credentials file (token with Zone.DNS:Edit on deelbot.ai):
 #   dns_cloudflare_api_token = YOUR_TOKEN
@@ -36,6 +37,7 @@ AI_CERT=deelbot-ai
 DO_COM=1
 DO_AI=1
 AI_WILDCARD=0
+SKIP_PREFLIGHT=0
 CLOUDFLARE_CREDENTIALS="${CLOUDFLARE_CREDENTIALS:-/root/.secrets/cloudflare.ini}"
 
 while [ $# -gt 0 ]; do
@@ -54,6 +56,10 @@ while [ $# -gt 0 ]; do
       ;;
     --deelbot-ai-wildcard)
       AI_WILDCARD=1
+      shift
+      ;;
+    --skip-preflight)
+      SKIP_PREFLIGHT=1
       shift
       ;;
     --cloudflare-credentials)
@@ -79,7 +85,7 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq certbot
+apt-get install -y -qq certbot curl
 
 install -d -m 0755 "$WEBROOT" /etc/nginx/snippets
 install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy
@@ -87,6 +93,55 @@ if [ -f "$SCRIPT_DIR/renewal-hooks/deploy/99-reload-nginx.sh" ]; then
   install -m 0755 "$SCRIPT_DIR/renewal-hooks/deploy/99-reload-nginx.sh" \
     /etc/letsencrypt/renewal-hooks/deploy/99-reload-nginx.sh
 fi
+
+needs_http_01() {
+  [ "$DO_COM" = 1 ] && return 0
+  [ "$DO_AI" = 1 ] && [ "$AI_WILDCARD" = 0 ] && return 0
+  return 1
+}
+
+preflight_http_01() {
+  [ "$SKIP_PREFLIGHT" = 1 ] && return 0
+  needs_http_01 || return 0
+
+  if ! systemctl is-active --quiet nginx 2>/dev/null; then
+    echo "Error: nginx is not active. HTTP-01 requires host Nginx on port 80."
+    echo "  sudo systemctl status nginx"
+    echo "  sudo nginx -t && sudo systemctl start nginx"
+    exit 1
+  fi
+
+  local ok=0
+  if command -v ss >/dev/null 2>&1 && ss -ltn 2>/dev/null | awk '$4 ~ /:80$/ { f=1 } END { exit(f ? 0 : 1) }'; then
+    ok=1
+  elif command -v netstat >/dev/null 2>&1 && netstat -tln 2>/dev/null | grep -qE '[:.]80\s'; then
+    ok=1
+  fi
+  if [ "$ok" != 1 ]; then
+    echo "Error: nothing is listening on TCP port 80 on this host."
+    echo "Let's Encrypt must fetch http://YOUR-DOMAIN/.well-known/acme-challenge/... from the internet."
+    echo "Fix:"
+    echo "  1) sudo systemctl start nginx && sudo systemctl status nginx"
+    echo "  2) sudo ufw allow 80/tcp && sudo ufw reload   (and allow 80 in your cloud security group / firewall)"
+    echo "  3) Ensure no other stack bound :80 instead of host Nginx (USE_HOST_EDGE_PROXY=1 for Docker stacks)"
+    echo "Verify from the server: ss -ltn | awk '\$4 ~ /:80\$/'"
+    exit 1
+  fi
+
+  install -d -m 0755 "$WEBROOT/.well-known/acme-challenge"
+  echo "preflight" >"$WEBROOT/.well-known/acme-challenge/_deelbot_ping"
+  if ! curl -fsS --max-time 3 \
+    --resolve "www.deelbot.com:80:127.0.0.1" \
+    "http://www.deelbot.com/.well-known/acme-challenge/_deelbot_ping" | grep -q preflight; then
+    rm -f "$WEBROOT/.well-known/acme-challenge/_deelbot_ping"
+    echo "Error: Nginx did not serve the ACME webroot for www.deelbot.com on 127.0.0.1:80."
+    echo "Check /etc/nginx/conf.d/deelbot-edge.conf and root $WEBROOT"
+    exit 1
+  fi
+  rm -f "$WEBROOT/.well-known/acme-challenge/_deelbot_ping"
+}
+
+preflight_http_01
 
 reload_nginx() {
   nginx -t

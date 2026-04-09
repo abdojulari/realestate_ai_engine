@@ -110,6 +110,28 @@ The script installs `python3-certbot-dns-cloudflare` when using `--deelbot-ai-wi
 sudo certbot renew --dry-run
 ```
 
+### “Connection refused” on port 80 (HTTP-01)
+
+Let’s Encrypt hits **`http://your-domain:80/.well-known/...` on your VPS’s public IP**. If the CA sees **connection refused**, nothing on this machine is accepting **TCP 80** from the internet (or a firewall is rejecting it).
+
+1. **Host Nginx running**  
+   `sudo systemctl status nginx` → `active (running)`. If not: `sudo nginx -t && sudo systemctl start nginx`.
+
+2. **UFW (or similar)**  
+   `sudo ufw allow 80/tcp && sudo ufw allow 443/tcp && sudo ufw reload`  
+   Check: `sudo ufw status`.
+
+3. **Cloud / provider firewall**  
+   Hetzner Cloud, AWS SG, etc. must allow **inbound TCP 80** (and 443) to the instance.
+
+4. **Docker must not take port 80**  
+   With Option B, Suhani / control-plane stacks should use **`USE_HOST_EDGE_PROXY=1`** so container Nginx is **not** publishing **80** on the host (only the OS Nginx should).
+
+5. **Re-run the issuer** (after fixing):  
+   `sudo CERTBOT_EMAIL=... ./deploy/host-edge/issue-le-certs.sh`
+
+`issue-le-certs.sh` now runs a **preflight** (nginx active, something listening on `:80`, ACME file reachable via `--resolve www.deelbot.com:80:127.0.0.1`) before calling Certbot. Use `--skip-preflight` only if you know what you’re doing.
+
 ## 5. Tenant vanity domains
 
 Add `server { ... }` blocks on the host (e.g. a new file under `/etc/nginx/conf.d/`) or reuse patterns from `nginx/conf.d/custom-domains.conf` in the Suhani repo.
