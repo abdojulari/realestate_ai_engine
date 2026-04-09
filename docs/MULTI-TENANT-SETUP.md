@@ -2,6 +2,8 @@
 
 This document describes the **Option A** architecture: one Suhani deployment serving many tenants by **domain** (subdomain or custom domain). Plan and license come from the **SaaS Control Plane**; tenant branding (display name, logo) is stored in the control plane and shown in Suhani.
 
+**Related:** [Production scripts runbook](./PRODUCTION-SCRIPTS.md) · [DNS, TLS & custom domains (self-hosted)](./PRODUCTION-DNS-TLS-AND-CUSTOM-DOMAINS.md)
+
 ---
 
 ## Table of Contents
@@ -156,6 +158,8 @@ License (and branding) is loaded via existing `/api/license` and `useLicense()` 
 ---
 
 ## 6. Custom Domains
+
+For a **step-by-step production checklist** (DNS, Let’s Encrypt, nginx, Docker paths, verification), see **[PRODUCTION-DNS-TLS-AND-CUSTOM-DOMAINS.md](./PRODUCTION-DNS-TLS-AND-CUSTOM-DOMAINS.md)**.
 
 ### 6.1 Control plane
 

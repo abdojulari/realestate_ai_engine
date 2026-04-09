@@ -2,6 +2,8 @@
 
 Principals can delegate admin access to assistants and exclude specific **platform users** (e.g. VIPs) via `delegationExcludedUserIds`.
 
+**Related:** [README](../README.md) · [Multi-tenant setup](./MULTI-TENANT-SETUP.md) · [Production scripts](./PRODUCTION-SCRIPTS.md)
+
 ## Rules
 
 1. **User lists and profile access**  

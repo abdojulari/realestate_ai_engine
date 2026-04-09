@@ -1,62 +1,57 @@
+# Includes docker-compose.yml — same app/db/redis as your laptop; adds nginx + certbot and server-friendly ports.
+# Local full parity without edge: still use docker-compose.yml only.
+# Server: docker compose -f docker-compose.prod.yml up -d  (or ./scripts/deploy.sh)
+
+include:
+  - docker-compose.yml
+
 services:
+  db:
+    restart: unless-stopped
+    container_name: suhani-postgres
+    ports:
+      - "${SUHANI_POSTGRES_PUBLISH_PORT:-5435}:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-real_estate}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-real_estate}"]
+
+  redis:
+    restart: unless-stopped
+    container_name: suhani-redis
+    ports:
+      - "${SUHANI_REDIS_PUBLISH_PORT:-6381}:6379"
+
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
     restart: unless-stopped
     ports:
-      - "3000:3000"
-    env_file:
-      - .env
+      - "${SUHANI_APP_PUBLISH_PORT:-3000}:3000"
     environment:
-      - NODE_ENV=production
-      - DATABASE_URL=${DATABASE_URL}
-      - JWT_SECRET=${JWT_SECRET}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
-      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
-      - NUXT_PUBLIC_FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
-      - NUXT_FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
-      - NUXT_PUBLIC_API_BASE=${NUXT_PUBLIC_API_BASE:-https://app.deelbot.ai/api}
-      - NUXT_PUBLIC_SITE_URL=${NUXT_PUBLIC_SITE_URL:-https://app.deelbot.ai}
-      - APP_BASE_DOMAIN=${APP_BASE_DOMAIN:-deelbot.ai}
-      - CONTROL_PLANE_URL=${CONTROL_PLANE_URL}
-      - CONTROL_PLANE_API_KEY=${CONTROL_PLANE_API_KEY}
-      - SMTP_USERNAME=${SMTP_USERNAME}
-      - SMTP_PASSWORD=${SMTP_PASSWORD}
-      - SMTP_HOSTNAME=${SMTP_HOSTNAME}
-      - SMTP_PORT=${SMTP_PORT}
-      - SMTP_SENDER=${SMTP_SENDER}
-      - AGENT_EMAIL=${AGENT_EMAIL}
-      - OPENCAGE_API_KEY=${OPENCAGE_API_KEY}
-      - NUXT_PUBLIC_SITE_KEY=${NUXT_PUBLIC_SITE_KEY}
-      - NUXT_PUBLIC_SECRET_KEY=${NUXT_PUBLIC_SECRET_KEY}
-      - NUXT_TURNSTILE_VERIFY_URL=${NUXT_TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
-      # Verdocs e-sign (server only). env_file: .env loads values; these pass the same vars as docker-compose.yml.
-      # VERDOCS_API_BASE should be the API origin (https://api.verdocs.com). Server normalizes mistaken /v2 or oauth paths.
-      - VERDOCS_CLIENT_ID=${VERDOCS_CLIENT_ID}
-      - VERDOCS_CLIENT_SECRET=${VERDOCS_CLIENT_SECRET}
-      - VERDOCS_API_BASE=${VERDOCS_API_BASE:-https://api.verdocs.com}
-      - VERDOCS_TOKEN_URL=${VERDOCS_TOKEN_URL:-}
-      - VERDOCS_API_URL=${VERDOCS_API_URL:-}
-    volumes:
-      - ./uploads:/app/uploads
-    networks:
-      - app-network
+      NODE_ENV: production
+      DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://postgres:postgres@db:5432/real_estate?schema=public}
+      REDIS_URL: ${SUHANI_DOCKER_REDIS_URL:-redis://redis:6379}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-real_estate}
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://app.deelbot.ai/api}
+      NUXT_PUBLIC_SITE_URL: ${NUXT_PUBLIC_SITE_URL:-https://app.deelbot.ai}
+      APP_BASE_DOMAIN: ${APP_BASE_DOMAIN:-deelbot.ai}
 
   nginx:
     image: nginx:alpine
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${NGINX_PUBLISH_HTTP_PORT:-9080}:80"
+      - "${NGINX_PUBLISH_HTTPS_PORT:-9443}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
-      - ./uploads:/var/www/uploads:ro
+      - uploads_data:/var/www/uploads:ro
     depends_on:
       - app
     networks:
@@ -70,7 +65,3 @@ services:
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done;'"
     networks:
       - app-network
-
-networks:
-  app-network:
-    driver: bridge

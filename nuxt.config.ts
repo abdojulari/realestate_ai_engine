@@ -19,6 +19,7 @@ export default defineNuxtConfig({
       const path = await import('path')
       const precomputedPath = path.join(process.cwd(), '.nuxt', 'dist', 'server', 'client.precomputed.mjs')
       try {
+        await fs.mkdir(path.dirname(precomputedPath), { recursive: true })
         await fs.writeFile(precomputedPath, 'export default {}')
       } catch (e) {
         console.log('Could not create client.precomputed.mjs:', e)

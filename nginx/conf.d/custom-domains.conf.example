@@ -1,0 +1,28 @@
+# Copy the server blocks below into custom-domains.conf after issuing a cert.
+# Standalone compose upstream name: suhani_app
+#
+#   ./scripts/issue-custom-domain-cert.sh you@email.com aohomes.com www.aohomes.com
+#
+# Certificate paths use the FIRST -d name as the live/ folder name.
+
+# HTTP → HTTPS (optional if you only rely on default_server ACME + manual HTTPS)
+# server {
+#     listen 80;
+#     server_name aohomes.com www.aohomes.com;
+#     location /.well-known/acme-challenge/ {
+#         root /var/www/certbot;
+#     }
+#     location / {
+#         return 301 https://$host$request_uri;
+#     }
+# }
+
+# server {
+#     listen 443 ssl http2;
+#     server_name aohomes.com www.aohomes.com;
+#
+#     ssl_certificate     /etc/letsencrypt/live/aohomes.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/aohomes.com/privkey.pem;
+#
+#     include /etc/nginx/snippets/suhani-tenant-server.inc;
+# }

@@ -42,6 +42,8 @@ export default defineEventHandler(async (event) => {
   const mime = resource.mimeType || 'application/octet-stream'
   setHeader(event, 'Content-Type', mime)
   setHeader(event, 'Cache-Control', 'private, no-store')
+  // Allow same-origin PDF preview in <iframe> on /resources/r/[slug] (avoid global DENY on this response).
+  setHeader(event, 'X-Frame-Options', 'SAMEORIGIN')
 
   const encoded = encodeURIComponent(resource.originalFileName || 'download')
   setHeader(

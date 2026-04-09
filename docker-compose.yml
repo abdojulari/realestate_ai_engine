@@ -1,53 +1,109 @@
-services:
-  app:
-    build:
-      context: .
-      args:
-        # Raise if build still OOMs; Docker Desktop must allow enough RAM (e.g. 10GB+).
-        NODE_MEMORY: ${DOCKER_NODE_MEMORY:-8192}
-    env_file:
-      - .env
-    ports:
-      - "3000:3000"
-    environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/real_estate?schema=public
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=real_estate
-      - JWT_SECRET=${JWT_SECRET}
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      - FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
-      - FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
-      - NUXT_PUBLIC_FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
-      - NUXT_FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
-      - NUXT_PUBLIC_SITE_KEY=${NUXT_PUBLIC_SITE_KEY}
-      - NUXT_PUBLIC_SECRET_KEY=${NUXT_PUBLIC_SECRET_KEY}
-      - NUXT_TURNSTILE_VERIFY_URL=${NUXT_TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
-      # Verdocs e-sign (server only). env_file: .env also injects keys; these lines mirror compose interpolation.
-      # Use API host only for VERDOCS_API_BASE (e.g. https://api.verdocs.com). If you paste a token URL into API_BASE,
-      # the server normalizes it. VERDOCS_API_URL is a fallback base when API_BASE is unset.
-      - VERDOCS_CLIENT_ID=${VERDOCS_CLIENT_ID}
-      - VERDOCS_CLIENT_SECRET=${VERDOCS_CLIENT_SECRET}
-      - VERDOCS_API_BASE=${VERDOCS_API_BASE:-https://api.verdocs.com}
-      - VERDOCS_TOKEN_URL=${VERDOCS_TOKEN_URL:-}
-      - VERDOCS_API_URL=${VERDOCS_API_URL:-}
-    volumes:
-      - uploads_data:/app/public/uploads
-    depends_on:
-      - db
+# Canonical stack: same services and env shape as production (docker-compose.prod.yml includes this file).
+# Local: docker compose up
+# Production edge (nginx + TLS): docker compose -f docker-compose.prod.yml up -d
 
+services:
   db:
     image: postgres:15-alpine
     ports:
       - "5433:5432"
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=real_estate
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: real_estate
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d real_estate"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - app-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_MEMORY: ${DOCKER_NODE_MEMORY:-8192}
+    env_file:
+      - .env
+    ports:
+      - "3000:3000"
+    # Do not use ${DATABASE_URL} here — .env often has localhost:5433 for host Prisma/npm dev;
+    # inside the container the DB hostname must be `db`. Override with SUHANI_DOCKER_DATABASE_URL if needed.
+    environment:
+      DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://postgres:postgres@db:5432/real_estate?schema=public}
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: real_estate
+      REDIS_URL: ${SUHANI_DOCKER_REDIS_URL:-redis://redis:6379}
+      JWT_SECRET: ${JWT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      NUXT_PUBLIC_FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      NUXT_FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      NUXT_PUBLIC_SITE_KEY: ${NUXT_PUBLIC_SITE_KEY:-}
+      NUXT_PUBLIC_SECRET_KEY: ${NUXT_PUBLIC_SECRET_KEY:-}
+      NUXT_TURNSTILE_VERIFY_URL: ${NUXT_TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
+      VERDOCS_CLIENT_ID: ${VERDOCS_CLIENT_ID:-}
+      VERDOCS_CLIENT_SECRET: ${VERDOCS_CLIENT_SECRET:-}
+      VERDOCS_API_BASE: ${VERDOCS_API_BASE:-https://api.verdocs.com}
+      VERDOCS_TOKEN_URL: ${VERDOCS_TOKEN_URL:-}
+      VERDOCS_API_URL: ${VERDOCS_API_URL:-}
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-}
+      NUXT_PUBLIC_SITE_URL: ${NUXT_PUBLIC_SITE_URL:-}
+      APP_BASE_DOMAIN: ${APP_BASE_DOMAIN:-}
+      CONTROL_PLANE_URL: ${CONTROL_PLANE_URL:-}
+      CONTROL_PLANE_API_KEY: ${CONTROL_PLANE_API_KEY:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_HOSTNAME: ${SMTP_HOSTNAME:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_SENDER: ${SMTP_SENDER:-}
+      AGENT_EMAIL: ${AGENT_EMAIL:-}
+      OPENCAGE_API_KEY: ${OPENCAGE_API_KEY:-}
+    volumes:
+      - uploads_data:/app/public/uploads
+      - marketing_resources_data:/app/storage/marketing-resources
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:
   uploads_data:
+  marketing_resources_data:

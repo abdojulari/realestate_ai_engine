@@ -1,7 +1,6 @@
 // POST /api/users/provision - Provision a new user from SaaS Control Plane
 // This endpoint is called when a user completes their subscription
 import bcrypt from 'bcryptjs'
-import crypto from 'crypto'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -55,7 +54,23 @@ export default defineEventHandler(async (event) => {
 
     const body = await readBody(event)
     
-    const { email, firstName, lastName, phone, plan, tenantId, domain, defaultPassword } = body
+    const {
+      email,
+      firstName,
+      lastName,
+      phone,
+      plan,
+      tenantId,
+      domain,
+      customDomain: rawCustomDomain,
+      businessName,
+      defaultPassword,
+    } = body
+
+    const customDomain =
+      typeof rawCustomDomain === 'string' && rawCustomDomain.trim()
+        ? rawCustomDomain.trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0].split(':')[0].replace(/\.$/, '')
+        : null
     
     if (!email || !firstName || !lastName || !plan) {
       throw createError({
@@ -90,6 +105,24 @@ export default defineEventHandler(async (event) => {
           }
         })
       }
+
+      if (domain && typeof domain === 'string') {
+        const sub = domain.toLowerCase().trim()
+        await prisma.tenantSettings.upsert({
+          where: { adminId: existingUser.id },
+          create: {
+            adminId: existingUser.id,
+            subdomain: sub,
+            customDomain,
+            businessName: typeof businessName === 'string' ? businessName : null,
+          },
+          update: {
+            subdomain: sub,
+            ...(customDomain ? { customDomain } : {}),
+            ...(typeof businessName === 'string' ? { businessName } : {}),
+          },
+        })
+      }
       
       return {
         success: true,
@@ -106,6 +139,15 @@ export default defineEventHandler(async (event) => {
     const rawPassword = defaultPassword || generateRandomPassword(14)
     const hashedPassword = await bcrypt.hash(rawPassword, 12)
     
+    if (!domain || typeof domain !== 'string' || !domain.trim()) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'Missing required field: domain (tenant subdomain slug from control plane)',
+      })
+    }
+
+    const subdomain = domain.toLowerCase().trim()
+
     const user = await prisma.user.create({
       data: {
         email,
@@ -122,6 +164,21 @@ export default defineEventHandler(async (event) => {
         twoFactorEnabled: true,
         mustChangePassword: !!defaultPassword,
       }
+    })
+
+    await prisma.tenantSettings.upsert({
+      where: { adminId: user.id },
+      create: {
+        adminId: user.id,
+        subdomain,
+        customDomain,
+        businessName: typeof businessName === 'string' ? businessName : null,
+      },
+      update: {
+        subdomain,
+        ...(customDomain ? { customDomain } : {}),
+        ...(typeof businessName === 'string' ? { businessName } : {}),
+      },
     })
     
     console.log(`[Provision] Created admin ${email} with subscription tier ${subscriptionTier}`)

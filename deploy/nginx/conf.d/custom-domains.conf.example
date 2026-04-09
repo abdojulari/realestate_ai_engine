@@ -1,0 +1,10 @@
+# After: COMPOSE_FILE=deploy/docker-compose.production.yml ./scripts/issue-custom-domain-cert.sh email tenant.com
+# paste uncommented blocks into custom-domains.conf (same folder as this file).
+
+# server {
+#     listen 443 ssl http2;
+#     server_name tenant.com www.tenant.com;
+#     ssl_certificate     /etc/letsencrypt/live/tenant.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/tenant.com/privkey.pem;
+#     include /etc/nginx/snippets/suhani-tenant-server.inc;
+# }

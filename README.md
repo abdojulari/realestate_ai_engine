@@ -1,6 +1,15 @@
 # Real Estate Portal
 
-A modern real estate portal built with Nuxt 4, Vuetify 3, and MySQL.
+A modern real estate portal built with Nuxt 4, Vuetify 3, and PostgreSQL (Prisma).
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Production scripts runbook](docs/PRODUCTION-SCRIPTS.md) | Which `scripts/` to run in production (deploy, TLS, cron, backfill) and in what order |
+| [DNS, TLS, nginx & custom domains](docs/PRODUCTION-DNS-TLS-AND-CUSTOM-DOMAINS.md) | DNS records, Let’s Encrypt, nginx paths, tenant custom domains, verification |
+| [Multi-tenant setup](docs/MULTI-TENANT-SETUP.md) | Control plane, licensing, tenant routing, custom domains (API / data model) |
+| [Delegation & VIP scoping](docs/delegation-vip-scoping.md) | Delegate admin permissions and VIP-related behavior |
 
 ## Features
 
@@ -15,8 +24,8 @@ A modern real estate portal built with Nuxt 4, Vuetify 3, and MySQL.
 
 - Node.js 18 or higher
 - Docker and Docker Compose
-- MySQL 8
-- SSL certificate (for production)
+- PostgreSQL 16 (or compatible; see `prisma/schema.prisma`)
+- SSL certificate (for production) — see [production DNS/TLS guide](docs/PRODUCTION-DNS-TLS-AND-CUSTOM-DOMAINS.md)
 
 ## Development Setup
 
@@ -44,8 +53,8 @@ nano .env.production
 
 4. Start development environment:
 ```bash
-# Start database
-docker-compose up -d db
+# Start Postgres + Redis (same services as in docker-compose.yml / production base)
+docker compose up -d db redis
 
 # Run database migrations
 npx prisma migrate dev
@@ -56,7 +65,9 @@ npm run dev
 
 ## Production Deployment
 
-### Using Docker Compose (Recommended)
+See **[Production scripts runbook](docs/PRODUCTION-SCRIPTS.md)** for deploy modes, migrations, cron jobs, and one-off tools. For DNS, certificates, and nginx for `deelbot.com` / `*.deelbot.ai` / custom tenant domains, see **[DNS, TLS & custom domains](docs/PRODUCTION-DNS-TLS-AND-CUSTOM-DOMAINS.md)**.
+
+### Using Docker Compose (recommended)
 
 1. Configure environment:
 ```bash
@@ -67,24 +78,31 @@ cp .env.production.example .env.production
 nano .env.production
 ```
 
-2. Set up SSL:
-```bash
-# Create SSL directory
-mkdir -p nginx/ssl
-
-# Add your SSL certificates
-cp /path/to/your/certificates/server.crt nginx/ssl/
-cp /path/to/your/certificates/server.key nginx/ssl/
-```
+2. TLS: use Let’s Encrypt (Certbot + nginx webroot) as described in the [DNS/TLS guide](docs/PRODUCTION-DNS-TLS-AND-CUSTOM-DOMAINS.md). For local smoke tests only, optional self-signed certs are documented in [`scripts/deploy.sh`](scripts/deploy.sh).
 
 3. Deploy:
 ```bash
-# Using deployment script
-./scripts/deploy.sh
+# From each repo root (no symlinks). Default nginx ports avoid clashes on one host:
+#   Suhani → http://localhost:9080 , https://localhost:9443
+#   Control plane → http://localhost:9081 , https://localhost:9444
+./scripts/deploy.sh                       # suhani (default standalone)
+
+cd ../saas-control-plane && ./scripts/deploy.sh
+```
+
+Use `NGINX_PUBLISH_HTTP_PORT=80` and `NGINX_PUBLISH_HTTPS_PORT=443` in `.env` when that stack should own standard ports. See [Production scripts](docs/PRODUCTION-SCRIPTS.md#0-two-repos-on-one-server-no-symlinks).
+
+**Same stack as local:** `docker-compose.prod.yml` **includes** `docker-compose.yml`, so the app, **db** (Postgres), and **redis** services match what you run on your laptop. Production adds **nginx** and **certbot** only. Container names on the server remain `suhani-postgres` / `suhani-redis`; default DB name is **`real_estate`** (hostname **`db`** in `DATABASE_URL`). Host ports default to **5435** / **6381** so they do not clash with saas-control-plane. Override `DATABASE_URL` / `REDIS_URL` for external databases.
+
+```bash
+# Full combined stack (single compose under suhani/deploy/) — optional
+./scripts/deploy.sh stack
 
 # Or manually
-docker-compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+4. Optional one-off after deploy: tenant backfill — see **§2** in [PRODUCTION-SCRIPTS.md](docs/PRODUCTION-SCRIPTS.md).
 
 ### Manual Deployment
 
@@ -186,20 +204,28 @@ NGINX_SSL_PORT=443
 
 ```bash
 # Development
-npm run dev         # Start development server
-npm run build       # Build for production
-npm run preview     # Preview production build
-npm run lint        # Run ESLint
-npm run test        # Run tests
+pnpm run dev          # Start development server (or npm run dev)
+pnpm run build        # Build for production
+pnpm run preview      # Preview production build
+pnpm run lint         # Run ESLint
+pnpm run test         # Run tests
 
 # Database
-npx prisma generate    # Generate Prisma client
-npx prisma migrate dev # Create and apply migrations
-npx prisma db seed    # Seed database
+npx prisma generate     # Generate Prisma client
+npx prisma migrate dev  # Create and apply migrations (dev)
+npx prisma migrate deploy  # Apply migrations (production)
+npx prisma db seed      # Seed database
 
-# Deployment
-./scripts/deploy.sh    # Deploy to production
+# Deployment & production utilities (details: docs/PRODUCTION-SCRIPTS.md)
+./scripts/deploy.sh                    # Docker deploy + migrate (standalone | stack | control-plane)
+./scripts/issue-custom-domain-cert.sh  # Let's Encrypt for a tenant custom domain
+node scripts/backfill-tenant-admin-ids.mjs   # One-time tenant adminId backfill
+node scripts/pillar9-sync.mjs         # Cron: Pillar9 sync (set env secrets)
+node scripts/holistic-sync.mjs        # Cron: CREA holistic sync
+node scripts/database-backup.mjs      # backup | restore | cleanup
 ```
+
+Full production runbook: **[docs/PRODUCTION-SCRIPTS.md](docs/PRODUCTION-SCRIPTS.md)**.
 
 ## Security Considerations
 
@@ -232,11 +258,10 @@ npx prisma db seed    # Seed database
 
 2. Backups:
 ```bash
-# Backup database
-docker-compose exec db mysqldump -u root -p real_estate > backup.sql
+# Node backup utility (configure DATABASE_URL; see docs/PRODUCTION-SCRIPTS.md)
+node scripts/database-backup.mjs backup
 
-# Restore database
-docker-compose exec -T db mysql -u root -p real_estate < backup.sql
+# Or use pg_dump / your host’s backup policy against the same DATABASE_URL
 ```
 
 3. Updates:

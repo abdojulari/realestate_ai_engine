@@ -55,7 +55,12 @@ export default defineEventHandler(async (event) => {
   })
 
   const token = signResourceAccessToken(slug, resource.id)
-  const secure = process.env.NODE_ENV === 'production'
+  // Secure cookies are not sent over plain HTTP. Production behind TLS (or localhost HTTPS) must use https
+  // or the browser drops the cookie and the PDF iframe gets 403 on /file.
+  const forwardedProto = getRequestHeader(event, 'x-forwarded-proto')?.split(',')[0]?.trim().toLowerCase()
+  const tlsDirect = Boolean((event.node.req as { socket?: { encrypted?: boolean } }).socket?.encrypted)
+  const isHttps = forwardedProto === 'https' || (forwardedProto !== 'http' && tlsDirect)
+  const secure = process.env.NODE_ENV === 'production' && isHttps
 
   setCookie(event, cookieNameForResourceSlug(slug), token, {
     httpOnly: true,
