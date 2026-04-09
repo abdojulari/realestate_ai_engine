@@ -98,24 +98,39 @@ sudo CERTBOT_EMAIL=you@deelbot.com \
 
 Add more space-separated names to `DEELBOT_AI_EXTRA_DOMAINS` as you onboard tenants (re-run the same command with `--expand` behavior: Certbot updates the existing `deelbot-ai` cert when you pass the full domain list — you may need to include **all** previous SANs plus new ones, or use `certbot certonly --cert-name deelbot-ai --webroot ...` with a complete `-d` set).
 
-**Option B — Wildcard `*.deelbot.ai`:** HTTP-01 cannot validate `*`. Use DNS-01 with Cloudflare:
+**Option B — Wildcard `*.deelbot.ai` (recommended for many tenants):** Covers **every** subdomain (`foo.deelbot.ai`, `aohomes.deelbot.ai`, …) without re-running Certbot per host. Uses **DNS-01**: Certbot creates temporary `_acme-challenge` TXT records in Cloudflare via an API token.
 
-1. Create `/root/.secrets/cloudflare.ini` (mode `0600`):
+1. **Create a Cloudflare API token** (not your account password):
+   - Cloudflare dashboard → your profile (avatar) → **My Profile** → **API Tokens** → **Create Token**.
+   - Use template **“Edit zone DNS”** *or* **Create Custom Token** with:
+     - **Permissions:** Zone → DNS → **Edit**
+     - **Zone resources:** Include → **Specific zone** → **deelbot.ai**
+   - Create the token and copy it once (you won’t see it again).
 
-   ```ini
-   dns_cloudflare_api_token = YOUR_TOKEN
-   ```
-
-   Token needs **Zone → DNS → Edit** on `deelbot.ai`.
-
-2. Run:
+2. **Credentials file on the VPS** (only root should read it):
 
    ```bash
-   sudo CERTBOT_EMAIL=you@deelbot.com \
+   sudo install -d -m 0700 /root/.secrets
+   sudo sh -c 'printf "dns_cloudflare_api_token = PASTE_TOKEN_HERE\n" > /root/.secrets/cloudflare.ini'
+   sudo chmod 0600 /root/.secrets/cloudflare.ini
+   ```
+
+   Replace `PASTE_TOKEN_HERE` with the token string (no quotes).
+
+3. **Issue / replace the `deelbot-ai` cert** with apex + wildcard (same name `deelbot-ai` as before — this **replaces** your previous HTTP-01 cert for that name):
+
+   ```bash
+   cd /opt/apps/suhani   # or your repo path
+   sudo CLOUDFLARE_CREDENTIALS=/root/.secrets/cloudflare.ini \
+     CERTBOT_EMAIL=info@deelbot.com \
      ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-only --deelbot-ai-wildcard
    ```
 
-The script installs `python3-certbot-dns-cloudflare` when using `--deelbot-ai-wildcard`.
+   The script installs `python3-certbot-dns-cloudflare`, requests **`-d deelbot.ai`** and **`-d '*.deelbot.ai'`**, updates `/etc/nginx/snippets/deelbot-ai.ssl.inc`, and reloads Nginx.
+
+4. **Renewal:** `certbot renew` uses the same DNS plugin and token file — **no** HTTP on port 80 needed for renewals of this cert. Keep `/root/.secrets/cloudflare.ini` in place; run `sudo certbot renew --dry-run` after setup.
+
+**Security:** Use a token scoped **only** to zone **deelbot.ai** and **DNS Edit** — not a global account API key.
 
 ### Renewal
 
