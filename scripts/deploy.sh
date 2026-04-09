@@ -26,9 +26,23 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUHANI_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MODE="${1:-standalone}"
 
-DC="docker compose"
-if ! docker compose version &>/dev/null; then
-  DC="docker-compose"
+resolve_docker_compose() {
+  if docker compose version &>/dev/null; then
+    echo "docker compose"
+  elif command -v docker-compose &>/dev/null; then
+    echo "docker-compose"
+  else
+    echo ""
+  fi
+}
+
+DC="$(resolve_docker_compose)"
+if [ -z "$DC" ]; then
+  echo "Error: Docker Compose is not installed."
+  echo "Install the v2 plugin (recommended), then verify: docker compose version"
+  echo "  Debian/Ubuntu: sudo apt-get update && sudo apt-get install -y docker-compose-plugin"
+  echo "  Or: https://docs.docker.com/compose/install/linux/"
+  exit 1
 fi
 
 require_docker() {
