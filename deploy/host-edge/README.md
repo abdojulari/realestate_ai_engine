@@ -132,7 +132,10 @@ Let’s Encrypt hits **`http://your-domain:80/.well-known/...` on your VPS’s p
 5. **Re-run the issuer** (after fixing):  
    `sudo CERTBOT_EMAIL=... ./deploy/host-edge/issue-le-certs.sh`
 
-`issue-le-certs.sh` now runs a **preflight** (nginx active, something listening on `:80`, ACME file reachable via `--resolve www.deelbot.com:80:127.0.0.1`) before calling Certbot. Use `--skip-preflight` only if you know what you’re doing.
+6. **404 on `/.well-known/acme-challenge/`** (preflight or Let’s Encrypt):  
+   Usually **Ubuntu’s `sites-enabled` default** is still answering for `Host: www.deelbot.com` with `root /var/www/html`. Run **`install-debian.sh` again** (it clears `sites-enabled/*`), ensure **`/etc/nginx/snippets/deelbot-acme.inc`** exists, then `sudo cp .../deploy/host-edge/nginx/deelbot-edge.conf /etc/nginx/conf.d/deelbot-edge.conf && sudo nginx -t && sudo systemctl reload nginx`.
+
+`issue-le-certs.sh` runs a **preflight** before Certbot. Use `--skip-preflight` only if you know what you’re doing.
 
 ## 5. Tenant vanity domains
 

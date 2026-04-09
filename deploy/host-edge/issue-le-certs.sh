@@ -136,14 +136,38 @@ preflight_http_01() {
     exit 1
   fi
 
+  if ss -ltnp 2>/dev/null | grep -qE 'users:\(\("'; then
+    if ! ss -ltnp 2>/dev/null | awk '/LISTEN/ && $4 ~ /:80$/ && $0 ~ /nginx/ { f=1 } END { exit(f ? 0 : 1) }'; then
+      echo "Error: TCP port 80 does not appear to be bound by nginx."
+      ss -ltnp 2>/dev/null | awk '/LISTEN/ && $4 ~ /:80$/ {print}' || true
+      echo "If Docker owns :80, stop that container or set USE_HOST_EDGE_PROXY=1 and redeploy."
+      exit 1
+    fi
+  fi
+
+  if ! [ -f /etc/nginx/snippets/deelbot-acme.inc ]; then
+    echo "Error: missing /etc/nginx/snippets/deelbot-acme.inc"
+    echo "Pull latest Suhani and run: sudo ./deploy/host-edge/install-debian.sh"
+    exit 1
+  fi
+
+  if ! nginx -t; then
+    exit 1
+  fi
+
   install -d -m 0755 "$WEBROOT/.well-known/acme-challenge"
   echo "preflight" >"$WEBROOT/.well-known/acme-challenge/_deelbot_ping"
+  chmod a+r "$WEBROOT/.well-known/acme-challenge/_deelbot_ping"
+
   if ! curl -fsS --max-time 3 \
     --resolve "www.deelbot.com:80:127.0.0.1" \
     "http://www.deelbot.com/.well-known/acme-challenge/_deelbot_ping" | grep -q preflight; then
     rm -f "$WEBROOT/.well-known/acme-challenge/_deelbot_ping"
-    echo "Error: Nginx did not serve the ACME webroot for www.deelbot.com on 127.0.0.1:80."
-    echo "Check /etc/nginx/conf.d/deelbot-edge.conf and root $WEBROOT"
+    echo "Error: Nginx returned 404 (or no body) for the ACME URL on 127.0.0.1:80."
+    echo "Common causes:"
+    echo "  • Stock site still enabled: ls /etc/nginx/sites-enabled  (should be empty; re-run install-debian.sh)"
+    echo "  • Stale config: sudo cp .../deploy/host-edge/nginx/deelbot-edge.conf /etc/nginx/conf.d/ && sudo nginx -t && sudo systemctl reload nginx"
+    echo "  • Missing snippet: ls /etc/nginx/snippets/deelbot-acme.inc"
     exit 1
   fi
   rm -f "$WEBROOT/.well-known/acme-challenge/_deelbot_ping"

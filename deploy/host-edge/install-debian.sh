@@ -16,8 +16,11 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq nginx openssl
 
-# Avoid clashing with stock default_server on :80 / :443
-rm -f /etc/nginx/sites-enabled/default
+# Stock Ubuntu nginx also loads sites-enabled/* — those vhosts steal Host matching and return 404 for ACME.
+if [ -d /etc/nginx/sites-enabled ] && compgen -G '/etc/nginx/sites-enabled/*' >/dev/null; then
+  echo "Disabling /etc/nginx/sites-enabled/* (Option B uses conf.d/deelbot-edge.conf only)."
+  rm -f /etc/nginx/sites-enabled/*
+fi
 
 install -d -m 0755 /var/www/certbot /etc/nginx/ssl
 
@@ -39,6 +42,9 @@ cp -a "$CONF_SRC" "$CONF_DST"
 SNIP_DIR="$SCRIPT_DIR/nginx/snippets"
 if [ -d "$SNIP_DIR" ]; then
   install -d -m 0755 /etc/nginx/snippets
+  if [ -f "$SNIP_DIR/deelbot-acme.inc" ]; then
+    cp -a "$SNIP_DIR/deelbot-acme.inc" /etc/nginx/snippets/deelbot-acme.inc
+  fi
   for f in deelbot-com.ssl.inc deelbot-ai.ssl.inc; do
     if [ ! -f "/etc/nginx/snippets/$f" ]; then
       cp -a "$SNIP_DIR/$f" "/etc/nginx/snippets/$f"
