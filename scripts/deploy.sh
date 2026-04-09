@@ -4,6 +4,7 @@
 # =============================================================================
 # Usage (from repo root unless noted):
 #   ./scripts/deploy.sh                    # standalone Suhani (docker-compose.yml + docker-compose.prod.yml)
+#   USE_HOST_EDGE_PROXY=1 in .env.production merges docker-compose.host-edge.yml (host Nginx on :80/:443).
 #   ./scripts/deploy.sh standalone
 #   ./scripts/deploy.sh stack              # deelbot.com + *.deelbot.ai (deploy/docker-compose.production.yml)
 #   ./scripts/deploy.sh control-plane      # SaaS control plane only (sibling saas-control-plane repo)
@@ -85,6 +86,11 @@ deploy_standalone_suhani() {
   USE_SELF_SIGNED_SSL="$(read_env_value USE_SELF_SIGNED_SSL "$ENV_FILE" 2>/dev/null || true)"
   SEED_DATABASE="$(read_env_value SEED_DATABASE "$ENV_FILE" 2>/dev/null || true)"
 
+  if [ "$(read_env_value USE_HOST_EDGE_PROXY "$ENV_FILE" 2>/dev/null)" = "1" ]; then
+    DC_FILES+=(-f docker-compose.host-edge.yml)
+    export SUHANI_APP_PORTS="${SUHANI_APP_PORTS:-127.0.0.1:3000:3000}"
+  fi
+
   mkdir -p nginx/ssl nginx/logs certbot/www
 
   if [ "${USE_SELF_SIGNED_SSL:-0}" = "1" ]; then
@@ -111,11 +117,14 @@ deploy_standalone_suhani() {
   fi
 
   run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" ps
-  HTTP_P="${NGINX_PUBLISH_HTTP_PORT:-9080}"
-  HTTPS_P="${NGINX_PUBLISH_HTTPS_PORT:-9443}"
   echo "Suhani deploy complete."
-  echo "  Nginx (host): http://localhost:${HTTP_P}  https://localhost:${HTTPS_P}"
-  echo "  (Set NGINX_PUBLISH_HTTP_PORT / NGINX_PUBLISH_HTTPS_PORT=80/443 in .env when this stack owns standard ports.)"
+  if [ "$(read_env_value USE_HOST_EDGE_PROXY "$ENV_FILE" 2>/dev/null)" = "1" ]; then
+    echo "  Host edge: TLS on this server :443 → app on ${SUHANI_APP_PORTS:-127.0.0.1:3000:3000} (see deploy/host-edge/README.md)."
+  else
+    HTTP_P="${NGINX_PUBLISH_HTTP_PORT:-9080}"
+    HTTPS_P="${NGINX_PUBLISH_HTTPS_PORT:-9443}"
+    echo "  Docker Nginx: http://localhost:${HTTP_P}  https://localhost:${HTTPS_P}"
+  fi
 }
 
 deploy_stack() {
@@ -180,15 +189,21 @@ deploy_control_plane_only() {
 
   require_docker
 
+  local CP_DC=(-f docker-compose.prod.yml)
+  if [ "$(read_env_value USE_HOST_EDGE_PROXY "$ENV_FILE" 2>/dev/null)" = "1" ]; then
+    CP_DC+=(-f docker-compose.host-edge.yml)
+    export CP_APP_PORTS="${CP_APP_PORTS:-127.0.0.1:3001:3001}"
+  fi
+
   echo "Building control plane (deelbot.com)..."
-  run_compose --env-file "$ENV_FILE" -f docker-compose.prod.yml build
-  run_compose --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d
+  run_compose --env-file "$ENV_FILE" "${CP_DC[@]}" build
+  run_compose --env-file "$ENV_FILE" "${CP_DC[@]}" up -d
 
   sleep 8
   echo "Running Prisma migrations..."
-  run_compose --env-file "$ENV_FILE" -f docker-compose.prod.yml exec -T app pnpm exec prisma migrate deploy
+  run_compose --env-file "$ENV_FILE" "${CP_DC[@]}" run --rm -T app pnpm exec prisma migrate deploy
 
-  run_compose --env-file "$ENV_FILE" -f docker-compose.prod.yml ps
+  run_compose --env-file "$ENV_FILE" "${CP_DC[@]}" ps
   echo "Control plane deploy complete."
 }
 

@@ -1,0 +1,14 @@
+# Merge after prod when the VPS uses host Nginx on :80/:443 (Option B).
+#   docker compose --env-file .env.production \
+#     -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.host-edge.yml up -d
+#
+# Set SUHANI_APP_PORTS=127.0.0.1:3000:3000 in .env.production (or USE_HOST_EDGE_PROXY=1 in deploy.sh).
+# Disables per-stack Nginx + Certbot so they do not bind host 80/443.
+services:
+  nginx:
+    profiles:
+      - docker-stack-nginx
+
+  certbot:
+    profiles:
+      - docker-stack-nginx

@@ -48,8 +48,9 @@ services:
         NODE_MEMORY: ${DOCKER_NODE_MEMORY:-8192}
     env_file:
       - .env
+    # Full publish spec (host:container or ip:host:container). For host OS Nginx (Option B): 127.0.0.1:3000:3000
     ports:
-      - "3000:3000"
+      - "${SUHANI_APP_PORTS:-3000:3000}"
     # Do not use ${DATABASE_URL} here — .env often has localhost:5433 for host Prisma/npm dev;
     # inside the container the DB hostname must be `db`. Override with SUHANI_DOCKER_DATABASE_URL if needed.
     environment:

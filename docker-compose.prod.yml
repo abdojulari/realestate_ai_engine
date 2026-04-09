@@ -24,8 +24,6 @@ services:
 
   app:
     restart: unless-stopped
-    ports:
-      - "${SUHANI_APP_PUBLISH_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://postgres:postgres@db:5432/real_estate?schema=public}
