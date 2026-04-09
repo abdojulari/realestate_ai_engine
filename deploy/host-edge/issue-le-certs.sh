@@ -11,7 +11,8 @@
 #   sudo CERTBOT_EMAIL=you@deelbot.com ./deploy/host-edge/issue-le-certs.sh
 #
 # Optional:
-#   DEELBOT_AI_EXTRA_DOMAINS="aohomes.deelbot.ai"   # extra SANs (HTTP-01) on deelbot-ai cert
+#   DEELBOT_AI_INCLUDE_APEX=0                       # omit deelbot.ai apex (use if you have no @ A record)
+#   DEELBOT_AI_EXTRA_DOMAINS="aohomes.deelbot.ai"   # SANs (HTTP-01); * in DNS does not cover apex
 #   sudo ./deploy/host-edge/issue-le-certs.sh --deelbot-com-only
 #   sudo ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-only
 #   sudo CLOUDFLARE_CREDENTIALS=/root/.secrets/cloudflare.ini \
@@ -93,7 +94,7 @@ fi
 
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq certbot curl
+apt-get install -y -qq certbot curl dnsutils
 
 install -d -m 0755 "$WEBROOT" /etc/nginx/snippets
 install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy
@@ -208,7 +209,10 @@ issue_deelbot_com() {
 }
 
 issue_deelbot_ai_http() {
-  local -a domains=( -d deelbot.ai )
+  local -a domains=()
+  if [ "${DEELBOT_AI_INCLUDE_APEX:-1}" != "0" ]; then
+    domains+=( -d deelbot.ai )
+  fi
   local extra="${DEELBOT_AI_EXTRA_DOMAINS:-}"
   if [ -n "$extra" ]; then
     local d
@@ -217,12 +221,27 @@ issue_deelbot_ai_http() {
     done
   fi
 
-  echo "=== Let's Encrypt: ${AI_CERT} (HTTP-01) ==="
-  if [ -n "$extra" ]; then
-    echo "    SANs: deelbot.ai + $extra"
-  else
-    echo "    SANs: deelbot.ai only — set DEELBOT_AI_EXTRA_DOMAINS='aohomes.deelbot.ai ...' for tenant hosts"
+  if [ ${#domains[@]} -eq 0 ]; then
+    echo "Error: no hostnames for the deelbot-ai certificate."
+    echo "  • Add DEELBOT_AI_EXTRA_DOMAINS='aohomes.deelbot.ai ...', and/or"
+    echo "  • Keep apex on the cert (default) with a Cloudflare A record: name @ → your VPS IP"
+    exit 1
   fi
+
+  if [ "${DEELBOT_AI_INCLUDE_APEX:-1}" != "0" ] && command -v dig >/dev/null 2>&1; then
+    if ! dig +short deelbot.ai A @1.1.1.1 | grep -q . && ! dig +short deelbot.ai AAAA @1.1.1.1 | grep -q .; then
+      echo "Error: public DNS has no A/AAAA for deelbot.ai (zone apex)."
+      echo "A Cloudflare record * (wildcard) matches tenant hosts like aohomes.deelbot.ai but NOT bare deelbot.ai."
+      echo "Choose one:"
+      echo "  A) Cloudflare → DNS → add A @ (or deelbot.ai) → same IP as your wildcard, then re-run this script."
+      echo "  B) Cert for subdomains only: DEELBOT_AI_INCLUDE_APEX=0 DEELBOT_AI_EXTRA_DOMAINS='aohomes.deelbot.ai' sudo $SCRIPT_DIR/issue-le-certs.sh --deelbot-ai-only"
+      exit 1
+    fi
+  fi
+
+  echo "=== Let's Encrypt: ${AI_CERT} (HTTP-01) ==="
+  echo "    SAN list: ${domains[*]}"
+
   certbot certonly --webroot -w "$WEBROOT" \
     --cert-name "$AI_CERT" --expand \
     --non-interactive --agree-tos --email "$EMAIL" \

@@ -75,7 +75,20 @@ sudo CERTBOT_EMAIL=you@deelbot.com ./deploy/host-edge/issue-le-certs.sh
 
 ### Tenant subdomains (`*.deelbot.ai`)
 
-**Option A — HTTP-01 (no wildcard):** include every hostname you need on the **deelbot-ai** certificate (each name must resolve here and serve `/.well-known/acme-challenge/` on port 80):
+**Zone apex vs wildcard:** In Cloudflare, an **`A` record named `*`** points `anything.deelbot.ai` at your server but **does not** publish **`deelbot.ai`** itself. Let’s Encrypt’s default run includes **`-d deelbot.ai`**, which needs a public **A (or AAAA) for `@` / the apex** (same IP as your tenants). Add **Type A, Name `@`, Content your VPS IP**, or skip apex on the cert (below).
+
+**Option A — HTTP-01 (no wildcard):** every hostname on the certificate must resolve to this server (port 80 for challenges).
+
+Subdomains **only** (no apex record — matches a `*` + `aohomes`-style setup):
+
+```bash
+sudo CERTBOT_EMAIL=you@deelbot.com \
+  DEELBOT_AI_INCLUDE_APEX=0 \
+  DEELBOT_AI_EXTRA_DOMAINS="aohomes.deelbot.ai" \
+  ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-only
+```
+
+Apex **plus** tenants (after you add **A @** for `deelbot.ai`):
 
 ```bash
 sudo CERTBOT_EMAIL=you@deelbot.com \
