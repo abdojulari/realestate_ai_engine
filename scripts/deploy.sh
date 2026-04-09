@@ -3,21 +3,17 @@
 # DeelBot deploy helper — Suhani tenant app, full stack, or control plane only
 # =============================================================================
 # Usage (from repo root unless noted):
-#   ./scripts/deploy.sh                    # standalone Suhani (docker-compose.prod.yml)
+#   ./scripts/deploy.sh                    # standalone Suhani (docker-compose.yml + docker-compose.prod.yml)
 #   ./scripts/deploy.sh standalone
 #   ./scripts/deploy.sh stack              # deelbot.com + *.deelbot.ai (deploy/docker-compose.production.yml)
 #   ./scripts/deploy.sh control-plane      # SaaS control plane only (sibling saas-control-plane repo)
 #
+# Standalone / control-plane modes use `docker compose --env-file` (no `source .env`)
+# so values with spaces do not break the shell. Prefer KEY="value with spaces" in .env.
+#
 # Environment:
 #   DEELBOT_DEPLOY_DIR   — for stack mode (default: <suhani>/deploy)
 #   SAAS_CP_ROOT         — for control-plane mode (default: sibling ../saas-control-plane)
-#
-# Production TLS: use Let's Encrypt (see deploy/setup-vps.sh / certbot). The optional
-# nginx/ssl self-signed block below is for local smoke tests only.
-#
-# Custom tenant domains (e.g. aohomes.com or future *.propertymatch.estate):
-#   Copy nginx/conf.d/custom-domains.conf.example → custom-domains.conf, add server_name +
-#   certificate paths, then: docker compose exec nginx nginx -s reload
 # =============================================================================
 
 set -euo pipefail
@@ -26,24 +22,44 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUHANI_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 MODE="${1:-standalone}"
 
-resolve_docker_compose() {
-  if docker compose version &>/dev/null; then
-    echo "docker compose"
+run_compose() {
+  if docker compose version &>/dev/null 2>&1; then
+    docker compose "$@"
   elif command -v docker-compose &>/dev/null; then
-    echo "docker-compose"
+    docker-compose "$@"
   else
-    echo ""
+    echo "Error: Docker Compose is not installed."
+    echo "  Debian/Ubuntu: sudo apt-get install -y docker-compose-v2"
+    echo "  Or: https://docs.docker.com/compose/install/linux/"
+    exit 1
   fi
 }
 
-DC="$(resolve_docker_compose)"
-if [ -z "$DC" ]; then
-  echo "Error: Docker Compose is not installed."
-  echo "Install the v2 plugin (recommended), then verify: docker compose version"
-  echo "  Debian/Ubuntu: sudo apt-get update && sudo apt-get install -y docker-compose-plugin"
-  echo "  Or: https://docs.docker.com/compose/install/linux/"
-  exit 1
-fi
+# Read KEY=value from env file without sourcing (safe when values contain spaces).
+read_env_value() {
+  local key="$1" file="$2" line val prefix
+  [ -f "$file" ] || return 1
+  prefix="${key}="
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line#"${line%%[![:space:]]*}"}"
+    [[ "$line" == \#* ]] && continue
+    [[ -z "$line" ]] && continue
+    case "$line" in
+      "${prefix}"*)
+        val="${line#"${prefix}"}"
+        val="${val%$'\r'}"
+        if [[ "${#val}" -ge 2 && "${val:0:1}" == '"' && "${val: -1}" == '"' ]]; then
+          val="${val:1:$((${#val} - 2))}"
+        elif [[ "${#val}" -ge 2 && "${val:0:1}" == "'" && "${val: -1}" == "'" ]]; then
+          val="${val:1:$((${#val} - 2))}"
+        fi
+        printf '%s' "$val"
+        return 0
+        ;;
+    esac
+  done < "$file"
+  return 1
+}
 
 require_docker() {
   if ! docker info &>/dev/null; then
@@ -54,21 +70,20 @@ require_docker() {
 
 deploy_standalone_suhani() {
   cd "$SUHANI_ROOT"
+  # Base + prod overlay (see docker-compose.prod.yml header — avoids Compose `include` override bugs).
+  local DC_FILES=(-f docker-compose.yml -f docker-compose.prod.yml)
 
   if [ -f .env.production ]; then
-    set -a
-    # shellcheck disable=SC1091
-    source .env.production
-    set +a
+    ENV_FILE=.env.production
   elif [ -f .env ]; then
-    set -a
-    # shellcheck disable=SC1091
-    source .env
-    set +a
+    ENV_FILE=.env
   else
     echo "Error: create .env.production or .env in $SUHANI_ROOT (see .env.example)"
     exit 1
   fi
+
+  USE_SELF_SIGNED_SSL="$(read_env_value USE_SELF_SIGNED_SSL "$ENV_FILE" 2>/dev/null || true)"
+  SEED_DATABASE="$(read_env_value SEED_DATABASE "$ENV_FILE" 2>/dev/null || true)"
 
   mkdir -p nginx/ssl nginx/logs certbot/www
 
@@ -82,20 +97,20 @@ deploy_standalone_suhani() {
   fi
 
   echo "Building and starting Suhani stack (tenant app: *.\${APP_BASE_DOMAIN:-deelbot.ai})..."
-  $DC -f docker-compose.prod.yml build
-  $DC -f docker-compose.prod.yml up -d
+  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" build
+  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" up -d
 
   echo "Waiting for Postgres/Redis and app..."
   sleep 8
 
   echo "Running Prisma migrations..."
-  $DC -f docker-compose.prod.yml exec -T app npx prisma migrate deploy
+  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" exec -T app npx prisma migrate deploy
 
   if [ "${SEED_DATABASE:-}" = "true" ]; then
-    $DC -f docker-compose.prod.yml exec -T app npx prisma db seed || true
+    run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" exec -T app npx prisma db seed || true
   fi
 
-  $DC -f docker-compose.prod.yml ps
+  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" ps
   HTTP_P="${NGINX_PUBLISH_HTTP_PORT:-9080}"
   HTTPS_P="${NGINX_PUBLISH_HTTPS_PORT:-9443}"
   echo "Suhani deploy complete."
@@ -125,8 +140,8 @@ deploy_stack() {
 
   require_docker
   echo "Building full stack (deelbot.com control plane + *.deelbot.ai Suhani)..."
-  $DC -f docker-compose.production.yml build --parallel
-  $DC -f docker-compose.production.yml up -d --remove-orphans
+  run_compose -f docker-compose.production.yml build --parallel
+  run_compose -f docker-compose.production.yml up -d --remove-orphans
 
   sleep 8
 
@@ -134,7 +149,7 @@ deploy_stack() {
   docker exec deelbot-suhani npx prisma migrate deploy 2>/dev/null || true
   docker exec deelbot-control-plane pnpm exec prisma migrate deploy 2>/dev/null || true
 
-  $DC -f docker-compose.production.yml ps
+  run_compose -f docker-compose.production.yml ps
   echo "Stack deploy complete. Ensure certs exist for deelbot.com and *.deelbot.ai (wildcard)."
 }
 
@@ -146,35 +161,34 @@ deploy_control_plane_only() {
   fi
   cd "$CP"
 
-  if [ ! -f .env.production ] && [ ! -f .env ]; then
+  if [ -f .env.production ]; then
+    ENV_FILE=.env.production
+  elif [ -f .env ]; then
+    ENV_FILE=.env
+  else
     echo "Error: create .env.production or .env in $CP (see .env.example)"
     exit 1
   fi
 
-  if [ -f .env.production ]; then
-    set -a
-    # shellcheck disable=SC1091
-    source .env.production
-    set +a
-  else
-    set -a
-    # shellcheck disable=SC1091
-    source .env
-    set +a
+  mkdir -p certbot/www nginx/logs nginx/ssl
+  if [ ! -f nginx/ssl/server.crt ] || [ ! -f nginx/ssl/server.key ]; then
+    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+      -keyout nginx/ssl/server.key \
+      -out nginx/ssl/server.crt \
+      -subj "/CN=www.deelbot.com"
   fi
 
-  mkdir -p certbot/www nginx/logs
   require_docker
 
   echo "Building control plane (deelbot.com)..."
-  $DC -f docker-compose.prod.yml build
-  $DC -f docker-compose.prod.yml up -d
+  run_compose --env-file "$ENV_FILE" -f docker-compose.prod.yml build
+  run_compose --env-file "$ENV_FILE" -f docker-compose.prod.yml up -d
 
   sleep 8
   echo "Running Prisma migrations..."
-  $DC -f docker-compose.prod.yml exec -T app pnpm exec prisma migrate deploy
+  run_compose --env-file "$ENV_FILE" -f docker-compose.prod.yml exec -T app pnpm exec prisma migrate deploy
 
-  $DC -f docker-compose.prod.yml ps
+  run_compose --env-file "$ENV_FILE" -f docker-compose.prod.yml ps
   echo "Control plane deploy complete."
 }
 

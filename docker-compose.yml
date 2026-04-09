@@ -1,6 +1,6 @@
-# Canonical stack: same services and env shape as production (docker-compose.prod.yml includes this file).
+# Canonical stack: same services and env shape as production (merge with docker-compose.prod.yml for prod).
 # Local: docker compose up
-# Production edge (nginx + TLS): docker compose -f docker-compose.prod.yml up -d
+# Production edge (nginx + TLS): docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 services:
   db:

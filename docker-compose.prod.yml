@@ -1,9 +1,7 @@
-# Includes docker-compose.yml — same app/db/redis as your laptop; adds nginx + certbot and server-friendly ports.
-# Local full parity without edge: still use docker-compose.yml only.
-# Server: docker compose -f docker-compose.prod.yml up -d  (or ./scripts/deploy.sh)
-
-include:
-  - docker-compose.yml
+# Production overlay: merge with docker-compose.yml (do not use `include` here — some Compose versions
+# error with "conflicts with imported resource" when overriding `app` from an included file).
+# Server: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d  (or ./scripts/deploy.sh)
+# Local without nginx/TLS: docker compose up  (docker-compose.yml only)
 
 services:
   db:

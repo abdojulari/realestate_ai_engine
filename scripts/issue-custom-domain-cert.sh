@@ -14,8 +14,8 @@
 #   export CERTBOT_EMAIL=you@example.com   # or pass as first arg
 #   ./scripts/issue-custom-domain-cert.sh admin@example.com aohomes.com www.aohomes.com
 #
-# Compose file (override if needed):
-#   COMPOSE_FILE=docker-compose.prod.yml
+# Compose files (override if needed — must match deploy.sh standalone stack):
+#   COMPOSE_FILES="docker-compose.yml docker-compose.prod.yml"
 # Combined stack (from suhani repo root):
 #   COMPOSE_FILE=deploy/docker-compose.production.yml ./scripts/issue-custom-domain-cert.sh you@x.com site.com
 # =============================================================================
@@ -26,11 +26,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$ROOT"
 
-COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.prod.yml}"
+COMPOSE_FILES="${COMPOSE_FILES:-docker-compose.yml docker-compose.prod.yml}"
 DC="docker compose"
 if ! docker compose version &>/dev/null; then
   DC="docker-compose"
 fi
+
+compose_file_args=()
+for f in $COMPOSE_FILES; do
+  compose_file_args+=(-f "$f")
+done
 
 if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ] || [ $# -lt 2 ]; then
   echo "Usage: CERTBOT_EMAIL=you@domain.com $0 <email> <domain> [domain2 ...]"
@@ -47,10 +52,12 @@ if ! docker info &>/dev/null; then
   exit 1
 fi
 
-if [ ! -f "$COMPOSE_FILE" ]; then
-  echo "Error: $COMPOSE_FILE not found in $ROOT"
-  exit 1
-fi
+for f in $COMPOSE_FILES; do
+  if [ ! -f "$f" ]; then
+    echo "Error: $f not found in $ROOT"
+    exit 1
+  fi
+done
 
 ARGS=()
 for d in "${DOMAINS[@]}"; do
@@ -58,10 +65,10 @@ for d in "${DOMAINS[@]}"; do
 done
 
 echo "Requesting certificate for: ${DOMAINS[*]}"
-echo "Using compose file: $COMPOSE_FILE"
+echo "Using compose files: $COMPOSE_FILES"
 
 # certonly: nginx keeps running; webroot must match nginx (./certbot/www → /var/www/certbot)
-$DC -f "$COMPOSE_FILE" run --rm certbot certonly \
+$DC "${compose_file_args[@]}" run --rm certbot certonly \
   --webroot -w /var/www/certbot \
   --email "$EMAIL" \
   --agree-tos \
@@ -72,5 +79,5 @@ echo ""
 echo "Next steps:"
 echo "  1. Add HTTPS (and optional HTTP→HTTPS) server blocks to nginx/conf.d/custom-domains.conf"
 echo "     (see nginx/conf.d/custom-domains.conf.example — use include snippets/suhani-tenant-server.inc)"
-echo "  2. Reload nginx: $DC -f $COMPOSE_FILE exec nginx nginx -s reload"
+echo "  2. Reload nginx: $DC ${compose_file_args[*]} exec nginx nginx -s reload"
 echo "  3. Ensure TenantSettings.customDomain (Suhani) matches this hostname."
