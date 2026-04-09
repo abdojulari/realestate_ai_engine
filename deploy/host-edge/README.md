@@ -54,17 +54,61 @@ cd ~/opt/apps/saas-control-plane && ./scripts/deploy.sh
 
 Stack **Nginx + Certbot** containers stay off (Compose profile) so they do not bind host 80/443.
 
-## 4. Let’s Encrypt (replace self-signed)
+## 4. Let’s Encrypt (replace bootstrap certs)
 
-HTTP-01 with webroot:
+TLS paths live in **snippet files** (not in the main conf): `/etc/nginx/snippets/deelbot-com.ssl.inc` and `deelbot-ai.ssl.inc`. `install-debian.sh` installs bootstrap (self-signed) lines; **`issue-le-certs.sh`** runs Certbot and rewrites those snippets to `/etc/letsencrypt/live/...`, then reloads Nginx.
+
+### Control plane (`deelbot.com`) — HTTP-01
 
 ```bash
-sudo certbot certonly --webroot -w /var/www/certbot -d www.deelbot.com -d deelbot.com
+cd ~/opt/apps/suhani
+sudo CERTBOT_EMAIL=you@deelbot.com ./deploy/host-edge/issue-le-certs.sh --deelbot-com-only
 ```
 
-For **`*.deelbot.ai`**, HTTP-01 cannot issue a wildcard; use **DNS-01** (e.g. Cloudflare) or a cert whose SANs list the subdomains you need. Then edit `/etc/nginx/conf.d/deelbot-edge.conf` `ssl_certificate` / `ssl_certificate_key` for the `*.deelbot.ai` server block (you may split into two certificate pairs).
+Or issue **both** `deelbot.com` and `deelbot.ai` in one run (default):
 
-Reload: `sudo nginx -t && sudo systemctl reload nginx`.
+```bash
+sudo CERTBOT_EMAIL=you@deelbot.com ./deploy/host-edge/issue-le-certs.sh
+```
+
+### Tenant subdomains (`*.deelbot.ai`)
+
+**Option A — HTTP-01 (no wildcard):** include every hostname you need on the **deelbot-ai** certificate (each name must resolve here and serve `/.well-known/acme-challenge/` on port 80):
+
+```bash
+sudo CERTBOT_EMAIL=you@deelbot.com \
+  DEELBOT_AI_EXTRA_DOMAINS="aohomes.deelbot.ai" \
+  ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-only
+```
+
+Add more space-separated names to `DEELBOT_AI_EXTRA_DOMAINS` as you onboard tenants (re-run the same command with `--expand` behavior: Certbot updates the existing `deelbot-ai` cert when you pass the full domain list — you may need to include **all** previous SANs plus new ones, or use `certbot certonly --cert-name deelbot-ai --webroot ...` with a complete `-d` set).
+
+**Option B — Wildcard `*.deelbot.ai`:** HTTP-01 cannot validate `*`. Use DNS-01 with Cloudflare:
+
+1. Create `/root/.secrets/cloudflare.ini` (mode `0600`):
+
+   ```ini
+   dns_cloudflare_api_token = YOUR_TOKEN
+   ```
+
+   Token needs **Zone → DNS → Edit** on `deelbot.ai`.
+
+2. Run:
+
+   ```bash
+   sudo CERTBOT_EMAIL=you@deelbot.com \
+     ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-only --deelbot-ai-wildcard
+   ```
+
+The script installs `python3-certbot-dns-cloudflare` when using `--deelbot-ai-wildcard`.
+
+### Renewal
+
+`/etc/letsencrypt/renewal-hooks/deploy/99-reload-nginx.sh` reloads Nginx after renewals. Check with:
+
+```bash
+sudo certbot renew --dry-run
+```
 
 ## 5. Tenant vanity domains
 

@@ -35,6 +35,23 @@ if [ ! -f "${BOOT}-fullchain.pem" ] || [ ! -f "${BOOT}-privkey.pem" ]; then
 fi
 
 cp -a "$CONF_SRC" "$CONF_DST"
+
+SNIP_DIR="$SCRIPT_DIR/nginx/snippets"
+if [ -d "$SNIP_DIR" ]; then
+  install -d -m 0755 /etc/nginx/snippets
+  for f in deelbot-com.ssl.inc deelbot-ai.ssl.inc; do
+    if [ ! -f "/etc/nginx/snippets/$f" ]; then
+      cp -a "$SNIP_DIR/$f" "/etc/nginx/snippets/$f"
+    fi
+  done
+fi
+
+install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy
+if [ -f "$SCRIPT_DIR/renewal-hooks/deploy/99-reload-nginx.sh" ]; then
+  install -m 0755 "$SCRIPT_DIR/renewal-hooks/deploy/99-reload-nginx.sh" \
+    /etc/letsencrypt/renewal-hooks/deploy/99-reload-nginx.sh
+fi
+
 nginx -t
 systemctl enable --now nginx
 systemctl reload nginx
@@ -42,4 +59,4 @@ systemctl reload nginx
 echo ""
 echo "Host Nginx installed. Open ports 80 and 443 (e.g. ufw allow 80,443/tcp)."
 echo "Ensure Docker stacks use USE_HOST_EDGE_PROXY=1 (see deploy/host-edge/README.md)."
-echo "Replace ${BOOT}-*.pem with Let's Encrypt when ready (certbot --webroot -w /var/www/certbot ...)."
+echo "Let's Encrypt: sudo CERTBOT_EMAIL=you@domain.com $SCRIPT_DIR/issue-le-certs.sh"
