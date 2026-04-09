@@ -83,6 +83,14 @@ if [ -z "$EMAIL" ]; then
   exit 1
 fi
 
+if ! command -v nginx >/dev/null 2>&1; then
+  echo "Error: nginx is not installed on this server."
+  echo "Option B (host TLS on :80/:443) uses the OS Nginx package — it is separate from Docker."
+  echo "Install it once from the Suhani repo:"
+  echo "  cd ~/opt/apps/suhani && sudo ./deploy/host-edge/install-debian.sh"
+  exit 1
+fi
+
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq certbot curl

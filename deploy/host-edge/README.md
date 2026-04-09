@@ -1,5 +1,7 @@
 # Host Nginx edge (Option B)
 
+This path uses **Nginx installed on the host OS** (Debian/Ubuntu package from `install-debian.sh`), **not** the Nginx containers inside your Docker Compose files. Those stay off when `USE_HOST_EDGE_PROXY=1` so **only one** process owns public **80/443** on the machine.
+
 One Nginx on the VPS listens on **80** and **443**. It proxies:
 
 | Hostname | Upstream |
