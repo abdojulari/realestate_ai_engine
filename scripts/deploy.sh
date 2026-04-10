@@ -90,6 +90,30 @@ require_docker() {
   fi
 }
 
+# True whether `docker compose run` supports --env-from-file (avoids shell mangling DATABASE_URL with $ in password).
+compose_run_has_env_from_file() {
+  run_compose run --help 2>&1 | grep -qE '(^|[[:space:]])--env-from-file([[:space:]]|$)'
+}
+
+# Fail fast if Postgres data dir password does not match POSTGRES_* in the env file (pg_isready alone is not enough).
+postgres_volume_password_matches_env() {
+  local ENV_FILE="$1"
+  shift
+  if [ -n "$(read_env_value SUHANI_DOCKER_DATABASE_URL "$ENV_FILE" 2>/dev/null || true)" ]; then
+    echo "Note: SUHANI_DOCKER_DATABASE_URL is set — Prisma uses it; local POSTGRES_* check below does not validate that URL."
+  fi
+  echo "Checking Postgres accepts POSTGRES_* from $ENV_FILE (existing volume must match)..."
+  if run_compose --env-file "$ENV_FILE" "$@" exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select 1"' 2>/dev/null | grep -q 1; then
+    echo "Postgres password check: OK"
+    return 0
+  fi
+  echo "Error: Postgres rejected the password (psql inside the db container failed)."
+  echo "  PostgreSQL only uses POSTGRES_PASSWORD on first init; changing $ENV_FILE does not change an existing Docker volume."
+  echo "  Fix: use the original password, run ALTER USER ... WITH PASSWORD to match $ENV_FILE, or docker compose ... down -v (wipes data)."
+  echo "  Also verify SUHANI_DOCKER_DATABASE_URL is unset or correct — it overrides POSTGRES_* for Prisma. See .env.example."
+  return 1
+}
+
 # Wait until Postgres accepts connections (avoids Prisma P1000 right after `up -d`).
 wait_for_postgres() {
   local ENV_FILE="$1"
@@ -112,16 +136,27 @@ wait_for_postgres() {
   return 1
 }
 
-# Prisma migrate with retries — always pass -e DATABASE_URL=… from env file (avoids compose run vs up mismatch).
+# Prisma migrate with retries — DATABASE_URL from env file via --env-from-file when available (avoids $ in password breaking -e).
 prisma_migrate_deploy_retry() {
   local ENV_FILE="$1"
   shift
-  local attempt DU
+  local attempt DU tmp
   DU="$(docker_database_url_from_env_file "$ENV_FILE")"
   for attempt in 1 2 3 4 5 6; do
     echo "Running Prisma migrations (attempt $attempt/6)..."
-    if run_compose --env-file "$ENV_FILE" "$@" run --rm -T --no-deps -e "DATABASE_URL=$DU" app npx prisma migrate deploy; then
-      return 0
+    if compose_run_has_env_from_file; then
+      tmp="$(mktemp)"
+      chmod 600 "$tmp"
+      printf 'DATABASE_URL=%s\n' "$DU" > "$tmp"
+      if run_compose --env-file "$ENV_FILE" "$@" run --rm -T --no-deps --env-from-file "$tmp" app npx prisma migrate deploy; then
+        rm -f "$tmp"
+        return 0
+      fi
+      rm -f "$tmp"
+    else
+      if run_compose --env-file "$ENV_FILE" "$@" run --rm -T --no-deps -e "DATABASE_URL=$DU" app npx prisma migrate deploy; then
+        return 0
+      fi
     fi
     echo "  migrate deploy failed; waiting 8s before retry..."
     sleep 8
@@ -185,7 +220,15 @@ verify_standalone_db() {
     echo "  Prisma migrate status (exec): skipped (app container not running)"
   fi
   echo "  Prisma migrate status (one-off with explicit DATABASE_URL from file):"
-  MS_OUT="$(sc run --rm -T --no-deps -e "DATABASE_URL=$_VERIFY_DU" app sh -c 'cd /app && npx prisma migrate status' 2>&1)" || true
+  if compose_run_has_env_from_file; then
+    _vtmp="$(mktemp)"
+    chmod 600 "$_vtmp"
+    printf 'DATABASE_URL=%s\n' "$_VERIFY_DU" > "$_vtmp"
+    MS_OUT="$(sc run --rm -T --no-deps --env-from-file "$_vtmp" app sh -c 'cd /app && npx prisma migrate status' 2>&1)" || true
+    rm -f "$_vtmp"
+  else
+    MS_OUT="$(sc run --rm -T --no-deps -e "DATABASE_URL=$_VERIFY_DU" app sh -c 'cd /app && npx prisma migrate status' 2>&1)" || true
+  fi
   if echo "$MS_OUT" | grep -qiE 'P1000|Authentication failed|credentials.*not valid'; then
     echo "  FAIL (auth) — Postgres password in the volume must match POSTGRES_* / SUHANI_DOCKER_DATABASE_URL in $ENV_FILE"
   elif echo "$MS_OUT" | grep -qiE 'not reach database server|Database connection error'; then
@@ -239,6 +282,8 @@ deploy_standalone_suhani() {
 
   wait_for_postgres "$ENV_FILE" "${DC_FILES[@]}"
 
+  postgres_volume_password_matches_env "$ENV_FILE" "${DC_FILES[@]}"
+
   prisma_migrate_deploy_retry "$ENV_FILE" "${DC_FILES[@]}"
 
   if [ "${SEED_DATABASE:-}" = "true" ]; then
@@ -246,7 +291,21 @@ deploy_standalone_suhani() {
     _seed_ok=1
     _seed_du="$(docker_database_url_from_env_file "$ENV_FILE")"
     for _seed_attempt in 1 2 3; do
-      if run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T --no-deps -e "DATABASE_URL=$_seed_du" app npx prisma db seed; then
+      _seed_run_ok=1
+      if compose_run_has_env_from_file; then
+        _stmp="$(mktemp)"
+        chmod 600 "$_stmp"
+        printf 'DATABASE_URL=%s\n' "$_seed_du" > "$_stmp"
+        if run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T --no-deps --env-from-file "$_stmp" app npx prisma db seed; then
+          _seed_run_ok=0
+        fi
+        rm -f "$_stmp"
+      else
+        if run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T --no-deps -e "DATABASE_URL=$_seed_du" app npx prisma db seed; then
+          _seed_run_ok=0
+        fi
+      fi
+      if [ "$_seed_run_ok" = 0 ]; then
         _seed_ok=0
         break
       fi
