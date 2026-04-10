@@ -70,6 +70,45 @@ require_docker() {
   fi
 }
 
+# Wait until Postgres accepts connections (avoids Prisma P1000 right after `up -d`).
+wait_for_postgres() {
+  local ENV_FILE="$1"
+  shift
+  local pg_user pg_db
+  pg_user="$(read_env_value POSTGRES_USER "$ENV_FILE" 2>/dev/null || printf '%s' 'postgres')"
+  pg_db="$(read_env_value POSTGRES_DB "$ENV_FILE" 2>/dev/null || printf '%s' 'real_estate')"
+  echo "Waiting for Postgres to accept connections (pg_isready)..."
+  local i
+  for i in $(seq 1 90); do
+    if run_compose --env-file "$ENV_FILE" "$@" exec -T db pg_isready -U "$pg_user" -d "$pg_db" &>/dev/null; then
+      # One more beat so auth/backend are fully ready (reduces flaky P1000 on first prisma connect).
+      sleep 3
+      echo "Postgres is ready."
+      return 0
+    fi
+    sleep 2
+  done
+  echo "Error: Postgres did not become ready within ~3 minutes (pg_isready)."
+  return 1
+}
+
+# Prisma migrate with retries (transient P1000 / connection during stack bring-up).
+prisma_migrate_deploy_retry() {
+  local ENV_FILE="$1"
+  shift
+  local attempt
+  for attempt in 1 2 3 4 5 6; do
+    echo "Running Prisma migrations (attempt $attempt/6)..."
+    if run_compose --env-file "$ENV_FILE" "$@" run --rm -T app npx prisma migrate deploy; then
+      return 0
+    fi
+    echo "  migrate deploy failed; waiting 8s before retry..."
+    sleep 8
+  done
+  echo "Error: prisma migrate deploy failed after 6 attempts."
+  return 1
+}
+
 # Standalone stack only: compare app DATABASE_URL vs db POSTGRES_* (read-only). Does not change passwords.
 verify_standalone_db() {
   cd "$SUHANI_ROOT"
@@ -159,14 +198,24 @@ deploy_standalone_suhani() {
   run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" build
   run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" up -d
 
-  echo "Waiting for Postgres/Redis and app..."
-  sleep 8
+  wait_for_postgres "$ENV_FILE" "${DC_FILES[@]}"
 
-  echo "Running Prisma migrations..."
-  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T app npx prisma migrate deploy
+  prisma_migrate_deploy_retry "$ENV_FILE" "${DC_FILES[@]}"
 
   if [ "${SEED_DATABASE:-}" = "true" ]; then
-    run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T app npx prisma db seed || true
+    echo "Running Prisma seed..."
+    _seed_ok=1
+    for _seed_attempt in 1 2 3; do
+      if run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T app npx prisma db seed; then
+        _seed_ok=0
+        break
+      fi
+      echo "  seed failed; retrying in 6s..."
+      sleep 6
+    done
+    if [ "$_seed_ok" != 0 ]; then
+      echo "Warning: prisma db seed failed after 3 attempts (deploy continues)."
+    fi
   fi
 
   run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" ps
