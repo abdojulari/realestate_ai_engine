@@ -38,10 +38,13 @@ run_compose() {
 }
 
 # Read KEY=value from env file without sourcing (safe when values contain spaces).
+# Last occurrence wins — same as Docker Compose when a key appears more than once in one file.
+# (First-match here caused P1000: psql OK via Compose’s last password, Prisma URL built from first password.)
 read_env_value() {
-  local key="$1" file="$2" line val prefix
+  local key="$1" file="$2" line val prefix hit
   [ -f "$file" ] || return 1
   prefix="${key}="
+  hit=0
   while IFS= read -r line || [ -n "$line" ]; do
     line="${line#"${line%%[![:space:]]*}"}"
     [[ "$line" == \#* ]] && continue
@@ -55,11 +58,14 @@ read_env_value() {
         elif [[ "${#val}" -ge 2 && "${val:0:1}" == "'" && "${val: -1}" == "'" ]]; then
           val="${val:1:$((${#val} - 2))}"
         fi
-        printf '%s' "$val"
-        return 0
+        hit=1
         ;;
     esac
   done < "$file"
+  if [ "$hit" = 1 ]; then
+    printf '%s' "$val"
+    return 0
+  fi
   return 1
 }
 
