@@ -28,8 +28,6 @@ import 'dotenv/config'
  *   node scripts/pillar9-sync.mjs --no-media         # Faster sync without image fetch
  */
 
-import fetch from 'node-fetch'
-
 const API_BASE = process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000'
 
 // ============================================

@@ -7,8 +7,6 @@
  * - Dynamic batch handling based on actual count
  */
 
-import fetch from 'node-fetch'
-
 const API_BASE = 'http://localhost:3000'
 
 async function purgeDatabase() {

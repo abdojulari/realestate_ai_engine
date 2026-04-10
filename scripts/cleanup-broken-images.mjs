@@ -7,8 +7,6 @@
  * - Deletes properties with broken/no images
  */
 
-import fetch from 'node-fetch'
-
 const API_BASE = 'http://localhost:3000'
 const BATCH_SIZE = 50
 

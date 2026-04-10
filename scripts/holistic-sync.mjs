@@ -26,9 +26,9 @@
  *   node scripts/holistic-sync.mjs --purge              # Purge and sync Alberta (default)
  *   node scripts/holistic-sync.mjs --purge --all        # Purge and sync ALL provinces
  *   node scripts/holistic-sync.mjs --province=Ontario   # Sync only Ontario
+ *
+ * Requires Node 18+ (global fetch).
  */
-
-import fetch from 'node-fetch'
 
 const API_BASE = process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000'
 
