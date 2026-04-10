@@ -129,6 +129,43 @@ require_docker() {
   fi
 }
 
+# Align the superuser role password in the data directory with POSTGRES_PASSWORD in the env file.
+# Docker Postgres only applies POSTGRES_PASSWORD on first init; `up -d` does not update an existing volume.
+# Prisma uses SCRAM over the Docker network — this ALTER runs over the local socket (trust) so it is safe from $ in passwords.
+sync_postgres_role_password_from_env() {
+  local ENV_FILE="$1"
+  shift
+  if [ -n "$(read_env_value SUHANI_DOCKER_DATABASE_URL "$ENV_FILE" 2>/dev/null || true)" ]; then
+    echo "Note: SUHANI_DOCKER_DATABASE_URL is set — not syncing local Postgres role password from POSTGRES_PASSWORD."
+    return 0
+  fi
+  if [ "$(read_env_value SUHANI_SKIP_SYNC_DB_PASSWORD "$ENV_FILE" 2>/dev/null)" = "1" ]; then
+    echo "Note: SUHANI_SKIP_SYNC_DB_PASSWORD=1 — skipping ALTER USER (see .env.example)."
+    return 0
+  fi
+  local user pass
+  user="$(read_env_value POSTGRES_USER "$ENV_FILE" 2>/dev/null || printf '%s' 'postgres')"
+  pass="$(read_env_value POSTGRES_PASSWORD "$ENV_FILE" 2>/dev/null || printf '%s' 'postgres')"
+  if ! [[ "$user" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+    echo "Warning: POSTGRES_USER=$user — skipping automated password sync (identifier not supported)."
+    return 0
+  fi
+  echo "Syncing Postgres role \"$user\" password to POSTGRES_PASSWORD in $ENV_FILE (ALTER USER via local connection)..."
+  if python3 -c "
+import re, sys
+u, p = sys.argv[1], sys.argv[2]
+if not re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*$', u):
+    sys.exit(2)
+esc = p.replace(\"'\", \"''\")
+sys.stdout.write(f\"ALTER USER {u} WITH PASSWORD '{esc}';\\n\")
+" "$user" "$pass" | run_compose --env-file "$ENV_FILE" "$@" exec -T db psql -U "$user" -d postgres -v ON_ERROR_STOP=1 -f -; then
+    echo "Postgres role password synced."
+    return 0
+  fi
+  echo "Error: ALTER USER failed (see messages above). Is POSTGRES_USER a superuser in this cluster?"
+  return 1
+}
+
 # Fail fast if volume password ≠ env: default Postgres pg_hba uses trust for 127.0.0.1, so
 # `psql -h 127.0.0.1` inside the db container does NOT verify the password — it always “succeeds”.
 # Prisma connects from the app network and hits scram-sha-256, so we must test the same path.
@@ -338,6 +375,8 @@ deploy_standalone_suhani() {
   run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" up -d
 
   wait_for_postgres "$ENV_FILE" "${DC_FILES[@]}"
+
+  sync_postgres_role_password_from_env "$ENV_FILE" "${DC_FILES[@]}"
 
   postgres_password_works_from_app_network "$ENV_FILE" "${DC_FILES[@]}"
 
