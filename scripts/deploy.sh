@@ -129,22 +129,31 @@ require_docker() {
   fi
 }
 
-# Fail fast if Postgres data dir password does not match POSTGRES_* in the env file (pg_isready alone is not enough).
-postgres_volume_password_matches_env() {
+# Fail fast if volume password ≠ env: default Postgres pg_hba uses trust for 127.0.0.1, so
+# `psql -h 127.0.0.1` inside the db container does NOT verify the password — it always “succeeds”.
+# Prisma connects from the app network and hits scram-sha-256, so we must test the same path.
+postgres_password_works_from_app_network() {
   local ENV_FILE="$1"
   shift
   if [ -n "$(read_env_value SUHANI_DOCKER_DATABASE_URL "$ENV_FILE" 2>/dev/null || true)" ]; then
-    echo "Note: SUHANI_DOCKER_DATABASE_URL is set — Prisma uses it; local POSTGRES_* check below does not validate that URL."
-  fi
-  echo "Checking Postgres accepts POSTGRES_* from $ENV_FILE (existing volume must match)..."
-  if run_compose --env-file "$ENV_FILE" "$@" exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select 1"' 2>/dev/null | grep -q 1; then
-    echo "Postgres password check: OK"
+    echo "Note: SUHANI_DOCKER_DATABASE_URL is set — skipping local stack TCP auth smoke test."
     return 0
   fi
-  echo "Error: Postgres rejected the password (psql inside the db container failed)."
-  echo "  PostgreSQL only uses POSTGRES_PASSWORD on first init; changing $ENV_FILE does not change an existing Docker volume."
-  echo "  Fix: use the original password, run ALTER USER ... WITH PASSWORD to match $ENV_FILE, or docker compose ... down -v (wipes data)."
-  echo "  Also verify SUHANI_DOCKER_DATABASE_URL is unset or correct — it overrides POSTGRES_* for Prisma. See .env.example."
+  local DU
+  DU="$(docker_database_url_for_prisma "$ENV_FILE" "$@")"
+  echo "Checking Postgres (Prisma from app → db; same auth path as migrate — not psql on db:127.0.0.1 trust)..."
+  if (
+    export DATABASE_URL="$DU"
+    run_compose --env-file "$ENV_FILE" "$@" run --rm -T --no-deps -e DATABASE_URL app \
+      sh -c 'echo "SELECT 1" | npx prisma db execute --stdin --schema prisma/schema.prisma'
+  ); then
+    echo "Postgres credential check (SCRAM from app network): OK"
+    return 0
+  fi
+  echo "Error: Prisma cannot authenticate to Postgres from the app container (same failure as migrate deploy)."
+  echo "  Postgres only stores the password on first volume init; $ENV_FILE POSTGRES_PASSWORD must match that data."
+  echo "  Fix: restore the original password, ALTER USER postgres WITH PASSWORD '…' to match $ENV_FILE, or docker compose ... down -v (wipes data)."
+  echo "  See .env.example. (psql -h 127.0.0.1 inside db is not a valid password test — pg_hba often uses trust there.)"
   return 1
 }
 
@@ -233,9 +242,21 @@ verify_standalone_db() {
   D="$(sc exec -T db printenv POSTGRES_DB 2>/dev/null | tr -d '\r' || true)"
   echo "  POSTGRES_USER=${U:-?}  POSTGRES_DB=${D:-?}"
   if sc exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select 1"' 2>/dev/null | grep -q 1; then
-    echo "  psql inside db: OK"
+    echo "  psql inside db on 127.0.0.1: OK (Postgres Docker image often uses trust here — not proof the password matches the volume)"
   else
-    echo "  psql inside db: FAIL (volume password may not match POSTGRES_PASSWORD in env)"
+    echo "  psql inside db on 127.0.0.1: FAIL (unusual)"
+  fi
+  echo "  Prisma db execute (app one-off → db, same SCRAM path as migrate):"
+  _EX_OUT="$( (
+    export DATABASE_URL="$_VERIFY_DU"
+    sc run --rm -T --no-deps -e DATABASE_URL app sh -c 'echo "SELECT 1" | npx prisma db execute --stdin --schema prisma/schema.prisma'
+  ) 2>&1)" || true
+  if echo "$_EX_OUT" | grep -qiE 'P1000|Authentication failed|credentials.*not valid'; then
+    echo "    FAIL (auth) — POSTGRES_* / volume password mismatch for TCP from app network"
+  elif echo "$_EX_OUT" | grep -qiE "P1001|Can't reach database|Can't reach database server|ECONNREFUSED"; then
+    echo "    FAIL (cannot reach db from one-off app container)"
+  else
+    echo "    OK"
   fi
   if sc exec -T app true &>/dev/null; then
     MS_OUT="$(sc exec -T app sh -c 'cd /app && npx prisma migrate status' 2>&1)" || true
@@ -318,7 +339,7 @@ deploy_standalone_suhani() {
 
   wait_for_postgres "$ENV_FILE" "${DC_FILES[@]}"
 
-  postgres_volume_password_matches_env "$ENV_FILE" "${DC_FILES[@]}"
+  postgres_password_works_from_app_network "$ENV_FILE" "${DC_FILES[@]}"
 
   prisma_migrate_deploy_retry "$ENV_FILE" "${DC_FILES[@]}"
 
