@@ -90,6 +90,36 @@ nano .env.production
 cd ../saas-control-plane && ./scripts/deploy.sh
 ```
 
+### Suhani: deploy commands and troubleshooting
+
+From the **Suhani** repo root (`~/opt/apps/suhani` on a typical server):
+
+```bash
+git pull
+./scripts/deploy.sh standalone
+```
+
+That script **builds** the app image, **`docker compose up -d`**, syncs the Postgres role password to **`POSTGRES_PASSWORD`** in the env file it uses, runs **Prisma migrate**, optional **seed** (if `SEED_DATABASE=true`), and prints a short **DB check** at the end.
+
+**Which env file?** If both `.env` and `.env.production` exist, **`./scripts/deploy.sh` uses `.env.production` first** and exports **`SUHANI_ENV_FILE`** so the app service’s `env_file` in Compose matches `docker compose --env-file`. If you run Compose by hand, use the same file, for example:
+
+```bash
+export SUHANI_ENV_FILE=.env.production
+docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+**DB / Prisma issues only (no image rebuild):**
+
+```bash
+./scripts/deploy.sh verify-db
+```
+
+Use this when debugging **Prisma P1000** (“credentials not valid”), wrong `DATABASE_URL`, or auth after env changes. For Postgres password behaviour, duplicate keys, optional **`SUHANI_SKIP_SYNC_DB_PASSWORD`**, and related notes, see the **PostgreSQL** comment block in **[.env.example](.env.example)**.
+
+**Wiping the database by mistake:** see **[DANGER ZONE](#danger-zone)** (`docker compose … down -v` removes volumes and all DB data).
+
+**API 500 + Prisma P1000 in the browser after deploy looked fine:** use **`./scripts/deploy.sh standalone`** (it starts **db/redis**, syncs the Postgres password, runs migrations, **then** starts **app**). Starting **`app` in the same step as the first `up -d`** can race password sync and break the long-lived app while one-off checks still pass — avoid relying only on raw `docker compose up -d` for the full stack unless you know the DB password is already aligned.
+
 Use `NGINX_PUBLISH_HTTP_PORT=80` and `NGINX_PUBLISH_HTTPS_PORT=443` in `.env` when that stack should own standard ports. See [Production scripts](docs/PRODUCTION-SCRIPTS.md#0-two-repos-on-one-server-no-symlinks).
 
 **Same stack as local:** `docker-compose.prod.yml` **includes** `docker-compose.yml`, so the app, **db** (Postgres), and **redis** services match what you run on your laptop. Production adds **nginx** and **certbot** only. Container names on the server remain `suhani-postgres` / `suhani-redis`; default DB name is **`real_estate`** (hostname **`db`** in `DATABASE_URL`). Host ports default to **5435** / **6381** so they do not clash with saas-control-plane. Override `DATABASE_URL` / `REDIS_URL` for external databases.
@@ -103,6 +133,10 @@ docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 4. Optional one-off after deploy: tenant backfill — see **§2** in [PRODUCTION-SCRIPTS.md](docs/PRODUCTION-SCRIPTS.md).
+
+## DANGER ZONE
+
+- **Do not** run `docker compose … down -v` (or any Compose variant with **`-v`**) unless you intend to destroy data. That flag removes **named volumes**. Postgres will be recreated empty on the next `up` (still initialized from your `.env` / `.env.production`), but **all database records are gone**.
 
 ### Manual Deployment
 
@@ -217,7 +251,8 @@ npx prisma migrate deploy  # Apply migrations (production)
 npx prisma db seed      # Seed database
 
 # Deployment & production utilities (details: docs/PRODUCTION-SCRIPTS.md)
-./scripts/deploy.sh                    # Docker deploy + migrate (standalone | stack | control-plane)
+./scripts/deploy.sh                    # Docker deploy + migrate (default: standalone)
+./scripts/deploy.sh verify-db          # DB / Prisma checks only (troubleshoot P1000; no rebuild)
 ./scripts/issue-custom-domain-cert.sh  # Let's Encrypt for a tenant custom domain
 node scripts/backfill-tenant-admin-ids.mjs   # One-time tenant adminId backfill
 node scripts/pillar9-sync.mjs         # Cron: Pillar9 sync (set env secrets)

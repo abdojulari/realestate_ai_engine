@@ -380,7 +380,7 @@ class Pillar9Service {
       queryParts.push(`$skip=${filters.skip}`)
     }
 
-    // Must match test_matrix_api.js MINIMAL_FIELDS exactly - Matrix API rejects unknown property names
+    // Matrix OData $select: unknown property names are rejected — keep this list aligned with API docs when extending.
     const defaultSelect = [
       'ListingId', 'ListingKeyNumeric', 'MlsStatus',
       'ListPrice', 'BedroomsTotal', 'BathroomsTotalInteger',

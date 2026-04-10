@@ -370,9 +370,17 @@ deploy_standalone_suhani() {
     fi
   fi
 
-  echo "Building and starting Suhani stack (tenant app: *.\${APP_BASE_DOMAIN:-deelbot.ai})..."
+  echo "Building Suhani images (tenant app: *.\${APP_BASE_DOMAIN:-deelbot.ai})..."
   run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" build
-  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" up -d
+
+  # Stop app if it is already running so ALTER USER (sync) cannot race an old Prisma process from a previous `up`.
+  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" stop app 2>/dev/null || true
+
+  # Bring up db + redis only first. If `app` starts in the same `up -d` as before this split, its CMD runs
+  # `prisma migrate deploy` before this script's ALTER USER (sync). That ordering can leave the long-lived
+  # app's Prisma broken (P1000 on /api/auth/login and /api/tenant-settings) while one-off prisma checks pass.
+  echo "Starting Postgres and Redis..."
+  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" up -d db redis
 
   wait_for_postgres "$ENV_FILE" "${DC_FILES[@]}"
 
@@ -401,6 +409,9 @@ deploy_standalone_suhani() {
       echo "Warning: prisma db seed failed after 3 attempts (deploy continues)."
     fi
   fi
+
+  echo "Starting app, nginx, certbot, and remaining services..."
+  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" up -d
 
   run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" ps
   echo "Suhani deploy complete."
