@@ -3,9 +3,10 @@
 # DeelBot deploy helper — Suhani tenant app, full stack, or control plane only
 # =============================================================================
 # Usage (from repo root unless noted):
-#   ./scripts/deploy.sh                    # standalone Suhani (docker-compose.yml + docker-compose.prod.yml)
+#   ./scripts/deploy.sh                    # same as: ./scripts/deploy.sh standalone
+#   ./scripts/deploy.sh standalone         # build + up + migrate (+ quick DB credential sanity check at end)
+#   ./scripts/deploy.sh verify-db          # only the DB check (no build) — use when debugging P1000 / login 500
 #   USE_HOST_EDGE_PROXY=1 in .env.production merges docker-compose.host-edge.yml (host Nginx on :80/:443).
-#   ./scripts/deploy.sh standalone
 #   ./scripts/deploy.sh stack              # deelbot.com + *.deelbot.ai (deploy/docker-compose.production.yml)
 #   ./scripts/deploy.sh control-plane      # SaaS control plane only (sibling saas-control-plane repo)
 #
@@ -69,6 +70,55 @@ require_docker() {
   fi
 }
 
+# Standalone stack only: compare app DATABASE_URL vs db POSTGRES_* (read-only). Does not change passwords.
+verify_standalone_db() {
+  cd "$SUHANI_ROOT"
+  local DC_FILES=(-f docker-compose.yml -f docker-compose.prod.yml)
+  local ENV_FILE
+  if [ -f .env.production ]; then
+    ENV_FILE=.env.production
+  elif [ -f .env ]; then
+    ENV_FILE=.env
+  else
+    echo "verify-db: no .env.production or .env in $SUHANI_ROOT"
+    return 1
+  fi
+  if [ "$(read_env_value USE_HOST_EDGE_PROXY "$ENV_FILE" 2>/dev/null)" = "1" ]; then
+    DC_FILES+=(-f docker-compose.host-edge.yml)
+  fi
+
+  sc() {
+    run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" "$@"
+  }
+
+  echo ""
+  echo "──────── Quick DB check (read-only) ────────"
+  if grep -qE '^[[:space:]]*SUHANI_DOCKER_DATABASE_URL=' "$ENV_FILE" 2>/dev/null; then
+    echo "Note: SUHANI_DOCKER_DATABASE_URL is set — it overrides POSTGRES_* for the app's DATABASE_URL."
+  fi
+  echo "App DATABASE_URL (password redacted):"
+  sc exec -T app printenv DATABASE_URL 2>/dev/null | sed -E 's#(://[^:]+:)[^@]+#\1***#' || echo "  (app container not running?)"
+  echo "DB container: POSTGRES_USER + POSTGRES_DB (password hidden)"
+  U="$(sc exec -T db printenv POSTGRES_USER 2>/dev/null | tr -d '\r' || true)"
+  D="$(sc exec -T db printenv POSTGRES_DB 2>/dev/null | tr -d '\r' || true)"
+  echo "  POSTGRES_USER=${U:-?}  POSTGRES_DB=${D:-?}"
+  if sc exec -T db sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -h 127.0.0.1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc "select 1"' 2>/dev/null | grep -q 1; then
+    echo "  psql inside db: OK"
+  else
+    echo "  psql inside db: FAIL (volume password may not match POSTGRES_PASSWORD in env)"
+  fi
+  MS_OUT="$(sc exec -T app sh -c 'cd /app && npx prisma migrate status' 2>&1)" || true
+  if echo "$MS_OUT" | grep -qiE 'P1000|Authentication failed|credentials.*not valid'; then
+    echo "  Prisma from app: FAIL (auth — align DATABASE_URL with real Postgres password, or fix SUHANI_DOCKER_DATABASE_URL)"
+  elif echo "$MS_OUT" | grep -qiE 'not reach database server|Database connection error'; then
+    echo "  Prisma from app: FAIL (cannot reach db host)"
+  else
+    echo "  Prisma migrate status: OK (no obvious connection/auth error)"
+  fi
+  echo "──────────────────────────────────────────────"
+  echo ""
+}
+
 deploy_standalone_suhani() {
   cd "$SUHANI_ROOT"
   # Base + prod overlay (see docker-compose.prod.yml header — avoids Compose `include` override bugs).
@@ -121,6 +171,7 @@ deploy_standalone_suhani() {
 
   run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" ps
   echo "Suhani deploy complete."
+  verify_standalone_db || true
   if [ "$(read_env_value USE_HOST_EDGE_PROXY "$ENV_FILE" 2>/dev/null)" = "1" ]; then
     echo "  Host edge: TLS on this server :443 → app on ${SUHANI_APP_PORTS:-127.0.0.1:3000:3000} (see deploy/host-edge/README.md)."
   else
@@ -213,8 +264,12 @@ deploy_control_plane_only() {
 require_docker
 
 case "$MODE" in
-  standalone)
+  standalone|"")
     deploy_standalone_suhani
+    ;;
+  verify-db)
+    require_docker
+    verify_standalone_db
     ;;
   stack|full)
     deploy_stack
@@ -223,7 +278,7 @@ case "$MODE" in
     deploy_control_plane_only
     ;;
   *)
-    echo "Unknown mode: $MODE (use standalone | stack | control-plane)"
+    echo "Unknown mode: $MODE (use standalone | verify-db | stack | control-plane)"
     exit 1
     ;;
 esac
