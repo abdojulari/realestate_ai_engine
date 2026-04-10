@@ -83,6 +83,9 @@ deploy_standalone_suhani() {
     exit 1
   fi
 
+  # docker-compose.yml app env_file uses this path so container DB creds match --env-file (avoids stale .env).
+  export SUHANI_ENV_FILE="$ENV_FILE"
+
   USE_SELF_SIGNED_SSL="$(read_env_value USE_SELF_SIGNED_SSL "$ENV_FILE" 2>/dev/null || true)"
   SEED_DATABASE="$(read_env_value SEED_DATABASE "$ENV_FILE" 2>/dev/null || true)"
 

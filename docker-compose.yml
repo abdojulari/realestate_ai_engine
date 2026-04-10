@@ -48,8 +48,10 @@ services:
       dockerfile: Dockerfile
       args:
         NODE_MEMORY: ${DOCKER_NODE_MEMORY:-8192}
+    # Must match credentials in --env-file (e.g. .env.production). Default .env for local dev.
+    # deploy.sh sets SUHANI_ENV_FILE to the same file as --env-file. Override: SUHANI_ENV_FILE=.env.production
     env_file:
-      - .env
+      - ${SUHANI_ENV_FILE:-.env}
     # Full publish spec (host:container or ip:host:container). For host OS Nginx (Option B): 127.0.0.1:3000:3000
     ports:
       - "${SUHANI_APP_PORTS:-3000:3000}"
