@@ -110,10 +110,10 @@ deploy_standalone_suhani() {
   sleep 8
 
   echo "Running Prisma migrations..."
-  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" exec -T app npx prisma migrate deploy
+  run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T app npx prisma migrate deploy
 
   if [ "${SEED_DATABASE:-}" = "true" ]; then
-    run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" exec -T app npx prisma db seed || true
+    run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T app npx prisma db seed || true
   fi
 
   run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" ps

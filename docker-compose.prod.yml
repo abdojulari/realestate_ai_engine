@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://postgres:postgres@db:5432/real_estate?schema=public}
+      DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-real_estate}?schema=public}
       REDIS_URL: ${SUHANI_DOCKER_REDIS_URL:-redis://redis:6379}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
