@@ -1,5 +1,5 @@
 import { defineEventHandler, getQuery } from 'h3'
-import { getPublicTenantFilter } from '../../utils/tenant'
+import { getPublicTenantFilter, getPublicSharedMlsWhere, isSharedMlsSource } from '../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -62,7 +62,9 @@ export default defineEventHandler(async (event) => {
     remarkKeywords
   } = query
 
-  const where: any = { ...tenantFilter }
+  const where: any = {
+    AND: [getPublicSharedMlsWhere(tenantFilter)],
+  }
 
   // RESIDENTIAL ONLY FILTER - Exclude commercial/industrial properties at database level
   const residentialTypes = ['house', 'condo', 'townhouse', 'multi-family', 'land', 'other']
@@ -70,18 +72,28 @@ export default defineEventHandler(async (event) => {
   // Always filter to residential properties only (using valid Prisma syntax)
   where.type = { in: residentialTypes }
 
-  // Source filtering - combine both manual and CREA by default
-  const sourceFilter = []
+  // Source filtering — CREA + Pillar9 are shared; manual stays per-tenant
   if (source) {
-    // Specific source requested
-    where.source = source
+    const s = String(source)
+    if (s === 'manual') {
+      if (tenantFilter.adminId != null) {
+        where.AND.push({ source: 'manual', adminId: tenantFilter.adminId })
+      } else {
+        where.AND.push({ id: { in: [] } })
+      }
+    } else {
+      where.AND.push({ source: s })
+    }
   } else {
-    // Include both based on parameters
+    const sourceFilter: string[] = []
     if (includeManual === 'true') sourceFilter.push('manual')
-    if (includeCrea === 'true') sourceFilter.push('crea')
-    
-    if (sourceFilter.length > 0) {
-      where.source = { in: sourceFilter }
+    if (includeCrea === 'true') {
+      sourceFilter.push('crea', 'pillar9')
+    }
+    if (sourceFilter.length === 0) {
+      where.AND.push({ id: { in: [] } })
+    } else {
+      where.AND.push({ source: { in: sourceFilter } })
     }
   }
 
@@ -602,7 +614,7 @@ export default defineEventHandler(async (event) => {
       coListingOfficesData: typeof property.coListingOfficesData === 'string' ? JSON.parse(property.coListingOfficesData) : property.coListingOfficesData,
       
       // Add indicators for UI
-      isMLS: property.source === 'crea',
+      isMLS: isSharedMlsSource(property.source),
       isBuilder: property.source === 'manual'
     }
   })
@@ -797,7 +809,7 @@ export default defineEventHandler(async (event) => {
       images: typeof property.images === 'string' ? JSON.parse(property.images) : property.images,
       features: typeof property.features === 'string' ? JSON.parse(property.features) : property.features,
       agent: property.user,
-      isMLS: property.source === 'crea',
+      isMLS: isSharedMlsSource(property.source),
       isBuilder: property.source === 'manual'
     }))
     

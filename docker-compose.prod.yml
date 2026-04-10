@@ -34,6 +34,10 @@ services:
       NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://app.deelbot.ai/api}
       NUXT_PUBLIC_SITE_URL: ${NUXT_PUBLIC_SITE_URL:-https://app.deelbot.ai}
       APP_BASE_DOMAIN: ${APP_BASE_DOMAIN:-deelbot.ai}
+      # Must be set in .env.production (Turnstile + SSR). Repeated here so prod overlay never drops them vs base compose merge.
+      NUXT_PUBLIC_SITE_KEY: ${NUXT_PUBLIC_SITE_KEY:-}
+      NUXT_PUBLIC_SECRET_KEY: ${NUXT_PUBLIC_SECRET_KEY:-}
+      NUXT_TURNSTILE_VERIFY_URL: ${NUXT_TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
 
   nginx:
     image: nginx:alpine

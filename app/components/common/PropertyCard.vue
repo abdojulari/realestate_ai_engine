@@ -27,7 +27,7 @@
         <!-- Top Badges Overlay -->
         <div class="badge-overlay d-flex flex-column gap-2 align-start pa-4">
           <v-chip
-            v-if="property?.isMLS || property?.source === 'crea'"
+            v-if="property?.isMLS || property?.source === 'crea' || property?.source === 'pillar9'"
             size="x-small"
             color="white"
             variant="flat"

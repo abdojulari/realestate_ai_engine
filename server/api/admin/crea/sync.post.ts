@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { creaService } from '../../../utils/crea.service'
+import { resolveCreaSyncAdminId } from '../../../utils/crea-sync-admin'
 import { requireAdmin } from '../../../utils/auth'
 import { PrismaClient } from '@prisma/client'
 
@@ -18,6 +19,11 @@ export default defineEventHandler(async (event) => {
   const { filters = {} } = body
 
   try {
+    const creaAdminId = await resolveCreaSyncAdminId(prisma)
+    if (creaAdminId != null) {
+      console.log(`CREA sync: attaching listings to adminId=${creaAdminId}`)
+    }
+
     // Fetch properties from CREA
     console.log('Fetching properties from CREA...', filters)
     const creProperties = await creaService.getProperties(filters)
@@ -108,6 +114,7 @@ export default defineEventHandler(async (event) => {
 
           const updatePayload = {
             ...propertyData,
+            ...(creaAdminId != null ? { adminId: creaAdminId } : {}),
             lastSyncAt: new Date(),
             views: existingProperty.views,
             createdAt: existingProperty.createdAt,
@@ -125,6 +132,7 @@ export default defineEventHandler(async (event) => {
           const created = await prisma.property.create({
             data: {
               ...propertyData,
+              ...(creaAdminId != null ? { adminId: creaAdminId } : {}),
               lastSyncAt: new Date(),
               firstEntryPrice: newPrice
             }

@@ -1,5 +1,6 @@
 import { defineEventHandler, getRouterParam, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { getPublicTenantFilter, getPublicSharedMlsWhere, isSharedMlsSource } from '../../../utils/tenant'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -9,6 +10,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 export default defineEventHandler(async (event) => {
+  const tenantFilter = await getPublicTenantFilter(event)
   const neighborhoodId = getRouterParam(event, 'id')
   const query = getQuery(event)
   const {
@@ -28,25 +30,32 @@ export default defineEventHandler(async (event) => {
   }
 
   const where: any = {
-    neighborhood: {
-      neighborhoodId: parseInt(neighborhoodId)
-    }
+    AND: [
+      getPublicSharedMlsWhere(tenantFilter),
+      {
+        neighborhood: {
+          neighborhoodId: parseInt(neighborhoodId),
+        },
+      },
+    ],
   }
 
   // Add filters
   if (minPrice || maxPrice) {
-    where.price = {
-      gte: minPrice ? parseFloat(minPrice as string) : undefined,
-      lte: maxPrice ? parseFloat(maxPrice as string) : undefined,
-    }
+    where.AND.push({
+      price: {
+        gte: minPrice ? parseFloat(minPrice as string) : undefined,
+        lte: maxPrice ? parseFloat(maxPrice as string) : undefined,
+      },
+    })
   }
 
   if (type) {
-    where.type = type as string
+    where.AND.push({ type: type as string })
   }
 
   if (status) {
-    where.status = status as string
+    where.AND.push({ status: status as string })
   }
 
   // Parse pagination
@@ -148,7 +157,7 @@ export default defineEventHandler(async (event) => {
       coListingOfficesData: typeof property.coListingOfficesData === 'string' ? JSON.parse(property.coListingOfficesData) : property.coListingOfficesData,
       
       // Add indicators for UI
-      isMLS: property.source === 'crea',
+      isMLS: isSharedMlsSource(property.source),
       isBuilder: property.source === 'manual',
       agent: property.user
     }

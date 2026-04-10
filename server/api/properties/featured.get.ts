@@ -1,5 +1,5 @@
 import { defineEventHandler, getQuery } from 'h3'
-import { getPublicTenantFilter } from '../../utils/tenant'
+import { getPublicTenantFilter, getPublicSharedMlsWhere, isSharedMlsSource } from '../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -19,34 +19,29 @@ export default defineEventHandler(async (event) => {
     city
   } = query
 
-  const where: any = { ...tenantFilter }
-  
-  // Source filtering
-  const sourceFilter = []
+  const sourceFilter: string[] = []
   if (includeManual === 'true') sourceFilter.push('manual')
-  if (includeCrea === 'true') sourceFilter.push('crea')
-  
-  if (sourceFilter.length > 0) {
-    where.source = { in: sourceFilter }
+  if (includeCrea === 'true') {
+    sourceFilter.push('crea', 'pillar9')
   }
 
-  // City filtering
+  const andClause: any[] = [getPublicSharedMlsWhere(tenantFilter), { status: 'for_sale' as const }]
   if (city) {
-    where.city = { contains: city as string, mode: 'insensitive' }
+    andClause.push({ city: { contains: city as string, mode: 'insensitive' as const } })
   }
-
-  // Only show active properties
-  where.status = 'for_sale'
+  // When both flags are false, omit source narrowing — still bounded by getPublicSharedMlsWhere (shared MLS + this tenant's manuals).
+  if (sourceFilter.length > 0) {
+    andClause.push({ source: { in: sourceFilter } })
+  }
+  andClause.push({
+    OR: [
+      { listingAgentData: { not: null } },
+      { source: 'manual' },
+    ],
+  })
 
   const properties = await prisma.property.findMany({
-    where: {
-      ...where,
-      // Prioritize properties with agent data (active CREA listings)
-      OR: [
-        { listingAgentData: { not: null } },
-        { source: 'manual' } // Include manual listings even without CREA agent data
-      ]
-    },
+    where: { AND: andClause },
     orderBy: [
       { beds: 'desc' }, // Prioritize properties with bedrooms (residential)
       { views: 'desc' },
@@ -95,7 +90,7 @@ export default defineEventHandler(async (event) => {
       coListingOfficesData: typeof p.coListingOfficesData === 'string' ? JSON.parse(p.coListingOfficesData) : p.coListingOfficesData,
       
       // Add indicators for UI
-      isMLS: p.source === 'crea',
+      isMLS: isSharedMlsSource(p.source),
       isBuilder: p.source === 'manual'
     }
   })

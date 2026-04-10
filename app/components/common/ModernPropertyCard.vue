@@ -24,7 +24,7 @@
       <div class="status-overlay">
         <!-- MLS Badge -->
         <v-chip
-          v-if="property.source === 'crea'"
+          v-if="property.source === 'crea' || property.source === 'pillar9'"
           color="primary"
           size="small"
           class="ma-3"

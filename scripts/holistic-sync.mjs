@@ -371,7 +371,13 @@ async function verifyDatabase() {
     const totalCount = data.pagination?.total || 0
     
     console.log(`Total CREA properties in database: ${totalCount}`)
-    
+    if (totalCount === 0 && properties.length === 0) {
+      console.log(
+        '\nNote: If this is 0 but sync counts look good, the app may still be resolving a different tenant (Host header),\n' +
+          'or listings need adminId from a newer CREA sync (SUPER_ADMIN_EMAIL / super_admin on server).\n'
+      )
+    }
+
     if (properties.length > 0) {
       // Test sample images
       let validCount = 0

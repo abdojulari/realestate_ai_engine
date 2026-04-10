@@ -8,6 +8,7 @@
  */
 
 import { defineEventHandler, getQuery } from 'h3'
+import { getPublicTenantFilter, getPublicSharedMlsWhere } from '../utils/tenant'
 import { requireFeature, FEATURES } from '../utils/license'
 import { calculateAnalytics } from '../ml/analytics'
 import type { RawPropertyData } from '../ml/dataPrep'
@@ -178,7 +179,8 @@ export default defineEventHandler(async (event) => {
 
   const query = getQuery(event)
   const city = (query.city as string) || ''
-  const cacheKey = city.toLowerCase() || '__all__'
+  const tenantFilter = await getPublicTenantFilter(event)
+  const cacheKey = `${city.toLowerCase() || '__all__'}|${tenantFilter.adminId ?? 'pub'}`
 
   const cached = insightsCache.get(cacheKey)
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
@@ -186,9 +188,11 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const where: any = {}
+    const where: any = {
+      AND: [getPublicSharedMlsWhere(tenantFilter)],
+    }
     if (city) {
-      where.city = { equals: city, mode: 'insensitive' }
+      where.AND.push({ city: { equals: city, mode: 'insensitive' } })
     }
 
     const properties = await prisma.property.findMany({

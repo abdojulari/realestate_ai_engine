@@ -1,5 +1,5 @@
 import { defineEventHandler, createError, getRouterParam } from 'h3'
-import { getPublicTenantFilter } from '../../utils/tenant'
+import { getPublicTenantFilter, getPublicSharedMlsWhere, isSharedMlsSource } from '../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -80,7 +80,7 @@ export default defineEventHandler(async (event) => {
     coListingOfficesData: typeof property.coListingOfficesData === 'string' ? JSON.parse(property.coListingOfficesData) : property.coListingOfficesData,
     
     // Add indicators for UI
-    isMLS: property.source === 'crea',
+    isMLS: isSharedMlsSource(property.source),
     isBuilder: property.source === 'manual'
   }
 })

@@ -153,3 +153,30 @@ export async function getPublicTenantFilter(event: H3Event): Promise<{ adminId?:
   if (!adminId) return {}
   return { adminId }
 }
+
+/** CREA + Pillar9 MLS are shared platform-wide; manual listings stay per-tenant (adminId). */
+export const SHARED_MLS_SOURCES = ['crea', 'pillar9'] as const
+
+export function isSharedMlsSource(source: string | null | undefined): boolean {
+  return source === 'crea' || source === 'pillar9'
+}
+
+/**
+ * Public property catalog: all tenants see the same CREA/Pillar9 rows; only `manual` is scoped to this tenant.
+ */
+export function getPublicSharedMlsWhere(tenantFilter: { adminId?: number }): {
+  OR: Array<Record<string, unknown>>
+} {
+  const adminId = tenantFilter.adminId
+  if (adminId != null) {
+    return {
+      OR: [
+        { source: { in: [...SHARED_MLS_SOURCES] } },
+        { source: 'manual' as const, adminId },
+      ],
+    }
+  }
+  return {
+    OR: [{ source: { in: [...SHARED_MLS_SOURCES] } }],
+  }
+}

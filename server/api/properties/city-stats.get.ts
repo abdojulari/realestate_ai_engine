@@ -1,5 +1,5 @@
-import { defineEventHandler } from 'h3'
-import { getPublicTenantFilter } from '../../utils/tenant'
+import { defineEventHandler, createError } from 'h3'
+import { getPublicTenantFilter, getPublicSharedMlsWhere } from '../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -12,6 +12,7 @@ if (process.env.NODE_ENV !== 'production') {
 export default defineEventHandler(async (event) => {
   try {
     const tenantFilter = await getPublicTenantFilter(event)
+    const propertyWhere = { AND: [getPublicSharedMlsWhere(tenantFilter)] }
 
     // Get city statistics from actual property data
     const cityStats = await prisma.property.groupBy({
@@ -19,7 +20,7 @@ export default defineEventHandler(async (event) => {
       _count: {
         id: true
       },
-      where: { ...tenantFilter },
+      where: propertyWhere,
       orderBy: {
         _count: {
           id: 'desc'
@@ -33,7 +34,7 @@ export default defineEventHandler(async (event) => {
       _count: {
         id: true
       },
-      where: { ...tenantFilter },
+      where: propertyWhere,
       orderBy: {
         _count: {
           id: 'desc'

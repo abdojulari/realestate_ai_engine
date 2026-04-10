@@ -1,5 +1,5 @@
 import { defineEventHandler } from 'h3'
-import { getPublicTenantFilter } from '../utils/tenant'
+import { getPublicTenantFilter, getPublicSharedMlsWhere } from '../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -21,14 +21,18 @@ export default defineEventHandler(async (event) => {
     // Get basic public statistics
     const [totalUsers, totalProperties, totalActiveProperties] = await Promise.all([
       prisma.user.count({ where: userWhere }),
-      prisma.property.count({ where: { ...tenantFilter } }),
+      prisma.property.count({ where: { AND: [getPublicSharedMlsWhere(tenantFilter)] } }),
       prisma.property.count({
-        where: { 
-          ...tenantFilter,
-          status: { 
-            in: ['for_sale', 'for_rent', 'active'] 
-          } 
-        }
+        where: {
+          AND: [
+            getPublicSharedMlsWhere(tenantFilter),
+            {
+              status: {
+                in: ['for_sale', 'for_rent', 'active'],
+              },
+            },
+          ],
+        },
       })
     ])
 

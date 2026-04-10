@@ -1,4 +1,5 @@
 import { defineEventHandler, readBody, createError } from 'h3'
+import { resolveCreaSyncAdminId } from '../../../utils/crea-sync-admin'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -51,6 +52,11 @@ export default defineEventHandler(async (event) => {
         
         // Import CREA service directly
         const { creaService } = await import('../../../utils/crea.service')
+
+        const creaAdminId = await resolveCreaSyncAdminId(prisma)
+        if (creaAdminId != null) {
+          console.log(`CREA background sync: attaching listings to adminId=${creaAdminId}`)
+        }
 
         // Update progress
         await upsertSysSetting('sync_progress', JSON.stringify({ progress: 20, text: 'Fetching properties from CREA...' }))
@@ -158,6 +164,7 @@ export default defineEventHandler(async (event) => {
                   where: { id: existingProperty.id },
                   data: {
                     ...propertyData,
+                    ...(creaAdminId != null ? { adminId: creaAdminId } : {}),
                     lastSyncAt: new Date(),
                     firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price,
                     ...(preserveStatus ? { status: existingProperty.status } : {})
@@ -166,7 +173,12 @@ export default defineEventHandler(async (event) => {
                 syncStats.updated++
               } else {
                 const created: any = await (prisma.property as any).create({
-                  data: { ...propertyData, lastSyncAt: new Date(), firstEntryPrice: newPrice }
+                  data: {
+                    ...propertyData,
+                    ...(creaAdminId != null ? { adminId: creaAdminId } : {}),
+                    lastSyncAt: new Date(),
+                    firstEntryPrice: newPrice
+                  }
                 })
                 // Record initial listing price
                 try {
