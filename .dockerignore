@@ -1,0 +1,38 @@
+# Keep build context small and avoid COPY . . clashing with image node_modules
+node_modules
+**/node_modules
+
+# Nuxt / Nitro outputs (rebuilt in Dockerfile)
+.nuxt
+.output
+dist
+.cache
+.turbo
+
+# Git and IDE
+.git
+.github
+.cursor
+
+# Env and local secrets (compose injects at runtime)
+.env
+.env.*
+!.env.example
+
+# Uploads / runtime data on dev machines
+public/uploads
+**/uploads
+
+# Tests and tooling not needed for production image
+coverage
+.nyc_output
+e2e
+playwright-report
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Optional large dirs if present locally
+nginx/logs
+certbot
