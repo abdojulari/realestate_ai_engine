@@ -72,7 +72,8 @@ services:
       NUXT_PUBLIC_FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
       NUXT_FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
       NUXT_PUBLIC_SITE_KEY: ${NUXT_PUBLIC_SITE_KEY:-}
-      NUXT_PUBLIC_SECRET_KEY: ${NUXT_PUBLIC_SECRET_KEY:-}
+      # Do not pass NUXT_PUBLIC_SECRET_KEY here — Nuxt would expose it on the client. Compose reads it from --env-file only to populate the private var below.
+      NUXT_TURNSTILE_SECRET_KEY: ${NUXT_TURNSTILE_SECRET_KEY:-${NUXT_PUBLIC_SECRET_KEY:-}}
       NUXT_TURNSTILE_VERIFY_URL: ${NUXT_TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
       VERDOCS_CLIENT_ID: ${VERDOCS_CLIENT_ID:-}
       VERDOCS_CLIENT_SECRET: ${VERDOCS_CLIENT_SECRET:-}

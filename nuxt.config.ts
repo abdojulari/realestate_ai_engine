@@ -163,12 +163,15 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       apiBase: '/api',
-      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || '',
+      // Empty defaults: overridden at runtime by NUXT_PUBLIC_* (required for Docker — values are not available at `nuxt build` unless passed as build-args).
+      siteUrl: '',
       facebookAppId: process.env.FACEBOOK_APP_ID,
-      turnstileSiteKey: process.env.NUXT_PUBLIC_SITE_KEY || '',
+      /** Cloudflare Turnstile site key (client). Set `NUXT_PUBLIC_SITE_KEY` in env — maps to `siteKey` per Nuxt. */
+      siteKey: '',
     },
-    turnstileSecretKey: process.env.NUXT_PUBLIC_SECRET_KEY || '',
-    turnstileVerifyUrl: process.env.NUXT_TURNSTILE_VERIFY_URL || 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
+    // Private — not exposed to client. Set `NUXT_TURNSTILE_SECRET_KEY` in env (Docker compose maps legacy file keys into this).
+    turnstileSecretKey: '',
+    turnstileVerifyUrl: 'https://challenges.cloudflare.com/turnstile/v0/siteverify',
     smtpUsername: process.env.SMTP_USERNAME || '',
     smtpPassword: process.env.SMTP_PASSWORD || '',
     smtpHostname: process.env.SMTP_HOSTNAME || 'smtp.gmail.com',

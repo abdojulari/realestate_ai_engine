@@ -207,7 +207,7 @@ import { useAuthStore } from '~/stores/auth'
 declare const turnstile: any
 
 const runtimeConfig = useRuntimeConfig()
-const siteKey = runtimeConfig.public.turnstileSiteKey as string
+const siteKey = (runtimeConfig.public.siteKey || '') as string
 
 // Turnstile state
 const turnstileToken = ref<string | null>(null)
@@ -264,7 +264,7 @@ const verifyTurnstile = async (): Promise<boolean> => {
 const resetTurnstile = () => {
   turnstileToken.value = null
   turnstileVerified.value = false
-  if (typeof turnstile !== 'undefined') {
+  if (siteKey && typeof turnstile !== 'undefined') {
     turnstile.reset('#turnstile-container')
   }
 }
@@ -382,6 +382,11 @@ definePageMeta({
 })
 
 const initTurnstile = () => {
+  if (!siteKey) {
+    turnstileError.value =
+      'Human verification is not configured (missing NUXT_PUBLIC_SITE_KEY on the server).'
+    return
+  }
   if (typeof turnstile === 'undefined') {
     setTimeout(initTurnstile, 200)
     return

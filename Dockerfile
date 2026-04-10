@@ -75,4 +75,5 @@ ENV PORT=3000
 EXPOSE 3000
 
 # Start application: run migrations then start server
-CMD ["dumb-init", "sh", "-c", "npx prisma migrate deploy && node server/index.mjs"]
+# Legacy .env files use NUXT_PUBLIC_SECRET_KEY; compose maps it to NUXT_TURNSTILE_SECRET_KEY. env_file would still inject the PUBLIC name and Nuxt would expose it to the client — strip it before boot.
+CMD ["dumb-init", "sh", "-c", "npx prisma migrate deploy && unset NUXT_PUBLIC_SECRET_KEY && exec node server/index.mjs"]

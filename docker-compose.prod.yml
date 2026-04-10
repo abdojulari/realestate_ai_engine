@@ -36,7 +36,7 @@ services:
       APP_BASE_DOMAIN: ${APP_BASE_DOMAIN:-deelbot.ai}
       # Must be set in .env.production (Turnstile + SSR). Repeated here so prod overlay never drops them vs base compose merge.
       NUXT_PUBLIC_SITE_KEY: ${NUXT_PUBLIC_SITE_KEY:-}
-      NUXT_PUBLIC_SECRET_KEY: ${NUXT_PUBLIC_SECRET_KEY:-}
+      NUXT_TURNSTILE_SECRET_KEY: ${NUXT_TURNSTILE_SECRET_KEY:-${NUXT_PUBLIC_SECRET_KEY:-}}
       NUXT_TURNSTILE_VERIFY_URL: ${NUXT_TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
 
   nginx:
