@@ -7,14 +7,16 @@ services:
     image: postgres:15-alpine
     ports:
       - "5433:5432"
+    # Must match app DATABASE_URL (built from the same POSTGRES_* in .env). Hardcoding postgres/postgres here
+    # while .env sets POSTGRES_PASSWORD breaks Prisma with "credentials are not valid".
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: real_estate
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-real_estate}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d real_estate"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-real_estate}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -56,9 +58,9 @@ services:
     # Optional full override: SUHANI_DOCKER_DATABASE_URL (e.g. external Postgres). Avoid @ : / # ? in POSTGRES_PASSWORD or URL-encode.
     environment:
       DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-real_estate}?schema=public}
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: real_estate
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-real_estate}
       REDIS_URL: ${SUHANI_DOCKER_REDIS_URL:-redis://redis:6379}
       JWT_SECRET: ${JWT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
