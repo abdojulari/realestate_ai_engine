@@ -63,6 +63,26 @@ read_env_value() {
   return 1
 }
 
+# Build the in-cluster Postgres URL from the same env file deploy uses (not only Compose interpolation).
+# `docker compose run` can otherwise get a different DATABASE_URL than `docker compose up` (P1000 while exec works).
+docker_database_url_from_env_file() {
+  local f="$1" ov user pass db
+  ov="$(read_env_value SUHANI_DOCKER_DATABASE_URL "$f" 2>/dev/null || true)"
+  if [ -n "$ov" ]; then
+    printf '%s' "$ov"
+    return 0
+  fi
+  user="$(read_env_value POSTGRES_USER "$f" 2>/dev/null || printf '%s' 'postgres')"
+  pass="$(read_env_value POSTGRES_PASSWORD "$f" 2>/dev/null || printf '%s' 'postgres')"
+  db="$(read_env_value POSTGRES_DB "$f" 2>/dev/null || printf '%s' 'real_estate')"
+  if command -v python3 &>/dev/null; then
+    user="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$user")"
+    pass="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$pass")"
+    db="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$db")"
+  fi
+  printf 'postgresql://%s:%s@db:5432/%s?schema=public' "$user" "$pass" "$db"
+}
+
 require_docker() {
   if ! docker info &>/dev/null; then
     echo "Error: Docker is not running"
@@ -92,14 +112,15 @@ wait_for_postgres() {
   return 1
 }
 
-# Prisma migrate with retries (transient P1000 / connection during stack bring-up).
+# Prisma migrate with retries — always pass -e DATABASE_URL=… from env file (avoids compose run vs up mismatch).
 prisma_migrate_deploy_retry() {
   local ENV_FILE="$1"
   shift
-  local attempt
+  local attempt DU
+  DU="$(docker_database_url_from_env_file "$ENV_FILE")"
   for attempt in 1 2 3 4 5 6; do
     echo "Running Prisma migrations (attempt $attempt/6)..."
-    if run_compose --env-file "$ENV_FILE" "$@" run --rm -T app npx prisma migrate deploy; then
+    if run_compose --env-file "$ENV_FILE" "$@" run --rm -T --no-deps -e "DATABASE_URL=$DU" app npx prisma migrate deploy; then
       return 0
     fi
     echo "  migrate deploy failed; waiting 8s before retry..."
@@ -126,17 +147,24 @@ verify_standalone_db() {
     DC_FILES+=(-f docker-compose.host-edge.yml)
   fi
 
+  export SUHANI_ENV_FILE="$ENV_FILE"
+
   sc() {
     run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" "$@"
   }
+
+  local _VERIFY_DU
+  _VERIFY_DU="$(docker_database_url_from_env_file "$ENV_FILE")"
 
   echo ""
   echo "──────── Quick DB check (read-only) ────────"
   if grep -qE '^[[:space:]]*SUHANI_DOCKER_DATABASE_URL=' "$ENV_FILE" 2>/dev/null; then
     echo "Note: SUHANI_DOCKER_DATABASE_URL is set — it overrides POSTGRES_* for the app's DATABASE_URL."
   fi
-  echo "App DATABASE_URL (password redacted):"
-  sc exec -T app printenv DATABASE_URL 2>/dev/null | sed -E 's#(://[^:]+:)[^@]+#\1***#' || echo "  (app container not running?)"
+  echo "DATABASE_URL used for prisma one-off (from $ENV_FILE, password redacted):"
+  printf '%s\n' "$_VERIFY_DU" | sed -E 's#(://[^:]+:)[^@]+#\1***#'
+  echo "Long-running app container printenv DATABASE_URL (redacted):"
+  sc exec -T app printenv DATABASE_URL 2>/dev/null | sed -E 's#(://[^:]+:)[^@]+#\1***#' || echo "  (app container not running — OK right after a failed deploy)"
   echo "DB container: POSTGRES_USER + POSTGRES_DB (password hidden)"
   U="$(sc exec -T db printenv POSTGRES_USER 2>/dev/null | tr -d '\r' || true)"
   D="$(sc exec -T db printenv POSTGRES_DB 2>/dev/null | tr -d '\r' || true)"
@@ -146,13 +174,24 @@ verify_standalone_db() {
   else
     echo "  psql inside db: FAIL (volume password may not match POSTGRES_PASSWORD in env)"
   fi
-  MS_OUT="$(sc exec -T app sh -c 'cd /app && npx prisma migrate status' 2>&1)" || true
-  if echo "$MS_OUT" | grep -qiE 'P1000|Authentication failed|credentials.*not valid'; then
-    echo "  Prisma from app: FAIL (auth — align DATABASE_URL with real Postgres password, or fix SUHANI_DOCKER_DATABASE_URL)"
-  elif echo "$MS_OUT" | grep -qiE 'not reach database server|Database connection error'; then
-    echo "  Prisma from app: FAIL (cannot reach db host)"
+  if sc exec -T app true &>/dev/null; then
+    MS_OUT="$(sc exec -T app sh -c 'cd /app && npx prisma migrate status' 2>&1)" || true
+    if echo "$MS_OUT" | grep -qiE 'P1000|Authentication failed|credentials.*not valid'; then
+      echo "  Prisma migrate status (exec into running app): FAIL (auth)"
+    else
+      echo "  Prisma migrate status (exec into running app): OK"
+    fi
   else
-    echo "  Prisma migrate status: OK (no obvious connection/auth error)"
+    echo "  Prisma migrate status (exec): skipped (app container not running)"
+  fi
+  echo "  Prisma migrate status (one-off with explicit DATABASE_URL from file):"
+  MS_OUT="$(sc run --rm -T --no-deps -e "DATABASE_URL=$_VERIFY_DU" app sh -c 'cd /app && npx prisma migrate status' 2>&1)" || true
+  if echo "$MS_OUT" | grep -qiE 'P1000|Authentication failed|credentials.*not valid'; then
+    echo "  FAIL (auth) — Postgres password in the volume must match POSTGRES_* / SUHANI_DOCKER_DATABASE_URL in $ENV_FILE"
+  elif echo "$MS_OUT" | grep -qiE 'not reach database server|Database connection error'; then
+    echo "  FAIL (cannot reach db host from one-off container)"
+  else
+    echo "  OK (one-off prisma matches file-built DATABASE_URL)"
   fi
   echo "──────────────────────────────────────────────"
   echo ""
@@ -205,8 +244,9 @@ deploy_standalone_suhani() {
   if [ "${SEED_DATABASE:-}" = "true" ]; then
     echo "Running Prisma seed..."
     _seed_ok=1
+    _seed_du="$(docker_database_url_from_env_file "$ENV_FILE")"
     for _seed_attempt in 1 2 3; do
-      if run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T app npx prisma db seed; then
+      if run_compose --env-file "$ENV_FILE" "${DC_FILES[@]}" run --rm -T --no-deps -e "DATABASE_URL=$_seed_du" app npx prisma db seed; then
         _seed_ok=0
         break
       fi
