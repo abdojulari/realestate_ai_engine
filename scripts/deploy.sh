@@ -89,6 +89,39 @@ docker_database_url_from_env_file() {
   printf 'postgresql://%s:%s@db:5432/%s?schema=public' "$user" "$pass" "$db"
 }
 
+# POSTGRES_* as injected into the running `db` container (same source as the psql sanity check).
+docker_database_url_from_running_db() {
+  local ENV_FILE="$1"
+  shift
+  local user pass db
+  user="$(run_compose --env-file "$ENV_FILE" "$@" exec -T db printenv POSTGRES_USER 2>/dev/null | tr -d '\r' || true)"
+  pass="$(run_compose --env-file "$ENV_FILE" "$@" exec -T db printenv POSTGRES_PASSWORD 2>/dev/null | tr -d '\r' || true)"
+  db="$(run_compose --env-file "$ENV_FILE" "$@" exec -T db printenv POSTGRES_DB 2>/dev/null | tr -d '\r' || true)"
+  [ -n "$user" ] && [ -n "$pass" ] && [ -n "$db" ] || return 1
+  if command -v python3 &>/dev/null; then
+    user="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$user")"
+    pass="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$pass")"
+    db="$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$db")"
+  fi
+  printf 'postgresql://%s:%s@db:5432/%s?schema=public' "$user" "$pass" "$db"
+}
+
+# One-off Prisma: SUHANI_DOCKER_DATABASE_URL from file, else URL from running db (matches Compose + psql), else file POSTGRES_*.
+docker_database_url_for_prisma() {
+  local ENV_FILE="$1" ov rb
+  shift
+  ov="$(read_env_value SUHANI_DOCKER_DATABASE_URL "$ENV_FILE" 2>/dev/null || true)"
+  if [ -n "$ov" ]; then
+    printf '%s' "$ov"
+    return 0
+  fi
+  if rb="$(docker_database_url_from_running_db "$ENV_FILE" "$@" 2>/dev/null)" && [ -n "$rb" ]; then
+    printf '%s' "$rb"
+    return 0
+  fi
+  docker_database_url_from_env_file "$ENV_FILE"
+}
+
 require_docker() {
   if ! docker info &>/dev/null; then
     echo "Error: Docker is not running"
@@ -147,7 +180,7 @@ prisma_migrate_deploy_retry() {
   local ENV_FILE="$1"
   shift
   local attempt DU tmp
-  DU="$(docker_database_url_from_env_file "$ENV_FILE")"
+  DU="$(docker_database_url_for_prisma "$ENV_FILE" "$@")"
   for attempt in 1 2 3 4 5 6; do
     echo "Running Prisma migrations (attempt $attempt/6)..."
     if compose_run_has_env_from_file; then
@@ -195,7 +228,7 @@ verify_standalone_db() {
   }
 
   local _VERIFY_DU
-  _VERIFY_DU="$(docker_database_url_from_env_file "$ENV_FILE")"
+  _VERIFY_DU="$(docker_database_url_for_prisma "$ENV_FILE" "${DC_FILES[@]}")"
 
   echo ""
   echo "──────── Quick DB check (read-only) ────────"
@@ -295,7 +328,7 @@ deploy_standalone_suhani() {
   if [ "${SEED_DATABASE:-}" = "true" ]; then
     echo "Running Prisma seed..."
     _seed_ok=1
-    _seed_du="$(docker_database_url_from_env_file "$ENV_FILE")"
+    _seed_du="$(docker_database_url_for_prisma "$ENV_FILE" "${DC_FILES[@]}")"
     for _seed_attempt in 1 2 3; do
       _seed_run_ok=1
       if compose_run_has_env_from_file; then
