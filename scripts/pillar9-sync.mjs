@@ -26,9 +26,35 @@ import 'dotenv/config'
  *   node scripts/pillar9-sync.mjs --verify           # Show current status only
  *   node scripts/pillar9-sync.mjs --cities=0046,0047  # Sync only Calgary and Edmonton
  *   node scripts/pillar9-sync.mjs --no-media         # Faster sync without image fetch
+ *
+ * API base (first match wins; same idea as holistic-sync.mjs):
+ *   PILLAR9_SYNC_API_BASE, HOLISTIC_SYNC_API_BASE, NUXT_PUBLIC_API_BASE, NUXT_PUBLIC_SITE_URL, APP_URL
+ * Trailing / and /api are stripped. With Node 20+: node --env-file=.env.production scripts/pillar9-sync.mjs
+ * dotenv loads .env only; it does not override vars already set (e.g. by --env-file).
  */
 
-const API_BASE = process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000'
+function resolveApiBase() {
+  const candidates = [
+    process.env.PILLAR9_SYNC_API_BASE,
+    process.env.HOLISTIC_SYNC_API_BASE,
+    process.env.NUXT_PUBLIC_API_BASE,
+    process.env.NUXT_PUBLIC_SITE_URL,
+    process.env.APP_URL,
+  ].filter(Boolean)
+
+  for (const raw of candidates) {
+    let u = String(raw).trim().replace(/\/+$/, '')
+    if (u.toLowerCase().endsWith('/api')) {
+      u = u.slice(0, -4)
+    }
+    if (/^https?:\/\//i.test(u)) {
+      return u
+    }
+  }
+  return 'http://localhost:3000'
+}
+
+const API_BASE = resolveApiBase()
 
 // ============================================
 // UTILITY
@@ -88,7 +114,7 @@ Options:
   --help, -h             Show this help
 
 Environment:
-  NUXT_PUBLIC_SITE_URL or APP_URL   API base (default: http://localhost:3000)
+  PILLAR9_SYNC_API_BASE (or HOLISTIC_SYNC_API_BASE, NUXT_PUBLIC_*, APP_URL)  API base (default: http://localhost:3000)
   PILLAR9_SYNC_SECRET or CRON_SECRET  Required for running sync (not needed for --verify)
 
 Examples:
