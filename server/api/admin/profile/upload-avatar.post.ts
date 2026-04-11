@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { writeFile } from 'fs/promises'
-import { getUploadRoot } from '../../utils/uploadStorage'
+import { getUploadRoot } from '../../../utils/uploadStorage'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
