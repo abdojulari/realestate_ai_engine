@@ -90,17 +90,18 @@
       <div class="footer-bottom">
         <div v-if="footerDisclaimer" class="legal-disclaimer">
           <p class="disclaimer-text mb-6">{{ footerDisclaimer }}</p>
-          <div class="crea-compliance">
-            <div class="crea-compliance-logos">
-              <img src="/images/logos/mls-logo-footer.svg" alt="MLS®" class="crea-logo" />
-              <a href="https://www.realtor.ca/en" target="_blank" rel="noopener noreferrer">
-                <img src="https://www.realtor.ca/images/en-ca/powered_by_realtor.svg" alt="Powered by REALTOR.ca" class="crea-logo" />
-              </a>
-            </div>
-            <p class="crea-notice">
-              All rights reserved. Data is deemed reliable but is not guaranteed accurate by the REALTORS® Association of Edmonton. The trademarks REALTOR®, REALTORS® and the REALTOR® logo are controlled by The Canadian Real Estate Association (CREA) and identify real estate professionals who are members of CREA. The trademarks MLS®, Multiple Listing Service® and the associated logos are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA. Used under license.
-            </p>
+        </div>
+
+        <div class="crea-compliance">
+          <div class="crea-compliance-logos">
+            <img src="/images/logos/mls-logo-footer.svg" alt="MLS®" class="crea-logo" />
+            <a href="https://www.realtor.ca/en" target="_blank" rel="noopener noreferrer">
+              <img src="https://www.realtor.ca/images/en-ca/powered_by_realtor.svg" alt="Powered by REALTOR.ca" class="crea-logo" />
+            </a>
           </div>
+          <p class="crea-notice">
+            All rights reserved. Data is deemed reliable but is not guaranteed accurate by the REALTORS® Association of Edmonton. The trademarks REALTOR®, REALTORS® and the REALTOR® logo are controlled by The Canadian Real Estate Association (CREA) and identify real estate professionals who are members of CREA. The trademarks MLS®, Multiple Listing Service® and the associated logos are owned by CREA and identify the quality of services provided by real estate professionals who are members of CREA. Used under license.
+          </p>
         </div>
         
         <div class="d-flex flex-column flex-md-row justify-space-between align-center py-6 border-t">
