@@ -45,11 +45,9 @@
             proxy_read_timeout 86400;
         }
 
-        location /uploads/ {
-            alias /var/www/uploads/;
-            expires 30d;
-            add_header Cache-Control "public, no-transform";
-            add_header X-Content-Type-Options "nosniff" always;
+        location ^~ /uploads/ {
+            proxy_pass http://suhani_app;
+            proxy_buffering off;
         }
 
         location /_nuxt/ {

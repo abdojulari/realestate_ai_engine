@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { resolveStoredUploadUrl } from '../../utils/publicMediaUrl'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -54,7 +55,10 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    return updatedUser
+    return {
+      ...updatedUser,
+      avatar: resolveStoredUploadUrl(updatedUser.avatar),
+    }
   } catch (error: any) {
     console.error('Error updating profile:', error)
     throw createError({

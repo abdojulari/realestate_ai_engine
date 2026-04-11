@@ -71,12 +71,14 @@ services:
       - ./suhani.env
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-deelbot}:${POSTGRES_PASSWORD}@postgres:5432/suhani?schema=public
+      - SUHANI_PUBLIC_UPLOADS_DIR=/app/public/uploads
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-deelbot}:${POSTGRES_PASSWORD}@postgres:5432/suhani?schema=public&connection_limit=10
       - APP_BASE_DOMAIN=deelbot.ai
       - NUXT_PUBLIC_FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
       - NUXT_FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
     volumes:
-      - suhani_uploads:/app/uploads
+      # App writes under public/uploads (avatars, logos, …). Previously /app/uploads broke paths vs DB URLs.
+      - suhani_uploads:/app/public/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -128,7 +130,6 @@ services:
       - ./nginx/snippets:/etc/nginx/snippets:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
-      - suhani_uploads:/var/www/uploads:ro
     depends_on:
       - suhani
       - control-plane

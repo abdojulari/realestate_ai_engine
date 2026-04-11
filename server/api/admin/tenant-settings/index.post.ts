@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { mapTenantMediaFields } from '../../../utils/tenantMediaUrls'
 import { getAdminIdForCreate } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -109,7 +110,7 @@ export default defineEventHandler(async (event) => {
     return {
       success: true,
       message: 'Tenant settings saved successfully',
-      settings,
+      settings: mapTenantMediaFields(settings),
     }
   } catch (error: any) {
     if (error.statusCode) throw error

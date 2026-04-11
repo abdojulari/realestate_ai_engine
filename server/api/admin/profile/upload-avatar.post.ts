@@ -1,6 +1,7 @@
 import fs from 'fs/promises'
 import path from 'path'
 import { writeFile } from 'fs/promises'
+import { getUploadRoot } from '../../utils/uploadStorage'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -68,7 +69,7 @@ export default defineEventHandler(async (event) => {
     const filename = `avatar-${userId}-${Date.now()}${ext}`
     
     // Create uploads directory if it doesn't exist
-    const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'avatars')
+    const uploadsDir = path.join(getUploadRoot(), 'avatars')
     try {
       await fs.mkdir(uploadsDir, { recursive: true })
     } catch (err) {

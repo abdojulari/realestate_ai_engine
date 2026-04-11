@@ -70,6 +70,8 @@ USER nuxt
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
+# Matches docker-compose volume mount; keeps upload path stable if cwd differs.
+ENV SUHANI_PUBLIC_UPLOADS_DIR=/app/public/uploads
 
 # Expose port
 EXPOSE 3000

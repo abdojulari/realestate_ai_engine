@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { resolveStoredUploadUrl } from '../../utils/publicMediaUrl'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -80,7 +81,7 @@ export default defineEventHandler(async (event) => {
         lastName: user.lastName,
         email: user.email,
         phone: user.phone,
-        avatar: user.avatar,
+        avatar: resolveStoredUploadUrl(user.avatar),
         bio: user.bio,
         role: user.role,
         adminId: user.adminId,

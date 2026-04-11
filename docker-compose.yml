@@ -59,7 +59,7 @@ services:
     # inside the container the DB hostname must be `db`. URL is built from POSTGRES_* to match the db service.
     # Optional full override: SUHANI_DOCKER_DATABASE_URL (e.g. external Postgres). Avoid @ : / # ? in POSTGRES_PASSWORD or URL-encode.
     environment:
-      DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-real_estate}?schema=public}
+      DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-real_estate}?schema=public&connection_limit=10}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-real_estate}
@@ -92,6 +92,8 @@ services:
       SMTP_SENDER: ${SMTP_SENDER:-}
       AGENT_EMAIL: ${AGENT_EMAIL:-}
       OPENCAGE_API_KEY: ${OPENCAGE_API_KEY:-}
+      # Single source of truth for all /uploads/* reads & writes (see server/utils/uploadStorage.ts).
+      SUHANI_PUBLIC_UPLOADS_DIR: /app/public/uploads
     volumes:
       - uploads_data:/app/public/uploads
       - marketing_resources_data:/app/storage/marketing-resources

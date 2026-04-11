@@ -26,7 +26,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-real_estate}?schema=public}
+      DATABASE_URL: ${SUHANI_DOCKER_DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-real_estate}?schema=public&connection_limit=10}
       REDIS_URL: ${SUHANI_DOCKER_REDIS_URL:-redis://redis:6379}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -51,7 +51,6 @@ services:
       - ./nginx/snippets:/etc/nginx/snippets:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
-      - uploads_data:/var/www/uploads:ro
     depends_on:
       - app
     networks:

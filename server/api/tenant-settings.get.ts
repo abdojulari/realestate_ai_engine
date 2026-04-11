@@ -1,5 +1,6 @@
 import { defineEventHandler, createError } from 'h3'
 import { getPublicTenantFilter } from '../utils/tenant'
+import { mapTenantMediaFields } from '../utils/tenantMediaUrls'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -79,7 +80,7 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    return settings
+    return mapTenantMediaFields(settings)
   } catch (error: any) {
     if (error.statusCode) throw error
     console.error('Failed to load public tenant settings:', error)

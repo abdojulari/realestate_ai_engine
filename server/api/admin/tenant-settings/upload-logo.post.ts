@@ -1,6 +1,7 @@
 import { defineEventHandler, readMultipartFormData, createError } from 'h3'
 import { promises as fs } from 'fs'
 import path from 'path'
+import { getUploadRoot } from '../../../utils/uploadStorage'
 import { requireAdmin } from '../../../utils/auth'
 import { getAdminIdForCreate } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
@@ -57,7 +58,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     // ── Ensure upload directory exists ─────────────────────────
-    const uploadDir = path.resolve(process.cwd(), 'public', 'uploads', subdir)
+    const uploadDir = path.join(getUploadRoot(), subdir)
     await fs.mkdir(uploadDir, { recursive: true })
 
     // ── Save file to disk ─────────────────────────────────────
