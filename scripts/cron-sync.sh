@@ -13,7 +13,9 @@
 
 set -euo pipefail
 
-APP_DIR="/opt/apps/suhani"
+export TZ="America/Edmonton"
+
+APP_DIR="opt/apps/suhani"
 LOG_DIR="${APP_DIR}/logs"
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
 RETENTION_DAYS=14
