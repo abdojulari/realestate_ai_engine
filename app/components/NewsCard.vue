@@ -8,27 +8,17 @@
   >
     <!-- Article Image -->
     <div v-if="article.image" class="news-image-container">
-      <v-img
+      <img
         :src="article.image"
         :alt="article.title"
-        height="200"
-        cover
+        referrerpolicy="no-referrer"
         class="news-image"
-      >
-        <template v-slot:placeholder>
-          <div class="d-flex align-center justify-center fill-height">
-            <v-progress-circular
-              color="blue-grey-lighten-5"
-              indeterminate
-            />
-          </div>
-        </template>
-        <template v-slot:error>
-          <div class="d-flex align-center justify-center fill-height bg-grey-lighten-2">
-            <v-icon size="48" color="grey-lighten-1">mdi-image-off</v-icon>
-          </div>
-        </template>
-      </v-img>
+        loading="lazy"
+        @error="onImgError"
+      />
+      <div v-if="imgFailed" class="news-image-error">
+        <v-icon size="48" color="grey-lighten-1">mdi-image-off</v-icon>
+      </div>
     </div>
 
     <!-- Fallback placeholder if no image -->
@@ -81,7 +71,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed } from 'vue'
 
 interface NewsArticle {
   title: string
@@ -101,6 +91,13 @@ interface Props {
 }
 
 const props = defineProps<Props>()
+
+const imgFailed = ref(false)
+const onImgError = (e: Event) => {
+  imgFailed.value = true
+  const img = e.target as HTMLImageElement
+  img.style.display = 'none'
+}
 
 // Clean up HTML tags from description
 const cleanDescription = computed(() => {
@@ -170,6 +167,20 @@ const openArticle = () => {
 }
 
 .news-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+  border-radius: 4px 4px 0 0;
+}
+
+.news-image-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
   border-radius: 4px 4px 0 0;
 }
 
