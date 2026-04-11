@@ -52,7 +52,7 @@ services:
       NUXT_TURNSTILE_SECRET_KEY: ${NUXT_TURNSTILE_SECRET_KEY:-${NUXT_PUBLIC_SECRET_KEY:-}}
       NUXT_TURNSTILE_VERIFY_URL: ${NUXT_TURNSTILE_VERIFY_URL:-https://challenges.cloudflare.com/turnstile/v0/siteverify}
       # Geoapify (nearby POI on property detail)
-      GEOAPIFY_API_KEY: ${GEOAPIFY_API_KEY:-}
+      NUXT_PUBLIC_GEOAPIFY_API_KEY: ${GEOAPIFY_API_KEY:-${VITE_GEOAPIFY:-}}
       # AI Chat
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_API_URL: ${GROQ_API_URL:-https://api.groq.com/openai/v1}
