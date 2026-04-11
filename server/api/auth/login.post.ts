@@ -141,9 +141,8 @@ export default defineEventHandler(async (event) => {
           }
         })
 
-        // Send 2FA code via email
-        try {
-          await sendEmail({
+        // Send 2FA code via email (SMTP_* from container env — see server/utils/email.ts)
+        const sent = await sendEmail({
             to: user.email,
             subject: 'Your Two-Factor Authentication Code',
             html: `
@@ -248,13 +247,16 @@ For security reasons, please do not share this code with anyone.
 If you didn't request this code, please ignore this email and ensure your account is secure.
             `.trim()
           })
-          
-          console.log(`✅ 2FA code sent to ${user.email}`)
-        } catch (emailError) {
-          console.error('❌ Failed to send 2FA email:', emailError)
-          // Still log the code as fallback
-          console.log(`2FA Code for ${user.email}: ${code}`)
+
+        if (!sent) {
+          console.error(`❌ 2FA SMTP failed for ${user.email} — check SMTP_USERNAME, SMTP_PASSWORD, SMTP_HOSTNAME on the server`)
+          throw createError({
+            statusCode: 503,
+            statusMessage:
+              'Could not send verification email. Check SMTP settings on the server (Gmail: use an app password; allow port 587 outbound).',
+          })
         }
+        console.log(`✅ 2FA code sent to ${user.email}`)
 
         // Return response indicating 2FA is required
         return {

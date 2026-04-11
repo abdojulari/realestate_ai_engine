@@ -16,28 +16,48 @@ interface EmailOptions {
 }
 
 let transporter: Transporter | null = null
+let transporterKey = ''
 
 /**
- * Get or create email transporter
+ * SMTP settings: prefer process.env (Docker / server) over runtimeConfig, because
+ * runtimeConfig.smtp* is resolved at `nuxt build` time unless overridden by NUXT_*.
+ */
+function smtpHost(config: ReturnType<typeof useRuntimeConfig>) {
+  return process.env.SMTP_HOSTNAME || config.smtpHostname || process.env.SMTP_HOST || 'smtp.gmail.com'
+}
+
+function smtpPort(config: ReturnType<typeof useRuntimeConfig>) {
+  return parseInt(String(process.env.SMTP_PORT || config.smtpPort || '587'), 10)
+}
+
+function smtpUser(config: ReturnType<typeof useRuntimeConfig>) {
+  return process.env.SMTP_USERNAME || config.smtpUsername || process.env.SMTP_USER || ''
+}
+
+function smtpPass(config: ReturnType<typeof useRuntimeConfig>) {
+  return process.env.SMTP_PASSWORD || config.smtpPassword || ''
+}
+
+/**
+ * Get or create email transporter (recreate if SMTP env changed).
  */
 function getTransporter(): Transporter {
-  if (transporter) {
+  const config = useRuntimeConfig()
+  const host = smtpHost(config)
+  const port = smtpPort(config)
+  const user = smtpUser(config)
+  const pass = smtpPass(config)
+  const key = `${host}:${port}:${user}:${pass}`
+  if (transporter && transporterKey === key) {
     return transporter
   }
-
-  const config = useRuntimeConfig()
-
-  // Configure based on runtime config (from nuxt.config.ts)
+  transporterKey = key
   transporter = nodemailer.createTransport({
-    host: config.smtpHostname || process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(config.smtpPort || process.env.SMTP_PORT || '587'),
+    host,
+    port,
     secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: config.smtpUsername || process.env.SMTP_USER,
-      pass: config.smtpPassword || process.env.SMTP_PASSWORD
-    }
+    auth: user || pass ? { user, pass } : undefined,
   })
-
   return transporter
 }
 
@@ -50,7 +70,7 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     const transport = getTransporter()
     
     const mailOptions = {
-      from: options.from || config.smtpSender || process.env.SMTP_FROM || 'noreply@homebyabdul.com',
+      from: options.from || process.env.SMTP_SENDER || config.smtpSender || process.env.SMTP_FROM || 'noreply@homebyabdul.com',
       to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
       subject: options.subject,
       html: options.html,

@@ -28,9 +28,34 @@
  *   node scripts/holistic-sync.mjs --province=Ontario   # Sync only Ontario
  *
  * Requires Node 18+ (global fetch).
+ *
+ * API base (first match wins):
+ *   HOLISTIC_SYNC_API_BASE, NUXT_PUBLIC_API_BASE, NUXT_PUBLIC_SITE_URL, APP_URL
+ * Trailing slashes and a trailing /api are stripped. Example:
+ *   HOLISTIC_SYNC_API_BASE=https://your-tenant.example.com node scripts/holistic-sync.mjs --verify
  */
 
-const API_BASE = process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000'
+function resolveApiBase() {
+  const candidates = [
+    process.env.HOLISTIC_SYNC_API_BASE,
+    process.env.NUXT_PUBLIC_API_BASE,
+    process.env.NUXT_PUBLIC_SITE_URL,
+    process.env.APP_URL,
+  ].filter(Boolean)
+
+  for (const raw of candidates) {
+    let u = String(raw).trim().replace(/\/+$/, '')
+    if (u.toLowerCase().endsWith('/api')) {
+      u = u.slice(0, -4)
+    }
+    if (/^https?:\/\//i.test(u)) {
+      return u
+    }
+  }
+  return 'http://localhost:3000'
+}
+
+const API_BASE = resolveApiBase()
 
 // All Canadian provinces/territories
 const ALL_PROVINCES = [
@@ -157,6 +182,11 @@ Examples:
 
   # Check current database state
   node scripts/holistic-sync.mjs --verify
+
+Environment (API host for sync / verify — must match production tenant URL):
+  HOLISTIC_SYNC_API_BASE   e.g. https://subdomain.yourdomain.com
+  NUXT_PUBLIC_SITE_URL     same idea (no trailing /api)
+  node --env-file=.env.production scripts/holistic-sync.mjs ...
 `)
 }
 
@@ -373,8 +403,10 @@ async function verifyDatabase() {
     console.log(`Total CREA properties in database: ${totalCount}`)
     if (totalCount === 0 && properties.length === 0) {
       console.log(
-        '\nNote: If this is 0 but sync counts look good, the app may still be resolving a different tenant (Host header),\n' +
-          'or listings need adminId from a newer CREA sync (SUPER_ADMIN_EMAIL / super_admin on server).\n'
+        `\nNote: If this is 0 but sync counts look good, verify you are hitting the same host as production.\n` +
+          `  This run uses API_BASE=${API_BASE}\n` +
+          `  Set HOLISTIC_SYNC_API_BASE or NUXT_PUBLIC_SITE_URL, or use node --env-file=.env.production …\n` +
+          `  Tenant scoping uses the Host header; localhost often shows 0 CREA rows while the VPS has data.\n`
       )
     }
 
@@ -439,6 +471,7 @@ async function main() {
   console.log('==========================================')
   console.log('    HOLISTIC CREA SYNC                   ')
   console.log('==========================================')
+  console.log(`API base: ${API_BASE}`)
   const modeLabel = options.verify ? 'VERIFY' : options.cleanup ? 'CLEANUP' : options.offMarketOnly ? 'OFF-MARKET SYNC' : options.purge ? 'PURGE + SYNC' : 'SYNC'
   console.log(`Mode: ${modeLabel}`)
   console.log(`Provinces: ${provincesToSync.length === ALL_PROVINCES.length ? 'ALL CANADA' : provincesToSync.join(', ')}`)
