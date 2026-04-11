@@ -23,6 +23,7 @@ async function ensurePrismaConnected() {
  * Body parameters:
  *   - province: The province to sync (e.g., "Ontario", "Alberta")
  *   - limit: Maximum number of properties to fetch (default: 100)
+ *   - offset: Number of properties to skip for pagination (default: 0)
  *   - batchSize: Processing batch size (default: 10)
  *   - includeAgentData: Whether to fetch agent data (default: true)
  *   - standardStatus: CREA RESO status(es) to fetch (default: ['Active']). 
@@ -35,6 +36,7 @@ export default defineEventHandler(async (event) => {
     province = 'Alberta', 
     city = null,
     limit = 100, 
+    offset = 0,
     batchSize = 10, 
     includeAgentData = true,
     standardStatus = null as string | string[] | null
@@ -51,10 +53,10 @@ export default defineEventHandler(async (event) => {
 
     console.log(`🍁 Starting ${locationLabel} CREA sync with agent data (limit: ${limit})`)
     
-    // Fetch properties from CREA with province and optional city filter
     const filters: any = {
       province: province,
-      $top: limit
+      $top: limit,
+      $skip: offset
     }
     
     if (standardStatus) {

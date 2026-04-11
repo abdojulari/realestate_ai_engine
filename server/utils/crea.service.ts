@@ -362,6 +362,10 @@ class CreaService {
       }
       const topLimit = filters.$top || 100
       queryParts.push(`$top=${topLimit}`)
+      if (filters.$skip != null && filters.$skip > 0) {
+        queryParts.push(`$skip=${filters.$skip}`)
+      }
+      queryParts.push(`$orderby=${encodeURIComponent('ListingKey asc')}`)
       const queryString = queryParts.join('&')
       return `/odata/v1/Property${queryString ? `?${queryString}` : ''}`
     }

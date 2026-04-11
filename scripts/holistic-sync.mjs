@@ -320,6 +320,7 @@ async function syncProperties(totalInCrea, province = 'Alberta', city = null, st
     const requestBody = {
       province: province,
       limit: batchSize,
+      offset: (currentBatch - 1) * batchSize,
       batchSize: processingBatchSize,
       includeAgentData: true
     }
