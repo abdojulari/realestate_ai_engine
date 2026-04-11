@@ -7,9 +7,8 @@ import { PrismaClient } from '@prisma/client'
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
-}
+globalForPrisma.prisma = prisma
+
 
 type Intent = 'faq' | 'property' | 'general'
 type HistoryMessage = { role: 'user' | 'assistant'; content: string }

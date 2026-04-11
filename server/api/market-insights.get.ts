@@ -18,9 +18,8 @@ import { PrismaClient } from '@prisma/client'
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
 
-if (process.env.NODE_ENV !== 'production') {
-  globalForPrisma.prisma = prisma
-}
+globalForPrisma.prisma = prisma
+
 
 // Cache per city, 30-minute TTL
 const insightsCache = new Map<string, { timestamp: number; data: any }>()
