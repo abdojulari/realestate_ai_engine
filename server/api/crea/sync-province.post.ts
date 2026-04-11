@@ -7,6 +7,16 @@ const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
 globalForPrisma.prisma = prisma
 
+async function ensurePrismaConnected() {
+  try {
+    await prisma.$queryRaw`SELECT 1`
+  } catch {
+    console.warn('[sync-province] DB connection lost, reconnecting...')
+    await prisma.$disconnect().catch(() => {})
+    await prisma.$connect()
+  }
+}
+
 /**
  * Generic CREA sync endpoint that accepts any Canadian province
  * 
@@ -33,6 +43,7 @@ export default defineEventHandler(async (event) => {
   const locationLabel = city ? `${city}, ${province}` : province
 
   try {
+    await ensurePrismaConnected()
     const creaAdminId = await resolveCreaSyncAdminId(prisma)
     if (creaAdminId != null) {
       console.log(`CREA sync: attaching listings to adminId=${creaAdminId} (super_admin / SUPER_ADMIN_EMAIL)`)

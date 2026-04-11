@@ -78,6 +78,46 @@ const ALL_PROVINCES = [
 // UTILITY FUNCTIONS
 // ============================================
 
+const MAX_RETRIES = 3
+const RETRY_DELAYS = [15_000, 30_000, 60_000] // 15s, 30s, 60s
+
+async function sleep(ms) {
+  return new Promise(r => setTimeout(r, ms))
+}
+
+async function fetchWithRetry(url, options = {}, label = '') {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(url, options)
+      if (res.ok) return res
+
+      const body = await res.text().catch(() => '')
+      const isDbError = /auth|prisma|database|connect|P1000|P1001|P1008|P1017/i.test(body)
+
+      if (isDbError && attempt < MAX_RETRIES) {
+        const delay = RETRY_DELAYS[attempt] || 60_000
+        console.warn(`[RETRY] ${label} attempt ${attempt + 1}/${MAX_RETRIES} — DB error (${res.status}), waiting ${delay / 1000}s...`)
+        await sleep(delay)
+        continue
+      }
+
+      const err = new Error(`HTTP ${res.status}`)
+      err.status = res.status
+      err.body = body
+      throw err
+    } catch (e) {
+      if (e.status) throw e
+      if (attempt < MAX_RETRIES) {
+        const delay = RETRY_DELAYS[attempt] || 60_000
+        console.warn(`[RETRY] ${label} attempt ${attempt + 1}/${MAX_RETRIES} — ${e.message}, waiting ${delay / 1000}s...`)
+        await sleep(delay)
+        continue
+      }
+      throw e
+    }
+  }
+}
+
 async function testImageUrl(url) {
   try {
     const controller = new AbortController()
@@ -291,15 +331,20 @@ async function syncProperties(totalInCrea, province = 'Alberta', city = null, st
       requestBody.standardStatus = standardStatus
     }
     
-    const response = await fetch(`${API_BASE}/api/crea/sync-province`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody),
-    })
-
-    if (!response.ok) {
+    let response
+    try {
+      response = await fetchWithRetry(
+        `${API_BASE}/api/crea/sync-province`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody),
+        },
+        `[${province}] Batch ${currentBatch}`
+      )
+    } catch (err) {
       if (currentBatch === 1 && Array.isArray(standardStatus) && standardStatus.length > 1) {
-        console.warn(`[${province}] Combined status query failed (${response.status}). Falling back to per-status sync...`)
+        console.warn(`[${province}] Combined status query failed (${err.status}). Falling back to per-status sync...`)
         let fallbackResult = { totalSynced: 0, totalCreated: 0, totalUpdated: 0, totalSkipped: 0, totalErrors: 0, batches: 0, province }
         for (const singleStatus of standardStatus) {
           console.log(`\n  → Trying status: ${singleStatus}`)
@@ -313,9 +358,8 @@ async function syncProperties(totalInCrea, province = 'Alberta', city = null, st
         }
         return fallbackResult
       }
-      console.error(`[${province}] Batch ${currentBatch} failed:`, response.status)
-      const errorText = await response.text().catch(() => '')
-      if (errorText) console.error(`  Error detail: ${errorText.substring(0, 200)}`)
+      console.error(`[${province}] Batch ${currentBatch} failed after ${MAX_RETRIES} retries:`, err.status || err.message)
+      if (err.body) console.error(`  Error detail: ${err.body.substring(0, 200)}`)
       break
     }
 
