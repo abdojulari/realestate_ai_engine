@@ -13,7 +13,7 @@ globalForPrisma.prisma = prisma
 type Intent = 'faq' | 'property' | 'general'
 type HistoryMessage = { role: 'user' | 'assistant'; content: string }
 
-const RESIDENTIAL_TYPES = ['house', 'condo', 'townhouse', 'multi-family', 'land', 'other']
+const RESIDENTIAL_TYPES = ['house', 'condo', 'apartment', 'townhouse', 'multi-family', 'duplex', 'land', 'other']
 
 const CITY_ALIASES: Array<{ name: string; aliases: string[] }> = [
   { name: 'Calgary', aliases: ['calgary'] },
@@ -202,11 +202,14 @@ function extractCity(normalizedQuery: string): string | null {
 }
 
 function extractPropertyType(normalizedQuery: string): string[] | null {
-  if (normalizedQuery.includes('condo') || normalizedQuery.includes('condominium')) {
-    return ['condo', 'multi-family']
+  if (normalizedQuery.includes('condo') || normalizedQuery.includes('condominium') || normalizedQuery.includes('apartment')) {
+    return ['condo', 'apartment']
   }
   if (normalizedQuery.includes('townhouse') || normalizedQuery.includes('townhome') || normalizedQuery.includes('row house')) {
     return ['townhouse']
+  }
+  if (normalizedQuery.includes('duplex') || normalizedQuery.includes('multi-family') || normalizedQuery.includes('multiplex')) {
+    return ['multi-family', 'duplex']
   }
   if (normalizedQuery.includes('land') || normalizedQuery.includes('lot') || normalizedQuery.includes('acreage')) {
     return ['land']
@@ -532,8 +535,8 @@ async function askChatbot({
 
   if (!groqApiKey) {
     throw createError({
-      statusCode: 500,
-      statusMessage: 'GROQ_API_KEY is not configured'
+      statusCode: 503,
+      statusMessage: 'Chat is temporarily unavailable. Please try again later.'
     })
   }
 

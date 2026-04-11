@@ -293,15 +293,11 @@ function parseWithRules(query: string): Record<string, any> {
   for (const { keywords, type } of propertyTypes) {
     if (queryContainsAny(query, keywords)) {
       if (type === 'condo') {
-        filters.type = 'multi-family'
-        if (!filters.features) filters.features = {}
-        filters.features.condo = true
+        filters.type = ['condo', 'apartment']
       } else if (type === 'townhouse') {
-        filters.type = 'house'
-        if (!filters.features) filters.features = {}
-        filters.features.townhouse = true
+        filters.type = 'townhouse'
       } else if (type === 'duplex') {
-        filters.type = 'house'
+        filters.type = 'multi-family'
         if (!filters.features) filters.features = {}
         filters.features.duplex = true
       } else if (type === 'triplex' || type === 'fourplex') {

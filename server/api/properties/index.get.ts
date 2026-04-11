@@ -66,7 +66,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // RESIDENTIAL ONLY FILTER - Exclude commercial/industrial properties at database level
-  const residentialTypes = ['house', 'condo', 'townhouse', 'multi-family', 'land', 'other']
+  const residentialTypes = ['house', 'condo', 'apartment', 'townhouse', 'multi-family', 'duplex', 'land', 'other']
   
   // Always filter to residential properties only (using valid Prisma syntax)
   where.type = { in: residentialTypes }
@@ -116,9 +116,13 @@ export default defineEventHandler(async (event) => {
   if (beds) where.beds = { gte: parseInt(beds as string) }
   if (bedsExact) where.beds = parseInt(bedsExact as string) // Exact match for AI search
   if (baths) where.baths = { gte: parseFloat(baths as string) }
-  // Only filter by type if it's a valid residential type
-  if (type && residentialTypes.includes((type as string).toLowerCase())) {
-    where.type = { equals: type as string, mode: 'insensitive' }
+  if (type) {
+    const types = String(type).split(',').map(t => t.trim().toLowerCase()).filter(t => residentialTypes.includes(t))
+    if (types.length === 1) {
+      where.type = { equals: types[0], mode: 'insensitive' }
+    } else if (types.length > 1) {
+      where.type = { in: types }
+    }
   }
   if (status) where.status = { equals: status as string, mode: 'insensitive' }
   if (city) where.city = { contains: city as string, mode: 'insensitive' }

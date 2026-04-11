@@ -103,6 +103,7 @@ interface Pillar9Property {
   ListDate?: string | null
   OnMarketDate?: string | null
   PendingTimestamp?: string | null
+  DaysOnMarket?: number | null
 }
 
 interface Pillar9ApiResponse {
@@ -380,17 +381,49 @@ class Pillar9Service {
       queryParts.push(`$skip=${filters.skip}`)
     }
 
-    // Matrix OData $select: unknown property names are rejected — keep this list aligned with API docs when extending.
+    // Matrix OData $select: every field that transformToLocalProperty reads.
+    // Unknown names are rejected by the API — only add fields that actually exist in the Matrix schema.
     const defaultSelect = [
+      // Core identifiers
       'ListingId', 'ListingKeyNumeric', 'MlsStatus',
-      'ListPrice', 'BedroomsTotal', 'BathroomsTotalInteger',
-      'UnparsedAddress', 'City', 'PostalCode',
-      'LivingAreaSF', 'YearBuilt', 'PropertyType',
-      'ListAgentFullName', 'ListOfficeName',
-      'PhotosCount', 'DaysOnMarket', 'ModificationTimestamp'
+      // Pricing
+      'ListPrice', 'ClosePrice', 'CloseDate',
+      // Rooms & size
+      'BedroomsTotal', 'BathroomsTotalInteger',
+      'LivingAreaSF', 'LivingArea',
+      'BuildingAreaTotalSF', 'BuildingAreaTotal', 'BuildingAreaUnits',
+      // Location
+      'UnparsedAddress', 'StreetName', 'StreetNumber', 'UnitNumber',
+      'City', 'StateOrProvince', 'PostalCode',
+      'Latitude', 'Longitude',
+      // Type & structure
+      'PropertyType', 'PropertySubType',
+      'YearBuilt', 'StoriesTotal', 'Stories',
+      // Lot
+      'LotSizeArea', 'LotSizeAcres', 'LotSizeDimensions', 'LotSizeUnits',
+      // Parking
+      'ParkingTotal', 'GarageSpaces',
+      // Tax
+      'TaxAnnualAmount', 'TaxYear', 'ParcelNumber',
+      'Zoning', 'ZoningDescription',
+      // Description
+      'PublicRemarks',
+      // Dates & meta
+      'ListDate', 'DaysOnMarket', 'ModificationTimestamp', 'PhotosCount',
+      // Agent
+      'ListAgentFullName', 'ListAgentKey', 'ListAgentEmail', 'ListAgentDirectPhone',
+      'ListOfficeName',
+      // Features (array fields — Matrix returns [] or null for these)
+      'Heating', 'Cooling', 'Appliances',
+      'SecurityFeatures', 'ExteriorFeatures', 'InteriorFeatures',
+      'ArchitecturalStyle', 'Basement', 'FoundationDetails',
+      'Roof', 'ConstructionMaterials',
+      'Utilities', 'WaterSource', 'Sewer', 'Electric',
+      'PoolFeatures', 'WaterfrontFeatures', 'View',
     ]
     const select = filters.select?.length ? filters.select : defaultSelect
     queryParts.push(`$select=${encodeURIComponent(select.join(','))}`)
+    queryParts.push(`$orderby=${encodeURIComponent('ListingKeyNumeric asc')}`)
 
     const query = `?${queryParts.join('&')}`
     const response: Pillar9ApiResponse = await this.makeApiRequest(query)
@@ -485,29 +518,40 @@ class Pillar9Service {
    */
   private mapPropertyType(subType: string, propertyType?: string): string {
     if (!subType && !propertyType) return 'house'
-    
-    const type = (subType || propertyType || '').toLowerCase()
-    
-    // Commercial indicators
+
+    const sub = (subType || '').toLowerCase()
+    const prop = (propertyType || '').toLowerCase()
+
+    // Commercial indicators (check both fields)
+    const combined = `${sub} ${prop}`
     const commercialIndicators = [
-      'office', 'commercial', 'retail', 'industrial', 'warehouse', 
+      'office', 'commercial', 'retail', 'industrial', 'warehouse',
       'manufacturing', 'business', 'store', 'shop', 'plaza', 'medical'
     ]
-    
-    if (commercialIndicators.some(indicator => type.includes(indicator))) {
-      if (type.includes('industrial') || type.includes('warehouse')) {
+
+    if (commercialIndicators.some(indicator => combined.includes(indicator))) {
+      if (combined.includes('industrial') || combined.includes('warehouse')) {
         return 'industrial'
       }
       return 'commercial'
     }
-    
-    // Residential mapping
-    if (type.includes('vacant land') || type.includes('land')) return 'land'
-    if (type.includes('single family') || type.includes('single-family') || type.includes('detached')) return 'house'
-    if (type.includes('condo') || type.includes('apartment') || type.includes('condominium')) return 'condo'
-    if (type.includes('townhouse') || type.includes('town') || type.includes('row house')) return 'townhouse'
-    if (type.includes('multi-family') || type.includes('duplex') || type.includes('multiplex')) return 'multi-family'
-    
+
+    if (combined.includes('vacant land') || prop === 'land') return 'land'
+
+    // PropertyType "Condo"/"Condominium" = always condo (apartment === condo)
+    // regardless of building type (townhouse condo is still a condo)
+    if (prop.includes('condo') || prop.includes('condominium')) return 'condo'
+
+    // PropertySubType-based mapping (building type)
+    if (sub.includes('apartment') || sub.includes('apt')) return 'condo'
+    if (sub.includes('townhouse') || sub.includes('town') || sub.includes('row house') || sub.includes('row/')) return 'townhouse'
+    if (sub.includes('duplex') || sub.includes('half duplex')) return 'duplex'
+    if (sub.includes('multi-family') || sub.includes('multiplex') ||
+        sub.includes('fourplex') || sub.includes('4plex') || sub.includes('four-plex') ||
+        sub.includes('triplex') || sub.includes('3plex') || sub.includes('tri-plex')) return 'multi-family'
+
+    if (sub.includes('single family') || sub.includes('detached') || sub.includes('house')) return 'house'
+
     return 'house'
   }
 
@@ -534,8 +578,12 @@ class Pillar9Service {
       .sort((a, b) => (a.Order || 0) - (b.Order || 0))
       .map(m => m.MediaURL) || []
 
-    // Build features object
+    // Build features object — aligned with CREA feature keys for uniform API responses
     const features = {
+      // Property classification (mirrors CREA features.propertySubType / propertyType)
+      propertySubType: p9Prop.PropertySubType,
+      propertyType: p9Prop.PropertyType,
+
       heating: p9Prop.Heating || [],
       cooling: p9Prop.Cooling || [],
       appliances: p9Prop.Appliances || [],
@@ -619,6 +667,17 @@ class Pillar9Service {
       taxYear: p9Prop.TaxYear || null,
       parcelNumber: p9Prop.ParcelNumber || null,
       
+      // Fields CREA provides but Pillar9 doesn't — set explicitly to avoid undefined
+      propertyCondition: null,
+      cityRegion: null,
+      waterBodyName: null,
+
+      // Days on Market — use API field, fall back to calculation from ListDate
+      daysOnMarket: p9Prop.DaysOnMarket ?? (p9Prop.ListDate
+        ? Math.floor((Date.now() - new Date(p9Prop.ListDate).getTime()) / (1000 * 60 * 60 * 24))
+        : null),
+      originalEntryTimestamp: p9Prop.ListDate ? new Date(p9Prop.ListDate) : null,
+
       // Agent data (simplified - Pillar9 provides less agent detail than CREA)
       listingAgentData: p9Prop.ListAgentFullName ? {
         memberKey: p9Prop.ListAgentKey || '',

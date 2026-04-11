@@ -608,19 +608,30 @@ class CreaService {
     
     // RESIDENTIAL TYPE MAPPING
     if (type.includes('vacant land') || type.includes('land')) return 'land'
-    if (type.includes('single family') || type.includes('single-family') || type.includes('detached')) return 'house'
-    if (type.includes('condo') || type.includes('apartment') || type.includes('condominium')) return 'condo'
-    if (type.includes('townhouse') || type.includes('town') || type.includes('row house')) return 'townhouse'
-    if (type.includes('multi-family') || type.includes('duplex') || type.includes('multiplex') || 
+    if (type.includes('condo') || type.includes('condominium')) return 'condo'
+    if (type.includes('multi-family') || type.includes('multiplex') ||
         type.includes('fourplex') || type.includes('triplex')) return 'multi-family'
-    
-    // Special handling for properties with 0 bedrooms - likely commercial
-    // This will be checked in the transform function
-    
-    // Log unknown types for debugging
-    console.warn(`⚠️ Unknown PropertySubType: "${subType}" - defaulting to 'house'`)
-    
-    return 'house' // Default for residential
+
+    // StructureType is the real discriminator — CREA lumps most residential
+    // under PropertySubType "Single Family" regardless of actual structure.
+    const structures = toStringArray(additionalFields?.structureType).map(s => s.toLowerCase())
+    const struct = structures.join(' ')
+
+    if (struct) {
+      if (struct.includes('apartment') || struct.includes('apt')) return 'condo'
+      if (struct.includes('row') || struct.includes('townhouse') || struct.includes('town house')) return 'townhouse'
+      if (struct.includes('duplex')) return 'duplex'
+      if (struct.includes('manufactured') || struct.includes('mobile')) return 'house'
+      if (struct.includes('no building')) return 'land'
+    }
+
+    if (type.includes('apartment')) return 'condo'
+    if (type.includes('townhouse') || type.includes('town') || type.includes('row house')) return 'townhouse'
+    if (type.includes('duplex')) return 'duplex'
+    if (type.includes('single family') || type.includes('single-family') || type.includes('detached')) return 'house'
+
+    console.warn(`Unknown PropertySubType: "${subType}" struct=[${structures.join(', ')}] - defaulting to 'house'`)
+    return 'house'
   }
 
   /**
