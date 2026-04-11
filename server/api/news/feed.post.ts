@@ -10,6 +10,8 @@ interface RSSItem {
   'dc:creator'?: string[]
   'content:encoded'?: string[]
   enclosure?: Array<{ $: { url: string; type: string } }>
+  'media:content'?: Array<{ $: { url: string; medium?: string; type?: string } }>
+  'media:thumbnail'?: Array<{ $: { url: string } }>
 }
 
 interface RSSChannel {
@@ -135,29 +137,41 @@ export default defineEventHandler(async (event) => {
     const articles: NewsArticle[] = items.map((item: RSSItem) => {
       // Extract image from various possible sources
       let image: string | undefined
-      
-      // Try enclosure first (common for images)
-      if (item.enclosure && item.enclosure[0]?.$.url) {
-        const enclosureUrl = item.enclosure[0].$.url
+
+      // 1. media:content (Media RSS — most WordPress feeds)
+      if (item['media:content']?.length) {
+        for (const mc of item['media:content']) {
+          const url = mc?.$?.url
+          if (url && (!mc.$.medium || mc.$.medium === 'image' || mc.$.type?.startsWith('image/'))) {
+            image = url
+            break
+          }
+        }
+      }
+
+      // 2. media:thumbnail
+      if (!image && item['media:thumbnail']?.length) {
+        const url = item['media:thumbnail'][0]?.$?.url
+        if (url) image = url
+      }
+
+      // 3. enclosure with image type
+      if (!image && item.enclosure?.[0]?.$?.url) {
         if (item.enclosure[0].$.type?.startsWith('image/')) {
-          image = enclosureUrl
+          image = item.enclosure[0].$.url
         }
       }
-      
-      // Try to extract image from description/content
+
+      // 4. <img> in description HTML
       if (!image && item.description?.[0]) {
-        const imgMatch = item.description[0].match(/<img[^>]+src="([^"]+)"/i)
-        if (imgMatch) {
-          image = imgMatch[1]
-        }
+        const imgMatch = item.description[0].match(/<img[^>]+src=["']([^"']+)["']/i)
+        if (imgMatch) image = imgMatch[1]
       }
-      
-      // Try content:encoded
+
+      // 5. <img> in content:encoded HTML
       if (!image && item['content:encoded']?.[0]) {
-        const imgMatch = item['content:encoded'][0].match(/<img[^>]+src="([^"]+)"/i)
-        if (imgMatch) {
-          image = imgMatch[1]
-        }
+        const imgMatch = item['content:encoded'][0].match(/<img[^>]+src=["']([^"']+)["']/i)
+        if (imgMatch) image = imgMatch[1]
       }
 
       // Extract GUID

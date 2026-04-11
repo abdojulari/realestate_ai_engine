@@ -742,8 +742,9 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { propertyService } from '~/services/property.service'
-const GEOAPIFY_KEY = import.meta.env.VITE_GEOAPIFY
-const GEOAPIFY_URL = import.meta.env.GEOAPIFY_API_URL || 'https://api.geoapify.com/v2'
+const { public: publicConfig } = useRuntimeConfig()
+const GEOAPIFY_KEY = publicConfig.geoapifyApiKey
+const GEOAPIFY_URL = 'https://api.geoapify.com/v2'
 
 const route = useRoute()
 const loading = ref(false)
