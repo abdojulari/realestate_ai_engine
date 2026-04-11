@@ -15,8 +15,10 @@ if (process.env.NODE_ENV !== 'production') {
 /**
  * POST /api/admin/tenant-settings/upload-logo
  *
- * Upload a logo image, save to disk, and update TenantSettings.logoUrl.
- * Accepts multipart form data with a 'logo' file field.
+ * Upload an image from the admin UI only (multipart). Saves under public/uploads and updates TenantSettings.
+ * Form fields:
+ *   - logo: file (required)
+ *   - asset: optional text "logo" | "favicon" | "brokerage" (default logo)
  */
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
@@ -33,19 +35,30 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  const assetField = form?.find((f: any) => f.name === 'asset' && !f.filename)
+  let asset = 'logo'
+  if (assetField?.data) {
+    const v = Buffer.from(assetField.data as Uint8Array).toString('utf8').trim().toLowerCase()
+    if (v === 'favicon' || v === 'brokerage') asset = v
+  }
+
+  const subdir = asset === 'favicon' ? 'favicons' : asset === 'brokerage' ? 'brokerage' : 'logos'
+
   // ── Validate file type ────────────────────────────────────
   const extension = path.extname(filePart.filename).toLowerCase()
-  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
-  if (!allowedExtensions.includes(extension)) {
+  const imageExt = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
+  const faviconExt = [...imageExt, '.ico']
+  const allowed = asset === 'favicon' ? faviconExt : imageExt
+  if (!allowed.includes(extension)) {
     throw createError({
       statusCode: 400,
-      statusMessage: `Invalid file type: ${extension}. Allowed: ${allowedExtensions.join(', ')}`,
+      statusMessage: `Invalid file type: ${extension}. Allowed: ${allowed.join(', ')}`,
     })
   }
 
   try {
     // ── Ensure upload directory exists ─────────────────────────
-    const uploadDir = path.resolve(process.cwd(), 'public', 'uploads', 'logos')
+    const uploadDir = path.resolve(process.cwd(), 'public', 'uploads', subdir)
     await fs.mkdir(uploadDir, { recursive: true })
 
     // ── Save file to disk ─────────────────────────────────────
@@ -56,19 +69,27 @@ export default defineEventHandler(async (event) => {
 
     await fs.writeFile(filePath, filePart.data as Buffer)
 
-    const logoUrl = `/uploads/logos/${filename}`
+    const publicPath = `/uploads/${subdir}/${filename}`
 
-    // ── Upsert TenantSettings with the new logoUrl ────────────
+    const updatePayload: Record<string, string> = {}
+    if (asset === 'favicon') updatePayload.faviconUrl = publicPath
+    else if (asset === 'brokerage') updatePayload.brokerageLogoUrl = publicPath
+    else updatePayload.logoUrl = publicPath
+
+    // ── Upsert TenantSettings ─────────────────────────────────
     const settings = await prisma.tenantSettings.upsert({
       where: { adminId: targetAdminId },
-      update: { logoUrl },
-      create: { adminId: targetAdminId, logoUrl },
+      update: updatePayload,
+      create: { adminId: targetAdminId, ...updatePayload },
     })
 
     return {
       success: true,
-      message: 'Logo uploaded successfully',
-      logoUrl,
+      message: `${asset} uploaded successfully`,
+      logoUrl: asset === 'logo' ? publicPath : settings.logoUrl,
+      faviconUrl: asset === 'favicon' ? publicPath : settings.faviconUrl,
+      brokerageLogoUrl: asset === 'brokerage' ? publicPath : settings.brokerageLogoUrl,
+      asset,
       settings,
     }
   } catch (error: any) {

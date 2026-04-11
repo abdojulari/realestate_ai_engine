@@ -27,11 +27,32 @@
         <v-col cols="12" md="6">
           <div class="brand-upload-card">
             <div class="brand-upload-card__label">Site Logo</div>
+            <p class="text-caption text-slate-500 mb-2">
+              Change the logo by choosing a file below — it uploads to your site automatically. You do not need to copy files onto the server by hand.
+            </p>
             <div class="brand-upload-card__preview">
-              <img :src="siteLogoPreview" alt="Current logo" class="brand-upload-card__img brand-upload-card__img--logo" />
-              <v-btn v-if="branding.logoUrl" variant="text" color="error" size="x-small" icon="mdi-close-circle" class="brand-upload-card__remove" @click="branding.logoUrl = ''" />
+              <img
+                :src="siteLogoDisplay"
+                alt="Current logo"
+                class="brand-upload-card__img brand-upload-card__img--logo"
+                @error="onSiteLogoImgError"
+              />
+              <v-btn
+                v-if="branding.logoUrl"
+                variant="text"
+                color="error"
+                size="x-small"
+                icon="mdi-close-circle"
+                class="brand-upload-card__remove"
+                title="Remove logo from site"
+                @click="removeSiteLogo"
+              />
             </div>
-            <v-file-input v-model="logoFile" label="Replace logo" accept="image/*" show-size prepend-icon="" prepend-inner-icon="mdi-camera" variant="outlined" density="compact" hide-details @update:model-value="uploadLogo" />
+            <v-alert v-if="siteLogoMissingFile" type="warning" variant="tonal" density="compact" class="mb-2">
+              The saved logo file is missing (404). Upload a new image below, or remove the logo to use the default.
+              <v-btn size="small" variant="text" class="ml-1" @click="removeSiteLogo">Remove saved URL</v-btn>
+            </v-alert>
+            <v-file-input v-model="logoFile" label="Upload or replace logo" accept="image/*" show-size prepend-icon="" prepend-inner-icon="mdi-camera" variant="outlined" density="compact" hide-details @update:model-value="uploadLogo" />
           </div>
         </v-col>
         <v-col cols="12" md="6">
@@ -146,7 +167,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 // @ts-ignore
 import { api } from '~/utils/api'
 import { useTenantSettings } from '~/composables/useTenantSettings'
@@ -177,15 +198,44 @@ const branding = reactive({
 const logoFile = ref<File | null>(null)
 const faviconFile = ref<File | null>(null)
 const brokerageLogoFile = ref<File | null>(null)
-const siteLogoPreview = computed(() => branding.logoUrl || '/images/logos/deelbot.png')
+/** True when the saved logoUrl failed to load (e.g. file missing on server after redeploy). */
+const siteLogoMissingFile = ref(false)
+
+const siteLogoDisplay = computed(() => {
+  if (siteLogoMissingFile.value) return '/images/logos/deelbot.png'
+  return branding.logoUrl || '/images/logos/deelbot.png'
+})
 const faviconPreview = computed(() => branding.faviconUrl || '/favicon.ico')
 const loading = ref(false)
 const brandingSaving = ref(false)
 const saved = ref(false)
 const error = ref('')
 
+watch(
+  () => branding.logoUrl,
+  () => {
+    siteLogoMissingFile.value = false
+  },
+)
+
+function onSiteLogoImgError() {
+  if (!branding.logoUrl) return
+  siteLogoMissingFile.value = true
+  error.value =
+    'The logo file stored for this site could not be loaded. Upload a new logo below, or remove the saved URL to use the default.'
+}
+
+async function removeSiteLogo() {
+  branding.logoUrl = ''
+  siteLogoMissingFile.value = false
+  error.value = ''
+  await saveBranding()
+  await refreshTenantSettings()
+}
+
 async function loadBranding() {
   loading.value = true
+  siteLogoMissingFile.value = false
   try {
     const data: any = await api.get('/api/admin/tenant-settings')
     Object.assign(branding, {
@@ -230,17 +280,21 @@ async function saveBranding() {
   }
 }
 
-async function uploadImageField(file: File, fieldName: string) {
+async function uploadImageField(file: File, asset: 'favicon' | 'brokerage') {
   try {
     const formData = new FormData()
     formData.append('logo', file)
+    formData.append('asset', asset)
     const res: any = await api.post('/api/admin/tenant-settings/upload-logo', formData)
-    if (res?.logoUrl) {
-      (branding as any)[fieldName] = res.logoUrl
+    if (asset === 'favicon' && res?.faviconUrl) {
+      branding.faviconUrl = res.faviconUrl
+      await saveBranding()
+    } else if (asset === 'brokerage' && res?.brokerageLogoUrl) {
+      branding.brokerageLogoUrl = res.brokerageLogoUrl
       await saveBranding()
     }
   } catch (e: any) {
-    error.value = `Failed to upload ${fieldName}`
+    error.value = `Failed to upload ${asset}`
   }
 }
 
@@ -249,9 +303,11 @@ async function uploadLogo(file: File | File[] | null) {
   try {
     const formData = new FormData()
     formData.append('logo', file)
+    formData.append('asset', 'logo')
     const res: any = await api.post('/api/admin/tenant-settings/upload-logo', formData)
     if (res?.logoUrl) {
       branding.logoUrl = res.logoUrl
+      siteLogoMissingFile.value = false
       await saveBranding()
     }
   } catch (e: any) {
@@ -263,13 +319,13 @@ async function uploadLogo(file: File | File[] | null) {
 
 async function uploadFavicon(file: File | File[] | null) {
   if (!file || Array.isArray(file)) return
-  await uploadImageField(file, 'faviconUrl')
+  await uploadImageField(file, 'favicon')
   faviconFile.value = null
 }
 
 async function uploadBrokerageLogo(file: File | File[] | null) {
   if (!file || Array.isArray(file)) return
-  await uploadImageField(file, 'brokerageLogoUrl')
+  await uploadImageField(file, 'brokerage')
   brokerageLogoFile.value = null
 }
 
