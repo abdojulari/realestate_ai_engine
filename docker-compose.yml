@@ -6,9 +6,7 @@ services:
   db:
     image: postgres:15-alpine
     ports:
-      - "5433:5432"
-    # Must match app DATABASE_URL (built from the same POSTGRES_* in .env). Hardcoding postgres/postgres here
-    # while .env sets POSTGRES_PASSWORD breaks Prisma with "credentials are not valid".
+      - "127.0.0.1:5433:5432"
     shm_size: 256mb
     command:
       - "postgres"
@@ -20,12 +18,16 @@ services:
       - "work_mem=4MB"
       - "-c"
       - "maintenance_work_mem=64MB"
+      - "-c"
+      - "hba_file=/var/lib/postgresql/pg_hba_custom.conf"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-real_estate}
+      POSTGRES_HOST_AUTH_METHOD: trust
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./deploy/postgres/pg_hba.conf:/var/lib/postgresql/pg_hba_custom.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-real_estate}"]
       interval: 5s

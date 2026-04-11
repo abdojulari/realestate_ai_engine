@@ -27,6 +27,8 @@ services:
       - "work_mem=4MB"
       - "-c"
       - "maintenance_work_mem=64MB"
+      - "-c"
+      - "hba_file=/var/lib/postgresql/pg_hba_custom.conf"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-deelbot}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -34,6 +36,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-databases.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./postgres/pg_hba.conf:/var/lib/postgresql/pg_hba_custom.conf:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-deelbot}"]
       interval: 10s

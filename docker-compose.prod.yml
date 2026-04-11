@@ -18,8 +18,10 @@ services:
       - "work_mem=4MB"
       - "-c"
       - "maintenance_work_mem=64MB"
+      - "-c"
+      - "hba_file=/var/lib/postgresql/pg_hba_custom.conf"
     ports:
-      - "${SUHANI_POSTGRES_PUBLISH_PORT:-5435}:5432"
+      - "127.0.0.1:${SUHANI_POSTGRES_PUBLISH_PORT:-5435}:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
