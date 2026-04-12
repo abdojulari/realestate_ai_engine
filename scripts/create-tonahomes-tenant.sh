@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-docker exec -i deelbot-postgres psql -U postgres -d real_estate <<'SQL'
+docker exec -i suhani-postgres psql -U postgres -d real_estate <<'SQL'
 BEGIN;
 
 WITH new_user AS (
