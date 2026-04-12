@@ -259,10 +259,10 @@ const aboutTemplates = [
   },
   {
     id: 3,
-    name: 'Magazine Editorial',
-    description: 'No hero — opens with a bold masthead, profile image aligned left with editorial content right, services showcase grid, and pull quotes.',
+    name: 'Navy Editorial',
+    description: 'Deep navy-to-blue gradient hero with faded edge, portrait with floating label, sticky contact card, orange accent buttons, and gradient CTA bar.',
     preview: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop',
-    features: ['No Hero Banner', 'Left Profile Layout', 'Services Grid']
+    features: ['Navy Gradient Hero', 'Sticky Contact Card', 'Orange Accents']
   },
   {
     id: 4,
@@ -273,10 +273,10 @@ const aboutTemplates = [
   },
   {
     id: 5,
-    name: 'Luxury Warm',
-    description: 'Centered portrait with golden ring, Cormorant Garamond serif typography, interactive services accordion, and warm earth-tone gradients.',
+    name: 'Midnight Sleek',
+    description: 'Dark charcoal-to-navy hero with subtle glow, blue-to-indigo gradient accents, dark accordion services, and a sleek modern feel throughout.',
     preview: 'https://images.unsplash.com/photo-1600573472591-ee6b68d14c68?q=80&w=800&auto=format&fit=crop',
-    features: ['Centered Portrait', 'Serif Typography', 'Services Accordion']
+    features: ['Dark Hero + Glow', 'Blue-Indigo Gradients', 'Dark Accordion']
   }
 ]
 
