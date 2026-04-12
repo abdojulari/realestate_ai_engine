@@ -206,7 +206,7 @@ const handleSubscribe = async () => {
 .footer-container {
   max-width: 1300px;
   margin: 0 auto;
-  padding: 80px 24px 20px;
+  padding: 80px 24px 80px;
 }
 
 /* --- Premium Labels --- */
