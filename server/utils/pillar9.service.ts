@@ -209,7 +209,9 @@ class Pillar9Service {
   private configInitialized = false
 
   /**
-   * Initialize config from runtime config (call this from API handlers)
+   * Initialize config from runtime config (call this from API handlers).
+   * Empty strings are treated as unset so process.env fallback still works
+   * (Nuxt runtimeConfig bakes '' at build time when env vars are absent).
    */
   initConfig(config: { 
     clientId?: string
@@ -222,17 +224,27 @@ class Pillar9Service {
     if (config.tokenHost) this.tokenHost = config.tokenHost
     if (config.apiHost) this.apiHost = config.apiHost
     this.configInitialized = true
+    this.ensureConfig()
   }
 
   /**
-   * Try to load config from process.env as fallback
+   * Fill any still-missing credentials from process.env.
+   * Always runs — covers both the "initConfig never called" path and the
+   * "initConfig called with empty runtimeConfig values" path (Docker builds
+   * where PILLAR9_* aren't available at nuxt build but are injected at runtime
+   * via env_file / docker-compose environment).
    */
   private ensureConfig() {
-    if (!this.configInitialized) {
-      // Fallback to process.env
-      this.clientId = this.clientId || process.env.PILLAR9_CLIENT_ID || null
-      this.clientSecret = this.clientSecret || process.env.PILLAR9_CLIENT_SECRET || null
+    if (!this.clientId) {
+      this.clientId = process.env.PILLAR9_CLIENT_ID || null
+    }
+    if (!this.clientSecret) {
+      this.clientSecret = process.env.PILLAR9_CLIENT_SECRET || null
+    }
+    if (!this.tokenHost || this.tokenHost === 'pillarnine.clareityiam.net') {
       this.tokenHost = process.env.PILLAR9_TOKEN_HOST || this.tokenHost
+    }
+    if (!this.apiHost || this.apiHost === 'abrls.matrixwebapi.com') {
       this.apiHost = process.env.PILLAR9_API_HOST || this.apiHost
     }
   }

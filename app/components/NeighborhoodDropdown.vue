@@ -53,10 +53,10 @@
       <template #no-data>
         <v-list-item>
           <v-list-item-title class="text-gray-500">
-            {{ searchQuery ? `No neighborhoods found matching "${searchQuery}"` : 'No neighborhoods available' }}
+            {{ loading ? 'Loading neighborhoods...' : searchQuery ? `No neighborhoods found matching "${searchQuery}"` : 'No neighborhoods mapped yet for this city' }}
           </v-list-item-title>
-          <v-list-item-subtitle v-if="props.cityFilter" class="text-xs">
-            Try selecting a different city or clearing the city filter
+          <v-list-item-subtitle class="text-xs">
+            {{ loading ? '' : 'You can still search without selecting a neighborhood' }}
           </v-list-item-subtitle>
         </v-list-item>
       </template>

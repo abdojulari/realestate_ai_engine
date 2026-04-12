@@ -931,6 +931,7 @@ const loadCities = async () => {
 const detectUserLocation = () => {
   if (!navigator.geolocation) {
     console.warn('⚠️ Geolocation not supported')
+    fallbackToDefaultCity()
     return
   }
 
@@ -945,19 +946,32 @@ const detectUserLocation = () => {
     },
     (error) => {
       console.warn('⚠️ Geolocation failed:', error.message)
-      // Default to Edmonton if geolocation fails
-      selectedCity.value = 'Edmonton'
-    }
+      fallbackToDefaultCity()
+    },
+    { timeout: 8000, maximumAge: 300000 }
   )
+}
+
+const fallbackToDefaultCity = () => {
+  if (cities.value.length > 0) {
+    const sorted = [...cities.value].sort((a, b) => (b.count || 0) - (a.count || 0))
+    selectedCity.value = sorted[0]?.name || 'Edmonton'
+    console.log('📍 Defaulting to city with most properties:', selectedCity.value)
+  } else {
+    selectedCity.value = 'Edmonton'
+  }
 }
 
 // Find nearest city based on user location
 const findNearestCity = () => {
-  if (!userLocation.value || cities.value.length === 0) return
+  if (!userLocation.value || cities.value.length === 0) {
+    fallbackToDefaultCity()
+    return
+  }
   
-  // Simple distance calculation to find nearest city
   let nearestCity = cities.value[0]
   let minDistance = Infinity
+  let foundWithCoords = false
   
   cities.value.forEach(city => {
     if (city.coordinates?.latitude && city.coordinates?.longitude) {
@@ -968,10 +982,16 @@ const findNearestCity = () => {
       if (distance < minDistance) {
         minDistance = distance
         nearestCity = city
+        foundWithCoords = true
       }
     }
   })
   
+  if (!foundWithCoords) {
+    fallbackToDefaultCity()
+    return
+  }
+
   selectedCity.value = nearestCity.name
   console.log('🎯 Auto-selected nearest city:', nearestCity.name)
 }
@@ -987,35 +1007,22 @@ const onNeighborhoodSelected = (neighborhood: any) => {
 }
 
 // Speech Recognition Functions
-const initSpeechRecognition = () => {
-  if (typeof window === 'undefined') return
-
-  // Check browser support
+const createSpeechRecognition = () => {
   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-  
-  if (!SpeechRecognition) {
-    console.warn('⚠️ Speech Recognition not supported in this browser')
-    speechSupported.value = false
-    return
-  }
+  if (!SpeechRecognition) return null
 
-  speechSupported.value = true
-  speechRecognition.value = new SpeechRecognition()
-  
-  // Configure recognition
-  speechRecognition.value.continuous = false
-  speechRecognition.value.interimResults = true
-  speechRecognition.value.lang = 'en-US'
-  speechRecognition.value.maxAlternatives = 1
+  const recognition = new SpeechRecognition()
+  recognition.continuous = false
+  recognition.interimResults = true
+  recognition.lang = 'en-US'
+  recognition.maxAlternatives = 1
 
-  // Event: Speech recognition results
-  speechRecognition.value.onresult = (event: any) => {
+  recognition.onresult = (event: any) => {
     let interimTranscript = ''
     let finalTranscript = ''
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const transcript = event.results[i][0].transcript
-      
       if (event.results[i].isFinal) {
         finalTranscript += transcript
       } else {
@@ -1023,87 +1030,101 @@ const initSpeechRecognition = () => {
       }
     }
 
-    // Update search query with interim or final results
     if (finalTranscript) {
       searchQuery.value = finalTranscript
-      console.log('🎤 Final transcript:', finalTranscript)
     } else if (interimTranscript) {
       searchQuery.value = interimTranscript
-      console.log('🎤 Interim transcript:', interimTranscript)
     }
   }
 
-  // Event: Speech recognition ends
-  speechRecognition.value.onend = () => {
+  recognition.onend = () => {
     isListening.value = false
-    console.log('🎤 Speech recognition ended')
   }
 
-  // Event: Speech recognition error
-  speechRecognition.value.onerror = (event: any) => {
+  recognition.onerror = (event: any) => {
     console.error('🎤 Speech recognition error:', event.error)
     isListening.value = false
-    
+
+    if (event.error === 'aborted' || event.error === 'no-speech') {
+      return
+    }
+
     let errorMsg = 'Voice recognition failed. '
     switch (event.error) {
-      case 'no-speech':
-        errorMsg += 'No speech detected. Please try again.'
-        break
       case 'audio-capture':
-        errorMsg += 'No microphone found.'
+        errorMsg += 'No microphone found. Please check your device settings.'
         break
       case 'not-allowed':
-        errorMsg += 'Microphone permission denied.'
+        errorMsg += 'Microphone permission denied. Please allow microphone access in your browser settings.'
         break
       case 'network':
-        errorMsg += 'Network error occurred.'
+        errorMsg += 'Network error. Voice requires an internet connection.'
+        break
+      case 'service-not-allowed':
+        errorMsg += 'Voice service not available on this device.'
         break
       default:
         errorMsg += 'Please try again.'
     }
-    
+
     errorMessage.value = errorMsg
-    
-    // Clear error after 5 seconds
     setTimeout(() => {
-      if (errorMessage.value === errorMsg) {
-        errorMessage.value = ''
-      }
-    }, 5000)
+      if (errorMessage.value === errorMsg) errorMessage.value = ''
+    }, 6000)
   }
 
-  // Event: Speech starts
-  speechRecognition.value.onstart = () => {
+  recognition.onstart = () => {
     isListening.value = true
     errorMessage.value = ''
-    console.log('🎤 Speech recognition started')
   }
+
+  return recognition
 }
 
-const toggleSpeechRecognition = () => {
+const initSpeechRecognition = () => {
+  if (typeof window === 'undefined') return
+
+  const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+  if (!SpeechRecognition) {
+    speechSupported.value = false
+    return
+  }
+
+  speechSupported.value = true
+  speechRecognition.value = createSpeechRecognition()
+}
+
+const toggleSpeechRecognition = async () => {
   if (!speechSupported.value) {
-    errorMessage.value = 'Speech recognition is not supported in your browser. Please try Chrome, Edge, or Safari.'
-    setTimeout(() => {
-      errorMessage.value = ''
-    }, 5000)
+    errorMessage.value = 'Voice input is not supported on this device. Please use Chrome on desktop or Android.'
+    setTimeout(() => { errorMessage.value = '' }, 6000)
     return
   }
 
   if (isListening.value) {
-    // Stop listening
     speechRecognition.value?.stop()
     isListening.value = false
-  } else {
-    // Start listening
-    try {
-      speechRecognition.value?.start()
-    } catch (error) {
-      console.error('🎤 Failed to start speech recognition:', error)
-      errorMessage.value = 'Failed to start voice recognition. Please try again.'
-      setTimeout(() => {
-        errorMessage.value = ''
-      }, 5000)
+    return
+  }
+
+  // Re-create the recognition instance each time on mobile to avoid stale state
+  speechRecognition.value = createSpeechRecognition()
+
+  try {
+    // On mobile, request microphone permission explicitly first
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      stream.getTracks().forEach(track => track.stop())
     }
+    speechRecognition.value?.start()
+  } catch (err: any) {
+    console.error('🎤 Failed to start speech recognition:', err)
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      errorMessage.value = 'Microphone access denied. Please allow microphone permission in your browser settings and try again.'
+    } else {
+      errorMessage.value = 'Voice input failed to start. Please try again.'
+    }
+    setTimeout(() => { errorMessage.value = '' }, 6000)
   }
 }
 
