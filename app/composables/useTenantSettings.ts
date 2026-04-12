@@ -36,6 +36,7 @@ export interface TenantSettingsData {
   copyrightName: string | null
   developerName: string | null
   developerUrl: string | null
+  adminEmail: string | null
 }
 
 // ── Global state (shared across components) ──
@@ -95,6 +96,7 @@ export function useTenantSettings() {
   const copyrightName = computed(() => tenantSettings.value?.copyrightName || businessName.value || '')
   const developerName = computed(() => tenantSettings.value?.developerName || '')
   const developerUrl = computed(() => tenantSettings.value?.developerUrl || '')
+  const adminEmail = computed(() => tenantSettings.value?.adminEmail || '')
 
   // Initialize on mount
   onMounted(() => {
@@ -126,5 +128,6 @@ export function useTenantSettings() {
     copyrightName,
     developerName,
     developerUrl,
+    adminEmail,
   }
 }

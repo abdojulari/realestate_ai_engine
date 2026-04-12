@@ -114,6 +114,106 @@
           </v-card>
         </v-col>
       </v-row>
+      <!-- About Page Templates Section -->
+      <v-row class="mt-8">
+        <v-col cols="12">
+          <v-card class="premium-card">
+            <div class="p-8 border-b border-slate-100 bg-slate-50/50 d-flex align-center">
+              <div class="icon-orb icon-orb-about mr-5">
+                <v-icon color="teal" size="24">mdi-account-box-outline</v-icon>
+              </div>
+              <div>
+                <h2 class="text-h5 font-serif text-slate-900">About Page Templates</h2>
+                <p class="text-caption text-slate-500 font-medium italic mb-0">Choose and activate an about page design template</p>
+              </div>
+            </div>
+
+            <v-card-text class="p-8">
+              <v-alert
+                v-if="aboutSaveSuccess"
+                type="success"
+                variant="tonal"
+                class="mb-6"
+                closable
+                @click:close="aboutSaveSuccess = false"
+              >
+                About template activated successfully! The changes will be visible on your about page.
+              </v-alert>
+
+              <v-alert
+                v-if="aboutSaveError"
+                type="error"
+                variant="tonal"
+                class="mb-6"
+                closable
+                @click:close="aboutSaveError = null"
+              >
+                {{ aboutSaveError }}
+              </v-alert>
+
+              <div class="templates-grid">
+                <div
+                  v-for="template in aboutTemplates"
+                  :key="template.id"
+                  class="template-card"
+                  :class="{ 'template-active': template.id === activeAboutTemplate }"
+                  @click="aboutSelectedId = template.id"
+                >
+                  <div class="template-preview">
+                    <img
+                      :src="template.preview"
+                      :alt="template.name"
+                      class="template-image"
+                    />
+                    <div v-if="template.id === activeAboutTemplate" class="active-badge">
+                      <v-icon color="white" size="20">mdi-check-circle</v-icon>
+                      <span>Active</span>
+                    </div>
+                  </div>
+                  <div class="template-info">
+                    <h3 class="template-name">{{ template.name }}</h3>
+                    <p class="template-description">{{ template.description }}</p>
+                    <div class="template-features">
+                      <v-chip
+                        v-for="feature in template.features"
+                        :key="feature"
+                        size="small"
+                        variant="outlined"
+                        class="mr-2 mb-2"
+                      >
+                        {{ feature }}
+                      </v-chip>
+                    </div>
+                  </div>
+                  <div class="template-actions">
+                    <v-btn
+                      v-if="template.id === activeAboutTemplate"
+                      color="success"
+                      variant="flat"
+                      disabled
+                      class="text-none"
+                      block
+                    >
+                      Currently Active
+                    </v-btn>
+                    <v-btn
+                      v-else
+                      color="teal"
+                      variant="elevated"
+                      class="text-none font-weight-bold"
+                      block
+                      :loading="aboutSaving && aboutSelectedId === template.id"
+                      @click.stop="activateAboutTemplate(template.id)"
+                    >
+                      Activate Template
+                    </v-btn>
+                  </div>
+                </div>
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
     </v-container>
   </div>
 </template>
@@ -128,11 +228,97 @@ definePageMeta({
   middleware: ['admin']
 })
 
+// ── Home Page Templates ──
 const activeTemplate = ref(1)
 const selectedTemplateId = ref<number | null>(null)
 const saving = ref(false)
 const saveSuccess = ref(false)
 const saveError = ref<string | null>(null)
+
+// ── About Page Templates ──
+const activeAboutTemplate = ref(1)
+const aboutSelectedId = ref<number | null>(null)
+const aboutSaving = ref(false)
+const aboutSaveSuccess = ref(false)
+const aboutSaveError = ref<string | null>(null)
+
+const aboutTemplates = [
+  {
+    id: 1,
+    name: 'Classic Modern',
+    description: 'Dark split hero with editorial story section, social connect bar, and parallax CTA.',
+    preview: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800&auto=format&fit=crop',
+    features: ['Split Hero', 'Dark Theme', 'Parallax CTA']
+  },
+  {
+    id: 2,
+    name: 'Full-Width Hero',
+    description: 'Bold full-width hero image with overlay text, floating stats bar, and gradient value cards.',
+    preview: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=800&auto=format&fit=crop',
+    features: ['Full Hero', 'Floating Stats', 'Gradient Cards']
+  },
+  {
+    id: 3,
+    name: 'Minimal Clean',
+    description: 'Clean white design with subtle borders, side-by-side layout, and focused typography.',
+    preview: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop',
+    features: ['Minimal Design', 'Clean Layout', 'Subtle Borders']
+  },
+  {
+    id: 4,
+    name: 'Bold Split',
+    description: 'Dramatic split-screen hero with bold typography, dark value grid, and high-contrast sections.',
+    preview: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?q=80&w=800&auto=format&fit=crop',
+    features: ['Split Screen', 'Bold Typography', 'High Contrast']
+  },
+  {
+    id: 5,
+    name: 'Centered Elegant',
+    description: 'Refined centered layout with warm earth tones, serif typography, and premium rounded aesthetics.',
+    preview: 'https://images.unsplash.com/photo-1600573472591-ee6b68d14c68?q=80&w=800&auto=format&fit=crop',
+    features: ['Centered Layout', 'Warm Tones', 'Serif Typography']
+  }
+]
+
+const activateAboutTemplate = async (templateId: number) => {
+  aboutSaving.value = true
+  aboutSaveSuccess.value = false
+  aboutSaveError.value = null
+  aboutSelectedId.value = templateId
+
+  try {
+    const response = await api.post('/api/admin/settings/about-template', {
+      template: templateId
+    })
+
+    if (response.success) {
+      activeAboutTemplate.value = templateId
+      aboutSaveSuccess.value = true
+      setTimeout(() => { aboutSaveSuccess.value = false }, 5000)
+      setTimeout(() => {
+        if (confirm(`About template ${templateId} has been activated! Would you like to view the about page to see the changes?`)) {
+          window.open('/about', '_blank')
+        }
+      }, 1000)
+    } else {
+      throw new Error('Failed to activate about template')
+    }
+  } catch (error: any) {
+    console.error('Failed to activate about template:', error)
+    if (error.message?.includes('Failed to fetch') || error.message?.includes('network')) {
+      aboutSaveError.value = 'Unable to connect to server. Please try again.'
+    } else if (error.statusCode === 401) {
+      aboutSaveError.value = 'Authentication failed. Please log in again.'
+    } else if (error.statusCode === 403) {
+      aboutSaveError.value = 'You do not have permission to perform this action.'
+    } else {
+      aboutSaveError.value = error.message || error.statusMessage || 'Failed to activate about template.'
+    }
+  } finally {
+    aboutSaving.value = false
+    aboutSelectedId.value = null
+  }
+}
 
 const templates = [
   {
@@ -230,10 +416,16 @@ onMounted(async () => {
     activeTemplate.value = data.template || 1
   } catch (error: any) {
     console.error('Failed to load active template:', error)
-    // Show error if it's not a network issue (network issues are expected if server is down)
     if (error.statusCode && error.statusCode !== 0) {
       saveError.value = 'Failed to load current template. Please refresh the page.'
     }
+  }
+
+  try {
+    const aboutData = await api.get('/api/admin/settings/about-template')
+    activeAboutTemplate.value = aboutData.template || 1
+  } catch (error: any) {
+    console.error('Failed to load about template:', error)
   }
 })
 </script>
@@ -262,6 +454,10 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.icon-orb.icon-orb-about {
+  background: linear-gradient(135deg, rgba(13, 148, 136, 0.1) 0%, rgba(20, 184, 166, 0.1) 100%);
 }
 
 .templates-grid {

@@ -4,7 +4,9 @@
  * Provides helpers so every API route can enforce strict data isolation.
  *
  * Rules:
- *  • super_admin → sees ALL tenants (no filter applied)
+ *  • super_admin → IS a tenant (adminId = user.id), same as admin for data scoping.
+ *                   Can still access other tenants' individual records for support
+ *                   via requireTenantAccess (which is permissive for super_admin).
  *  • admin       → IS a tenant; adminId = user.id
  *  • user        → belongs to an admin; adminId = user.adminId
  */
@@ -30,33 +32,31 @@ export interface TenantUser {
 
 /**
  * Return the tenant admin ID for the given user.
- *  • super_admin → null  (no restriction)
+ *  • super_admin → user.id  (they ARE a tenant, same as admin)
  *  • admin       → user.id  (they ARE the tenant)
  *  • user        → user.adminId
  */
 export function getTenantAdminId(user: TenantUser): number | null {
-  if (user.role === 'super_admin') return null
+  if (user.role === 'super_admin') return user.id
   if (user.role === 'admin') return user.id
   return user.adminId ?? null
 }
 
 /**
  * Return a Prisma WHERE fragment that scopes queries to the tenant.
- * For super_admin it returns an empty object (no filter).
+ * Both super_admin and admin are scoped to their own data.
  */
 export function getTenantFilter(user: TenantUser): { adminId?: number } {
   const id = getTenantAdminId(user)
-  if (id === null) return {} // super_admin sees all
+  if (id === null) return {}
   return { adminId: id }
 }
 
 /**
  * Same as getTenantFilter but for models where the column is `userId`
  * and the admin's own records are identified by user.id.
- * For super_admin returns empty object.
  */
 export function getUserTenantFilter(user: TenantUser): { userId?: number } {
-  if (user.role === 'super_admin') return {}
   return { userId: user.id }
 }
 

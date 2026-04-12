@@ -51,6 +51,7 @@ export default defineEventHandler(async (event) => {
         copyrightName: true,
         developerName: true,
         developerUrl: true,
+        admin: { select: { email: true } },
         // Intentionally excluded: subdomain, customDomain, adminId
       },
     })
@@ -80,7 +81,8 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    return mapTenantMediaFields(settings)
+    const mapped = mapTenantMediaFields(settings)
+    return { ...mapped, adminEmail: (settings as any).admin?.email || null }
   } catch (error: any) {
     if (error.statusCode) throw error
     console.error('Failed to load public tenant settings:', error)
