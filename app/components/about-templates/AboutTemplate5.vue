@@ -1,115 +1,142 @@
 <template>
-  <div class="about-t5">
-    <!-- Centered Elegant Hero -->
-    <section class="hero">
-      <v-container>
-        <div class="hero-center">
-          <span class="hero-tag">ABOUT</span>
-          <h1 class="hero-title">{{ heroTitle }}</h1>
-          <p class="hero-sub">{{ heroSubtitle }}</p>
-        </div>
-      </v-container>
-      <div class="hero-portrait-wrap">
-        <div class="hero-portrait">
+  <div class="t5">
+    <!-- Luxury Centered Portrait Hero -->
+    <section class="hero-centered">
+      <div class="hc-bg"></div>
+      <v-container class="hc-content">
+        <span class="hc-tag">ABOUT ME</span>
+        <div class="hc-portrait-ring">
           <img :src="profileImage" :alt="storyName" />
         </div>
-        <div class="portrait-label">
-          <h3>{{ storyName }}</h3>
-          <p>{{ storyRole }}</p>
+        <h1 class="hc-name">{{ storyName }}</h1>
+        <p class="hc-role">{{ storyRole }}</p>
+        <div class="hc-divider"></div>
+        <h2 class="hc-title">{{ heroTitle }}</h2>
+        <p class="hc-subtitle">{{ heroSubtitle }}</p>
+        <div class="hc-actions">
+          <v-btn size="large" variant="flat" class="px-10 text-none font-weight-bold rounded-pill hc-btn-primary" href="/contact">Connect With Me</v-btn>
+          <v-btn v-if="contactPhone" size="large" variant="outlined" class="px-8 text-none font-weight-medium rounded-pill hc-btn-outline" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`">
+            <v-icon size="18" class="mr-2">mdi-phone</v-icon>Call
+          </v-btn>
         </div>
-      </div>
-    </section>
-
-    <!-- Elegant Description Bar -->
-    <section class="desc-bar">
-      <v-container>
-        <v-row justify="center">
-          <v-col cols="12" md="8" class="text-center">
-            <p class="desc-text">{{ heroDescription }}</p>
-          </v-col>
-        </v-row>
       </v-container>
     </section>
 
-    <!-- Floating Stats Cards -->
-    <section v-if="stats.length > 0" class="stats-section">
+    <!-- Warm Stats Band -->
+    <section class="warm-stats" v-if="stats.length">
       <v-container>
-        <div class="stats-flex">
-          <div v-for="stat in stats" :key="stat.key" class="stat-float-card">
-            <div class="sf-val">{{ stat.value }}</div>
-            <div class="sf-lbl">{{ stat.label }}</div>
+        <div class="ws-row">
+          <div v-for="stat in stats" :key="stat.key" class="ws-item">
+            <span class="ws-val">{{ stat.value }}</span>
+            <span class="ws-lbl">{{ stat.label }}</span>
           </div>
         </div>
       </v-container>
     </section>
 
-    <!-- Story — Centered Column with Side Accent -->
-    <section class="story-section">
+    <!-- Story with Large Drop Cap -->
+    <section class="story-luxury">
       <v-container>
         <v-row justify="center">
-          <v-col cols="12" md="3" class="mb-8 mb-md-0">
-            <div class="story-side">
-              <span class="side-label">MY JOURNEY</span>
-              <h2 class="side-heading">{{ storyTitle }}</h2>
+          <v-col cols="12" md="8">
+            <div class="sl-eyebrow-wrap">
+              <div class="sl-line"></div>
+              <span class="sl-eyebrow">MY STORY</span>
+              <div class="sl-line"></div>
             </div>
-          </v-col>
-          <v-col cols="12" md="7">
-            <div v-if="storyContent" v-html="storyContent" class="story-prose"></div>
-            <div v-else class="story-prose"><p>{{ storyContentDefault }}</p></div>
+            <h2 class="sl-title">{{ storyTitle }}</h2>
+            <p class="sl-intro">{{ heroDescription }}</p>
+            <div class="sl-dropcap-body">
+              <div v-if="storyContent" v-html="storyContent" class="sl-content"></div>
+              <div v-else class="sl-content"><p>{{ storyContentDefault }}</p></div>
+            </div>
           </v-col>
         </v-row>
       </v-container>
     </section>
 
-    <!-- Values — Elegant Cards with Gradient Border -->
-    <section class="values-section">
+    <!-- Interactive Services Accordion -->
+    <section class="services-accordion" v-if="coreValues.length">
       <v-container>
-        <div class="text-center mb-16">
-          <span class="side-label centered">CORE VALUES</span>
-          <h2 class="values-heading">The Pillars of My Practice</h2>
-        </div>
         <v-row justify="center">
-          <v-col v-for="value in coreValues" :key="value.key" cols="12" md="4">
-            <div class="elegant-card">
-              <div class="ec-icon">
-                <v-icon :icon="value.icon" size="28"></v-icon>
+          <v-col cols="12" md="10">
+            <div class="sa-header">
+              <div class="sl-eyebrow-wrap">
+                <div class="sl-line"></div>
+                <span class="sl-eyebrow">EXPERTISE</span>
+                <div class="sl-line"></div>
               </div>
-              <h3 class="ec-title">{{ value.title }}</h3>
-              <p class="ec-desc">{{ value.description }}</p>
+              <h2 class="sl-title">What I Offer</h2>
+            </div>
+            <div class="sa-list">
+              <div
+                v-for="(value, i) in coreValues" :key="value.key"
+                class="sa-item"
+                :class="{ 'sa-open': openAccordion === i }"
+                @click="openAccordion = openAccordion === i ? -1 : i"
+              >
+                <div class="sa-header-row">
+                  <div class="sa-left">
+                    <span class="sa-num">{{ String(i + 1).padStart(2, '0') }}</span>
+                    <v-icon :icon="value.icon" size="24" class="sa-icon"></v-icon>
+                    <h3 class="sa-title">{{ value.title }}</h3>
+                  </div>
+                  <v-icon :icon="openAccordion === i ? 'mdi-minus' : 'mdi-plus'" size="20" class="sa-toggle"></v-icon>
+                </div>
+                <transition name="slide">
+                  <div v-if="openAccordion === i" class="sa-body">
+                    <p>{{ value.description }}</p>
+                  </div>
+                </transition>
+              </div>
             </div>
           </v-col>
         </v-row>
       </v-container>
     </section>
 
-    <!-- Connect — Warm Tone -->
-    <section class="connect-section">
+    <!-- Elegant Quote -->
+    <section class="quote-elegant">
+      <v-container>
+        <v-row justify="center">
+          <v-col cols="12" md="8" class="text-center">
+            <div class="qe-mark">&ldquo;</div>
+            <p class="qe-text">{{ connectDescription }}</p>
+            <div class="qe-attr">
+              <span class="qe-dash">&mdash;</span>
+              <span class="qe-name">{{ storyName }}</span>
+            </div>
+          </v-col>
+        </v-row>
+      </v-container>
+    </section>
+
+    <!-- Connect Warm -->
+    <section class="connect-warm">
       <v-container>
         <v-row align="center" justify="center">
           <v-col cols="12" md="5" class="text-center mb-8 mb-md-0">
-            <div class="qr-elegant">
-              <img :src="qrCodeUrl" alt="Contact QR Code" />
-              <span>Save My Contact</span>
+            <div class="cw-qr-frame">
+              <img :src="qrCodeUrl" alt="QR Code" />
+              <span>Save my contact</span>
             </div>
           </v-col>
           <v-col cols="12" md="5" offset-md="1">
-            <span class="side-label">LET'S CONNECT</span>
-            <h2 class="connect-heading">{{ connectHeading }}</h2>
-            <p class="connect-text">{{ connectDescription }}</p>
-
-            <div v-if="socialLinks.length" class="social-elegant">
-              <a v-for="social in socialLinks" :key="social.name" :href="social.url" target="_blank" class="se-link">
-                <v-icon size="18" class="mr-2">{{ getSocialIcon(social.name) }}</v-icon>
-                {{ social.name }}
+            <span class="cw-tag">LET'S CONNECT</span>
+            <h2 class="cw-heading">{{ connectHeading }}</h2>
+            <div class="cw-contact-rows">
+              <a v-if="contactPhone" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`" class="cw-contact-row">
+                <div class="cw-icon-circle"><v-icon size="18">mdi-phone-outline</v-icon></div>
+                <div><strong>Phone</strong><span>{{ contactPhone }}</span></div>
+              </a>
+              <a v-if="contactEmail" :href="`mailto:${contactEmail}`" class="cw-contact-row">
+                <div class="cw-icon-circle"><v-icon size="18">mdi-email-outline</v-icon></div>
+                <div><strong>Email</strong><span>{{ contactEmail }}</span></div>
               </a>
             </div>
-
-            <div class="contact-elegant">
-              <a v-if="contactEmail" :href="`mailto:${contactEmail}`">
-                <v-icon size="16" class="mr-2">mdi-email-outline</v-icon>{{ contactEmail }}
-              </a>
-              <a v-if="contactPhone" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`">
-                <v-icon size="16" class="mr-2">mdi-phone-outline</v-icon>{{ contactPhone }}
+            <div v-if="socialLinks.length" class="cw-social-row">
+              <a v-for="social in socialLinks" :key="social.name" :href="social.url" target="_blank" class="cw-soc">
+                <v-icon size="20">{{ getSocialIcon(social.name) }}</v-icon>
               </a>
             </div>
           </v-col>
@@ -117,190 +144,156 @@
       </v-container>
     </section>
 
-    <!-- Premium Gradient CTA -->
-    <section class="cta-section">
-      <div class="cta-inner">
-        <span class="cta-tag">{{ ctaAreas }}</span>
-        <h2 class="cta-title">{{ ctaTitle }}</h2>
-        <p class="cta-sub">{{ ctaSubtitle }}</p>
-        <div class="d-flex justify-center gap-4 flex-wrap">
-          <v-btn v-if="contactPhone" size="x-large" color="white" variant="flat" class="px-10 rounded-pill text-none font-weight-bold" style="color: #1e3a5f;" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`">
-            Call Now
-          </v-btn>
-          <v-btn size="x-large" variant="outlined" color="white" class="px-10 rounded-pill text-none font-weight-bold" href="/contact">
-            Get In Touch
-          </v-btn>
-        </div>
-      </div>
+    <!-- CTA with Warm Gradient -->
+    <section class="cta-warm">
+      <v-container>
+        <v-row justify="center">
+          <v-col cols="12" md="10">
+            <div class="cta-card-warm">
+              <span class="cta-areas">{{ ctaAreas }}</span>
+              <h2 class="cta-h">{{ ctaTitle }}</h2>
+              <p class="cta-p">{{ ctaSubtitle }}</p>
+              <div class="d-flex justify-center gap-4 flex-wrap mt-8">
+                <v-btn v-if="contactPhone" size="x-large" variant="flat" class="px-12 rounded-pill text-none font-weight-bold cta-btn-warm" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`">Call Now</v-btn>
+                <v-btn size="x-large" variant="outlined" class="px-12 rounded-pill text-none font-weight-bold cta-btn-out" href="/contact">Inquire</v-btn>
+              </div>
+            </div>
+          </v-col>
+        </v-row>
+      </v-container>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 defineProps<{
-  heroTitle: string
-  heroSubtitle: string
-  heroDescription: string
-  profileImage: string
-  storyTitle: string
-  storyName: string
-  storyRole: string
-  storyContent: string
-  storyContentDefault: string
-  connectHeading: string
-  connectDescription: string
-  coreValues: any[]
-  stats: any[]
-  ctaAreas: string
-  ctaTitle: string
-  ctaSubtitle: string
-  ctaImage: string
-  contactPhone: string
-  contactEmail: string
-  qrCodeUrl: string
-  socialLinks: any[]
+  heroTitle: string; heroSubtitle: string; heroDescription: string; profileImage: string
+  storyTitle: string; storyName: string; storyRole: string; storyContent: string; storyContentDefault: string
+  connectHeading: string; connectDescription: string; coreValues: any[]; stats: any[]
+  ctaAreas: string; ctaTitle: string; ctaSubtitle: string; ctaImage: string
+  contactPhone: string; contactEmail: string; qrCodeUrl: string; socialLinks: any[]
 }>()
-
-function getSocialIcon(name: string): string {
-  const n = name.toLowerCase()
-  if (n.includes('facebook')) return 'mdi-facebook'
-  if (n.includes('instagram')) return 'mdi-instagram'
-  if (n.includes('linkedin')) return 'mdi-linkedin'
-  if (n.includes('twitter') || n.includes('x.com') || n === 'x') return 'mdi-twitter'
-  if (n.includes('youtube')) return 'mdi-youtube'
-  if (n.includes('tiktok')) return 'mdi-music-note'
+const openAccordion = ref(0)
+function getSocialIcon(n: string): string {
+  const l = n.toLowerCase()
+  if (l.includes('facebook')) return 'mdi-facebook'; if (l.includes('instagram')) return 'mdi-instagram'
+  if (l.includes('linkedin')) return 'mdi-linkedin'; if (l.includes('twitter') || l.includes('x.com') || l === 'x') return 'mdi-twitter'
+  if (l.includes('youtube')) return 'mdi-youtube'; if (l.includes('tiktok')) return 'mdi-music-note'
   return 'mdi-link'
 }
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+.t5 { font-family: 'Inter', sans-serif; }
 
-.about-t5 { font-family: 'Inter', sans-serif; }
+/* ── HERO ── */
+.hero-centered { position: relative; padding: 120px 0 80px; text-align: center; overflow: hidden; }
+.hc-bg { position: absolute; inset: 0; background: linear-gradient(170deg, #fdf6e3 0%, #fef9ef 40%, #fff7ed 70%, #fff1e6 100%); }
+.hc-content { position: relative; z-index: 2; }
+.hc-tag { font-size: 0.55rem; font-weight: 800; letter-spacing: 0.45em; color: #c2956a; display: block; margin-bottom: 32px; }
+.hc-portrait-ring {
+  display: inline-block; padding: 6px; border-radius: 50%;
+  background: linear-gradient(135deg, #c2956a, #a07850, #d4a574);
+  box-shadow: 0 30px 60px rgba(162,120,80,0.2); margin-bottom: 28px;
+}
+.hc-portrait-ring img { width: 200px; height: 200px; border-radius: 50%; object-fit: cover; border: 4px solid white; }
+.hc-name { font-family: 'Cormorant Garamond', serif; font-size: 2.8rem; font-weight: 700; color: #3c2415; letter-spacing: -0.02em; margin-bottom: 4px; }
+.hc-role { font-size: 0.85rem; color: #a07850; font-weight: 500; margin-bottom: 24px; }
+.hc-divider { width: 40px; height: 2px; background: linear-gradient(90deg, #c2956a, #d4a574); margin: 0 auto 28px; border-radius: 1px; }
+.hc-title { font-family: 'Cormorant Garamond', serif; font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 600; color: #3c2415; line-height: 1.25; margin-bottom: 14px; }
+.hc-subtitle { font-size: 1rem; color: #8b7355; line-height: 1.7; max-width: 550px; margin: 0 auto 32px; }
+.hc-actions { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.hc-btn-primary { background: linear-gradient(135deg, #3c2415, #5c3a25) !important; color: white !important; }
+.hc-btn-outline { border-color: #c2956a !important; color: #3c2415 !important; }
 
-/* ── Hero ── */
-.hero { background: linear-gradient(180deg, #f8f6f3 0%, #ede9e3 100%); padding: 100px 0 0; text-align: center; }
-.hero-center { max-width: 700px; margin: 0 auto; }
-.hero-tag {
-  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.4em;
-  color: #a08b6e; display: block; margin-bottom: 24px;
-}
-.hero-title {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: clamp(3rem, 7vw, 5rem); font-weight: 600;
-  color: #1a1a1a; line-height: 1.1; letter-spacing: -0.03em; margin-bottom: 20px;
-}
-.hero-sub { font-size: 1.15rem; color: #666; line-height: 1.7; max-width: 500px; margin: 0 auto 60px; }
+/* ── STATS ── */
+.warm-stats { padding: 48px 0; background: #3c2415; }
+.ws-row { display: flex; justify-content: center; gap: 56px; flex-wrap: wrap; }
+.ws-item { text-align: center; }
+.ws-val { display: block; font-family: 'Cormorant Garamond', serif; font-size: 2.6rem; font-weight: 700; color: #f5e6d3; }
+.ws-lbl { font-size: 0.55rem; font-weight: 800; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(245,230,211,0.35); }
 
-.hero-portrait-wrap { display: flex; flex-direction: column; align-items: center; padding-bottom: 60px; }
-.hero-portrait {
-  width: 280px; height: 340px; border-radius: 200px 200px 24px 24px; overflow: hidden;
-  box-shadow: 0 30px 60px rgba(0,0,0,0.12); border: 6px solid white;
-}
-.hero-portrait img { width: 100%; height: 100%; object-fit: cover; }
-.portrait-label { text-align: center; margin-top: 20px; }
-.portrait-label h3 { font-size: 1.1rem; font-weight: 700; color: #1a1a1a; margin-bottom: 2px; }
-.portrait-label p { font-size: 0.8rem; color: #888; margin: 0; }
-
-/* ── Description ── */
-.desc-bar { padding: 60px 0; background: white; border-bottom: 1px solid #f0ece6; }
-.desc-text {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 1.5rem; font-weight: 500; color: #444; line-height: 1.8;
-  font-style: italic;
+/* ── STORY ── */
+.story-luxury { padding: 100px 0; background: white; }
+.sl-eyebrow-wrap { display: flex; align-items: center; justify-content: center; gap: 16px; margin-bottom: 20px; }
+.sl-line { width: 40px; height: 1px; background: #d6cfc7; }
+.sl-eyebrow { font-size: 0.55rem; font-weight: 800; letter-spacing: 0.4em; color: #c2956a; }
+.sl-title { font-family: 'Cormorant Garamond', serif; font-size: 2.4rem; font-weight: 700; color: #3c2415; text-align: center; margin-bottom: 24px; letter-spacing: -0.02em; }
+.sl-intro { font-size: 1.05rem; color: #8b7355; line-height: 1.8; text-align: center; margin-bottom: 40px; }
+.sl-dropcap-body { position: relative; }
+.sl-content { font-size: 0.95rem; color: #6b5c4e; line-height: 2.1; }
+.sl-content :deep(p) { margin-bottom: 1.4rem; }
+.sl-content :deep(p:first-child::first-letter) {
+  font-family: 'Cormorant Garamond', serif; font-size: 4rem; font-weight: 700;
+  color: #3c2415; float: left; line-height: 0.85; margin: 4px 12px 0 0;
 }
 
-/* ── Stats ── */
-.stats-section { padding: 60px 0; background: white; }
-.stats-flex { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
-.stat-float-card {
-  background: #f8f6f3; padding: 32px 40px; border-radius: 16px; text-align: center;
-  min-width: 160px; transition: transform 0.3s;
-}
-.stat-float-card:hover { transform: translateY(-4px); }
-.sf-val { font-family: 'Cormorant Garamond', serif; font-size: 2.5rem; font-weight: 700; color: #1a1a1a; }
-.sf-lbl { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #a08b6e; margin-top: 4px; }
+/* ── ACCORDION ── */
+.services-accordion { padding: 100px 0; background: #fdf6e3; }
+.sa-header { margin-bottom: 48px; }
+.sa-list { display: flex; flex-direction: column; gap: 4px; }
+.sa-item { background: white; border-radius: 16px; overflow: hidden; cursor: pointer; transition: all 0.3s; border: 1px solid transparent; }
+.sa-item:hover { border-color: #d4a574; }
+.sa-open { border-color: #c2956a; box-shadow: 0 8px 24px rgba(162,120,80,0.1); }
+.sa-header-row { display: flex; align-items: center; justify-content: space-between; padding: 24px 28px; }
+.sa-left { display: flex; align-items: center; gap: 16px; }
+.sa-num { font-size: 0.6rem; font-weight: 800; color: #c2956a; letter-spacing: 0.15em; }
+.sa-icon { color: #3c2415; }
+.sa-title { font-size: 1.05rem; font-weight: 700; color: #3c2415; margin: 0; }
+.sa-toggle { color: #c2956a; }
+.sa-body { padding: 0 28px 24px 80px; }
+.sa-body p { font-size: 0.9rem; color: #8b7355; line-height: 1.8; margin: 0; }
+.slide-enter-active, .slide-leave-active { transition: all 0.3s ease; }
+.slide-enter-from, .slide-leave-to { opacity: 0; max-height: 0; padding-top: 0; padding-bottom: 0; }
+.slide-enter-to, .slide-leave-from { opacity: 1; max-height: 200px; }
 
-/* ── Story ── */
-.story-section { padding: 100px 0; background: #faf9f7; }
-.story-side { position: sticky; top: 100px; }
-.side-label {
-  font-size: 0.6rem; font-weight: 800; letter-spacing: 0.3em;
-  text-transform: uppercase; color: #a08b6e; display: block; margin-bottom: 16px;
-}
-.side-label.centered { text-align: center; }
-.side-heading {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 2rem; font-weight: 600; color: #1a1a1a; line-height: 1.3;
-}
-.story-prose { font-size: 1.05rem; line-height: 2; color: #555; }
-.story-prose :deep(p) { margin-bottom: 1.5rem; }
+/* ── QUOTE ── */
+.quote-elegant { padding: 100px 0; background: white; }
+.qe-mark { font-family: 'Cormorant Garamond', serif; font-size: 6rem; color: #d4a574; line-height: 1; margin-bottom: -16px; }
+.qe-text { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 400; font-style: italic; color: #5c3a25; line-height: 1.8; margin-bottom: 24px; }
+.qe-attr { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.qe-dash { color: #d4a574; font-size: 1.2rem; }
+.qe-name { font-size: 0.8rem; font-weight: 700; color: #3c2415; letter-spacing: 0.15em; text-transform: uppercase; }
 
-/* ── Values ── */
-.values-section { padding: 100px 0; background: white; }
-.values-heading {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 2.2rem; font-weight: 600; color: #1a1a1a; margin-bottom: 12px;
+/* ── CONNECT ── */
+.connect-warm { padding: 100px 0; background: #fdf6e3; }
+.cw-tag { font-size: 0.55rem; font-weight: 800; letter-spacing: 0.4em; color: #c2956a; display: block; margin-bottom: 14px; }
+.cw-heading { font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 700; color: #3c2415; margin-bottom: 28px; }
+.cw-contact-rows { display: flex; flex-direction: column; gap: 14px; margin-bottom: 24px; }
+.cw-contact-row { display: flex; align-items: center; gap: 14px; text-decoration: none; color: #3c2415; padding: 14px 18px; background: white; border-radius: 14px; border: 1px solid #e8ddd0; transition: all 0.3s; }
+.cw-contact-row:hover { border-color: #c2956a; box-shadow: 0 4px 12px rgba(162,120,80,0.1); }
+.cw-icon-circle { width: 40px; height: 40px; border-radius: 50%; background: #fdf6e3; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cw-contact-row strong { display: block; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; text-transform: uppercase; color: #c2956a; }
+.cw-contact-row span { font-size: 0.9rem; color: #5c3a25; }
+.cw-social-row { display: flex; gap: 10px; }
+.cw-soc {
+  display: flex; align-items: center; justify-content: center; width: 42px; height: 42px;
+  border-radius: 50%; background: white; border: 1px solid #e8ddd0; color: #3c2415;
+  text-decoration: none; transition: all 0.3s;
 }
-.elegant-card {
-  padding: 40px 32px; border-radius: 20px; height: 100%;
-  background: linear-gradient(145deg, #faf9f7, #f0ece6);
-  border: 1px solid #e8e2d9; text-align: center;
-  transition: all 0.3s ease;
-}
-.elegant-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.06); }
-.ec-icon {
-  width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 20px;
-  background: white; display: flex; align-items: center; justify-content: center;
-  color: #a08b6e; border: 1px solid #e8e2d9;
-}
-.ec-title { font-size: 1.1rem; font-weight: 700; color: #1a1a1a; margin-bottom: 10px; }
-.ec-desc { font-size: 0.9rem; color: #777; line-height: 1.7; }
-
-/* ── Connect ── */
-.connect-section { padding: 100px 0; background: #f8f6f3; }
-.connect-heading {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 2rem; font-weight: 600; color: #1a1a1a; margin-bottom: 12px;
-}
-.connect-text { font-size: 0.95rem; color: #777; line-height: 1.8; margin-bottom: 28px; }
-.qr-elegant {
-  display: inline-flex; flex-direction: column; align-items: center;
-  padding: 36px; background: white; border-radius: 24px;
-  border: 1px solid #e8e2d9; box-shadow: 0 16px 40px rgba(0,0,0,0.05);
-}
-.qr-elegant span { font-size: 0.55rem; font-weight: 800; letter-spacing: 0.25em; text-transform: uppercase; color: #a08b6e; margin-top: 14px; }
-.social-elegant { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
-.se-link {
-  display: inline-flex; align-items: center; padding: 8px 14px;
-  border: 1px solid #d8d0c4; border-radius: 8px; font-size: 0.8rem;
-  font-weight: 600; color: #555; text-decoration: none; transition: all 0.3s;
-}
-.se-link:hover { border-color: #a08b6e; color: #1a1a1a; }
-.contact-elegant { display: flex; flex-direction: column; gap: 10px; }
-.contact-elegant a { display: flex; align-items: center; color: #777; text-decoration: none; font-size: 0.9rem; transition: color 0.3s; }
-.contact-elegant a:hover { color: #1a1a1a; }
+.cw-soc:hover { background: #3c2415; color: white; border-color: #3c2415; }
+.cw-qr-frame { display: inline-flex; flex-direction: column; align-items: center; padding: 36px; background: white; border-radius: 24px; border: 1px solid #e8ddd0; }
+.cw-qr-frame img { width: 180px; height: 180px; margin-bottom: 12px; }
+.cw-qr-frame span { font-size: 0.55rem; font-weight: 800; letter-spacing: 0.25em; text-transform: uppercase; color: #c2956a; }
 
 /* ── CTA ── */
-.cta-section { padding: 120px 24px; }
-.cta-inner {
-  max-width: 900px; margin: 0 auto; text-align: center;
-  background: linear-gradient(135deg, #1e3a5f, #0f172a, #1e3a5f);
-  border-radius: 32px; padding: 80px 60px;
-  box-shadow: 0 30px 60px rgba(15,23,42,0.2);
+.cta-warm { padding: 0 0 80px; background: #fdf6e3; }
+.cta-card-warm {
+  background: linear-gradient(135deg, #3c2415, #5c3a25, #4a2e1a);
+  border-radius: 32px; padding: 80px 60px; text-align: center;
 }
-.cta-tag { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.35em; color: rgba(255,255,255,0.35); display: block; margin-bottom: 20px; }
-.cta-title {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 2.8rem; font-weight: 600; color: white; margin-bottom: 16px; line-height: 1.2;
-}
-.cta-sub { font-size: 1rem; color: rgba(255,255,255,0.5); max-width: 480px; margin: 0 auto 40px; line-height: 1.7; }
+.cta-areas { font-size: 0.55rem; font-weight: 800; letter-spacing: 0.4em; color: rgba(245,230,211,0.35); display: block; margin-bottom: 16px; }
+.cta-h { font-family: 'Cormorant Garamond', serif; font-size: 2.8rem; font-weight: 700; color: #f5e6d3; margin-bottom: 12px; }
+.cta-p { font-size: 0.95rem; color: rgba(245,230,211,0.45); max-width: 480px; margin: 0 auto; line-height: 1.7; }
+.cta-btn-warm { background: linear-gradient(135deg, #c2956a, #d4a574) !important; color: #3c2415 !important; }
+.cta-btn-out { border-color: rgba(245,230,211,0.3) !important; color: #f5e6d3 !important; }
 
 @media (max-width: 960px) {
-  .hero-title { font-size: 3rem; }
-  .hero-portrait { width: 220px; height: 280px; }
-  .cta-inner { padding: 50px 24px; }
-  .cta-title { font-size: 2rem; }
-  .story-side { position: static; }
+  .hc-portrait-ring img { width: 160px; height: 160px; }
+  .hc-name { font-size: 2.2rem; }
+  .cta-card-warm { padding: 48px 24px; }
+  .cta-h { font-size: 2rem; }
 }
 </style>

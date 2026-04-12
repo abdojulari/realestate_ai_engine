@@ -1,111 +1,109 @@
 <template>
-  <div class="about-t3">
-    <!-- Clean Split Hero -->
-    <section class="hero">
-      <v-container class="hero-container">
-        <v-row align="center" class="min-h-hero">
-          <v-col cols="12" md="6" class="pr-md-16">
-            <span class="eyebrow">About</span>
-            <h1 class="hero-title">{{ heroTitle }}</h1>
-            <div class="hero-line"></div>
-            <p class="hero-sub">{{ heroSubtitle }}</p>
-            <p class="hero-desc">{{ heroDescription }}</p>
-            <div class="hero-actions">
-              <v-btn size="large" color="#0f172a" variant="flat" class="px-8 text-none font-weight-bold rounded-lg" href="/contact">
-                Get In Touch
-              </v-btn>
-              <v-btn v-if="contactPhone" size="large" variant="text" class="text-none font-weight-medium" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`">
-                <v-icon size="18" class="mr-2">mdi-phone</v-icon> {{ contactPhone }}
-              </v-btn>
-            </div>
-          </v-col>
-          <v-col cols="12" md="6">
-            <div class="hero-img-wrapper">
-              <img :src="profileImage" :alt="storyName" class="hero-img" />
-            </div>
-          </v-col>
-        </v-row>
-      </v-container>
-    </section>
-
-    <!-- Story — Centered Narrow -->
-    <section class="story-section">
+  <div class="t3">
+    <!-- No hero. Opens with an editorial masthead -->
+    <section class="masthead">
       <v-container>
-        <v-row justify="center">
-          <v-col cols="12" md="10" lg="8">
-            <div class="story-header">
-              <span class="eyebrow">My Story</span>
-              <h2 class="section-title">{{ storyTitle }}</h2>
-              <div class="name-badge">
-                <span class="name">{{ storyName }}</span>
-                <span class="role">{{ storyRole }}</span>
-              </div>
-            </div>
-            <div v-if="storyContent" v-html="storyContent" class="story-body"></div>
-            <div v-else class="story-body"><p>{{ storyContentDefault }}</p></div>
-          </v-col>
-        </v-row>
-      </v-container>
-    </section>
-
-    <!-- Values — Clean Grid -->
-    <section class="values-section">
-      <v-container>
-        <div class="text-center mb-14">
-          <span class="eyebrow">Values</span>
-          <h2 class="section-title">What I Stand For</h2>
+        <div class="mh-inner">
+          <span class="mh-tag">ABOUT</span>
+          <h1 class="mh-title">{{ heroTitle }}</h1>
+          <div class="mh-line"></div>
         </div>
-        <v-row>
-          <v-col v-for="value in coreValues" :key="value.key" cols="12" md="4">
-            <div class="val-card">
-              <div class="val-icon">
-                <v-icon :icon="value.icon" size="28" color="#0f172a"></v-icon>
-              </div>
-              <h3 class="val-title">{{ value.title }}</h3>
-              <p class="val-desc">{{ value.description }}</p>
-            </div>
-          </v-col>
-        </v-row>
       </v-container>
     </section>
 
-    <!-- Stats Strip -->
-    <section v-if="stats.length > 0" class="stats-strip">
+    <!-- Profile + Story: Magazine Side-by-Side -->
+    <section class="profile-editorial">
       <v-container>
         <v-row>
-          <v-col v-for="stat in stats" :key="stat.key" cols="6" md="3" class="text-center">
-            <div class="s-val">{{ stat.value }}</div>
-            <div class="s-lbl">{{ stat.label }}</div>
+          <v-col cols="12" md="5">
+            <div class="pe-img-wrap">
+              <img :src="profileImage" :alt="storyName" class="pe-img" />
+              <div class="pe-name-strip">
+                <strong>{{ storyName }}</strong>
+                <span>{{ storyRole }}</span>
+              </div>
+            </div>
+            <!-- Contact aside -->
+            <div class="pe-contact-card">
+              <a v-if="contactPhone" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`" class="pec-row">
+                <v-icon size="18" color="#0f172a">mdi-phone-outline</v-icon>
+                <span>{{ contactPhone }}</span>
+              </a>
+              <a v-if="contactEmail" :href="`mailto:${contactEmail}`" class="pec-row">
+                <v-icon size="18" color="#0f172a">mdi-email-outline</v-icon>
+                <span>{{ contactEmail }}</span>
+              </a>
+              <div v-if="socialLinks.length" class="pec-social">
+                <a v-for="social in socialLinks" :key="social.name" :href="social.url" target="_blank" class="pec-soc-icon">
+                  <v-icon size="18">{{ getSocialIcon(social.name) }}</v-icon>
+                </a>
+              </div>
+            </div>
+          </v-col>
+          <v-col cols="12" md="6" offset-md="1">
+            <div class="pe-subtitle">{{ heroSubtitle }}</div>
+            <p class="pe-desc">{{ heroDescription }}</p>
+            <div class="pe-divider"></div>
+            <h2 class="pe-story-title">{{ storyTitle }}</h2>
+            <div v-if="storyContent" v-html="storyContent" class="pe-story-body"></div>
+            <div v-else class="pe-story-body"><p>{{ storyContentDefault }}</p></div>
+            <!-- Pull quote -->
+            <blockquote class="pe-quote">
+              <span class="pq-mark">&ldquo;</span>
+              {{ connectDescription }}
+            </blockquote>
           </v-col>
         </v-row>
       </v-container>
     </section>
 
-    <!-- Connect — Side by Side -->
-    <section class="connect-section">
+    <!-- Services / Expertise Showcase -->
+    <section class="services-showcase" v-if="coreValues.length">
+      <v-container>
+        <div class="ss-header">
+          <span class="ss-tag">EXPERTISE</span>
+          <h2 class="ss-title">What I Bring to Every Client</h2>
+        </div>
+        <div class="ss-grid">
+          <div v-for="(value, i) in coreValues" :key="value.key" class="ss-card" :class="`ss-card-${(i % 3) + 1}`">
+            <div class="ss-number">{{ String(i + 1).padStart(2, '0') }}</div>
+            <v-icon :icon="value.icon" size="32" class="ss-icon"></v-icon>
+            <h3 class="ss-card-title">{{ value.title }}</h3>
+            <p class="ss-card-desc">{{ value.description }}</p>
+          </div>
+        </div>
+      </v-container>
+    </section>
+
+    <!-- Stats Inline Band -->
+    <section class="stats-band" v-if="stats.length">
+      <v-container>
+        <div class="sb-row">
+          <div v-for="stat in stats" :key="stat.key" class="sb-item">
+            <span class="sb-val">{{ stat.value }}</span>
+            <span class="sb-lbl">{{ stat.label }}</span>
+          </div>
+        </div>
+      </v-container>
+    </section>
+
+    <!-- QR + Connect -->
+    <section class="connect-editorial">
       <v-container>
         <v-row align="center">
           <v-col cols="12" md="7">
-            <span class="eyebrow">Connect</span>
-            <h2 class="section-title mb-4">{{ connectHeading }}</h2>
-            <p class="connect-desc">{{ connectDescription }}</p>
-            <div v-if="socialLinks.length" class="social-links">
-              <a v-for="social in socialLinks" :key="social.name" :href="social.url" target="_blank" class="social-link-item">
-                <v-icon size="20">{{ getSocialIcon(social.name) }}</v-icon>
-                {{ social.name }}
-              </a>
-            </div>
-            <div class="contact-row">
-              <a v-if="contactEmail" :href="`mailto:${contactEmail}`" class="ct-link">
-                <v-icon size="16" class="mr-2">mdi-email-outline</v-icon>{{ contactEmail }}
-              </a>
-              <a v-if="contactPhone" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`" class="ct-link">
-                <v-icon size="16" class="mr-2">mdi-phone-outline</v-icon>{{ contactPhone }}
-              </a>
+            <span class="ss-tag">LET'S CONNECT</span>
+            <h2 class="ce-title">{{ connectHeading }}</h2>
+            <p class="ce-desc">{{ connectDescription }}</p>
+            <div class="ce-actions">
+              <v-btn size="large" color="#0f172a" variant="flat" class="px-10 text-none font-weight-bold rounded-pill" href="/contact">Get in Touch</v-btn>
+              <v-btn v-if="contactPhone" size="large" variant="outlined" color="#0f172a" class="px-8 text-none font-weight-medium rounded-pill" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`">
+                <v-icon size="18" class="mr-2">mdi-phone</v-icon>Call
+              </v-btn>
             </div>
           </v-col>
           <v-col cols="12" md="4" offset-md="1" class="text-center">
-            <div class="qr-minimal">
+            <div class="ce-qr">
               <img :src="qrCodeUrl" alt="QR Code" />
               <span>Scan to save contact</span>
             </div>
@@ -114,24 +112,20 @@
       </v-container>
     </section>
 
-    <!-- Simple CTA -->
-    <section class="cta-section">
+    <!-- CTA Banner -->
+    <section class="cta-editorial">
       <v-container>
-        <v-row justify="center">
-          <v-col cols="12" md="8" class="text-center">
-            <span class="eyebrow-light">{{ ctaAreas }}</span>
-            <h2 class="cta-title">{{ ctaTitle }}</h2>
+        <div class="cta-bar">
+          <div>
+            <span class="cta-label">{{ ctaAreas }}</span>
+            <h2 class="cta-heading">{{ ctaTitle }}</h2>
             <p class="cta-sub">{{ ctaSubtitle }}</p>
-            <div class="d-flex justify-center gap-4 flex-wrap">
-              <v-btn v-if="contactPhone" size="x-large" color="#0f172a" variant="flat" class="px-10 text-none font-weight-bold rounded-lg" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`">
-                Call Now
-              </v-btn>
-              <v-btn size="x-large" variant="outlined" color="#0f172a" class="px-10 text-none font-weight-bold rounded-lg" href="/contact">
-                Inquire
-              </v-btn>
-            </div>
-          </v-col>
-        </v-row>
+          </div>
+          <div class="cta-btns">
+            <v-btn v-if="contactPhone" size="x-large" color="white" variant="flat" class="px-10 rounded-pill text-none font-weight-bold" style="color: #0f172a;" :href="`tel:${contactPhone.replace(/[^+\\d]/g, '')}`">Call Now</v-btn>
+            <v-btn size="x-large" variant="outlined" color="white" class="px-10 rounded-pill text-none font-weight-bold" href="/contact">Inquire</v-btn>
+          </div>
+        </div>
       </v-container>
     </section>
   </div>
@@ -139,136 +133,106 @@
 
 <script setup lang="ts">
 defineProps<{
-  heroTitle: string
-  heroSubtitle: string
-  heroDescription: string
-  profileImage: string
-  storyTitle: string
-  storyName: string
-  storyRole: string
-  storyContent: string
-  storyContentDefault: string
-  connectHeading: string
-  connectDescription: string
-  coreValues: any[]
-  stats: any[]
-  ctaAreas: string
-  ctaTitle: string
-  ctaSubtitle: string
-  ctaImage: string
-  contactPhone: string
-  contactEmail: string
-  qrCodeUrl: string
-  socialLinks: any[]
+  heroTitle: string; heroSubtitle: string; heroDescription: string; profileImage: string
+  storyTitle: string; storyName: string; storyRole: string; storyContent: string; storyContentDefault: string
+  connectHeading: string; connectDescription: string; coreValues: any[]; stats: any[]
+  ctaAreas: string; ctaTitle: string; ctaSubtitle: string; ctaImage: string
+  contactPhone: string; contactEmail: string; qrCodeUrl: string; socialLinks: any[]
 }>()
-
-function getSocialIcon(name: string): string {
-  const n = name.toLowerCase()
-  if (n.includes('facebook')) return 'mdi-facebook'
-  if (n.includes('instagram')) return 'mdi-instagram'
-  if (n.includes('linkedin')) return 'mdi-linkedin'
-  if (n.includes('twitter') || n.includes('x.com') || n === 'x') return 'mdi-twitter'
-  if (n.includes('youtube')) return 'mdi-youtube'
-  if (n.includes('tiktok')) return 'mdi-music-note'
+function getSocialIcon(n: string): string {
+  const l = n.toLowerCase()
+  if (l.includes('facebook')) return 'mdi-facebook'; if (l.includes('instagram')) return 'mdi-instagram'
+  if (l.includes('linkedin')) return 'mdi-linkedin'; if (l.includes('twitter') || l.includes('x.com') || l === 'x') return 'mdi-twitter'
+  if (l.includes('youtube')) return 'mdi-youtube'; if (l.includes('tiktok')) return 'mdi-music-note'
   return 'mdi-link'
 }
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+.t3 { font-family: 'Inter', sans-serif; background: #fafaf9; }
 
-.about-t3 { font-family: 'Inter', sans-serif; color: #0f172a; }
+/* ── MASTHEAD ── */
+.masthead { padding: 100px 0 40px; background: white; border-bottom: 1px solid #e7e5e4; }
+.mh-inner { max-width: 700px; }
+.mh-tag { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.4em; color: #a8a29e; display: block; margin-bottom: 20px; }
+.mh-title { font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 800; color: #1c1917; letter-spacing: -0.04em; line-height: 1.05; margin-bottom: 24px; }
+.mh-line { width: 60px; height: 3px; background: #1c1917; }
 
-.eyebrow {
-  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.3em;
-  text-transform: uppercase; color: #94a3b8; display: block; margin-bottom: 16px;
-}
-.eyebrow-light {
-  font-size: 0.65rem; font-weight: 800; letter-spacing: 0.3em;
-  text-transform: uppercase; color: #64748b; display: block; margin-bottom: 16px;
-}
-.section-title {
-  font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em;
-  line-height: 1.2; margin-bottom: 20px;
-}
+/* ── PROFILE EDITORIAL ── */
+.profile-editorial { padding: 80px 0 100px; background: white; }
+.pe-img-wrap { position: relative; margin-bottom: 24px; }
+.pe-img { width: 100%; aspect-ratio: 4/5; object-fit: cover; border-radius: 16px; }
+.pe-name-strip { margin-top: 16px; }
+.pe-name-strip strong { display: block; font-size: 1.15rem; font-weight: 700; color: #1c1917; }
+.pe-name-strip span { font-size: 0.8rem; color: #78716c; }
+.pe-contact-card { padding: 24px; background: #f5f5f4; border-radius: 14px; margin-top: 20px; }
+.pec-row { display: flex; align-items: center; gap: 10px; text-decoration: none; color: #44403c; font-size: 0.9rem; padding: 6px 0; transition: color 0.3s; }
+.pec-row:hover { color: #1c1917; }
+.pec-social { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e7e5e4; }
+.pec-soc-icon { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; background: white; border: 1px solid #e7e5e4; color: #44403c; text-decoration: none; transition: all 0.3s; }
+.pec-soc-icon:hover { border-color: #1c1917; color: #1c1917; }
 
-/* ── Hero ── */
-.hero { background: #ffffff; padding: 60px 0; }
-.min-h-hero { min-height: 80vh; }
-.hero-title {
-  font-size: clamp(2.5rem, 6vw, 4rem); font-weight: 800;
-  letter-spacing: -0.04em; line-height: 1.05; margin-bottom: 20px;
-}
-.hero-line { width: 40px; height: 3px; background: #0f172a; margin-bottom: 24px; }
-.hero-sub { font-size: 1.15rem; font-weight: 600; color: #334155; line-height: 1.5; margin-bottom: 12px; }
-.hero-desc { font-size: 1rem; color: #64748b; line-height: 1.8; margin-bottom: 32px; max-width: 440px; }
-.hero-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-.hero-img-wrapper {
-  border-radius: 24px; overflow: hidden;
-  box-shadow: 0 30px 60px rgba(0,0,0,0.08);
-}
-.hero-img { width: 100%; aspect-ratio: 4/5; object-fit: cover; display: block; }
+.pe-subtitle { font-size: 1.2rem; font-weight: 600; color: #1c1917; margin-bottom: 16px; line-height: 1.5; }
+.pe-desc { font-size: 1rem; color: #78716c; line-height: 1.9; margin-bottom: 32px; }
+.pe-divider { width: 40px; height: 2px; background: #d6d3d1; margin-bottom: 32px; }
+.pe-story-title { font-size: 1.6rem; font-weight: 700; color: #1c1917; margin-bottom: 20px; letter-spacing: -0.02em; }
+.pe-story-body { font-size: 0.95rem; color: #57534e; line-height: 2; margin-bottom: 32px; }
+.pe-story-body :deep(p) { margin-bottom: 1.2rem; }
+.pe-quote { position: relative; padding: 28px 32px; background: #f5f5f4; border-left: 4px solid #1c1917; border-radius: 0 12px 12px 0; font-size: 1rem; font-style: italic; color: #44403c; line-height: 1.8; }
+.pq-mark { font-size: 3rem; font-weight: 700; color: #d6d3d1; position: absolute; top: 8px; left: 12px; line-height: 1; }
 
-/* ── Story ── */
-.story-section { padding: 100px 0; background: #f8fafc; }
-.story-header { text-align: center; margin-bottom: 48px; }
-.name-badge {
-  display: inline-flex; flex-direction: column; align-items: center;
-  padding: 16px 32px; background: white; border-radius: 12px;
-  border: 1px solid #e2e8f0; margin-top: 8px;
-}
-.name-badge .name { font-size: 1rem; font-weight: 700; }
-.name-badge .role { font-size: 0.8rem; color: #64748b; }
-.story-body { font-size: 1.05rem; line-height: 2; color: #475569; }
-.story-body :deep(p) { margin-bottom: 1.5rem; }
+/* ── SERVICES ── */
+.services-showcase { padding: 100px 0; background: #fafaf9; }
+.ss-header { margin-bottom: 56px; }
+.ss-tag { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.35em; text-transform: uppercase; color: #a8a29e; display: block; margin-bottom: 10px; }
+.ss-title { font-size: 2.2rem; font-weight: 800; color: #1c1917; letter-spacing: -0.03em; }
+.ss-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.ss-card { padding: 40px 32px; border-radius: 20px; position: relative; overflow: hidden; transition: all 0.4s; }
+.ss-card-1 { background: #1c1917; color: white; }
+.ss-card-2 { background: white; border: 1px solid #e7e5e4; }
+.ss-card-3 { background: #f5f5f4; }
+.ss-card:hover { transform: translateY(-6px); box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+.ss-number { position: absolute; top: 24px; right: 28px; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.2em; opacity: 0.3; }
+.ss-icon { margin-bottom: 20px; }
+.ss-card-1 .ss-icon { color: white; }
+.ss-card-2 .ss-icon, .ss-card-3 .ss-icon { color: #1c1917; }
+.ss-card-title { font-size: 1.15rem; font-weight: 700; margin-bottom: 10px; }
+.ss-card-1 .ss-card-title { color: white; }
+.ss-card-2 .ss-card-title, .ss-card-3 .ss-card-title { color: #1c1917; }
+.ss-card-desc { font-size: 0.9rem; line-height: 1.7; }
+.ss-card-1 .ss-card-desc { color: rgba(255,255,255,0.55); }
+.ss-card-2 .ss-card-desc, .ss-card-3 .ss-card-desc { color: #78716c; }
 
-/* ── Values ── */
-.values-section { padding: 100px 0; background: white; }
-.val-card {
-  padding: 36px 28px; border: 1px solid #e2e8f0; border-radius: 16px;
-  height: 100%; transition: all 0.3s ease;
-}
-.val-card:hover { border-color: #0f172a; transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.06); }
-.val-icon {
-  width: 52px; height: 52px; border-radius: 12px; background: #f1f5f9;
-  display: flex; align-items: center; justify-content: center; margin-bottom: 20px;
-}
-.val-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 8px; }
-.val-desc { font-size: 0.9rem; color: #64748b; line-height: 1.7; }
+/* ── STATS ── */
+.stats-band { padding: 48px 0; background: #1c1917; }
+.sb-row { display: flex; justify-content: center; gap: 56px; flex-wrap: wrap; }
+.sb-item { text-align: center; }
+.sb-val { display: block; font-size: 2.2rem; font-weight: 800; color: white; letter-spacing: -0.03em; }
+.sb-lbl { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.35); }
 
-/* ── Stats ── */
-.stats-strip { padding: 60px 0; background: #0f172a; }
-.s-val { font-size: 2.2rem; font-weight: 800; color: white; letter-spacing: -0.03em; margin-bottom: 4px; }
-.s-lbl { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #64748b; }
-
-/* ── Connect ── */
-.connect-section { padding: 100px 0; background: #f8fafc; }
-.connect-desc { font-size: 1rem; color: #64748b; line-height: 1.8; margin-bottom: 28px; max-width: 480px; }
-.social-links { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
-.social-link-item {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 16px; border: 1px solid #e2e8f0; border-radius: 8px;
-  font-size: 0.8rem; font-weight: 600; color: #334155; text-decoration: none;
-  transition: all 0.3s;
-}
-.social-link-item:hover { border-color: #0f172a; background: white; }
-.contact-row { display: flex; flex-direction: column; gap: 10px; }
-.ct-link { display: flex; align-items: center; color: #475569; text-decoration: none; font-size: 0.9rem; transition: color 0.3s; }
-.ct-link:hover { color: #0f172a; }
-.qr-minimal {
-  display: inline-flex; flex-direction: column; align-items: center;
-  padding: 28px; background: white; border-radius: 16px; border: 1px solid #e2e8f0;
-}
-.qr-minimal span { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #94a3b8; margin-top: 12px; }
+/* ── CONNECT ── */
+.connect-editorial { padding: 100px 0; background: white; }
+.ce-title { font-size: 2.2rem; font-weight: 800; color: #1c1917; letter-spacing: -0.03em; margin-bottom: 16px; }
+.ce-desc { color: #78716c; line-height: 1.8; margin-bottom: 32px; max-width: 480px; }
+.ce-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.ce-qr { display: inline-flex; flex-direction: column; align-items: center; padding: 32px; background: #f5f5f4; border-radius: 20px; }
+.ce-qr img { width: 160px; height: 160px; margin-bottom: 10px; }
+.ce-qr span { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.2em; text-transform: uppercase; color: #a8a29e; }
 
 /* ── CTA ── */
-.cta-section { padding: 120px 0; background: white; border-top: 1px solid #f1f5f9; }
-.cta-title { font-size: 2.8rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1.15; margin-bottom: 16px; }
-.cta-sub { font-size: 1.05rem; color: #64748b; line-height: 1.7; margin-bottom: 40px; max-width: 520px; margin-left: auto; margin-right: auto; }
+.cta-editorial { padding: 0 0 0; }
+.cta-bar {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 32px;
+  padding: 64px 56px; background: #1c1917; border-radius: 28px 28px 0 0;
+}
+.cta-label { font-size: 0.6rem; font-weight: 800; letter-spacing: 0.35em; color: rgba(255,255,255,0.3); display: block; margin-bottom: 10px; }
+.cta-heading { font-size: 2rem; font-weight: 800; color: white; letter-spacing: -0.03em; margin-bottom: 8px; }
+.cta-sub { color: rgba(255,255,255,0.4); font-size: 0.95rem; }
+.cta-btns { display: flex; gap: 12px; flex-wrap: wrap; }
 
 @media (max-width: 960px) {
-  .hero-title { font-size: 2.5rem; }
-  .cta-title { font-size: 2rem; }
-  .min-h-hero { min-height: auto; }
+  .masthead { padding: 80px 0 32px; }
+  .pe-img { max-height: 400px; }
+  .cta-bar { padding: 40px 24px; border-radius: 0; }
 }
 </style>

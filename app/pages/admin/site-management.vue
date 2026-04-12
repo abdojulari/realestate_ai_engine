@@ -252,31 +252,31 @@ const aboutTemplates = [
   },
   {
     id: 2,
-    name: 'Full-Width Hero',
-    description: 'Bold full-width hero image with overlay text, floating stats bar, and gradient value cards.',
+    name: 'Glassmorphism',
+    description: 'Immersive full-bleed hero with frosted glass cards, horizontal timeline story, and glassmorphism value cards.',
     preview: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=800&auto=format&fit=crop',
-    features: ['Full Hero', 'Floating Stats', 'Gradient Cards']
+    features: ['Glassmorphism', 'Timeline Story', 'Frosted Glass Cards']
   },
   {
     id: 3,
-    name: 'Minimal Clean',
-    description: 'Clean white design with subtle borders, side-by-side layout, and focused typography.',
+    name: 'Magazine Editorial',
+    description: 'No hero — opens with a bold masthead, profile image aligned left with editorial content right, services showcase grid, and pull quotes.',
     preview: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop',
-    features: ['Minimal Design', 'Clean Layout', 'Subtle Borders']
+    features: ['No Hero Banner', 'Left Profile Layout', 'Services Grid']
   },
   {
     id: 4,
-    name: 'Bold Split',
-    description: 'Dramatic split-screen hero with bold typography, dark value grid, and high-contrast sections.',
+    name: 'Bold Noir',
+    description: 'Dramatic 50/50 split-screen hero, animated marquee stats, horizontal services slider cards, and high-contrast dark sections.',
     preview: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?q=80&w=800&auto=format&fit=crop',
-    features: ['Split Screen', 'Bold Typography', 'High Contrast']
+    features: ['Split-Screen Hero', 'Marquee Stats', 'Services Slider']
   },
   {
     id: 5,
-    name: 'Centered Elegant',
-    description: 'Refined centered layout with warm earth tones, serif typography, and premium rounded aesthetics.',
+    name: 'Luxury Warm',
+    description: 'Centered portrait with golden ring, Cormorant Garamond serif typography, interactive services accordion, and warm earth-tone gradients.',
     preview: 'https://images.unsplash.com/photo-1600573472591-ee6b68d14c68?q=80&w=800&auto=format&fit=crop',
-    features: ['Centered Layout', 'Warm Tones', 'Serif Typography']
+    features: ['Centered Portrait', 'Serif Typography', 'Services Accordion']
   }
 ]
 
