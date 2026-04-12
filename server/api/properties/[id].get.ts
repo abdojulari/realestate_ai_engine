@@ -21,7 +21,7 @@ export default defineEventHandler(async (event) => {
   }
 
   const property = await prisma.property.findFirst({
-    where: { id: parseInt(id), ...tenantFilter },
+    where: { id: parseInt(id), ...getPublicSharedMlsWhere(tenantFilter) },
     include: {
       user: {
         select: {
