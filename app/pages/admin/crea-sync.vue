@@ -227,6 +227,54 @@
         </div>
       </div>
 
+      <!-- Neighborhood Population -->
+      <div class="mb-12">
+        <div class="premium-card">
+          <div class="p-8 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/30">
+            <div>
+              <h2 class="text-xl font-serif text-slate-900">Neighborhood Mapping</h2>
+              <p class="text-sm text-slate-500 mt-1">
+                Extract neighborhoods from CREA <code class="text-xs bg-slate-100 px-1.5 py-0.5 rounded">SubdivisionName</code> and populate the dropdown
+              </p>
+            </div>
+            <button
+              @click="populateNeighborhoods"
+              :disabled="populatingNeighborhoods"
+              class="premium-button-primary whitespace-nowrap"
+              style="padding: 0.75rem 1.5rem"
+            >
+              <svg v-if="populatingNeighborhoods" class="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              {{ populatingNeighborhoods ? 'Populating...' : 'Populate Neighborhoods' }}
+            </button>
+          </div>
+          <transition name="fade">
+            <div v-if="neighborhoodResult" class="p-8">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="text-center p-4 bg-emerald-50 rounded-xl">
+                  <p class="text-2xl font-serif text-emerald-700">{{ neighborhoodResult.neighborhoodsCreated }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-emerald-600 font-bold mt-1">Created</p>
+                </div>
+                <div class="text-center p-4 bg-blue-50 rounded-xl">
+                  <p class="text-2xl font-serif text-blue-700">{{ neighborhoodResult.neighborhoodsUpdated }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-blue-600 font-bold mt-1">Updated</p>
+                </div>
+                <div class="text-center p-4 bg-amber-50 rounded-xl">
+                  <p class="text-2xl font-serif text-amber-700">{{ neighborhoodResult.linksCreated }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-amber-600 font-bold mt-1">Links</p>
+                </div>
+                <div class="text-center p-4 bg-slate-50 rounded-xl">
+                  <p class="text-2xl font-serif text-slate-700">{{ neighborhoodResult.propertiesWithSubdivision }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-slate-600 font-bold mt-1">Properties</p>
+                </div>
+              </div>
+            </div>
+          </transition>
+        </div>
+      </div>
+
       <!-- Alert Messages -->
       <transition name="slide-fade">
         <div
@@ -299,6 +347,8 @@ definePageMeta({
 })
 
 const loading = ref(false)
+const populatingNeighborhoods = ref(false)
+const neighborhoodResult = ref<any>(null)
 const stats = ref({
   creaProperties: 0,
   manualProperties: 0,
@@ -353,6 +403,28 @@ const startSync = async () => {
     setTimeout(() => {
       alert.value.message = ''
     }, 5000)
+  }
+}
+
+const populateNeighborhoods = async () => {
+  populatingNeighborhoods.value = true
+  neighborhoodResult.value = null
+  try {
+    const response = await api.post('/api/admin/neighborhoods/populate')
+    neighborhoodResult.value = response.stats
+    alert.value = {
+      message: `Neighborhoods populated: ${response.stats.neighborhoodsCreated} created, ${response.stats.linksCreated} properties linked`,
+      type: 'success'
+    }
+  } catch (error: any) {
+    console.error('Neighborhood populate error:', error)
+    alert.value = {
+      message: `Neighborhood population failed: ${error.data?.message || error.message}`,
+      type: 'error'
+    }
+  } finally {
+    populatingNeighborhoods.value = false
+    setTimeout(() => { alert.value.message = '' }, 5000)
   }
 }
 

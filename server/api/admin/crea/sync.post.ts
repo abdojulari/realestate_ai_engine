@@ -169,11 +169,23 @@ export default defineEventHandler(async (event) => {
     })
 
     console.log('CREA sync completed:', syncStats)
+
+    // Auto-populate neighborhoods from SubdivisionName in property features
+    let neighborhoodStats = null
+    try {
+      console.log('📍 Starting neighborhood population from SubdivisionName...')
+      const { populateNeighborhoods } = await import('../neighborhoods/populate-util')
+      neighborhoodStats = await populateNeighborhoods(prisma)
+      console.log('✅ Neighborhood population complete:', neighborhoodStats)
+    } catch (err: any) {
+      console.warn('⚠️ Neighborhood population failed (non-critical):', err.message)
+    }
     
     return {
       success: true,
       stats: syncStats,
       stalePropertiesMarked: staleProperties.count,
+      neighborhoodStats,
       message: `Sync completed: ${syncStats.created} created, ${syncStats.updated} updated, ${syncStats.errors} errors`
     }
   } catch (error: any) {

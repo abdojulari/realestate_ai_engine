@@ -173,8 +173,8 @@ const fetchNeighborhoods = async (search = '') => {
 
     allNeighborhoods.value = response.neighborhoods
     
-    neighborhoods.value = response.neighborhoods.map(neighborhood => ({
-      label: `${neighborhood.name}, ${neighborhood.city} (${neighborhood.propertyCount} properties)`,
+    const mapped = response.neighborhoods.map(neighborhood => ({
+      label: `${neighborhood.name} (${neighborhood.propertyCount} properties)`,
       value: neighborhood.id,
       name: neighborhood.name,
       city: neighborhood.city,
@@ -182,6 +182,8 @@ const fetchNeighborhoods = async (search = '') => {
       propertyCount: neighborhood.propertyCount,
       averagePrice: neighborhood.averagePrice
     }))
+
+    neighborhoods.value = mapped
 
   } catch (error) {
     console.error('Failed to fetch neighborhoods:', error)

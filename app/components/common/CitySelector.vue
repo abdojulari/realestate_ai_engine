@@ -130,6 +130,7 @@ const loadCities = async () => {
 const detectUserCity = async () => {
   if (!navigator.geolocation) {
     console.warn('⚠️ Geolocation not available')
+    fallbackToTopCity()
     return
   }
 
@@ -160,6 +161,19 @@ const detectUserCity = async () => {
     }
   } catch (error) {
     console.warn('⚠️ Could not detect location:', error)
+    fallbackToTopCity()
+  }
+}
+
+const fallbackToTopCity = () => {
+  if (selectedCity.value || cities.value.length === 0) return
+  const sorted = [...cities.value].sort((a, b) => b.count - a.count)
+  const topCity = sorted[0]
+  if (topCity) {
+    detectedCity.value = ''
+    selectedCity.value = topCity.name
+    handleCityChange(topCity.name)
+    console.log('📍 Defaulted to city with most properties:', topCity.name)
   }
 }
 

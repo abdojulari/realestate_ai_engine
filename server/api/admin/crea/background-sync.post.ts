@@ -210,9 +210,20 @@ export default defineEventHandler(async (event) => {
         // Store sync results
         await upsertSysSetting('last_sync_result', JSON.stringify(syncStats))
 
+        // Auto-populate neighborhoods from SubdivisionName
+        try {
+          console.log('📍 Starting neighborhood population from SubdivisionName...')
+          const { populateNeighborhoods } = await import('../neighborhoods/populate-util')
+          const nhStats = await populateNeighborhoods(prisma)
+          console.log('✅ Neighborhood population complete:', nhStats)
+          syncStats.neighborhoodStats = nhStats
+        } catch (nhErr: any) {
+          console.warn('⚠️ Neighborhood population failed (non-critical):', nhErr.message)
+        }
+
         // Set sync status to completed
         await upsertSysSetting('sync_status', 'completed')
-        
+
         console.log('✅ Background CREA sync completed:', syncStats)
         
       } catch (error: any) {
