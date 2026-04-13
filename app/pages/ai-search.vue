@@ -927,29 +927,74 @@ const loadCities = async () => {
   }
 }
 
-// Detect user's current city
-const detectUserLocation = () => {
-  if (!navigator.geolocation) {
-    console.warn('⚠️ Geolocation not supported')
-    fallbackToDefaultCity()
-    return
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
+// Detect user's current city using multi-layer approach:
+// 1. Browser geolocation → server reverse geocode
+// 2. Server IP-based geolocation
+// 3. Haversine distance fallback
+// 4. Default to top city by property count
+const detectUserLocation = async () => {
+  // Layer 1: Try browser geolocation
+  if (navigator.geolocation) {
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          timeout: 8000, maximumAge: 300000, enableHighAccuracy: false
+        })
+      })
       userLocation.value = {
         lat: position.coords.latitude,
         lng: position.coords.longitude
       }
-      console.log('📍 User location detected:', userLocation.value)
+      // Server-side reverse geocode for accurate city name
+      const detected = await serverDetectCity(position.coords.latitude, position.coords.longitude)
+      if (detected) return
+      // Fallback to Haversine
       findNearestCity()
-    },
-    (error) => {
-      console.warn('⚠️ Geolocation failed:', error.message)
-      fallbackToDefaultCity()
-    },
-    { timeout: 8000, maximumAge: 300000 }
-  )
+      return
+    } catch {
+      console.log('Browser geolocation unavailable, trying IP-based...')
+    }
+  }
+
+  // Layer 2: Server-side IP geolocation
+  const detected = await serverDetectCity()
+  if (detected) return
+
+  // Layer 3: Default to top city
+  fallbackToDefaultCity()
+}
+
+const serverDetectCity = async (lat?: number, lng?: number): Promise<boolean> => {
+  try {
+    const params = lat != null && lng != null ? `?lat=${lat}&lng=${lng}` : ''
+    const res = await fetch(`/api/detect-location${params}`)
+    if (!res.ok) return false
+    const data = await res.json()
+    if (!data.city) return false
+
+    const matched = cities.value.find(
+      c => c.name.toLowerCase() === data.city.toLowerCase()
+    ) || cities.value.find(
+      c => c.name.toLowerCase().includes(data.city.toLowerCase()) ||
+           data.city.toLowerCase().includes(c.name.toLowerCase())
+    )
+    if (matched) {
+      selectedCity.value = matched.name
+      if (data.latitude && data.longitude) {
+        userLocation.value = { lat: data.latitude, lng: data.longitude }
+      }
+      console.log('📍 Server detected city:', matched.name)
+      return true
+    }
+    if (data.latitude && data.longitude) {
+      userLocation.value = { lat: data.latitude, lng: data.longitude }
+      findNearestCity()
+      return selectedCity.value !== ''
+    }
+  } catch (e) {
+    console.warn('Server location detection failed:', e)
+  }
+  return false
 }
 
 const fallbackToDefaultCity = () => {
@@ -962,23 +1007,25 @@ const fallbackToDefaultCity = () => {
   }
 }
 
-// Find nearest city based on user location
 const findNearestCity = () => {
   if (!userLocation.value || cities.value.length === 0) {
     fallbackToDefaultCity()
     return
   }
-  
+
   let nearestCity = cities.value[0]
   let minDistance = Infinity
   let foundWithCoords = false
-  
+
   cities.value.forEach(city => {
     if (city.coordinates?.latitude && city.coordinates?.longitude) {
-      const distance = Math.sqrt(
-        Math.pow(city.coordinates.latitude - userLocation.value!.lat, 2) + 
-        Math.pow(city.coordinates.longitude - userLocation.value!.lng, 2)
-      )
+      const dLat = (city.coordinates.latitude - userLocation.value!.lat) * Math.PI / 180
+      const dLng = (city.coordinates.longitude - userLocation.value!.lng) * Math.PI / 180
+      const a = Math.sin(dLat / 2) ** 2 +
+                Math.cos(userLocation.value!.lat * Math.PI / 180) *
+                Math.cos(city.coordinates.latitude * Math.PI / 180) *
+                Math.sin(dLng / 2) ** 2
+      const distance = 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
       if (distance < minDistance) {
         minDistance = distance
         nearestCity = city
@@ -986,7 +1033,7 @@ const findNearestCity = () => {
       }
     }
   })
-  
+
   if (!foundWithCoords) {
     fallbackToDefaultCity()
     return

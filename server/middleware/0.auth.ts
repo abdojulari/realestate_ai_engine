@@ -86,7 +86,8 @@ export default defineEventHandler(async (event) => {
     url.startsWith('/api/testimonials') ||
     url.startsWith('/api/team') ||
     url.startsWith('/api/neighborhoods') ||
-    url.startsWith('/api/blog')
+    url.startsWith('/api/blog') ||
+    url.startsWith('/api/detect-location')
   )) {
     return
   }

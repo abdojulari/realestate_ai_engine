@@ -115,36 +115,47 @@ const displayProperties = computed(() => {
   return fetchedProperties.value
 })
 
-// Detect user location
+// Detect user location using server-side API
 async function detectLocation() {
-  // Try browser geolocation first
+  // Layer 1: Try browser geolocation + server reverse geocode
   if (navigator.geolocation) {
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
-          timeout: 5000,
-          enableHighAccuracy: false
+          timeout: 5000, enableHighAccuracy: false
         })
       })
-      
-      // Reverse geocode to get city
       const { latitude, longitude } = position.coords
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
-      )
-      const data = await response.json()
-      
-      if (data.address) {
-        userCity.value = data.address.city || data.address.town || data.address.municipality || 'Edmonton'
-        userProvince.value = data.address.state || 'Alberta'
-        return
+      const res = await fetch(`/api/detect-location?lat=${latitude}&lng=${longitude}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data.city) {
+          userCity.value = data.city
+          userProvince.value = data.province || 'Alberta'
+          return
+        }
       }
-    } catch (e) {
-      console.log('Geolocation not available, using default')
+    } catch {
+      console.log('Browser geolocation unavailable, trying IP-based...')
     }
   }
-  
-  // Default to Edmonton, Alberta
+
+  // Layer 2: Server-side IP geolocation
+  try {
+    const res = await fetch('/api/detect-location')
+    if (res.ok) {
+      const data = await res.json()
+      if (data.city) {
+        userCity.value = data.city
+        userProvince.value = data.province || 'Alberta'
+        return
+      }
+    }
+  } catch {
+    console.log('IP geolocation failed, using default')
+  }
+
+  // Layer 3: Default
   userCity.value = props.city || 'Edmonton'
   userProvince.value = 'Alberta'
 }

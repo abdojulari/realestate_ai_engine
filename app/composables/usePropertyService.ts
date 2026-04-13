@@ -193,31 +193,55 @@ export const usePropertyService = () => {
     }
   }
 
-  // Get user's current location and find nearest city
-  const detectUserCity = (): Promise<City | null> => {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) {
-        console.warn('⚠️ Geolocation not supported')
-        resolve(null)
-        return
+  // Multi-layer city detection: browser geolocation → server IP geolocation → Haversine
+  const detectUserCity = async (): Promise<City | null> => {
+    // Layer 1: Browser geolocation + server reverse geocode
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            timeout: 8000, enableHighAccuracy: false, maximumAge: 300000
+          })
+        })
+        const { latitude, longitude } = position.coords
+        const serverResult = await matchCityFromServer(latitude, longitude)
+        if (serverResult) return serverResult
+        return findNearestCity(latitude, longitude)
+      } catch {
+        console.log('Browser geolocation unavailable, trying IP-based...')
       }
+    }
 
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords
-          
-          // Find nearest city based on coordinates
-          const nearestCity = findNearestCity(latitude, longitude)
-          console.log('📍 Detected nearest city:', nearestCity?.name)
-          resolve(nearestCity)
-        },
-        (error) => {
-          console.warn('⚠️ Failed to get location:', error.message)
-          resolve(null)
-        },
-        { timeout: 10000, enableHighAccuracy: false }
+    // Layer 2: Server-side IP geolocation
+    const ipResult = await matchCityFromServer()
+    if (ipResult) return ipResult
+
+    return null
+  }
+
+  const matchCityFromServer = async (lat?: number, lng?: number): Promise<City | null> => {
+    try {
+      const params = lat != null && lng != null ? `?lat=${lat}&lng=${lng}` : ''
+      const res = await fetch(`/api/detect-location${params}`)
+      if (!res.ok) return null
+      const data = await res.json()
+      if (!data.city) return null
+
+      const matched = cities.value.find(
+        c => c.name.toLowerCase() === data.city.toLowerCase()
+      ) || cities.value.find(
+        c => c.name.toLowerCase().includes(data.city.toLowerCase()) ||
+             data.city.toLowerCase().includes(c.name.toLowerCase())
       )
-    })
+      if (matched) return matched
+
+      if (data.latitude && data.longitude) {
+        return findNearestCity(data.latitude, data.longitude)
+      }
+    } catch {
+      // Silent fail
+    }
+    return null
   }
 
   // Find nearest city based on coordinates

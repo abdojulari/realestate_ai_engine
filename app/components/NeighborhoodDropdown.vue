@@ -1,12 +1,13 @@
 <template>
   <div class="neighborhood-dropdown">
     <v-autocomplete
-      v-model="selectedNeighborhood"
+      v-model="internalSelection"
       :items="neighborhoods"
       :loading="loading"
       v-model:search="searchQuery"
       item-title="label"
       item-value="value"
+      return-object
       :label="label"
       :placeholder="placeholder"
       :clearable="clearable"
@@ -24,7 +25,11 @@
           mdi-map-marker-radius
         </v-icon>
       </template>
-      
+
+      <template #selection="{ item }">
+        <span class="text-body-2">{{ item.raw?.name || '' }}</span>
+      </template>
+
       <template #item="{ props, item }">
         <v-list-item v-bind="props">
           <template #prepend>
@@ -32,10 +37,7 @@
           </template>
           <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
           <v-list-item-subtitle>
-            {{ item.raw.city }}, {{ item.raw.province }}
-            <span v-if="item.raw.propertyCount" class="text-primary ml-1">
-              ({{ item.raw.propertyCount }} properties)
-            </span>
+            {{ item.raw.propertyCount }} properties
           </v-list-item-subtitle>
         </v-list-item>
       </template>
@@ -45,7 +47,7 @@
           v-bind="props"
           size="small"
           variant="outlined"
-          :text="item.raw.name"
+          :text="item.raw?.name || ''"
           closable
         />
       </template>
@@ -69,7 +71,7 @@
         <span>
           {{ selectedNeighborhoodInfo.propertyCount }} properties, 
           <span v-if="selectedNeighborhoodInfo.averagePrice">
-            avg. ${{ formatPrice(selectedNeighborhoodInfo.averagePrice) }}
+            avg. {{ formatPrice(selectedNeighborhoodInfo.averagePrice) }}
           </span>
           <span v-else>price info pending</span>
         </span>
@@ -127,20 +129,18 @@ const emit = defineEmits<{
   'neighborhoods-selected': [neighborhoods: Neighborhood[]]
 }>()
 
-// Reactive data
-const selectedNeighborhood = ref(props.modelValue)
+const internalSelection = ref<NeighborhoodOption | NeighborhoodOption[] | null>(null)
 const searchQuery = ref('')
 const neighborhoods = ref<NeighborhoodOption[]>([])
 const loading = ref(false)
 const allNeighborhoods = ref<Neighborhood[]>([])
 
-// Computed
 const selectedNeighborhoodInfo = computed(() => {
-  if (!selectedNeighborhood.value || props.multiple) return null
-  return allNeighborhoods.value.find(n => n.id === selectedNeighborhood.value)
+  if (props.multiple || !internalSelection.value || Array.isArray(internalSelection.value)) return null
+  const sel = internalSelection.value as NeighborhoodOption
+  return allNeighborhoods.value.find(n => n.id === sel.value) || null
 })
 
-// Methods
 const formatPrice = (price: number): string => {
   return new Intl.NumberFormat('en-CA', {
     style: 'currency',
@@ -172,8 +172,8 @@ const fetchNeighborhoods = async (search = '') => {
     }>(`/api/neighborhoods?${params.toString()}`)
 
     allNeighborhoods.value = response.neighborhoods
-    
-    const mapped = response.neighborhoods.map(neighborhood => ({
+
+    neighborhoods.value = response.neighborhoods.map(neighborhood => ({
       label: `${neighborhood.name} (${neighborhood.propertyCount} properties)`,
       value: neighborhood.id,
       name: neighborhood.name,
@@ -183,8 +183,6 @@ const fetchNeighborhoods = async (search = '') => {
       averagePrice: neighborhood.averagePrice
     }))
 
-    neighborhoods.value = mapped
-
   } catch (error) {
     console.error('Failed to fetch neighborhoods:', error)
     neighborhoods.value = []
@@ -193,24 +191,27 @@ const fetchNeighborhoods = async (search = '') => {
   }
 }
 
-const onSelectionChange = (value: number | number[] | null) => {
-  selectedNeighborhood.value = value
-  emit('update:modelValue', value)
+const onSelectionChange = (value: NeighborhoodOption | NeighborhoodOption[] | null) => {
+  internalSelection.value = value
 
   if (props.multiple) {
-    const selectedNeighborhoods = allNeighborhoods.value.filter(n => 
-      Array.isArray(value) && value.includes(n.id)
+    const ids = Array.isArray(value) ? value.map(v => v.value) : []
+    emit('update:modelValue', ids)
+    const selectedNeighborhoods = allNeighborhoods.value.filter(n =>
+      ids.includes(n.id)
     )
     emit('neighborhoods-selected', selectedNeighborhoods)
   } else {
-    const selectedNeighborhoodData = value 
-      ? allNeighborhoods.value.find(n => n.id === value) || null
+    const sel = value as NeighborhoodOption | null
+    const id = sel?.value ?? null
+    emit('update:modelValue', id)
+    const neighborhoodData = id
+      ? allNeighborhoods.value.find(n => n.id === id) || null
       : null
-    emit('neighborhood-selected', selectedNeighborhoodData)
+    emit('neighborhood-selected', neighborhoodData)
   }
 }
 
-// Create a simple debounce function
 const debounce = (func: Function, delay: number) => {
   let timeoutId: NodeJS.Timeout
   return (...args: any[]) => {
@@ -223,22 +224,32 @@ const debouncedFetchNeighborhoods = debounce((search: string) => {
   fetchNeighborhoods(search)
 }, 300)
 
-// Watch for external model value changes
+// When parent sets modelValue externally, sync internal selection
 watch(() => props.modelValue, (newValue) => {
-  selectedNeighborhood.value = newValue
+  if (newValue == null) {
+    internalSelection.value = null
+    return
+  }
+  if (props.multiple && Array.isArray(newValue)) {
+    internalSelection.value = neighborhoods.value.filter(n => (newValue as number[]).includes(n.value))
+  } else if (!props.multiple && typeof newValue === 'number') {
+    const match = neighborhoods.value.find(n => n.value === newValue)
+    internalSelection.value = match || null
+  }
 })
 
-// Watch for search query changes
 watch(searchQuery, (newSearch) => {
   debouncedFetchNeighborhoods(newSearch || '')
 })
 
-// Watch for filter changes
+// When city/province filters change, reload neighborhoods and clear selection
 watch([() => props.cityFilter, () => props.provinceFilter], () => {
+  internalSelection.value = null
+  emit('update:modelValue', null)
+  emit('neighborhood-selected', null)
   fetchNeighborhoods(searchQuery.value)
 })
 
-// Initial load
 onMounted(() => {
   fetchNeighborhoods()
 })
