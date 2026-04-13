@@ -194,9 +194,10 @@ export interface PropertyFilter {
   maxSqft?: number
   features?: any
   bounds?: any
-  // neighborhood filtering
+  // neighborhood/subdivision filtering
   neighborhood?: string
   neighborhoodId?: number | null
+  subdivision?: string
 }
 
 // Viewing Request types

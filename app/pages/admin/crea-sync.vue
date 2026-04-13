@@ -228,7 +228,7 @@
       </div>
 
       <!-- Neighborhood Population -->
-      <div class="mb-12">
+      <div class="mt-16 mb-16">
         <div class="premium-card">
           <div class="p-8 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/30">
             <div>
@@ -268,6 +268,54 @@
                 <div class="text-center p-4 bg-slate-50 rounded-xl">
                   <p class="text-2xl font-serif text-slate-700">{{ neighborhoodResult.propertiesWithSubdivision }}</p>
                   <p class="text-[10px] uppercase tracking-wider text-slate-600 font-bold mt-1">Properties</p>
+                </div>
+              </div>
+            </div>
+          </transition>
+        </div>
+      </div>
+
+      <!-- Agent Data Backfill -->
+      <div class="mt-16 mb-16">
+        <div class="premium-card">
+          <div class="p-8 border-b border-slate-50 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50/30">
+            <div>
+              <h2 class="text-xl font-serif text-slate-900">Agent &amp; Office Data</h2>
+              <p class="text-sm text-slate-500 mt-1">
+                Backfill listing agent and office information for properties missing this data
+              </p>
+            </div>
+            <button
+              @click="backfillAgents"
+              :disabled="backfillingAgents"
+              class="premium-button-primary whitespace-nowrap"
+              style="padding: 0.75rem 1.5rem"
+            >
+              <svg v-if="backfillingAgents" class="animate-spin -ml-1 mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+              </svg>
+              {{ backfillingAgents ? 'Backfilling...' : 'Backfill Agent Data' }}
+            </button>
+          </div>
+          <transition name="fade">
+            <div v-if="agentBackfillResult" class="p-8">
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="text-center p-4 bg-slate-50 rounded-xl">
+                  <p class="text-2xl font-serif text-slate-700">{{ agentBackfillResult.total }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-slate-600 font-bold mt-1">Missing</p>
+                </div>
+                <div class="text-center p-4 bg-emerald-50 rounded-xl">
+                  <p class="text-2xl font-serif text-emerald-700">{{ agentBackfillResult.updated }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-emerald-600 font-bold mt-1">Updated</p>
+                </div>
+                <div class="text-center p-4 bg-amber-50 rounded-xl">
+                  <p class="text-2xl font-serif text-amber-700">{{ agentBackfillResult.skipped }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-amber-600 font-bold mt-1">Skipped</p>
+                </div>
+                <div class="text-center p-4 bg-rose-50 rounded-xl">
+                  <p class="text-2xl font-serif text-rose-700">{{ agentBackfillResult.failed }}</p>
+                  <p class="text-[10px] uppercase tracking-wider text-rose-600 font-bold mt-1">Failed</p>
                 </div>
               </div>
             </div>
@@ -349,6 +397,8 @@ definePageMeta({
 const loading = ref(false)
 const populatingNeighborhoods = ref(false)
 const neighborhoodResult = ref<any>(null)
+const backfillingAgents = ref(false)
+const agentBackfillResult = ref<any>(null)
 const stats = ref({
   creaProperties: 0,
   manualProperties: 0,
@@ -403,6 +453,27 @@ const startSync = async () => {
     setTimeout(() => {
       alert.value.message = ''
     }, 5000)
+  }
+}
+
+const backfillAgents = async () => {
+  backfillingAgents.value = true
+  agentBackfillResult.value = null
+  try {
+    const response = await api.post('/api/admin/crea/backfill-agents')
+    agentBackfillResult.value = response.stats
+    alert.value = {
+      message: `Agent backfill: ${response.stats.updated} updated out of ${response.stats.total} missing`,
+      type: 'success'
+    }
+  } catch (error: any) {
+    alert.value = {
+      message: `Agent backfill failed: ${error.data?.message || error.message}`,
+      type: 'error'
+    }
+  } finally {
+    backfillingAgents.value = false
+    setTimeout(() => { alert.value.message = '' }, 5000)
   }
 }
 

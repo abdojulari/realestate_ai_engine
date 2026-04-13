@@ -203,14 +203,14 @@ export default defineEventHandler(async (event) => {
     where.unitNumber = { contains: unitNumber as string, mode: 'insensitive' }
   }
   
-  // Subdivision name search (searches in features JSON or description)
+  // Subdivision/neighborhood name filter (searches features.subdivisionName via JSON path)
   if (subdivision) {
     if (!where.AND) where.AND = []
     where.AND.push({
-      OR: [
-        { description: { contains: subdivision as string, mode: 'insensitive' } },
-        { address: { contains: subdivision as string, mode: 'insensitive' } }
-      ]
+      features: {
+        path: ['subdivisionName'],
+        equals: subdivision as string,
+      }
     })
   }
   

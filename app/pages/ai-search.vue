@@ -62,7 +62,7 @@
                 </v-col>
                 <v-col cols="12" md="6">
                   <NeighborhoodDropdown
-                    v-model="selectedNeighborhoodId"
+                    v-model="selectedNeighborhoodName"
                     label="Neighborhood"
                     placeholder="Select specific neighborhood..."
                     :city-filter="selectedCity"
@@ -192,7 +192,7 @@
               <h3 class="text-h5 font-weight-bold mb-2">No Properties Found</h3>
               <p class="text-body-1 text-grey mb-6">
                 We couldn't find any properties matching your search criteria in 
-                <strong>{{ selectedNeighborhoodId ? 'the selected neighborhood' : (selectedCity || 'the selected area') }}</strong>.
+                <strong>{{ selectedNeighborhoodName ? 'the selected neighborhood' : (selectedCity || 'the selected area') }}</strong>.
               </p>
               
               <v-card color="grey-lighten-4" flat class="pa-6 rounded-xl border mb-6 text-left">
@@ -201,7 +201,7 @@
                   <span class="text-subtitle-2 font-weight-bold">TRY THESE SUGGESTIONS</span>
                 </div>
                 <ul class="text-body-2 text-medium-emphasis mb-0 leading-relaxed">
-                  <li v-if="selectedNeighborhoodId" class="mb-2">Remove the neighborhood filter to search the entire city</li>
+                  <li v-if="selectedNeighborhoodName" class="mb-2">Remove the neighborhood filter to search the entire city</li>
                   <li v-if="selectedCity" class="mb-2">Remove the city filter to search all cities</li>
                   <li class="mb-2">Adjust your search query (e.g., try "3 bedroom" instead of "4 bedroom")</li>
                   <li class="mb-2">Remove specific features like "garage" or "basement"</li>
@@ -210,18 +210,18 @@
               </v-card>
               
               <div class="d-flex flex-wrap justify-center gap-2">
-                <v-btn 
-                  v-if="selectedNeighborhoodId" 
-                  color="black" 
+                <v-btn
+                  v-if="selectedNeighborhoodName"
+                  color="black"
                   variant="outlined"
                   rounded="lg"
-                  @click="selectedNeighborhoodId = null; searchWithAI(1)"
+                  @click="selectedNeighborhoodName = null; searchWithAI(1)"
                 >
                   <v-icon start>mdi-filter-remove</v-icon>
                   Search Entire City
                 </v-btn>
-                <v-btn 
-                  v-if="selectedCity && !selectedNeighborhoodId" 
+                <v-btn
+                  v-if="selectedCity && !selectedNeighborhoodName"
                   color="black" 
                   variant="outlined"
                   rounded="lg"
@@ -600,7 +600,7 @@ const itemsPerPage = 9
 
 // City detection and selection
 const selectedCity = ref<string>('')
-const selectedNeighborhoodId = ref<number | null>(null)
+const selectedNeighborhoodName = ref<string | null>(null)
 const cities = ref<any[]>([])
 const loadingCities = ref(false)
 const userLocation = ref<{lat: number, lng: number} | null>(null)
@@ -836,9 +836,9 @@ const searchWithAI = async (pageNum = 1) => {
       queryParams.append('city', selectedCity.value)
     }
     
-    // Add neighborhood filter if selected
-    if (selectedNeighborhoodId.value) {
-      queryParams.append('neighborhoodId', selectedNeighborhoodId.value.toString())
+    // Add neighborhood/subdivision filter if selected
+    if (selectedNeighborhoodName.value) {
+      queryParams.append('subdivision', selectedNeighborhoodName.value)
     }
     
     // Add pagination parameters
@@ -1046,10 +1046,10 @@ const findNearestCity = () => {
 // Neighborhood selection handler
 const onNeighborhoodSelected = (neighborhood: any) => {
   if (neighborhood) {
-    selectedNeighborhoodId.value = neighborhood.id
-    console.log('🏘️ Neighborhood selected:', neighborhood.name, 'ID:', neighborhood.id)
+    selectedNeighborhoodName.value = neighborhood.name
+    console.log('🏘️ Neighborhood selected:', neighborhood.name)
   } else {
-    selectedNeighborhoodId.value = null
+    selectedNeighborhoodName.value = null
   }
 }
 

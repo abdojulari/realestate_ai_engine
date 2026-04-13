@@ -47,11 +47,15 @@ export const propertyService = {
       filters.features.forEach((feature: any) => params.append('features', feature))
     }
     
+    // Subdivision/neighborhood filtering
+    if ((filters as any).subdivision) params.append('subdivision', (filters as any).subdivision)
+    if (filters.neighborhood) params.append('neighborhood', filters.neighborhood)
+    if (filters.neighborhoodId) params.append('neighborhoodId', filters.neighborhoodId.toString())
+
     // Pagination controls (allow map to request all properties)
     if ((filters as any).limit) params.append('limit', String((filters as any).limit))
     if ((filters as any).page) params.append('page', String((filters as any).page))
     if ((filters as any).offset !== undefined) {
-      // Convert offset to page number for API
       const pageFromOffset = Math.floor((filters as any).offset / ((filters as any).limit || 100)) + 1
       params.append('page', String(pageFromOffset))
     }
@@ -64,7 +68,7 @@ export const propertyService = {
     const queryString = params.toString()
     const url = queryString ? `/api/properties?${queryString}` : '/api/properties'
     
-    console.log('Property search URL:', url) // Debug log
+    console.log('Property search URL:', url)
     const response = await authedFetch<any>(url)
     
     // Handle both old array format and new paginated format
@@ -111,12 +115,16 @@ export const propertyService = {
     if (filters.features && filters.features.length > 0) {
       filters.features.forEach((feature: any) => params.append('features', feature))
     }
+
+    // Subdivision/neighborhood filtering
+    if ((filters as any).subdivision) params.append('subdivision', (filters as any).subdivision)
+    if (filters.neighborhood) params.append('neighborhood', filters.neighborhood)
+    if (filters.neighborhoodId) params.append('neighborhoodId', filters.neighborhoodId.toString())
     
     // Pagination controls
     if ((filters as any).limit) params.append('limit', String((filters as any).limit))
     if ((filters as any).page) params.append('page', String((filters as any).page))
     if ((filters as any).offset !== undefined) {
-      // Convert offset to page number for API
       const pageFromOffset = Math.floor((filters as any).offset / ((filters as any).limit || 100)) + 1
       params.append('page', String(pageFromOffset))
     }
@@ -129,7 +137,7 @@ export const propertyService = {
     const queryString = params.toString()
     const url = queryString ? `/api/properties?${queryString}` : '/api/properties'
     
-    console.log('Property search with pagination URL:', url) // Debug log
+    console.log('Property search with pagination URL:', url)
     const response = await authedFetch<any>(url)
     
     // Handle both old array format and new paginated format

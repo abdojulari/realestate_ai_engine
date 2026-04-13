@@ -41,7 +41,7 @@
               />
 
               <NeighborhoodDropdown
-                v-model="selectedNeighborhoodId"
+                v-model="selectedNeighborhoodName"
                 label="Neighborhood"
                 placeholder="All Areas"
                 :city-filter="selectedCity"
@@ -50,7 +50,7 @@
               />
 
               <v-expand-transition>
-                <div v-if="selectedCity || selectedNeighborhoodId" class="selection-badge">
+                <div v-if="selectedCity || selectedNeighborhoodName" class="selection-badge">
                   <div class="d-flex align-center justify-space-between">
                     <div class="d-flex align-center gap-2">
                       <span class="selection-dot"></span>
@@ -282,7 +282,7 @@ const currentPage = ref(1)
 const itemsPerPage = 100
 const selectedCity = ref('')
 const selectedCityCoordinates = ref<{ latitude: number; longitude: number } | null>(null)
-const selectedNeighborhoodId = ref<number | null>(null)
+const selectedNeighborhoodName = ref<string | null>(null)
 const selectedNeighborhoodInfo = ref<any>(null)
 const totalProperties = ref(0)
 const totalPages = ref(0)
@@ -329,10 +329,10 @@ const paginatedProperties = computed(() => properties.value)
 // Compute map center based on selected city/neighborhood or default to Edmonton
 const mapCenter = computed(() => {
   // Priority 1: Selected neighborhood coordinates
-  if (selectedNeighborhoodInfo.value?.coordinates) {
+  if (selectedNeighborhoodInfo.value?.centerLatitude && selectedNeighborhoodInfo.value?.centerLongitude) {
     return {
-      latitude: selectedNeighborhoodInfo.value.coordinates.latitude,
-      longitude: selectedNeighborhoodInfo.value.coordinates.longitude
+      latitude: selectedNeighborhoodInfo.value.centerLatitude,
+      longitude: selectedNeighborhoodInfo.value.centerLongitude
     }
   }
   // Priority 2: Selected city coordinates
@@ -434,9 +434,19 @@ const handleCitySelected = (city: City | null) => {
 const handleNeighborhoodSelected = (neighborhood: any) => {
   selectedNeighborhoodInfo.value = neighborhood
   if (neighborhood) {
-    selectedCity.value = ''
-    filters.value.city = ''
-    filters.value.neighborhoodId = neighborhood.id
+    // Keep the city filter active — subdivision is WITHIN the selected city
+    ;(filters.value as any).subdivision = neighborhood.name
+    delete (filters.value as any).neighborhoodId
+
+    // Center map on neighborhood if coordinates available
+    if (neighborhood.centerLatitude && neighborhood.centerLongitude) {
+      selectedCityCoordinates.value = {
+        latitude: neighborhood.centerLatitude,
+        longitude: neighborhood.centerLongitude
+      }
+    }
+  } else {
+    delete (filters.value as any).subdivision
   }
   currentPage.value = 1
   handleSearch(filters.value)
@@ -445,10 +455,10 @@ const handleNeighborhoodSelected = (neighborhood: any) => {
 const clearLocationSelection = () => {
   selectedCity.value = ''
   selectedCityCoordinates.value = null
-  selectedNeighborhoodId.value = null
+  selectedNeighborhoodName.value = null
   selectedNeighborhoodInfo.value = null
   filters.value.city = ''
-  filters.value.neighborhoodId = null
+  delete (filters.value as any).subdivision
   currentPage.value = 1
   handleSearch(filters.value)
 }

@@ -728,6 +728,10 @@ class CreaService {
       photosCount: creaProp.PhotosCount,
       commonInterest: creaProp.CommonInterest,
       listAOR: creaProp.ListAOR,
+      listAgentKey: creaProp.ListAgentKey,
+      listOfficeKey: creaProp.ListOfficeKey,
+      coListAgentKey: creaProp.CoListAgentKey,
+      coListOfficeKey: creaProp.CoListOfficeKey,
       
       // ===== PROPERTY CLASSIFICATION =====
       propertySubType: creaProp.PropertySubType,
