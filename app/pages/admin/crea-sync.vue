@@ -318,6 +318,12 @@
                   <p class="text-[10px] uppercase tracking-wider text-rose-600 font-bold mt-1">Failed</p>
                 </div>
               </div>
+              <div v-if="agentBackfillResult.reasons?.length" class="mt-6 p-4 bg-slate-50 rounded-xl max-h-48 overflow-y-auto">
+                <p class="text-[10px] uppercase tracking-wider text-slate-500 font-bold mb-2">Details</p>
+                <ul class="text-xs text-slate-600 space-y-1 font-mono">
+                  <li v-for="(reason, i) in agentBackfillResult.reasons" :key="i">{{ reason }}</li>
+                </ul>
+              </div>
             </div>
           </transition>
         </div>
