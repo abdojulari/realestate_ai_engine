@@ -49,8 +49,8 @@ export default defineNuxtConfig({
     '/admin/tools/**': { ssr: false },
   },
   nitro: {
-    // Prevent 413 Payload Too Large on POST requests (default limit can be low)
-    bodyLimit: '50mb',
+    // 50 MB — prevent 413 Payload Too Large on document/resource uploads
+    bodyLimit: 50 * 1024 * 1024,
     // @verdocs/js-sdk + axios-retry v4 CJS interop breaks when bundled; shim loads real export
     alias: {
       'axios-retry': axiosRetryShim,

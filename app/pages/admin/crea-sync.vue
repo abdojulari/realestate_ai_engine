@@ -282,7 +282,8 @@
             <div>
               <h2 class="text-xl font-serif text-slate-900">Agent &amp; Office Data</h2>
               <p class="text-sm text-slate-500 mt-1">
-                Backfill listing agent and office information for properties missing this data
+                Backfill agent/office info for active listings. Run a <strong>CREA Sync first</strong> to refresh active properties, then backfill.
+                Delisted properties will be marked as expired.
               </p>
             </div>
             <button

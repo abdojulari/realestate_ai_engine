@@ -530,8 +530,8 @@ async function askChatbot({
   leadIntent: boolean
 }) {
   const config = useRuntimeConfig()
-  const groqApiKey = config.groqApiKey
-  const groqApiUrl = config.groqApiUrl || 'https://api.groq.com/openai/v1'
+  const groqApiKey = (config.groqApiKey as string) || process.env.GROQ_API_KEY || ''
+  const groqApiUrl = (config.groqApiUrl as string) || process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1'
 
   if (!groqApiKey) {
     throw createError({

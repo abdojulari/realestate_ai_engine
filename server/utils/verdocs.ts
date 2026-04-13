@@ -85,6 +85,13 @@ export async function getVerdocsEndpoint(): Promise<VerdocsEndpoint> {
 
   endpoint.setToken(authResult.access_token)
 
+  // Raise axios body limits so large PDFs (base64-encoded) are not rejected
+  const api = endpoint.api as any
+  if (api?.defaults) {
+    api.defaults.maxBodyLength = 100 * 1024 * 1024    // 100 MB
+    api.defaults.maxContentLength = 100 * 1024 * 1024
+  }
+
   const expiresIn = Number(authResult.expires_in) || 3600
   cached = {
     endpoint,

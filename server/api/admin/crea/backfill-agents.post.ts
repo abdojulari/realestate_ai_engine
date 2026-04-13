@@ -54,8 +54,13 @@ export default defineEventHandler(async (event) => {
         const details = await creaService.getPropertyWithAgentDetails(listingKey)
 
         if (!details.property) {
+          // Property no longer in CREA -- mark as expired
+          await prisma.property.update({
+            where: { id: prop.id },
+            data: { status: 'expired' }
+          })
           stats.skipped++
-          stats.reasons.push(`${listingKey}: not found in CREA (may be delisted)`)
+          stats.reasons.push(`${listingKey}: not in CREA anymore → marked expired`)
           continue
         }
 

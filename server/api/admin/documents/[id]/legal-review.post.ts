@@ -28,8 +28,8 @@ const MODEL = 'llama-3.1-8b-instant'
 
 function getGroqConfig() {
   const config = useRuntimeConfig()
-  const groqApiKey = config.groqApiKey
-  const groqApiUrl = config.groqApiUrl || 'https://api.groq.com/openai/v1'
+  const groqApiKey = (config.groqApiKey as string) || process.env.GROQ_API_KEY || ''
+  const groqApiUrl = (config.groqApiUrl as string) || process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1'
   if (!groqApiKey) {
     throw createError({ statusCode: 500, statusMessage: 'GROQ_API_KEY is not configured.' })
   }

@@ -1,6 +1,5 @@
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter } from '../../../utils/tenant'
-import { pillar9Service } from '../../../utils/pillar9.service'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -34,9 +33,9 @@ export default defineEventHandler(async (event) => {
   ])
 
   const cities = [...new Set(
-    citiesRaw.map(r => r.city).filter(Boolean)
-      .map(c => pillar9Service.getCityName(c))
-      .filter(c => !/^\d+$/.test(c))
+    citiesRaw
+      .map(r => r.city)
+      .filter((c): c is string => Boolean(c) && !/^\d+$/.test(c))
   )].sort()
 
   const sources = sourcesRaw.map(r => r.source).filter(Boolean).sort()
