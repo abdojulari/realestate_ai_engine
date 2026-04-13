@@ -59,23 +59,43 @@
             <p class="text-body-2 text-grey-darken-1 mb-4 leading-relaxed">
               Receive curated property collections and market insights directly to your inbox.
             </p>
-            <form @submit.prevent="handleSubscribe" class="newsletter-input-wrapper">
-              <input 
-                v-model="email" 
-                type="email" 
-                placeholder="Your email address" 
-                class="premium-footer-input"
-                :disabled="subscribeLoading"
-                required
-              />
-              <v-btn 
-                icon="mdi-arrow-right" 
-                variant="text" 
-                size="small" 
-                class="ml-2"
-                type="submit"
-                :loading="subscribeLoading"
-              ></v-btn>
+            <form @submit.prevent="handleSubscribe" class="newsletter-form">
+              <div class="newsletter-name-row">
+                <input
+                  v-model="firstName"
+                  type="text"
+                  placeholder="First name"
+                  class="premium-footer-input"
+                  :disabled="subscribeLoading"
+                  required
+                />
+                <input
+                  v-model="lastName"
+                  type="text"
+                  placeholder="Last name"
+                  class="premium-footer-input"
+                  :disabled="subscribeLoading"
+                  required
+                />
+              </div>
+              <div class="newsletter-input-wrapper">
+                <input 
+                  v-model="email" 
+                  type="email" 
+                  placeholder="Your email address" 
+                  class="premium-footer-input"
+                  :disabled="subscribeLoading"
+                  required
+                />
+                <v-btn 
+                  icon="mdi-arrow-right" 
+                  variant="text" 
+                  size="small" 
+                  class="ml-2"
+                  type="submit"
+                  :loading="subscribeLoading"
+                ></v-btn>
+              </div>
             </form>
             <transition name="fade">
               <p v-if="message" :class="['newsletter-message', messageType]">
@@ -146,13 +166,15 @@ const footerLinks = [
 ]
 
 // Newsletter subscription
+const firstName = ref('')
+const lastName = ref('')
 const email = ref('')
 const subscribeLoading = ref(false)
 const message = ref('')
 const messageType = ref<'success' | 'error'>('success')
 
 const handleSubscribe = async () => {
-  if (!email.value || subscribeLoading.value) return
+  if (!email.value || !firstName.value.trim() || !lastName.value.trim() || subscribeLoading.value) return
 
   subscribeLoading.value = true
   message.value = ''
@@ -162,6 +184,8 @@ const handleSubscribe = async () => {
       method: 'POST',
       body: {
         email: email.value,
+        firstName: firstName.value.trim(),
+        lastName: lastName.value.trim(),
         source: 'website'
       }
     }) as any
@@ -169,6 +193,8 @@ const handleSubscribe = async () => {
     if (response.success) {
       messageType.value = 'success'
       message.value = response.message
+      firstName.value = ''
+      lastName.value = ''
       email.value = ''
     } else {
       messageType.value = 'error'
@@ -180,7 +206,6 @@ const handleSubscribe = async () => {
   } finally {
     subscribeLoading.value = false
     
-    // Clear message after 5 seconds
     setTimeout(() => {
       message.value = ''
     }, 5000)
@@ -278,6 +303,27 @@ const handleSubscribe = async () => {
 }
 
 /* --- Newsletter --- */
+.newsletter-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.newsletter-name-row {
+  display: flex;
+  gap: 12px;
+}
+
+.newsletter-name-row .premium-footer-input {
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 8px;
+  transition: border-color 0.3s ease;
+}
+
+.newsletter-name-row .premium-footer-input:focus {
+  border-bottom-color: #8c734b;
+}
+
 .newsletter-input-wrapper {
   display: flex;
   align-items: center;
