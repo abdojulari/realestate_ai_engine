@@ -57,6 +57,7 @@ RUN pnpm exec prisma generate
 # Pre-create writable directories for the non-root user
 RUN mkdir -p server/ml/models/forecast
 RUN mkdir -p public/uploads/logos public/uploads/favicons public/uploads/brokerage public/uploads/avatars public/uploads/blog public/uploads/documents
+RUN mkdir -p storage/marketing-resources
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
