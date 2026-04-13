@@ -79,20 +79,21 @@ export default defineEventHandler(async (event) => {
     // Handle tags - ensure they're stored and tracked
     const tags = body.tags || []
     if (tags.length > 0) {
-      // Upsert tags with tenant scoping
       for (const tagName of tags) {
         const tagSlug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         await prisma.blogTag.upsert({
-          where: { slug: tagSlug } as any,
+          where: {
+            adminId_slug: { adminId, slug: tagSlug },
+          },
           create: {
             name: tagName,
             slug: tagSlug,
             postCount: 1,
-            adminId
+            adminId,
           },
           update: {
-            postCount: { increment: 1 }
-          }
+            postCount: { increment: 1 },
+          },
         })
       }
     }

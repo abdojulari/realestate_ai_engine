@@ -160,19 +160,22 @@ export default defineEventHandler(async (event) => {
       
       // Add/increment new tags
       const addedTags = newTags.filter((t: string) => !oldTags.includes(t))
+      const tagAdminId = existingPost.adminId ?? 0
       for (const tagName of addedTags) {
         const tagSlug = tagName.toLowerCase().replace(/[^a-z0-9]+/g, '-')
         await prisma.blogTag.upsert({
-          where: { slug: tagSlug } as any,
+          where: {
+            adminId_slug: { adminId: tagAdminId, slug: tagSlug },
+          },
           create: {
             name: tagName,
             slug: tagSlug,
             postCount: 1,
-            adminId: existingPost.adminId
+            adminId: tagAdminId,
           },
           update: {
-            postCount: { increment: 1 }
-          }
+            postCount: { increment: 1 },
+          },
         })
       }
       
