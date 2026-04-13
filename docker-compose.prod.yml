@@ -63,7 +63,7 @@ services:
       # Pillar9 / Matrix
       PILLAR9_CLIENT_ID: ${PILLAR9_CLIENT_ID:-}
       PILLAR9_CLIENT_SECRET: ${PILLAR9_CLIENT_SECRET:-}
-      PILLAR9_TOKEN_HOST: ${PILLAR9_TOKEN_HOST:-pillarnine.clareityiam.net}
+      PILLAR9_TOKEN_HOST: ${PILLAR9_TOKEN_HOST:-api-trestle.corelogic.com}
       PILLAR9_API_HOST: ${PILLAR9_API_HOST:-abrls.matrixwebapi.com}
       PILLAR9_SYNC_SECRET: ${PILLAR9_SYNC_SECRET:-${CRON_SECRET:-}}
 

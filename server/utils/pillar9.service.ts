@@ -196,9 +196,9 @@ const PILLAR9_CITY_CODE_MAP: Record<string, string> = {
 }
 
 class Pillar9Service {
-  // Pillar9/Matrix API configuration
-  private tokenHost = 'pillarnine.clareityiam.net'
-  private tokenPath = '/idp/profile/oidc/token?grant_type=client_credentials&scope=openid'
+  // Pillar9/Trestle API configuration
+  private tokenHost = 'api-trestle.corelogic.com'
+  private tokenPath = '/trestle/oidc/connect/token'
   private apiHost = 'abrls.matrixwebapi.com'
   private apiPath = '/MatrixWebAPI/local/Property'
   private clientId: string | null = null
@@ -268,7 +268,7 @@ class Pillar9Service {
     const auth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')
     const tokenUrl = `https://${this.tokenHost}${this.tokenPath}`
 
-    console.log('🔐 Pillar9: Requesting access token from Clareity IAM...')
+    console.log('🔐 Pillar9: Requesting access token from', this.tokenHost)
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -276,7 +276,8 @@ class Pillar9Service {
         'Authorization': `Basic ${auth}`,
         'Content-Type': 'application/x-www-form-urlencoded',
         'Accept': 'application/json'
-      }
+      },
+      body: 'grant_type=client_credentials&scope=openid'
     })
 
     if (!response.ok) {

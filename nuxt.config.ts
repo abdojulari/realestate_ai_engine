@@ -188,7 +188,7 @@ export default defineNuxtConfig({
     // Pillar9/Matrix API Configuration
     pillar9ClientId: process.env.PILLAR9_CLIENT_ID || '',
     pillar9ClientSecret: process.env.PILLAR9_CLIENT_SECRET || '',
-    pillar9TokenHost: process.env.PILLAR9_TOKEN_HOST || 'pillarnine.clareityiam.net',
+    pillar9TokenHost: process.env.PILLAR9_TOKEN_HOST || 'api-trestle.corelogic.com',
     pillar9ApiHost: process.env.PILLAR9_API_HOST || 'abrls.matrixwebapi.com',
     /** Secret for cron/unauthenticated sync (e.g. PILLAR9_SYNC_SECRET or CRON_SECRET). If set, POST with X-Pillar9-Sync-Key or Bearer token bypasses admin auth. */
     pillar9SyncSecret: process.env.PILLAR9_SYNC_SECRET || process.env.CRON_SECRET || '',
