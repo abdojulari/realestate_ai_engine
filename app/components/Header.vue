@@ -163,6 +163,11 @@
 
     <!-- Mobile Navigation -->
     <nav class="mobile-nav" :class="{ active: mobileMenuOpen }">
+      <!-- Close button -->
+      <button class="mobile-close-btn" @click="mobileMenuOpen = false" aria-label="Close menu">
+        <v-icon size="24">mdi-close</v-icon>
+      </button>
+
       <ul class="mobile-nav-list">
         <!-- Auth Section for Mobile -->
         <ClientOnly>
@@ -269,12 +274,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 import { useLicense, FEATURES } from '~/composables/useLicense'
 
+const route = useRoute()
 const mobileMenuOpen = ref(false)
 const auth = useAuthStore()
+
+watch(() => route.fullPath, () => {
+  mobileMenuOpen.value = false
+})
 const { canUseChatbot, canUseAISearch, hasFullAccess } = useLicense()
 
 // Tenant settings from DB (replaces hardcoded logo/name)
@@ -488,6 +498,16 @@ const handleLogout = () => {
   background: #111;
   margin: 3px 0;
   transition: 0.3s;
+  transform-origin: center;
+}
+.mobile-menu-btn.active .hamburger-line:nth-child(1) {
+  transform: translateY(4.5px) rotate(45deg);
+}
+.mobile-menu-btn.active .hamburger-line:nth-child(2) {
+  opacity: 0;
+}
+.mobile-menu-btn.active .hamburger-line:nth-child(3) {
+  transform: translateY(-4.5px) rotate(-45deg);
 }
 
 @media (max-width: 1100px) {
@@ -509,11 +529,11 @@ const handleLogout = () => {
   height: 100%;
   background: rgba(0, 0, 0, 0.3);
   opacity: 0;
-  visibility: hidden;
-  transition: 0.3s;
+  pointer-events: none;
+  transition: opacity 0.3s;
   z-index: 1100;
 }
-.mobile-nav-overlay.active { opacity: 1; visibility: visible; }
+.mobile-nav-overlay.active { opacity: 1; pointer-events: auto; }
 
 .mobile-nav {
   position: fixed;
@@ -524,10 +544,30 @@ const handleLogout = () => {
   background: white;
   transition: right 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
   z-index: 1200;
-  padding: 40px 20px;
+  padding: 56px 20px 40px;
   overflow-y: auto;
 }
 .mobile-nav.active { right: 0; }
+
+.mobile-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+  color: #1a1a1a;
+}
+.mobile-close-btn:hover {
+  background: #f0f0f0;
+}
 
 .mobile-nav-list {
   list-style: none;
