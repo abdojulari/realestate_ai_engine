@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import 'dotenv/config'
+try { await import('dotenv/config') } catch {}
 
 /**
  * PILLAR9 SYNC - Sync properties from Pillar9/Matrix API (Alberta)
