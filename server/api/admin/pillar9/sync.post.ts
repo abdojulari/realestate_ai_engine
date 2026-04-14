@@ -12,8 +12,11 @@ globalForPrisma.prisma = prisma
 /** Allow request if sync secret is configured and provided (for cron). Otherwise require admin. */
 async function requireAdminOrSyncSecret(event: any) {
   const config = useRuntimeConfig()
-  const secret = config.pillar9SyncSecret as string | undefined
-  if (secret && secret.length > 0) {
+  const secret = (config.pillar9SyncSecret as string)
+    || process.env.PILLAR9_SYNC_SECRET
+    || process.env.CRON_SECRET
+    || ''
+  if (secret.length > 0) {
     const keyHeader = getHeader(event, 'x-pillar9-sync-key')
     const authHeader = getHeader(event, 'authorization')
     const provided = keyHeader ?? (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null)
