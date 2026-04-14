@@ -1,16 +1,9 @@
 import type { Property } from '~/types'
 
-interface Pillar9TokenResponse {
-  access_token: string
-  expires_in: number
-  token_type: string
-  scope?: string
-}
-
 interface Pillar9Property {
-  ListingId: string  // Primary identifier in Matrix API
-  ListingKeyNumeric?: number  // Used for Media API (ResourceRecordKeyNumeric)
-  MlsStatus: string // 'A' = Active, 'S' = Sold, 'P' = Pending, 'LEAS', 'W', 'X', 'T', 'I'
+  ListingId: string
+  ListingKeyNumeric?: number
+  MlsStatus: string
   PropertySubType?: string
   PropertyType?: string
   ListPrice: number | null
@@ -18,7 +11,7 @@ interface Pillar9Property {
   BedroomsTotal: number | null
   BathroomsTotalInteger: number | null
   LivingArea?: number | null
-  LivingAreaSF?: number | null  // Matrix API field name
+  LivingAreaSF?: number | null
   LivingAreaUnits?: string | null
   UnparsedAddress: string
   City: string
@@ -36,14 +29,14 @@ interface Pillar9Property {
   ModificationTimestamp?: string
   OriginalEntryTimestamp?: string
   ListingURL?: string
-  
+
   // Agent and Office Relationships
   ListAgentKey?: string
   ListOfficeName?: string
   ListAgentFullName?: string
   ListAgentEmail?: string
   ListAgentDirectPhone?: string
-  
+
   // Property Details
   YearBuilt?: number | null
   ParkingTotal?: number | null
@@ -51,25 +44,25 @@ interface Pillar9Property {
   Heating?: string[]
   Cooling?: string[]
   Appliances?: string[]
-  
+
   // Lot Details
   LotSizeArea?: number | null
-  LotSizeAcres?: number | null  // Matrix API field name
+  LotSizeAcres?: number | null
   LotSizeDimensions?: string | null
   LotSizeUnits?: string | null
 
   // Building Details
   Stories?: number | null
-  StoriesTotal?: number | null  // Matrix API field name
+  StoriesTotal?: number | null
   BuildingAreaTotal?: number | null
-  BuildingAreaTotalSF?: number | null  // Matrix API field name
+  BuildingAreaTotalSF?: number | null
   BuildingAreaUnits?: string | null
   ArchitecturalStyle?: string[]
   FoundationDetails?: string[]
   Basement?: string[]
   Roof?: string[]
   ConstructionMaterials?: string[]
-  
+
   // Features
   ExteriorFeatures?: string[]
   InteriorFeatures?: string[]
@@ -77,27 +70,27 @@ interface Pillar9Property {
   PoolFeatures?: string[]
   WaterfrontFeatures?: string[]
   View?: string[]
-  
+
   // Utilities
   Utilities?: string[]
   WaterSource?: string[]
   Sewer?: string[]
   Electric?: string[]
-  
+
   // Tax & Legal
   TaxAnnualAmount?: number | null
   TaxYear?: number | null
   ParcelNumber?: string | null
   Zoning?: string | null
   ZoningDescription?: string | null
-  
+
   // Address components
   StreetNumber?: string | null
   StreetName?: string | null
   StreetSuffix?: string | null
   UnitNumber?: string | null
   Country?: string | null
-  
+
   // Dates
   CloseDate?: string | null
   ListDate?: string | null
@@ -196,16 +189,10 @@ const PILLAR9_CITY_CODE_MAP: Record<string, string> = {
 }
 
 class Pillar9Service {
-  // Pillar9/Trestle API configuration
-  private tokenHost = 'api-trestle.corelogic.com'
-  private tokenPath = '/trestle/oidc/connect/token'
   private apiHost = 'abrls.matrixwebapi.com'
   private apiPath = '/MatrixWebAPI/local/Property'
   private clientId: string | null = null
   private clientSecret: string | null = null
-  
-  private accessToken: string | null = null
-  private tokenExpiresAt: number = 0
   private configInitialized = false
 
   /**
@@ -216,12 +203,10 @@ class Pillar9Service {
   initConfig(config: { 
     clientId?: string
     clientSecret?: string
-    tokenHost?: string
     apiHost?: string 
   }) {
     if (config.clientId) this.clientId = config.clientId
     if (config.clientSecret) this.clientSecret = config.clientSecret
-    if (config.tokenHost) this.tokenHost = config.tokenHost
     if (config.apiHost) this.apiHost = config.apiHost
     this.configInitialized = true
     this.ensureConfig()
@@ -241,87 +226,32 @@ class Pillar9Service {
     if (!this.clientSecret) {
       this.clientSecret = process.env.PILLAR9_CLIENT_SECRET || null
     }
-    if (!this.tokenHost || this.tokenHost === 'pillarnine.clareityiam.net') {
-      this.tokenHost = process.env.PILLAR9_TOKEN_HOST || this.tokenHost
-    }
     if (!this.apiHost || this.apiHost === 'abrls.matrixwebapi.com') {
       this.apiHost = process.env.PILLAR9_API_HOST || this.apiHost
     }
   }
 
-  /**
-   * Get OAuth2 access token from Clareity IAM
-   */
-  private async getToken(): Promise<string> {
-    // Ensure config is loaded
+  private getBasicAuthHeader(): string {
     this.ensureConfig()
-    
-    // Check if token is still valid (with 5-minute buffer)
-    if (this.accessToken && Date.now() < (this.tokenExpiresAt - 5 * 60 * 1000)) {
-      return this.accessToken
-    }
-
     if (!this.clientId || !this.clientSecret) {
       throw new Error('Pillar9 API credentials not configured. Set PILLAR9_CLIENT_ID and PILLAR9_CLIENT_SECRET environment variables.')
     }
-
-    const auth = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')
-    const tokenUrl = `https://${this.tokenHost}${this.tokenPath}`
-
-    console.log('🔐 Pillar9: Requesting access token from', this.tokenHost)
-
-    const response = await fetch(tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${auth}`,
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Accept': 'application/json'
-      },
-      body: 'grant_type=client_credentials&scope=openid'
-    })
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      throw new Error(`Failed to get Pillar9 token: ${response.status} - ${errorText}`)
-    }
-
-    const tokenData: Pillar9TokenResponse = await response.json()
-    this.accessToken = tokenData.access_token
-    this.tokenExpiresAt = Date.now() + (tokenData.expires_in * 1000)
-
-    console.log('✅ Pillar9: Access token received, expires in', tokenData.expires_in, 'seconds')
-
-    return this.accessToken
+    return `Basic ${Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64')}`
   }
 
   /**
-   * Make authenticated request to Matrix Web API with 401 retry (token refresh)
+   * Make authenticated request to Matrix Web API using Basic Auth
    */
   private async makeApiRequest<T>(query: string, pathOverride?: string): Promise<T> {
     const basePath = pathOverride ?? this.apiPath
     const url = `https://${this.apiHost}${basePath}${query}`
 
-    const doRequest = async (token: string): Promise<Response> => {
-      return fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Accept': 'application/json'
-        }
-      })
-    }
-
-    let token = await this.getToken()
-    let response = await doRequest(token)
-
-    // On 401, refresh token and retry once
-    if (response.status === 401) {
-      console.log('🔐 Pillar9: 401 received, refreshing token and retrying...')
-      this.accessToken = null
-      this.tokenExpiresAt = 0
-      await new Promise((r) => setTimeout(r, 1000))
-      token = await this.getToken()
-      response = await doRequest(token)
-    }
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': this.getBasicAuthHeader(),
+        'Accept': 'application/json'
+      }
+    })
 
     if (!response.ok) {
       const errorText = await response.text()
@@ -396,43 +326,46 @@ class Pillar9Service {
 
     // Matrix OData $select: every field that transformToLocalProperty reads.
     // Unknown names are rejected by the API — only add fields that actually exist in the Matrix schema.
+    // Fields verified against the Matrix OData schema (Basic Auth).
+    // Removed after testing: ClosePrice, CloseDate, LivingArea, BuildingAreaUnits,
+    // Stories, LotSizeArea, LotSizeUnits, TaxAnnualAmount, TaxYear, ParcelNumber,
+    // ZoningDescription, ListDate, ListAgentKey, SecurityFeatures, View.
     const defaultSelect = [
       // Core identifiers
       'ListingId', 'ListingKeyNumeric', 'MlsStatus',
       // Pricing
-      'ListPrice', 'ClosePrice', 'CloseDate',
+      'ListPrice',
       // Rooms & size
       'BedroomsTotal', 'BathroomsTotalInteger',
-      'LivingAreaSF', 'LivingArea',
-      'BuildingAreaTotalSF', 'BuildingAreaTotal', 'BuildingAreaUnits',
+      'LivingAreaSF',
+      'BuildingAreaTotalSF', 'BuildingAreaTotal',
       // Location
       'UnparsedAddress', 'StreetName', 'StreetNumber', 'UnitNumber',
       'City', 'StateOrProvince', 'PostalCode',
       'Latitude', 'Longitude',
       // Type & structure
       'PropertyType', 'PropertySubType',
-      'YearBuilt', 'StoriesTotal', 'Stories',
+      'YearBuilt', 'StoriesTotal',
       // Lot
-      'LotSizeArea', 'LotSizeAcres', 'LotSizeDimensions', 'LotSizeUnits',
+      'LotSizeAcres', 'LotSizeDimensions',
       // Parking
       'ParkingTotal', 'GarageSpaces',
       // Tax
-      'TaxAnnualAmount', 'TaxYear', 'ParcelNumber',
-      'Zoning', 'ZoningDescription',
+      'Zoning',
       // Description
       'PublicRemarks',
       // Dates & meta
-      'ListDate', 'DaysOnMarket', 'ModificationTimestamp', 'PhotosCount',
+      'DaysOnMarket', 'ModificationTimestamp', 'PhotosCount',
       // Agent
-      'ListAgentFullName', 'ListAgentKey', 'ListAgentEmail', 'ListAgentDirectPhone',
+      'ListAgentFullName', 'ListAgentEmail', 'ListAgentDirectPhone',
       'ListOfficeName',
       // Features (array fields — Matrix returns [] or null for these)
       'Heating', 'Cooling', 'Appliances',
-      'SecurityFeatures', 'ExteriorFeatures', 'InteriorFeatures',
+      'ExteriorFeatures', 'InteriorFeatures',
       'ArchitecturalStyle', 'Basement', 'FoundationDetails',
       'Roof', 'ConstructionMaterials',
       'Utilities', 'WaterSource', 'Sewer', 'Electric',
-      'PoolFeatures', 'WaterfrontFeatures', 'View',
+      'PoolFeatures', 'WaterfrontFeatures',
     ]
     const select = filters.select?.length ? filters.select : defaultSelect
     queryParts.push(`$select=${encodeURIComponent(select.join(','))}`)
@@ -634,7 +567,6 @@ class Pillar9Service {
       closePrice: p9Prop.ClosePrice,
     }
 
-    // Determine price - use ClosePrice for sold properties
     const price = status === 'sold' && p9Prop.ClosePrice 
       ? p9Prop.ClosePrice 
       : (p9Prop.ListPrice || 0)
@@ -685,7 +617,6 @@ class Pillar9Service {
       cityRegion: null,
       waterBodyName: null,
 
-      // Days on Market — use API field, fall back to calculation from ListDate
       daysOnMarket: p9Prop.DaysOnMarket ?? (p9Prop.ListDate
         ? Math.floor((Date.now() - new Date(p9Prop.ListDate).getTime()) / (1000 * 60 * 60 * 24))
         : null),

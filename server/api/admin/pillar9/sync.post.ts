@@ -77,7 +77,6 @@ export default defineEventHandler(async (event) => {
   pillar9Service.initConfig({
     clientId: config.pillar9ClientId,
     clientSecret: config.pillar9ClientSecret,
-    tokenHost: config.pillar9TokenHost,
     apiHost: config.pillar9ApiHost
   })
 
