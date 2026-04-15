@@ -334,7 +334,7 @@ function notify(text: string, color = 'success') {
 async function fetchItems() {
   loading.value = true
   try {
-    const data: any = await api.get('/api/admin/flash-news')
+    const data: any = await api.get('/admin/flash-news')
     items.value = data.items || []
   } catch (e) {
     console.error('Failed to fetch flash news:', e)
@@ -393,10 +393,10 @@ async function save() {
     }
 
     if (editing.value && editId.value) {
-      await api.put(`/api/admin/flash-news/${editId.value}`, payload)
+      await api.put(`/admin/flash-news/${editId.value}`, payload)
       notify('Flash news updated')
     } else {
-      await api.post('/api/admin/flash-news', payload)
+      await api.post('/admin/flash-news', payload)
       notify('Flash news created')
     }
 
@@ -411,7 +411,7 @@ async function save() {
 
 async function togglePublished(item: any) {
   try {
-    await api.put(`/api/admin/flash-news/${item.id}`, { published: !item.published })
+    await api.put(`/admin/flash-news/${item.id}`, { published: !item.published })
     notify(item.published ? 'Unpublished' : 'Published')
     await fetchItems()
   } catch {
@@ -428,7 +428,7 @@ async function deleteItem() {
   if (!deleteTarget.value) return
   deleting.value = true
   try {
-    await api.del(`/api/admin/flash-news/${deleteTarget.value.id}`)
+    await api.del(`/admin/flash-news/${deleteTarget.value.id}`)
     notify('Flash news deleted')
     showDeleteConfirm.value = false
     await fetchItems()
