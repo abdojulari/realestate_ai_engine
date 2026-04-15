@@ -136,7 +136,7 @@ export default defineEventHandler(async (event) => {
             
             <div class="info-box">
               <strong>⏰ Important:</strong><br>
-              This code will expire in <strong>5 minutes</strong> (at ${expiryTime.toLocaleTimeString()}).<br>
+              This code will expire in <strong>5 minutes</strong> (at ${expiryTime.toLocaleTimeString('en-US', { timeZone: 'America/Edmonton', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}).<br>
               For security reasons, please do not share this code with anyone.
             </div>
             
@@ -158,7 +158,7 @@ You requested a new verification code. Here's your fresh code to complete the si
 
 Verification Code: ${code}
 
-This code will expire in 5 minutes (at ${expiryTime.toLocaleTimeString()}).
+This code will expire in 5 minutes (at ${expiryTime.toLocaleTimeString('en-US', { timeZone: 'America/Edmonton', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}).
 
 For security reasons, please do not share this code with anyone.
 
