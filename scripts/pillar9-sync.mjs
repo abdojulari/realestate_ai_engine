@@ -79,7 +79,7 @@ function parseArgs() {
   let secret = null
   const secretArg = args.find(a => a.startsWith('--secret='))
   if (secretArg) {
-    secret = secretArg.split('=')[1]
+    secret = secretArg.substring(secretArg.indexOf('=') + 1)
   }
 
   return {
