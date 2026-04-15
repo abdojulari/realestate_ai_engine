@@ -1,6 +1,7 @@
 <template>
   <div class="app-layout">
     <Header />
+    <FlashNewsBanner />
     <main class="main-content">
       <slot />
     </main>
@@ -12,6 +13,7 @@
 
 <script setup lang="ts">
 import Header from '~/components/Header.vue'
+import FlashNewsBanner from '~/components/FlashNewsBanner.vue'
 import Footer from '~/components/Footer.vue'
 import CookieConsent from '~/components/CookieConsent.vue'
 import ChatLauncher from '~/components/chat/ChatLauncher.vue'

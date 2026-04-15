@@ -217,7 +217,7 @@ export default defineEventHandler(async (event) => {
                 
                 <div class="info-box">
                   <strong>⏰ Important:</strong><br>
-                  This code will expire in <strong>5 minutes</strong> (at ${expiryTime.toLocaleTimeString('en-US', { timeZone: 'America/Edmonton', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}).<br>
+                  This code will expire in <strong>5 minutes</strong>.<br>
                   For security reasons, please do not share this code with anyone.
                 </div>
                 
@@ -239,7 +239,7 @@ We received a login request for your account. To complete the sign-in process, p
 
 Verification Code: ${code}
 
-This code will expire in 5 minutes (at ${expiryTime.toLocaleTimeString('en-US', { timeZone: 'America/Edmonton', hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true })}).
+This code will expire in 5 minutes.
 
 For security reasons, please do not share this code with anyone.
 

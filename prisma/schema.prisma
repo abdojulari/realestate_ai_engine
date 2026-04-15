@@ -105,6 +105,7 @@ model User {
   tenantLeadForms          LeadForm[]               @relation("TenantLeadForms")
   tenantMarketingResources MarketingResource[]      @relation("TenantMarketingResources")
   tenantWorkspaceTools     WorkspaceTool[]          @relation("TenantWorkspaceTools")
+  tenantFlashNews          FlashNews[]              @relation("TenantFlashNews")
 
   // ── Bookkeeping relations (tenant-scoped) ──
   tenantBkExpenses         BkExpense[]              @relation("TenantBkExpenses")
@@ -1289,4 +1290,29 @@ model ResourceDownloadLead {
 
   @@index([resourceId])
   @@index([adminId, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FLASH NEWS – homepage breaking news / announcements banner
+// ═══════════════════════════════════════════════════════════════
+
+model FlashNews {
+  id          Int       @id @default(autoincrement())
+  adminId     Int
+  admin       User      @relation("TenantFlashNews", fields: [adminId], references: [id], onDelete: Cascade)
+  headline    String
+  slug        String
+  content     String    @db.Text
+  ctaLabel    String?
+  ctaUrl      String?
+  published   Boolean   @default(false)
+  sortOrder   Int       @default(0)
+  startsAt    DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([adminId, slug])
+  @@index([adminId])
+  @@index([adminId, published])
 }

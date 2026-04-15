@@ -344,6 +344,7 @@ const allMenuItems = [
   { title: 'Calendar', icon: 'mdi-calendar-clock', to: '/admin/calendar', requiresFeature: null, delegateFeature: 'calendar' },
   { title: 'Facebook', icon: 'mdi-facebook', to: '/admin/facebook', requiresFeature: null, delegateFeature: 'facebook' },
   { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null, delegateFeature: 'blog' },
+  { title: 'Flash News', icon: 'mdi-newspaper-variant', to: '/admin/flash-news', requiresFeature: null, delegateFeature: 'content' },
   { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma', requiresFeature: FEATURES.CMA, tier: 'silver', delegateFeature: 'cma' },
   { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync', requiresFeature: FEATURES.CREA_SYNC, tier: 'basic', delegateFeature: 'crea_sync' },
   { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync', requiresFeature: FEATURES.PILLAR9_SYNC, tier: 'basic', delegateFeature: 'pillar9_sync' },
