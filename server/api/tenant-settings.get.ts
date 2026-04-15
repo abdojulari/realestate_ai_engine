@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
         copyrightName: true,
         developerName: true,
         developerUrl: true,
-        admin: { select: { email: true } },
+        admin: { select: { firstName: true, lastName: true, email: true } },
         // Intentionally excluded: subdomain, customDomain, adminId
       },
     })
@@ -82,7 +82,11 @@ export default defineEventHandler(async (event) => {
     }
 
     const mapped = mapTenantMediaFields(settings)
-    return { ...mapped, adminEmail: (settings as any).admin?.email || null }
+    const admin = (settings as any).admin
+    const adminFirstName = admin?.firstName || null
+    const adminLastName = admin?.lastName || null
+    const adminFullName = [adminFirstName, adminLastName].filter(Boolean).join(' ') || null
+    return { ...mapped, adminEmail: admin?.email || null, adminFirstName, adminLastName, adminFullName }
   } catch (error: any) {
     if (error.statusCode) throw error
     console.error('Failed to load public tenant settings:', error)

@@ -209,7 +209,7 @@
               <v-icon size="36" color="white" class="mb-3">mdi-account-tie</v-icon>
               <p class="realtor-cta-text">
                 Looking for a REALTOR&reg;?
-                <strong>Abdul Ojulari</strong> is ready to guide your home-buying journey.
+                <strong>{{ adminFullName }}</strong> is ready to guide your home-buying journey.
               </p>
               <v-btn
                 color="white"
@@ -242,6 +242,8 @@
 import 'echarts'
 import { defineAsyncComponent } from 'vue'
 const VChart = defineAsyncComponent(() => import('vue-echarts'))
+
+const { adminFullName } = useTenantSettings()
 
 interface CityStats {
   city: string
