@@ -230,6 +230,48 @@
                   </button>
                 </div>
 
+                <!-- Live Progress -->
+                <transition name="fade">
+                  <div v-if="liveProgress && liveProgress.running" class="p-4 bg-slate-900 rounded-2xl text-white mt-4">
+                    <div class="flex items-center justify-between mb-3">
+                      <span class="text-[10px] uppercase tracking-widest font-bold opacity-60">Sync In Progress</span>
+                      <span class="text-[10px] px-2 py-0.5 rounded-full font-bold bg-blue-500/20 text-blue-400 animate-pulse">
+                        {{ liveProgress.phase }}
+                      </span>
+                    </div>
+                    <div class="mb-3">
+                      <div class="flex justify-between text-xs mb-1 opacity-60">
+                        <span>Cities: {{ liveProgress.citiesDone }}/{{ liveProgress.citiesTotal }}</span>
+                        <span>{{ Math.round(elapsedMinutes) }} min</span>
+                      </div>
+                      <div class="w-full bg-slate-700 rounded-full h-2">
+                        <div
+                          class="bg-gradient-to-r from-amber-500 to-emerald-500 h-2 rounded-full transition-all duration-500"
+                          :style="{ width: progressPercent + '%' }"
+                        ></div>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-4 gap-2 text-center">
+                      <div>
+                        <p class="text-lg font-serif text-emerald-400">{{ liveProgress.stats?.created || 0 }}</p>
+                        <p class="text-[9px] uppercase tracking-tighter opacity-60">Created</p>
+                      </div>
+                      <div>
+                        <p class="text-lg font-serif text-blue-400">{{ liveProgress.stats?.updated || 0 }}</p>
+                        <p class="text-[9px] uppercase tracking-tighter opacity-60">Updated</p>
+                      </div>
+                      <div>
+                        <p class="text-lg font-serif text-amber-400">{{ liveProgress.stats?.duplicates || 0 }}</p>
+                        <p class="text-[9px] uppercase tracking-tighter opacity-60">Duplicates</p>
+                      </div>
+                      <div>
+                        <p class="text-lg font-serif text-slate-400">{{ liveProgress.stats?.total || 0 }}</p>
+                        <p class="text-[9px] uppercase tracking-tighter opacity-60">Processed</p>
+                      </div>
+                    </div>
+                  </div>
+                </transition>
+
                 <!-- Sync Result -->
                 <transition name="fade">
                   <div v-if="lastSyncResult" class="p-4 bg-slate-900 rounded-2xl text-white">
@@ -530,6 +572,19 @@ const settings = ref<Settings>({
 
 const lastSyncResult = ref<SyncResult | null>(null)
 const alert = ref({ message: '', type: 'success' as 'success' | 'error' })
+const liveProgress = ref<any>(null)
+let pollTimer: ReturnType<typeof setInterval> | null = null
+const syncStartedAt = ref<number | null>(null)
+
+const elapsedMinutes = computed(() => {
+  if (!syncStartedAt.value) return 0
+  return (Date.now() - syncStartedAt.value) / 60000
+})
+
+const progressPercent = computed(() => {
+  if (!liveProgress.value || !liveProgress.value.citiesTotal) return 0
+  return Math.min(100, Math.round((liveProgress.value.citiesDone / liveProgress.value.citiesTotal) * 100))
+})
 
 const lastSyncFormatted = computed(() => {
   if (!status.value.lastSync) return 'Never'
@@ -541,11 +596,43 @@ const lastSyncFormatted = computed(() => {
 
 const fetchStatus = async () => {
   try {
-    const data = await $fetch<Pillar9Status>('/api/admin/pillar9/sync-status')
+    const data = await $fetch<any>('/api/admin/pillar9/sync-status')
     status.value = data
+
+    if (data.syncProgress) {
+      liveProgress.value = data.syncProgress
+
+      if (data.syncProgress.running && !loading.value) {
+        loading.value = true
+        syncStartedAt.value = data.syncProgress.startedAt ? new Date(data.syncProgress.startedAt).getTime() : Date.now()
+        startPolling()
+      }
+
+      if (!data.syncProgress.running && loading.value) {
+        loading.value = false
+        stopPolling()
+        if (data.syncProgress.result) {
+          lastSyncResult.value = data.syncProgress.result
+          alert.value = { message: data.syncProgress.result.message || 'Sync completed', type: 'success' }
+        } else if (data.syncProgress.error) {
+          alert.value = { message: `Sync failed: ${data.syncProgress.error}`, type: 'error' }
+        }
+        liveProgress.value = null
+        setTimeout(() => { alert.value.message = '' }, 8000)
+      }
+    }
   } catch (error) {
     console.error('Error fetching status:', error)
   }
+}
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setInterval(fetchStatus, 5000)
+}
+
+function stopPolling() {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null }
 }
 
 const fetchSettings = async () => {
@@ -567,36 +654,35 @@ const fetchSettings = async () => {
 const startSync = async () => {
   loading.value = true
   alert.value.message = ''
+  lastSyncResult.value = null
+  syncStartedAt.value = Date.now()
 
   try {
-    const response = await api.post<SyncResult>('/api/admin/pillar9/sync', {
+    const response = await api.post<any>('/api/admin/pillar9/sync', {
       filters: syncFilters.value,
       syncSold: syncOptions.value.syncSold,
       syncPending: syncOptions.value.syncPending,
       deduplicateWithCrea: syncOptions.value.deduplicateWithCrea
     })
 
-    lastSyncResult.value = response
-
-    alert.value = {
-      message: response.message || 'Sync completed successfully',
-      type: 'success'
+    if (response.started) {
+      alert.value = { message: 'Sync started — progress will update live below.', type: 'success' }
+      startPolling()
+    } else if (response.alreadyRunning) {
+      alert.value = { message: 'A sync is already running. Progress shown below.', type: 'success' }
+      startPolling()
+    } else {
+      lastSyncResult.value = response
+      loading.value = false
+      alert.value = { message: response.message || 'Sync completed', type: 'success' }
     }
-
-    // Refresh status
-    await fetchStatus()
   } catch (error: any) {
     console.error('Sync error:', error)
-    alert.value = {
-      message: `Sync failed: ${error.data?.message || error.message}`,
-      type: 'error'
-    }
-  } finally {
     loading.value = false
-    setTimeout(() => {
-      alert.value.message = ''
-    }, 5000)
+    alert.value = { message: `Sync failed: ${error.data?.message || error.message}`, type: 'error' }
   }
+
+  setTimeout(() => { if (!loading.value) alert.value.message = '' }, 8000)
 }
 
 const saveSettings = async () => {
@@ -627,6 +713,8 @@ onMounted(() => {
   fetchStatus()
   fetchSettings()
 })
+
+onUnmounted(stopPolling)
 </script>
 
 <style scoped>

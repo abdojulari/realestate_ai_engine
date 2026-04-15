@@ -1,5 +1,8 @@
 #!/usr/bin/env node
 
+import https from 'node:https'
+import http from 'node:http'
+
 try { await import('dotenv/config') } catch {}
 
 /**
@@ -154,6 +157,40 @@ async function getSyncStatus() {
 // RUN SYNC (POST)
 // ============================================
 
+function httpRequest(url, options) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url)
+    const lib = parsed.protocol === 'https:' ? https : http
+    const payload = options.body || ''
+
+    const req = lib.request(
+      {
+        hostname: parsed.hostname,
+        port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
+        path: parsed.pathname + parsed.search,
+        method: options.method || 'GET',
+        headers: options.headers || {},
+        timeout: 0,
+      },
+      (res) => {
+        res.setTimeout(0)
+        const chunks = []
+        res.on('data', (c) => chunks.push(c))
+        res.on('end', () => {
+          const body = Buffer.concat(chunks).toString('utf-8')
+          resolve({ status: res.statusCode, ok: res.statusCode >= 200 && res.statusCode < 300, body })
+        })
+        res.on('error', reject)
+      }
+    )
+    req.setTimeout(0)
+    req.on('error', reject)
+    req.on('timeout', () => { req.destroy(new Error('Request timed out')) })
+    req.write(payload)
+    req.end()
+  })
+}
+
 async function runSync(options) {
   const { cities, delay, noMedia, noDedupe, secret } = options
 
@@ -172,20 +209,8 @@ async function runSync(options) {
     body.cityCodes = cities
   }
 
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 60 * 60 * 1000)
+  const payload = JSON.stringify(body)
 
-  const syncPromise = fetch(`${API_BASE}/api/admin/pillar9/sync`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Pillar9-Sync-Key': secret
-    },
-    body: JSON.stringify(body),
-    signal: controller.signal
-  })
-
-  // Heartbeat: log every 60s while waiting so user sees progress (server logs detail in its terminal)
   const startMs = Date.now()
   const heartbeat = setInterval(() => {
     const min = Math.floor((Date.now() - startMs) / 60000)
@@ -194,24 +219,30 @@ async function runSync(options) {
 
   let response
   try {
-    response = await syncPromise
+    response = await httpRequest(`${API_BASE}/api/admin/pillar9/sync?mode=blocking`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Pillar9-Sync-Key': secret,
+        'Content-Length': Buffer.byteLength(payload).toString(),
+      },
+      body: payload,
+    })
   } finally {
-    clearTimeout(timeout)
     clearInterval(heartbeat)
   }
 
   if (!response.ok) {
-    const text = await response.text()
     let err
     try {
-      err = JSON.parse(text)
+      err = JSON.parse(response.body)
     } catch {
-      err = { message: text }
+      err = { message: response.body }
     }
     throw new Error(err.message || err.statusMessage || `HTTP ${response.status}`)
   }
 
-  return await response.json()
+  return JSON.parse(response.body)
 }
 
 // ============================================

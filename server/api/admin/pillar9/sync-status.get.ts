@@ -1,6 +1,7 @@
 import { defineEventHandler } from 'h3'
 import { pillar9Service } from '../../../utils/pillar9.service'
 import { PrismaClient } from '@prisma/client'
+import { getPillar9SyncProgress } from './sync.post'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -8,43 +9,25 @@ const prisma = globalForPrisma.prisma ?? new PrismaClient()
 globalForPrisma.prisma = prisma
 
 
-// GET is public - used by admin page and schedulers
 export default defineEventHandler(async (event) => {
   try {
-    // Initialize service with runtime config
     const config = useRuntimeConfig()
-    
-    // Debug logging
-    console.log('🔧 Pillar9 Config Check:')
-    console.log('  - clientId:', config.pillar9ClientId ? `${config.pillar9ClientId.substring(0, 10)}...` : 'NOT SET')
-    console.log('  - clientSecret:', config.pillar9ClientSecret ? 'SET (hidden)' : 'NOT SET')
-    
+
     pillar9Service.initConfig({
       clientId: config.pillar9ClientId,
       clientSecret: config.pillar9ClientSecret,
       apiHost: config.pillar9ApiHost
     })
 
-    // Get configuration status
     const configStatus = pillar9Service.getConfigStatus()
 
-    // Get property counts from database
     const [activeCount, soldCount, pendingCount, lastSyncSetting] = await Promise.all([
-      prisma.property.count({
-        where: { source: 'pillar9', status: 'for_sale' }
-      }),
-      prisma.property.count({
-        where: { source: 'pillar9', status: 'sold' }
-      }),
-      prisma.property.count({
-        where: { source: 'pillar9', status: 'pending' }
-      }),
-      prisma.setting.findFirst({
-        where: { key: 'pillar9_last_sync' }
-      })
+      prisma.property.count({ where: { source: 'pillar9', status: 'for_sale' } }),
+      prisma.property.count({ where: { source: 'pillar9', status: 'sold' } }),
+      prisma.property.count({ where: { source: 'pillar9', status: 'pending' } }),
+      prisma.setting.findFirst({ where: { key: 'pillar9_last_sync' } })
     ])
 
-    // Get API counts if configured
     let apiCounts = null
     if (configStatus.configured) {
       try {
@@ -64,6 +47,8 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    const progress = getPillar9SyncProgress()
+
     return {
       configured: configStatus.configured,
       message: configStatus.message,
@@ -74,7 +59,8 @@ export default defineEventHandler(async (event) => {
         total: activeCount + soldCount + pendingCount
       },
       apiCounts,
-      lastSync: lastSyncSetting?.value || null
+      lastSync: lastSyncSetting?.value || null,
+      syncProgress: progress,
     }
   } catch (error: any) {
     console.error('Failed to get Pillar9 status:', error)
@@ -83,7 +69,8 @@ export default defineEventHandler(async (event) => {
       message: `Error: ${error.message}`,
       localCounts: { active: 0, sold: 0, pending: 0, total: 0 },
       apiCounts: null,
-      lastSync: null
+      lastSync: null,
+      syncProgress: null,
     }
   }
 })
