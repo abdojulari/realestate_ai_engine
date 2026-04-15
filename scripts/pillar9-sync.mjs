@@ -172,13 +172,17 @@ async function runSync(options) {
     body.cityCodes = cities
   }
 
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 60 * 60 * 1000)
+
   const syncPromise = fetch(`${API_BASE}/api/admin/pillar9/sync`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'X-Pillar9-Sync-Key': secret
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: controller.signal
   })
 
   // Heartbeat: log every 60s while waiting so user sees progress (server logs detail in its terminal)
@@ -192,6 +196,7 @@ async function runSync(options) {
   try {
     response = await syncPromise
   } finally {
+    clearTimeout(timeout)
     clearInterval(heartbeat)
   }
 
