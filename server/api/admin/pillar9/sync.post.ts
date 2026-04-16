@@ -26,14 +26,14 @@ async function requireAdminOrSyncSecret(event: any) {
 }
 
 const BATCH_LIMIT = 200
-const DELAY_BETWEEN_BATCHES_MS = 3000
-const DELAY_BETWEEN_MEDIA_MS = 350
-const MAX_RETRIES_ON_401 = 10
-const DELAY_ON_401_BASE_MS = 8000
-const MAX_RETRIES_ON_429 = 30
-const DELAY_ON_429_BASE_MS = 10000
-const MAX_MEDIA_RETRIES_ON_429 = 6
-const DELAY_MEDIA_429_MS = 5000
+const DELAY_BETWEEN_BATCHES_MS = 500
+const DELAY_BETWEEN_MEDIA_MS = 100
+const MAX_RETRIES_ON_401 = 5
+const DELAY_ON_401_BASE_MS = 3000
+const MAX_RETRIES_ON_429 = 10
+const DELAY_ON_429_BASE_MS = 5000
+const MAX_MEDIA_RETRIES_ON_429 = 4
+const DELAY_MEDIA_429_MS = 2000
 
 const PRICE_RANGE_BRACKETS = [
   { min: 0, max: 200000 },
@@ -171,7 +171,7 @@ async function runSyncInBackground(params: any) {
     skip: number,
     minPrice?: number,
     maxPrice?: number,
-  ): Promise<{ properties: Awaited<ReturnType<typeof pillar9Service.getProperties>>; success: boolean; tooMany: boolean }> {
+  ): Promise<{ properties: Awaited<ReturnType<typeof pillar9Service.getProperties>>; success: boolean; tooMany: boolean; invalidCity: boolean }> {
     let retries401 = 0
     let retries429 = 0
     while (true) {
@@ -185,22 +185,24 @@ async function runSyncInBackground(params: any) {
           minPrice,
           maxPrice,
         })
-        return { properties, success: true, tooMany: false }
+        return { properties, success: true, tooMany: false, invalidCity: false }
       } catch (batchError: any) {
         const msg = batchError?.message ?? String(batchError)
+        const statusCode = (batchError as any)?.statusCode
+
         if (msg.includes('More than') && msg.includes('results found')) {
-          return { properties: [], success: false, tooMany: true }
+          return { properties: [], success: false, tooMany: true, invalidCity: false }
         }
-        if (msg.includes('404')) {
-          console.log(`⏭️  Pillar9: status ${status} returned 404 for city ${cityCode} — skipping`)
-          return { properties: [], success: true, tooMany: false }
+        if (msg.includes('not a valid enumeration') || msg.includes('not a valid Edm')) {
+          console.log(`⏭️  Pillar9: city code ${cityCode} is not a valid enum — skipping entirely`)
+          return { properties: [], success: true, tooMany: false, invalidCity: true }
         }
-        if (msg.includes('401') && retries401 < MAX_RETRIES_ON_401) {
+        if (statusCode === 401 && retries401 < MAX_RETRIES_ON_401) {
           retries401++
           const backoff401 = Math.min(DELAY_ON_401_BASE_MS * retries401, 60000)
           syncProgress.phase = `retry-401 (${retries401}, wait ${Math.round(backoff401 / 1000)}s)`
           await delay(backoff401)
-        } else if (msg.includes('429') && retries429 < MAX_RETRIES_ON_429) {
+        } else if (statusCode === 429 && retries429 < MAX_RETRIES_ON_429) {
           retries429++
           const backoffMs = Math.min(DELAY_ON_429_BASE_MS * retries429, 120000)
           syncProgress.phase = `rate-limited (wait ${Math.round(backoffMs / 1000)}s)`
@@ -208,7 +210,7 @@ async function runSyncInBackground(params: any) {
         } else {
           syncProgress.stats.errors++
           syncProgress.stats.errorDetails.push(`Batch city ${cityCode} status ${status}: ${msg}`)
-          return { properties: [], success: false, tooMany: false }
+          return { properties: [], success: false, tooMany: false, invalidCity: false }
         }
       }
     }
@@ -219,7 +221,7 @@ async function runSyncInBackground(params: any) {
     status: string,
     minPrice?: number,
     maxPrice?: number,
-  ): Promise<Awaited<ReturnType<typeof pillar9Service.getProperties>>> {
+  ): Promise<{ properties: Awaited<ReturnType<typeof pillar9Service.getProperties>>; invalidCity: boolean }> {
     const all: Awaited<ReturnType<typeof pillar9Service.getProperties>> = []
     let skip = 0
     let hasMore = true
@@ -227,16 +229,21 @@ async function runSyncInBackground(params: any) {
     while (hasMore) {
       const result = await fetchBatchWithRetry(cityCode, status, skip, minPrice, maxPrice)
 
+      if (result.invalidCity) {
+        return { properties: [], invalidCity: true }
+      }
+
       if (result.tooMany) {
         console.log(`📊 Pillar9: city ${cityCode} status ${status} too large — splitting by price range`)
         syncProgress.phase = `splitting city ${cityCode}`
         const subResults: Awaited<ReturnType<typeof pillar9Service.getProperties>> = []
         for (const bracket of PRICE_RANGE_BRACKETS) {
           const sub = await fetchAllForCityStatus(cityCode, status, bracket.min, bracket.max)
-          subResults.push(...sub)
+          if (sub.invalidCity) return { properties: [], invalidCity: true }
+          subResults.push(...sub.properties)
           await delay(DELAY_BETWEEN_BATCHES_MS)
         }
-        return subResults
+        return { properties: subResults, invalidCity: false }
       }
 
       if (!result.success || result.properties.length === 0) break
@@ -247,24 +254,32 @@ async function runSyncInBackground(params: any) {
       await delay(delayBetweenBatchesMs)
     }
 
-    return all
+    return { properties: all, invalidCity: false }
   }
 
   try {
     for (const cityCode of citiesToSync) {
       syncProgress.currentCity = cityCode
+      let skipCity = false
 
       for (const status of statusesToSync) {
+        if (skipCity) break
         syncProgress.currentStatus = status
         syncProgress.phase = 'syncing'
 
-        const properties = await fetchAllForCityStatus(
+        const fetchResult = await fetchAllForCityStatus(
           cityCode,
           status,
           filters.minPrice,
           filters.maxPrice,
         )
 
+        if (fetchResult.invalidCity) {
+          skipCity = true
+          break
+        }
+
+        const properties = fetchResult.properties
         if (properties.length === 0) continue
 
         syncProgress.stats.total += properties.length
@@ -384,11 +399,6 @@ async function runSyncInBackground(params: any) {
       }
 
       syncProgress.citiesDone++
-      if (syncProgress.citiesDone % 50 === 0) {
-        syncProgress.phase = 'cooldown'
-        await delay(15000)
-        syncProgress.phase = 'syncing'
-      }
     }
 
     syncProgress.phase = 'finalizing'

@@ -20,7 +20,7 @@ try { await import('dotenv/config') } catch {}
  *   --no-media        Skip fetching images from Media API (faster)
  *   --no-dedupe       Do not skip properties already in CREA
  *   --cities=CODES     Comma-separated city codes (e.g. 0046,0047 for Calgary,Edmonton). Default: all Alberta
- *   --delay=MS        Delay between API batches in ms (default: 2500)
+ *   --delay=MS        Delay between API batches in ms (default: 500)
  *   --secret=KEY      Sync secret (default: from PILLAR9_SYNC_SECRET or CRON_SECRET)
  *   --help            Show this help
  *
@@ -72,7 +72,7 @@ function parseArgs() {
     cities = citiesArg.split('=')[1].split(',').map(s => s.trim()).filter(Boolean)
   }
 
-  let delay = 2500
+  let delay = 500
   const delayArg = args.find(a => a.startsWith('--delay='))
   if (delayArg) {
     const v = parseInt(delayArg.split('=')[1], 10)
@@ -112,7 +112,7 @@ Options:
   --no-media             Do not fetch images from Media API (faster, fewer requests)
   --no-dedupe            Do not skip properties that exist in CREA
   --cities=CODES         Comma-separated city codes (e.g. 0046,0047). Default: all Alberta cities
-  --delay=MS             Delay between API batches in ms (default: 2500)
+  --delay=MS             Delay between API batches in ms (default: 500)
   --secret=KEY           Sync secret (default: PILLAR9_SYNC_SECRET or CRON_SECRET env)
   --help, -h             Show this help
 

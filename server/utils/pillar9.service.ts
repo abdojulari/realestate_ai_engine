@@ -27,6 +27,7 @@ interface Pillar9Property {
     Order?: number
   }>
   ModificationTimestamp?: string
+  PhotosChangeTimestamp?: string
   OriginalEntryTimestamp?: string
   ListingURL?: string
 
@@ -97,6 +98,24 @@ interface Pillar9Property {
   OnMarketDate?: string | null
   PendingTimestamp?: string | null
   DaysOnMarket?: number | null
+
+  // New fields (2026 schema update)
+  PetsAllowedYN?: boolean | null
+  PetsComments?: string | null
+  MaximumNumberOfPets?: number | null
+  MaximumPetWeight?: number | null
+  CountrySubdivision?: string | null
+  SubdivisionName?: string | null
+  MLSAreaMajor?: string | null
+  MLSAreaMinor?: string | null
+  FrontageLengthRemarks?: string | null
+  FrontageLengthUnit?: string | null
+  LeaseTermOptions?: string[] | null
+  AttributionContact?: string | null
+  DualOrVariableRateCommissionYN?: boolean | null
+  BuyerBrokerageCompensation?: string | null
+  BuyerBrokerageCompensationType?: string | null
+  UniversalParcelId?: string | null
 }
 
 interface Pillar9ApiResponse {
@@ -240,7 +259,10 @@ class Pillar9Service {
   }
 
   /**
-   * Make authenticated request to Matrix Web API using Basic Auth
+   * Make authenticated request to Matrix Web API using Basic Auth.
+   * 404 → returns { value: [] } (end-of-pagination / no data for this query).
+   * 400 with "not a valid enumeration" → throws with code 'INVALID_ENUM'.
+   * Other errors → throws normally.
    */
   private async makeApiRequest<T>(query: string, pathOverride?: string): Promise<T> {
     const basePath = pathOverride ?? this.apiPath
@@ -253,9 +275,16 @@ class Pillar9Service {
       }
     })
 
+    if (response.status === 404) {
+      return { value: [] } as unknown as T
+    }
+
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`Pillar9 API request failed: ${response.status} - ${errorText}`)
+      const err = new Error(`Pillar9 API request failed: ${response.status} - ${errorText}`)
+      ;(err as any).statusCode = response.status
+      ;(err as any).body = errorText
+      throw err
     }
 
     return response.json()
@@ -355,7 +384,7 @@ class Pillar9Service {
       // Description
       'PublicRemarks',
       // Dates & meta
-      'DaysOnMarket', 'ModificationTimestamp', 'PhotosCount',
+      'DaysOnMarket', 'ModificationTimestamp', 'PhotosCount', 'PhotosChangeTimestamp',
       // Agent
       'ListAgentFullName', 'ListAgentEmail', 'ListAgentDirectPhone',
       'ListOfficeName',
@@ -366,6 +395,13 @@ class Pillar9Service {
       'Roof', 'ConstructionMaterials',
       'Utilities', 'WaterSource', 'Sewer', 'Electric',
       'PoolFeatures', 'WaterfrontFeatures',
+      // 2026 schema additions
+      'PetsAllowedYN', 'PetsComments', 'MaximumNumberOfPets', 'MaximumPetWeight',
+      'CountrySubdivision', 'SubdivisionName',
+      'MLSAreaMajor', 'MLSAreaMinor',
+      'FrontageLengthRemarks', 'FrontageLengthUnit',
+      'AttributionContact',
+      'UniversalParcelId',
     ]
     const select = filters.select?.length ? filters.select : defaultSelect
     queryParts.push(`$select=${encodeURIComponent(select.join(','))}`)
@@ -562,9 +598,25 @@ class Pillar9Service {
       taxAnnualAmount: p9Prop.TaxAnnualAmount,
       taxYear: p9Prop.TaxYear,
       parcelNumber: p9Prop.ParcelNumber,
+      universalParcelId: p9Prop.UniversalParcelId,
       listDate: p9Prop.ListDate,
       closeDate: p9Prop.CloseDate,
       closePrice: p9Prop.ClosePrice,
+      // Pet info
+      petsAllowed: p9Prop.PetsAllowedYN ?? null,
+      petsComments: p9Prop.PetsComments ?? null,
+      maxPets: p9Prop.MaximumNumberOfPets ?? null,
+      maxPetWeight: p9Prop.MaximumPetWeight ?? null,
+      // Area / subdivision
+      subdivisionName: p9Prop.SubdivisionName ?? null,
+      mlsAreaMajor: p9Prop.MLSAreaMajor ?? null,
+      mlsAreaMinor: p9Prop.MLSAreaMinor ?? null,
+      countrySubdivision: p9Prop.CountrySubdivision ?? null,
+      // Frontage
+      frontageLengthRemarks: p9Prop.FrontageLengthRemarks ?? null,
+      frontageLengthUnit: p9Prop.FrontageLengthUnit ?? null,
+      // Attribution
+      attributionContact: p9Prop.AttributionContact ?? null,
     }
 
     const price = status === 'sold' && p9Prop.ClosePrice 
