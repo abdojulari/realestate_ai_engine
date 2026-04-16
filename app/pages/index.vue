@@ -81,7 +81,7 @@ onMounted(async () => {
   
   // Load Testimonials
   try {
-    const testimonials = await $fetch('/api/testimonials?featured=true&limit=10')
+    const testimonials = await $fetch('/api/testimonials?limit=10')
     featuredTestimonials.value = testimonials || []
   } catch {}
 

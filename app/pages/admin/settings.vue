@@ -271,44 +271,12 @@
               <h2 class="text-h6 font-weight-bold">General Settings</h2>
             </div>
             <v-card-text class="p-8">
+              <v-alert type="info" variant="tonal" density="compact" class="mb-6">
+                Site name, logo, contact info, and branding are managed in
+                <router-link to="/admin/content" class="font-weight-bold text-primary">Content &rarr; Site Branding</router-link>.
+              </v-alert>
               <v-form v-model="isGeneralFormValid" @submit.prevent="saveGeneralSettings">
                 <v-row>
-                  <v-col cols="12" md="6">
-                    <v-text-field density="compact"
-                      v-model="generalSettings.siteName"
-                      label="Site Name"
-                      :rules="[v => !!v || 'Site name is required']"
-                      variant="outlined"
-                      rounded="lg"
-                      class="premium-input"
-                      required
-                    />
-                  </v-col>
-
-                  <v-col cols="12" md="6">
-                    <v-text-field density="compact"
-                      v-model="generalSettings.supportEmail"
-                      label="Support Email"
-                      type="email"
-                      :rules="emailRules"
-                      variant="outlined"
-                      rounded="lg"
-                      class="premium-input"
-                      required
-                    />
-                  </v-col>
-
-                  <v-col cols="12" md="6">
-                    <v-text-field density="compact"
-                      v-model="generalSettings.phone"
-                      label="Contact Phone"
-                      :rules="phoneRules"
-                      variant="outlined"
-                      rounded="lg"
-                      class="premium-input"
-                    />
-                  </v-col>
-
                   <v-col cols="12" md="6">
                     <v-select density="compact"
                       v-model="generalSettings.timezone"
@@ -319,19 +287,6 @@
                       class="premium-input"
                       required
                       :rules="[v => !!v || 'Timezone is required']"
-                    />
-                  </v-col>
-
-                  <v-col cols="12">
-                    <v-file-input
-                      v-model="generalSettings.logo"
-                      label="Site Logo"
-                      accept="image/*"
-                      variant="outlined"
-                      rounded="lg"
-                      class="premium-input"
-                      show-size
-                      prepend-icon="mdi-camera"
                     />
                   </v-col>
                 </v-row>
@@ -918,7 +873,7 @@ const generalSettings = ref({
   supportEmail: '',
   phone: '',
   timezone: '',
-  logo: null
+  logo: null as any
 })
 
 const emailSettings = ref({
