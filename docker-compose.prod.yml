@@ -87,6 +87,8 @@ services:
       # Hashnode blog
       HASHNODE_API_KEY: ${HASHNODE_API_KEY:-}
       HASHNODE_API_URL: ${HASHNODE_API_URL:-https://gql.hashnode.com}
+      # Google Analytics
+      NUXT_PUBLIC_GTAG_ID: ${NUXT_PUBLIC_GTAG_ID:-G-8ZEBQRGHTQ}
       # Geocoding
       OPENCAGE_API_KEY: ${OPENCAGE_API_KEY:-}
       GEOAPIFY_API_KEY: ${GEOAPIFY_API_KEY:-${VITE_GEOAPIFY:-}}

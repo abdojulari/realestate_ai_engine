@@ -169,6 +169,8 @@ export default defineNuxtConfig({
       /** Cloudflare Turnstile site key (client). Set `NUXT_PUBLIC_SITE_KEY` in env — maps to `siteKey` per Nuxt. */
       siteKey: '',
       geoapifyApiKey: process.env.GEOAPIFY_API_KEY || process.env.VITE_GEOAPIFY || '',
+      /** Google Analytics Measurement ID (e.g. G-XXXXXXXXXX). Set NUXT_PUBLIC_GTAG_ID in env. */
+      gtagId: '',
     },
     // Private — not exposed to client. Set `NUXT_TURNSTILE_SECRET_KEY` in env (Docker compose maps legacy file keys into this).
     turnstileSecretKey: '',
