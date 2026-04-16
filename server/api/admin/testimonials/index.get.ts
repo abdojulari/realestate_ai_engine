@@ -36,7 +36,10 @@ export default defineEventHandler(async (event) => {
   } else if (status === 'approved') {
     where.approved = true
   }
-  // 'all' or undefined = no filter
+
+  if (query.featured === 'true') {
+    where.featured = true
+  }
 
   const [testimonials, total] = await Promise.all([
     prisma.testimonial.findMany({

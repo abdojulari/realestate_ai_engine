@@ -99,23 +99,8 @@ interface Pillar9Property {
   PendingTimestamp?: string | null
   DaysOnMarket?: number | null
 
-  // New fields (2026 schema update)
-  PetsAllowedYN?: boolean | null
-  PetsComments?: string | null
-  MaximumNumberOfPets?: number | null
-  MaximumPetWeight?: number | null
-  CountrySubdivision?: string | null
+  // 2026 schema update (only fields confirmed available in Matrix API)
   SubdivisionName?: string | null
-  MLSAreaMajor?: string | null
-  MLSAreaMinor?: string | null
-  FrontageLengthRemarks?: string | null
-  FrontageLengthUnit?: string | null
-  LeaseTermOptions?: string[] | null
-  AttributionContact?: string | null
-  DualOrVariableRateCommissionYN?: boolean | null
-  BuyerBrokerageCompensation?: string | null
-  BuyerBrokerageCompensationType?: string | null
-  UniversalParcelId?: string | null
 }
 
 interface Pillar9ApiResponse {
@@ -395,13 +380,8 @@ class Pillar9Service {
       'Roof', 'ConstructionMaterials',
       'Utilities', 'WaterSource', 'Sewer', 'Electric',
       'PoolFeatures', 'WaterfrontFeatures',
-      // 2026 schema additions
-      'PetsAllowedYN', 'PetsComments', 'MaximumNumberOfPets', 'MaximumPetWeight',
-      'CountrySubdivision', 'SubdivisionName',
-      'MLSAreaMajor', 'MLSAreaMinor',
-      'FrontageLengthRemarks', 'FrontageLengthUnit',
-      'AttributionContact',
-      'UniversalParcelId',
+      // 2026 schema additions (only fields confirmed available in Matrix API)
+      'SubdivisionName',
     ]
     const select = filters.select?.length ? filters.select : defaultSelect
     queryParts.push(`$select=${encodeURIComponent(select.join(','))}`)
@@ -598,25 +578,10 @@ class Pillar9Service {
       taxAnnualAmount: p9Prop.TaxAnnualAmount,
       taxYear: p9Prop.TaxYear,
       parcelNumber: p9Prop.ParcelNumber,
-      universalParcelId: p9Prop.UniversalParcelId,
       listDate: p9Prop.ListDate,
       closeDate: p9Prop.CloseDate,
       closePrice: p9Prop.ClosePrice,
-      // Pet info
-      petsAllowed: p9Prop.PetsAllowedYN ?? null,
-      petsComments: p9Prop.PetsComments ?? null,
-      maxPets: p9Prop.MaximumNumberOfPets ?? null,
-      maxPetWeight: p9Prop.MaximumPetWeight ?? null,
-      // Area / subdivision
       subdivisionName: p9Prop.SubdivisionName ?? null,
-      mlsAreaMajor: p9Prop.MLSAreaMajor ?? null,
-      mlsAreaMinor: p9Prop.MLSAreaMinor ?? null,
-      countrySubdivision: p9Prop.CountrySubdivision ?? null,
-      // Frontage
-      frontageLengthRemarks: p9Prop.FrontageLengthRemarks ?? null,
-      frontageLengthUnit: p9Prop.FrontageLengthUnit ?? null,
-      // Attribution
-      attributionContact: p9Prop.AttributionContact ?? null,
     }
 
     const price = status === 'sold' && p9Prop.ClosePrice 

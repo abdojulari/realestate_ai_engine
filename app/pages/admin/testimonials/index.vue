@@ -372,8 +372,8 @@ const loadTestimonials = async () => {
     })
 
     const response = await api.get(`/admin/testimonials?${params}`)
-    testimonials.value = response.testimonials
-    pagination.value = response.pagination
+    testimonials.value = response?.testimonials || []
+    pagination.value = response?.pagination || { page: 1, pages: 1, total: 0, limit: 20 }
     
     // Update stats
     await loadStats()
@@ -389,13 +389,13 @@ const loadStats = async () => {
     const [allResponse, pendingResponse, featuredResponse] = await Promise.all([
       api.get('/admin/testimonials?limit=0'),
       api.get('/admin/testimonials?status=pending&limit=0'),
-      api.get('/testimonials?featured=true&limit=0')
+      api.get('/admin/testimonials?status=approved&featured=true&limit=0')
     ])
     
     stats.value = {
-      total: allResponse.pagination?.total || 0,
-      pending: pendingResponse.pagination?.total || 0,
-      featured: featuredResponse.length || 0
+      total: allResponse?.pagination?.total || 0,
+      pending: pendingResponse?.pagination?.total || 0,
+      featured: featuredResponse?.pagination?.total || featuredResponse?.testimonials?.length || 0
     }
   } catch (error) {
     console.error('Error loading stats:', error)
