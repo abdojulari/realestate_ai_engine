@@ -121,6 +121,14 @@ import { ref } from 'vue'
 
 definePageMeta({ layout: 'default' })
 
+const { businessName } = useTenantSettings()
+useSeoMeta({
+  title: () => `Sell Your Home | ${businessName.value || 'Real Estate'}`,
+  ogTitle: () => `Sell Your Home | ${businessName.value || 'Real Estate'}`,
+  description: 'List your property with a trusted REALTOR. Get a free home valuation and powerful marketing to sell your home fast.',
+  ogDescription: 'List your property with a trusted REALTOR. Get a free home valuation and powerful marketing to sell your home fast.',
+})
+
 const bullets = ref([
   { title: 'Powerful Marketing', icon: 'mdi-bullhorn-outline' },
   { title: 'Expert Negotiation', icon: 'mdi-handshake-outline' },

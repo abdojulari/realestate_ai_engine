@@ -319,13 +319,17 @@
 </template>
 
 <script setup lang="ts">
-// Meta
 definePageMeta({
   layout: 'default'
 })
 
-// Slides data with statements
-const { adminFullName, adminFirstName } = useTenantSettings()
+const { adminFullName, adminFirstName, businessName: biz } = useTenantSettings()
+useSeoMeta({
+  title: () => `Share Your Experience | ${biz.value || 'Real Estate'}`,
+  ogTitle: () => `Share Your Experience | ${biz.value || 'Real Estate'}`,
+  description: 'Share your real estate experience. Your testimonial helps others make confident decisions.',
+  ogDescription: 'Share your real estate experience. Your testimonial helps others make confident decisions.',
+})
 
 const slides = computed(() => {
   const name = adminFirstName.value || 'your REALTOR'

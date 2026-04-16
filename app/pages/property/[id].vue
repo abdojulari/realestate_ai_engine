@@ -742,6 +742,8 @@
 import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { propertyService } from '~/services/property.service'
+
+const { businessName } = useTenantSettings()
 const { public: publicConfig } = useRuntimeConfig()
 const GEOAPIFY_KEY = publicConfig.geoapifyApiKey
 const GEOAPIFY_URL = 'https://api.geoapify.com/v2'
@@ -1009,6 +1011,29 @@ onMounted(async () => {
   } catch (e) {
     // keep defaults
   }
+})
+
+useSeoMeta({
+  title: () => {
+    const p = property.value
+    const addr = p.address || p.title || 'Property Details'
+    return `${addr} | ${businessName.value || 'Real Estate'}`
+  },
+  ogTitle: () => property.value.address || property.value.title || 'Property Details',
+  description: () => {
+    const p = property.value
+    const parts = [p.address, p.bedrooms ? `${p.bedrooms} bed` : '', p.bathrooms ? `${p.bathrooms} bath` : '', p.price ? `$${Number(p.price).toLocaleString()}` : ''].filter(Boolean)
+    return parts.length > 1 ? parts.join(' · ') : 'View property details, photos, and features.'
+  },
+  ogDescription: () => {
+    const p = property.value
+    const parts = [p.address, p.bedrooms ? `${p.bedrooms} bed` : '', p.bathrooms ? `${p.bathrooms} bath` : '', p.price ? `$${Number(p.price).toLocaleString()}` : ''].filter(Boolean)
+    return parts.length > 1 ? parts.join(' · ') : 'View property details, photos, and features.'
+  },
+  ogImage: () => {
+    const imgs = property.value.images
+    return Array.isArray(imgs) && imgs.length ? imgs[0] : undefined
+  },
 })
 
 const contactForm = ref({

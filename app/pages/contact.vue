@@ -212,6 +212,14 @@ const submit = async () => {
 }
 
 definePageMeta({ layout: 'default' })
+
+const { businessName } = useTenantSettings()
+useSeoMeta({
+  title: () => `Contact | ${businessName.value || 'Real Estate'}`,
+  ogTitle: () => `Contact | ${businessName.value || 'Real Estate'}`,
+  description: 'Get in touch with your trusted real estate professional. Ask questions, schedule viewings, or request a consultation.',
+  ogDescription: 'Get in touch with your trusted real estate professional. Ask questions, schedule viewings, or request a consultation.',
+})
 </script>
 
 <style scoped>

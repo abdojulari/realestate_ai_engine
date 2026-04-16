@@ -414,7 +414,13 @@
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
 
-const { adminFullName, adminEmail, phone: tenantPhone } = useTenantSettings()
+const { adminFullName, adminEmail, phone: tenantPhone, businessName } = useTenantSettings()
+useSeoMeta({
+  title: () => `Privacy Policy | ${businessName.value || 'Real Estate'}`,
+  ogTitle: () => `Privacy Policy | ${businessName.value || 'Real Estate'}`,
+  description: 'Our privacy policy explains how we collect, use, and protect your personal information in compliance with PIPEDA.',
+  ogDescription: 'Our privacy policy explains how we collect, use, and protect your personal information in compliance with PIPEDA.',
+})
 
 const scrollTo = (id: string) => {
   const element = document.getElementById(id)

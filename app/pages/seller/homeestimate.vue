@@ -360,7 +360,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
 
-const { adminFullName, adminFirstName } = useTenantSettings()
+const { adminFullName, adminFirstName, businessName: biz } = useTenantSettings()
 
 const currentStep = ref(1)
 const progress = computed(() => (currentStep.value / 3) * 100)
@@ -476,6 +476,13 @@ const submitEstimate = async () => {
 }
 
 definePageMeta({ layout: 'default' })
+
+useSeoMeta({
+  title: () => `Free Home Estimate | ${biz.value || 'Real Estate'}`,
+  ogTitle: () => `Free Home Estimate | ${biz.value || 'Real Estate'}`,
+  description: 'Get a free, expert home valuation. Our team combines data analytics with local expertise to give you the most accurate estimate.',
+  ogDescription: 'Get a free, expert home valuation. Our team combines data analytics with local expertise to give you the most accurate estimate.',
+})
 </script>
 
 <style scoped>

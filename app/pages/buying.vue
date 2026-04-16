@@ -147,6 +147,14 @@ import { ref, onMounted } from 'vue'
 
 definePageMeta({ layout: 'default' })
 
+const { businessName } = useTenantSettings()
+useSeoMeta({
+  title: () => `Buying a Home | ${businessName.value || 'Real Estate'}`,
+  ogTitle: () => `Buying a Home | ${businessName.value || 'Real Estate'}`,
+  description: 'Your complete guide to buying a home. Learn about the process, get pre-approved, and find your dream property.',
+  ogDescription: 'Your complete guide to buying a home. Learn about the process, get pre-approved, and find your dream property.',
+})
+
 const currentStep = ref(0)
 
 const buyingSteps = [

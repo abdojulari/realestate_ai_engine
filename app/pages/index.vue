@@ -17,6 +17,14 @@
 import { ref, computed, onMounted } from 'vue'
 import HomeTemplate1 from '~/components/home-templates/HomeTemplate1.vue'
 import HomeTemplate2 from '~/components/home-templates/HomeTemplate2.vue'
+
+const { businessName, adminFullName } = useTenantSettings()
+useSeoMeta({
+  title: () => businessName.value || 'Real Estate',
+  ogTitle: () => businessName.value || 'Real Estate',
+  description: () => `${adminFullName.value || 'Your trusted REALTOR'} — search homes, get market insights, and find your dream property.`,
+  ogDescription: () => `${adminFullName.value || 'Your trusted REALTOR'} — search homes, get market insights, and find your dream property.`,
+})
 import HomeTemplate3 from '~/components/home-templates/HomeTemplate3.vue'
 import HomeTemplate4 from '~/components/home-templates/HomeTemplate4.vue'
 import HomeTemplate5 from '~/components/home-templates/HomeTemplate5.vue'

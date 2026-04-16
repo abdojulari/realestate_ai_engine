@@ -62,6 +62,14 @@
 <script setup lang="ts">
 import PropertyCard from '~/components/common/PropertyCard.vue'
 import EmptyState from '~/components/common/EmptyState.vue'
+
+const { businessName } = useTenantSettings()
+useSeoMeta({
+  title: () => `Properties For Sale | ${businessName.value || 'Real Estate'}`,
+  ogTitle: () => `Properties For Sale | ${businessName.value || 'Real Estate'}`,
+  description: 'Browse homes and properties for sale. Filter by price, bedrooms, location, and more.',
+  ogDescription: 'Browse homes and properties for sale. Filter by price, bedrooms, location, and more.',
+})
 import LoadingState from '~/components/common/LoadingState.vue'
 
 const loading = ref(false)

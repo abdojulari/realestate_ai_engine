@@ -1,2 +1,13 @@
 User-Agent: *
-Disallow:
+Allow: /
+
+Disallow: /admin/
+Disallow: /admin/*
+Disallow: /api/
+Disallow: /auth/
+Disallow: /buyer/
+Disallow: /seller/dashboard
+Disallow: /profile
+Disallow: /chat
+
+Sitemap: https://aohomes.deelbot.ai/sitemap.xml
