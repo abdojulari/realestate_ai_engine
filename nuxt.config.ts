@@ -148,6 +148,11 @@ export default defineNuxtConfig({
       ],
       script: [
         {
+          innerHTML: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-MMZ7NH2F');`,
+          type: 'text/javascript',
+          tagPosition: 'head',
+        },
+        {
           src: 'https://connect.facebook.net/en_US/sdk.js',
           async: true,
           defer: true
@@ -156,6 +161,12 @@ export default defineNuxtConfig({
           src: 'https://challenges.cloudflare.com/turnstile/v0/api.js',
           async: true,
           defer: true
+        }
+      ],
+      noscript: [
+        {
+          innerHTML: '<iframe src="https://www.googletagmanager.com/ns.html?id=GTM-MMZ7NH2F" height="0" width="0" style="display:none;visibility:hidden"></iframe>',
+          tagPosition: 'bodyOpen',
         }
       ]
     },
