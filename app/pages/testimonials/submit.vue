@@ -26,7 +26,7 @@
               <div class="brand-icon">
                 <v-icon size="48" color="white">mdi-home-heart</v-icon>
               </div>
-              <h2 class="brand-title">Abdul Ojulari</h2>
+              <h2 class="brand-title">{{ adminFullName }}</h2>
               <p class="brand-subtitle">Licensed REALTOR®</p>
             </div>
             
@@ -325,43 +325,48 @@ definePageMeta({
 })
 
 // Slides data with statements
-const slides = ref([
-  {
-    image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=1973&auto=format&fit=crop',
-    statement: 'Your real estate journey starts with Abdul.',
-    icon: 'mdi-rocket-launch'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=2096&auto=format&fit=crop',
-    statement: 'Begin your real estate journey with confidence — begin with Abdul.',
-    icon: 'mdi-shield-star'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2075&auto=format&fit=crop',
-    statement: 'Where smart real estate decisions begin: Abdul.',
-    icon: 'mdi-lightbulb-on'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop',
-    statement: 'Working with an expert like Abdul creates a smooth, memorable, and rewarding real estate experience.',
-    icon: 'mdi-trophy'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2053&auto=format&fit=crop',
-    statement: 'Partnering with Abdul means an experience you\'ll remember for all the right reasons.',
-    icon: 'mdi-handshake'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?q=80&w=2070&auto=format&fit=crop',
-    statement: 'Working with a licensed realtor is about more than just a transaction — it\'s about protecting your money, saving time, and eliminating stress.',
-    icon: 'mdi-shield-check'
-  },
-  {
-    image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop',
-    statement: 'With over 20 years of proven experience as a real estate expert, investor, and technology professional, Abdul delivers a seamless, secure, and modern experience.',
-    icon: 'mdi-certificate'
-  }
-])
+const { adminFullName, adminFirstName } = useTenantSettings()
+
+const slides = computed(() => {
+  const name = adminFirstName.value || 'your REALTOR'
+  return [
+    {
+      image: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=1973&auto=format&fit=crop',
+      statement: `Your real estate journey starts with ${name}.`,
+      icon: 'mdi-rocket-launch'
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1582407947304-fd86f028f716?q=80&w=2096&auto=format&fit=crop',
+      statement: `Begin your real estate journey with confidence — begin with ${name}.`,
+      icon: 'mdi-shield-star'
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=2075&auto=format&fit=crop',
+      statement: `Where smart real estate decisions begin: ${name}.`,
+      icon: 'mdi-lightbulb-on'
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop',
+      statement: `Working with an expert like ${name} creates a smooth, memorable, and rewarding real estate experience.`,
+      icon: 'mdi-trophy'
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2053&auto=format&fit=crop',
+      statement: `Partnering with ${name} means an experience you'll remember for all the right reasons.`,
+      icon: 'mdi-handshake'
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?q=80&w=2070&auto=format&fit=crop',
+      statement: 'Working with a licensed realtor is about more than just a transaction — it\'s about protecting your money, saving time, and eliminating stress.',
+      icon: 'mdi-shield-check'
+    },
+    {
+      image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=2070&auto=format&fit=crop',
+      statement: `With over 20 years of proven experience as a real estate expert, investor, and technology professional, ${name} delivers a seamless, secure, and modern experience.`,
+      icon: 'mdi-certificate'
+    }
+  ]
+})
 
 const currentSlide = ref(0)
 let slideInterval: ReturnType<typeof setInterval> | null = null

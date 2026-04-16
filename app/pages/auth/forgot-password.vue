@@ -93,6 +93,8 @@
 </template>
 
 <script setup lang="ts">
+const { businessName } = useTenantSettings()
+
 const email = ref('')
 const loading = ref(false)
 const errorMessage = ref('')
@@ -140,9 +142,9 @@ const handleSubmit = async () => {
 
 // SEO
 useHead({
-  title: 'Forgot Password - HomesByAbdulOjulari',
+  title: computed(() => `Forgot Password - ${businessName.value || 'Real Estate'}`),
   meta: [
-    { name: 'description', content: 'Reset your password for HomesByAbdulOjulari. Enter your email to receive reset instructions.' }
+    { name: 'description', content: computed(() => `Reset your password for ${businessName.value || 'our platform'}. Enter your email to receive reset instructions.`) }
   ]
 })
 </script>

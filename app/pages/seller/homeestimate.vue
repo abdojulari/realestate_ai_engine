@@ -296,7 +296,7 @@
             <v-img src="/images/about/abdul.JPG" height="200" cover />
             <v-card-text class="pa-6">
               <div class="text-overline text-primary mb-1">Local Lead Expert</div>
-              <div class="text-h6 font-weight-bold mb-1">Abdul Ojulari</div>
+              <div class="text-h6 font-weight-bold mb-1">{{ adminFullName }}</div>
               <p class="text-body-2 text-grey mb-4">"I'll personally review your property details to give you the most accurate valuation in today's market."</p>
               <v-btn variant="outlined" block class="text-none" @click="showProcessDialog = true">
                 Learn about my process
@@ -347,7 +347,7 @@
         </v-avatar>
         <h2 class="text-h4 font-weight-black mb-4">Request Confirmed</h2>
         <p class="text-body-1 text-medium-emphasis mb-8">
-          A bespoke valuation report is being prepared for you. Abdul and the team will contact you at <strong>{{ forms.contact.email }}</strong> within one business day.
+          A bespoke valuation report is being prepared for you. {{ adminFirstName || 'Our team' }} and the team will contact you at <strong>{{ forms.contact.email }}</strong> within one business day.
         </p>
         <v-btn color="black" block size="x-large" rounded="pill" class="text-none font-weight-bold" @click="showSuccessDialog = false">
           Back to Dashboard
@@ -359,6 +359,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed } from 'vue'
+
+const { adminFullName, adminFirstName } = useTenantSettings()
 
 const currentStep = ref(1)
 const progress = computed(() => (currentStep.value / 3) * 100)
@@ -372,7 +374,7 @@ const forms = reactive({
   contact: { valid: false, firstName: '', lastName: '', email: '', phone: '', timeframe: '3_months' }
 })
 
-const valuationProcess = [
+const valuationProcess = computed(() => [
   {
     title: 'Data Aggregation',
     description: 'We pull live transaction data from local MLS records, public land titles, and private boutique sales to build a comprehensive data foundation.'
@@ -387,9 +389,9 @@ const valuationProcess = [
   },
   {
     title: 'Human Calibration',
-    description: 'Abdul Ojulari personally reviews every data point, applying professional intuition to account for current buyer sentiment and market momentum.'
+    description: `${adminFullName.value || 'Our lead expert'} personally reviews every data point, applying professional intuition to account for current buyer sentiment and market momentum.`
   }
-]
+])
 
 const isStepInvalid = computed(() => {
   if (currentStep.value === 1) return !forms.propertyDetails.valid

@@ -38,7 +38,7 @@ import AboutTemplate3 from '~/components/about-templates/AboutTemplate3.vue'
 import AboutTemplate4 from '~/components/about-templates/AboutTemplate4.vue'
 import AboutTemplate5 from '~/components/about-templates/AboutTemplate5.vue'
 
-const { phone, contactEmail: tenantEmail, socialLinks: tenantSocialLinks, adminEmail } = useTenantSettings()
+const { phone, contactEmail: tenantEmail, socialLinks: tenantSocialLinks, adminEmail, adminFullName } = useTenantSettings()
 
 const OWNER_EMAILS = ['abdulkabirojulari@gmail.com', 'realojus@gmail.com']
 
@@ -73,7 +73,7 @@ const PERSONAL_DEFAULTS = {
   heroDescription: 'Providing excellence in real estate services with a personalized approach. Helping you navigate the journey home with safety and peace of mind.',
   profileImage: '/images/about/abdul.JPG',
   storyTitle: 'A Realtor with a Purpose',
-  storyName: 'Abdul Ojulari',
+  storyName: adminFullName.value || 'Your REALTOR',
   storyRole: 'eXp Realty | Licensed REALTOR®',
   storyContent: '',
   storyContentDefault: `With over 20 years of experience in the IT industry as a Senior Software Developer, I bring a strong analytical mindset and technology-driven approach to real estate. I hold multiple industry certifications, and have developed innovative software solutions for the real estate industry that simplify processes and enhance the client experience.

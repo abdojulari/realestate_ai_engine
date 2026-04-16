@@ -114,7 +114,7 @@
                 <v-icon icon="mdi-account-tie" color="#8c734b" class="mr-4" />
                 <div>
                   <span class="font-weight-bold text-grey-darken-4 d-block">Privacy Officer</span>
-                  <span class="text-body-2 text-grey-darken-1">Abdul Ojulari &mdash; abdulkabirojulari@gmail.com</span>
+                  <span class="text-body-2 text-grey-darken-1">{{ adminFullName }} &mdash; {{ adminEmail }}</span>
                 </div>
               </div>
               <p class="text-body-2 text-grey-darken-2">
@@ -377,13 +377,13 @@
                 <v-list bg-color="transparent">
                   <v-list-item 
                     prepend-icon="mdi-email-golden" 
-                    title="abdulkabirojulari@gmail.com" 
+                    :title="adminEmail || ''" 
                     subtitle="Privacy Officer"
                     class="px-0"
                   />
                   <v-list-item 
                     prepend-icon="mdi-phone-golden" 
-                    title="647-563-7235" 
+                    :title="tenantPhone || ''" 
                     subtitle="Direct Inquiries"
                     class="px-0"
                   />
@@ -413,6 +413,8 @@
 
 <script setup lang="ts">
 definePageMeta({ layout: 'default' })
+
+const { adminFullName, adminEmail, phone: tenantPhone } = useTenantSettings()
 
 const scrollTo = (id: string) => {
   const element = document.getElementById(id)
