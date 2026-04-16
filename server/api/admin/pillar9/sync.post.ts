@@ -35,6 +35,18 @@ const DELAY_ON_429_BASE_MS = 10000
 const MAX_MEDIA_RETRIES_ON_429 = 6
 const DELAY_MEDIA_429_MS = 5000
 
+const PRICE_RANGE_BRACKETS = [
+  { min: 0, max: 200000 },
+  { min: 200001, max: 400000 },
+  { min: 400001, max: 600000 },
+  { min: 600001, max: 800000 },
+  { min: 800001, max: 1000000 },
+  { min: 1000001, max: 1500000 },
+  { min: 1500001, max: 2000000 },
+  { min: 2000001, max: 5000000 },
+  { min: 5000001, max: 99999999 },
+]
+
 async function getPropertyMediaWithRetry(
   listingKeyNumeric: number,
   delayFn: (ms: number) => Promise<void>
@@ -153,175 +165,221 @@ async function runSyncInBackground(params: any) {
 
   const delay = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
 
+  async function fetchBatchWithRetry(
+    cityCode: string,
+    status: string,
+    skip: number,
+    minPrice?: number,
+    maxPrice?: number,
+  ): Promise<{ properties: Awaited<ReturnType<typeof pillar9Service.getProperties>>; success: boolean; tooMany: boolean }> {
+    let retries401 = 0
+    let retries429 = 0
+    while (true) {
+      try {
+        const properties = await pillar9Service.getProperties({
+          status: status as any,
+          cityCode,
+          province: filters.province || 'AB',
+          limit: BATCH_LIMIT,
+          skip,
+          minPrice,
+          maxPrice,
+        })
+        return { properties, success: true, tooMany: false }
+      } catch (batchError: any) {
+        const msg = batchError?.message ?? String(batchError)
+        if (msg.includes('More than') && msg.includes('results found')) {
+          return { properties: [], success: false, tooMany: true }
+        }
+        if (msg.includes('404')) {
+          console.log(`⏭️  Pillar9: status ${status} returned 404 for city ${cityCode} — skipping`)
+          return { properties: [], success: true, tooMany: false }
+        }
+        if (msg.includes('401') && retries401 < MAX_RETRIES_ON_401) {
+          retries401++
+          const backoff401 = Math.min(DELAY_ON_401_BASE_MS * retries401, 60000)
+          syncProgress.phase = `retry-401 (${retries401}, wait ${Math.round(backoff401 / 1000)}s)`
+          await delay(backoff401)
+        } else if (msg.includes('429') && retries429 < MAX_RETRIES_ON_429) {
+          retries429++
+          const backoffMs = Math.min(DELAY_ON_429_BASE_MS * retries429, 120000)
+          syncProgress.phase = `rate-limited (wait ${Math.round(backoffMs / 1000)}s)`
+          await delay(backoffMs)
+        } else {
+          syncProgress.stats.errors++
+          syncProgress.stats.errorDetails.push(`Batch city ${cityCode} status ${status}: ${msg}`)
+          return { properties: [], success: false, tooMany: false }
+        }
+      }
+    }
+  }
+
+  async function fetchAllForCityStatus(
+    cityCode: string,
+    status: string,
+    minPrice?: number,
+    maxPrice?: number,
+  ): Promise<Awaited<ReturnType<typeof pillar9Service.getProperties>>> {
+    const all: Awaited<ReturnType<typeof pillar9Service.getProperties>> = []
+    let skip = 0
+    let hasMore = true
+
+    while (hasMore) {
+      const result = await fetchBatchWithRetry(cityCode, status, skip, minPrice, maxPrice)
+
+      if (result.tooMany) {
+        console.log(`📊 Pillar9: city ${cityCode} status ${status} too large — splitting by price range`)
+        syncProgress.phase = `splitting city ${cityCode}`
+        const subResults: Awaited<ReturnType<typeof pillar9Service.getProperties>> = []
+        for (const bracket of PRICE_RANGE_BRACKETS) {
+          const sub = await fetchAllForCityStatus(cityCode, status, bracket.min, bracket.max)
+          subResults.push(...sub)
+          await delay(DELAY_BETWEEN_BATCHES_MS)
+        }
+        return subResults
+      }
+
+      if (!result.success || result.properties.length === 0) break
+
+      all.push(...result.properties)
+      if (result.properties.length < BATCH_LIMIT) hasMore = false
+      else skip += BATCH_LIMIT
+      await delay(delayBetweenBatchesMs)
+    }
+
+    return all
+  }
+
   try {
     for (const cityCode of citiesToSync) {
       syncProgress.currentCity = cityCode
 
       for (const status of statusesToSync) {
         syncProgress.currentStatus = status
-        let skip = 0
-        let hasMore = true
+        syncProgress.phase = 'syncing'
 
-        while (hasMore) {
-          let retries401 = 0
-          let retries429 = 0
-          let success = false
-          let properties: Awaited<ReturnType<typeof pillar9Service.getProperties>> = []
+        const properties = await fetchAllForCityStatus(
+          cityCode,
+          status,
+          filters.minPrice,
+          filters.maxPrice,
+        )
 
-          while (!success) {
-            try {
-              properties = await pillar9Service.getProperties({
-                status: status as any,
-                cityCode,
-                province: filters.province || 'AB',
-                limit: BATCH_LIMIT,
-                skip,
-                minPrice: filters.minPrice,
-                maxPrice: filters.maxPrice
+        if (properties.length === 0) continue
+
+        syncProgress.stats.total += properties.length
+
+        for (const p9Prop of properties) {
+          try {
+            let transformedProperty = pillar9Service.transformToLocalProperty(p9Prop)
+            if (!transformedProperty) { syncProgress.stats.skipped++; continue }
+
+            if (deduplicateWithCrea && transformedProperty.mlsNumber) {
+              const existingCrea = await prisma.property.findFirst({
+                where: { source: 'crea', mlsNumber: transformedProperty.mlsNumber }
               })
-              success = true
-            } catch (batchError: any) {
-              const msg = batchError?.message ?? String(batchError)
-              if (msg.includes('401') && retries401 < MAX_RETRIES_ON_401) {
-                retries401++
-                const backoff401 = Math.min(DELAY_ON_401_BASE_MS * retries401, 60000)
-                syncProgress.phase = `retry-401 (${retries401}, wait ${Math.round(backoff401 / 1000)}s)`
-                await delay(backoff401)
-              } else if (msg.includes('429') && retries429 < MAX_RETRIES_ON_429) {
-                retries429++
-                const backoffMs = Math.min(DELAY_ON_429_BASE_MS * retries429, 120000)
-                syncProgress.phase = `rate-limited (wait ${Math.round(backoffMs / 1000)}s)`
-                await delay(backoffMs)
-              } else {
-                syncProgress.stats.errors++
-                syncProgress.stats.errorDetails.push(`Batch city ${cityCode} status ${status}: ${msg}`)
-                hasMore = false
-                break
+              if (existingCrea) {
+                const p9Status = transformedProperty.status as string
+                const statusUpdateNeeded = ['sold', 'terminated', 'withdrawn', 'expired'].includes(p9Status)
+                  && existingCrea.status !== p9Status
+                if (statusUpdateNeeded) {
+                  try {
+                    const updateData: any = { status: p9Status, lastSyncAt: new Date() }
+                    if (p9Status === 'sold' && transformedProperty.features) {
+                      const existingFeatures = typeof existingCrea.features === 'string'
+                        ? JSON.parse(existingCrea.features || '{}')
+                        : (existingCrea as any).features || {}
+                      const p9Features = typeof transformedProperty.features === 'string'
+                        ? JSON.parse(transformedProperty.features as string)
+                        : transformedProperty.features
+                      updateData.features = {
+                        ...existingFeatures,
+                        closeDate: (p9Features as any)?.closeDate || null,
+                        closePrice: (p9Features as any)?.closePrice || null,
+                        statusChangeTimestamp: new Date().toISOString(),
+                      }
+                      if ((p9Features as any)?.closePrice) updateData.price = (p9Features as any).closePrice
+                    }
+                    await prisma.property.update({ where: { id: existingCrea.id }, data: updateData })
+                    if (p9Status === 'sold') {
+                      await (prisma as any).propertyPriceHistory.create({
+                        data: { propertyId: existingCrea.id, price: existingCrea.price, event: 'sold', source: 'pillar9' }
+                      }).catch(() => {})
+                    }
+                    syncProgress.stats.updated++
+                    const sKey = statusToKey(status)
+                    if (syncProgress.stats.byStatus[sKey]) syncProgress.stats.byStatus[sKey]!.updated++
+                  } catch (_err) { /* non-critical */ }
+                }
+                syncProgress.stats.duplicates++
+                continue
               }
             }
-          }
 
-          if (!success || properties.length === 0) { hasMore = false; break }
+            if (includeMedia && (!transformedProperty.images || (transformedProperty.images as string[]).length === 0) && p9Prop.ListingKeyNumeric != null) {
+              const mediaUrls = await getPropertyMediaWithRetry(p9Prop.ListingKeyNumeric, delay)
+              if (mediaUrls.length > 0) transformedProperty = { ...transformedProperty, images: mediaUrls }
+              await delay(DELAY_BETWEEN_MEDIA_MS)
+            }
 
-          syncProgress.phase = 'syncing'
-          syncProgress.stats.total += properties.length
+            const { user, agent, isSaved, ...propertyData } = transformedProperty as any
+            const externalId = p9Prop.ListingKeyNumeric != null ? String(p9Prop.ListingKeyNumeric) : p9Prop.ListingId
+            const existingProperty: any = await prisma.property.findFirst({
+              where: { source: 'pillar9', externalId }
+            })
 
-          for (const p9Prop of properties) {
-            try {
-              let transformedProperty = pillar9Service.transformToLocalProperty(p9Prop)
-              if (!transformedProperty) { syncProgress.stats.skipped++; continue }
+            const statusKey = statusToKey(status)
+            const newPrice = propertyData.price || 0
+            const data = {
+              ...propertyData,
+              lastSyncAt: new Date(),
+              ...(existingProperty
+                ? { views: existingProperty.views, createdAt: existingProperty.createdAt, firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price }
+                : { firstEntryPrice: newPrice })
+            }
 
-              if (deduplicateWithCrea && transformedProperty.mlsNumber) {
-                const existingCrea = await prisma.property.findFirst({
-                  where: { source: 'crea', mlsNumber: transformedProperty.mlsNumber }
-                })
-                if (existingCrea) {
-                  const p9Status = transformedProperty.status as string
-                  const statusUpdateNeeded = ['sold', 'terminated', 'withdrawn', 'expired'].includes(p9Status)
-                    && existingCrea.status !== p9Status
-                  if (statusUpdateNeeded) {
-                    try {
-                      const updateData: any = { status: p9Status, lastSyncAt: new Date() }
-                      if (p9Status === 'sold' && transformedProperty.features) {
-                        const existingFeatures = typeof existingCrea.features === 'string'
-                          ? JSON.parse(existingCrea.features || '{}')
-                          : (existingCrea as any).features || {}
-                        const p9Features = typeof transformedProperty.features === 'string'
-                          ? JSON.parse(transformedProperty.features as string)
-                          : transformedProperty.features
-                        updateData.features = {
-                          ...existingFeatures,
-                          closeDate: (p9Features as any)?.closeDate || null,
-                          closePrice: (p9Features as any)?.closePrice || null,
-                          statusChangeTimestamp: new Date().toISOString(),
-                        }
-                        if ((p9Features as any)?.closePrice) updateData.price = (p9Features as any).closePrice
-                      }
-                      await prisma.property.update({ where: { id: existingCrea.id }, data: updateData })
-                      if (p9Status === 'sold') {
-                        await (prisma as any).propertyPriceHistory.create({
-                          data: { propertyId: existingCrea.id, price: existingCrea.price, event: 'sold', source: 'pillar9' }
-                        }).catch(() => {})
-                      }
-                      syncProgress.stats.updated++
-                      const sKey = statusToKey(status)
-                      if (syncProgress.stats.byStatus[sKey]) syncProgress.stats.byStatus[sKey]!.updated++
-                    } catch (_err) { /* non-critical */ }
-                  }
-                  syncProgress.stats.duplicates++
-                  continue
-                }
-              }
-
-              if (includeMedia && (!transformedProperty.images || (transformedProperty.images as string[]).length === 0) && p9Prop.ListingKeyNumeric != null) {
-                const mediaUrls = await getPropertyMediaWithRetry(p9Prop.ListingKeyNumeric, delay)
-                if (mediaUrls.length > 0) transformedProperty = { ...transformedProperty, images: mediaUrls }
-                await delay(DELAY_BETWEEN_MEDIA_MS)
-              }
-
-              const { user, agent, isSaved, ...propertyData } = transformedProperty as any
-              const externalId = p9Prop.ListingKeyNumeric != null ? String(p9Prop.ListingKeyNumeric) : p9Prop.ListingId
-              const existingProperty: any = await prisma.property.findFirst({
-                where: { source: 'pillar9', externalId }
-              })
-
-              const statusKey = statusToKey(status)
-              const newPrice = propertyData.price || 0
-              const data = {
-                ...propertyData,
-                lastSyncAt: new Date(),
-                ...(existingProperty
-                  ? { views: existingProperty.views, createdAt: existingProperty.createdAt, firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price }
-                  : { firstEntryPrice: newPrice })
-              }
-
-              let saved = false
-              for (let attempt = 1; attempt <= 2 && !saved; attempt++) {
-                try {
-                  if (existingProperty) {
-                    const oldPrice = existingProperty.price
-                    if (oldPrice && newPrice && oldPrice !== newPrice) {
-                      const changeAmt = newPrice - oldPrice
-                      const changePct = parseFloat(((changeAmt / oldPrice) * 100).toFixed(2))
-                      try {
-                        await (prisma as any).propertyPriceHistory.create({
-                          data: { propertyId: existingProperty.id, price: newPrice, event: changeAmt < 0 ? 'price_decrease' : 'price_increase', changeAmt, changePct, source: 'pillar9' }
-                        })
-                      } catch (_) { /* non-critical */ }
-                    }
-                    await (prisma.property as any).update({ where: { id: existingProperty.id }, data })
-                    syncProgress.stats.updated++
-                    if (syncProgress.stats.byStatus[statusKey]) syncProgress.stats.byStatus[statusKey].updated++
-                  } else {
-                    const created: any = await (prisma.property as any).create({
-                      data: { ...propertyData, lastSyncAt: new Date(), firstEntryPrice: newPrice }
-                    })
+            let saved = false
+            for (let attempt = 1; attempt <= 2 && !saved; attempt++) {
+              try {
+                if (existingProperty) {
+                  const oldPrice = existingProperty.price
+                  if (oldPrice && newPrice && oldPrice !== newPrice) {
+                    const changeAmt = newPrice - oldPrice
+                    const changePct = parseFloat(((changeAmt / oldPrice) * 100).toFixed(2))
                     try {
                       await (prisma as any).propertyPriceHistory.create({
-                        data: { propertyId: created.id, price: newPrice, event: 'listed', source: 'pillar9' }
+                        data: { propertyId: existingProperty.id, price: newPrice, event: changeAmt < 0 ? 'price_decrease' : 'price_increase', changeAmt, changePct, source: 'pillar9' }
                       })
                     } catch (_) { /* non-critical */ }
-                    syncProgress.stats.created++
-                    if (syncProgress.stats.byStatus[statusKey]) syncProgress.stats.byStatus[statusKey].created++
                   }
-                  saved = true
-                } catch (saveError: any) {
-                  if (attempt === 1) await delay(1000)
-                  else {
-                    syncProgress.stats.errors++
-                    syncProgress.stats.errorDetails.push(`Property ${p9Prop.ListingId}: ${saveError.message}`)
-                  }
+                  await (prisma.property as any).update({ where: { id: existingProperty.id }, data })
+                  syncProgress.stats.updated++
+                  if (syncProgress.stats.byStatus[statusKey]) syncProgress.stats.byStatus[statusKey].updated++
+                } else {
+                  const created: any = await (prisma.property as any).create({
+                    data: { ...propertyData, lastSyncAt: new Date(), firstEntryPrice: newPrice }
+                  })
+                  try {
+                    await (prisma as any).propertyPriceHistory.create({
+                      data: { propertyId: created.id, price: newPrice, event: 'listed', source: 'pillar9' }
+                    })
+                  } catch (_) { /* non-critical */ }
+                  syncProgress.stats.created++
+                  if (syncProgress.stats.byStatus[statusKey]) syncProgress.stats.byStatus[statusKey].created++
+                }
+                saved = true
+              } catch (saveError: any) {
+                if (attempt === 1) await delay(1000)
+                else {
+                  syncProgress.stats.errors++
+                  syncProgress.stats.errorDetails.push(`Property ${p9Prop.ListingId}: ${saveError.message}`)
                 }
               }
-            } catch (propError: any) {
-              syncProgress.stats.errors++
-              syncProgress.stats.errorDetails.push(`Property ${p9Prop.ListingId}: ${propError.message}`)
             }
+          } catch (propError: any) {
+            syncProgress.stats.errors++
+            syncProgress.stats.errorDetails.push(`Property ${p9Prop.ListingId}: ${propError.message}`)
           }
-
-          if (properties.length < BATCH_LIMIT) hasMore = false
-          else skip += BATCH_LIMIT
-          await delay(delayBetweenBatchesMs)
         }
       }
 
