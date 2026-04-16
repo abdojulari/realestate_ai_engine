@@ -211,38 +211,94 @@ async function runSync(options) {
 
   const payload = JSON.stringify(body)
 
-  const startMs = Date.now()
-  const heartbeat = setInterval(() => {
-    const min = Math.floor((Date.now() - startMs) / 60000)
-    console.log(`  … still syncing (${min} min elapsed). Progress is logged on the server.`)
-  }, 60_000)
+  // Fire-and-forget: start the sync (server returns immediately)
+  const startResp = await httpRequest(`${API_BASE}/api/admin/pillar9/sync`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Pillar9-Sync-Key': secret,
+      'Content-Length': Buffer.byteLength(payload).toString(),
+    },
+    body: payload,
+  })
 
-  let response
-  try {
-    response = await httpRequest(`${API_BASE}/api/admin/pillar9/sync?mode=blocking`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Pillar9-Sync-Key': secret,
-        'Content-Length': Buffer.byteLength(payload).toString(),
-      },
-      body: payload,
-    })
-  } finally {
-    clearInterval(heartbeat)
-  }
-
-  if (!response.ok) {
+  if (!startResp.ok) {
     let err
-    try {
-      err = JSON.parse(response.body)
-    } catch {
-      err = { message: response.body }
-    }
-    throw new Error(err.message || err.statusMessage || `HTTP ${response.status}`)
+    try { err = JSON.parse(startResp.body) } catch { err = { message: startResp.body } }
+    throw new Error(err.message || err.statusMessage || `HTTP ${startResp.status}`)
   }
 
-  return JSON.parse(response.body)
+  const startData = JSON.parse(startResp.body)
+  if (startData.alreadyRunning) {
+    console.log('  A sync is already running on the server. Waiting for it to finish...\n')
+  } else {
+    console.log('  Sync started on server. Polling for progress...\n')
+  }
+
+  // Poll sync-status until complete
+  const startMs = Date.now()
+  const POLL_INTERVAL_MS = 15_000
+  let lastTotal = 0
+
+  while (true) {
+    await new Promise(r => setTimeout(r, POLL_INTERVAL_MS))
+
+    let statusData
+    try {
+      const resp = await httpRequest(`${API_BASE}/api/admin/pillar9/sync-status`, {
+        method: 'GET',
+        headers: {},
+      })
+      if (!resp.ok) {
+        console.log('  (status check returned non-200, retrying...)')
+        continue
+      }
+      statusData = JSON.parse(resp.body)
+    } catch (e) {
+      console.log(`  (status check failed: ${e.message}, retrying...)`)
+      continue
+    }
+
+    const sp = statusData.syncProgress
+    if (!sp) {
+      console.log('  (no sync progress data yet, retrying...)')
+      continue
+    }
+
+    const elapsed = Math.floor((Date.now() - startMs) / 60000)
+    const stats = sp.stats || {}
+
+    if (sp.running) {
+      const pct = sp.citiesTotal ? Math.round((sp.citiesDone / sp.citiesTotal) * 100) : 0
+      const newItems = stats.total - lastTotal
+      lastTotal = stats.total || 0
+      console.log(
+        `  [${elapsed} min] ${sp.phase} | ` +
+        `cities ${sp.citiesDone}/${sp.citiesTotal} (${pct}%) | ` +
+        `processed ${stats.total || 0} | ` +
+        `created ${stats.created || 0} | updated ${stats.updated || 0} | ` +
+        `dupes ${stats.duplicates || 0} | errors ${stats.errors || 0}` +
+        (newItems > 0 ? ` (+${newItems} this interval)` : '')
+      )
+      continue
+    }
+
+    // Sync finished
+    if (sp.result) {
+      return sp.result
+    }
+    if (sp.error) {
+      throw new Error(sp.error)
+    }
+    if (sp.phase === 'completed' || sp.phase === 'error') {
+      return sp.result || { success: sp.phase === 'completed', stats, message: 'Sync finished' }
+    }
+
+    // Phase is idle but not running — sync might have ended between our start and first poll
+    console.log(`  Sync appears idle (phase: ${sp.phase}). Checking result...`)
+    if (sp.result) return sp.result
+    return { success: true, stats, message: 'Sync finished (status resolved from polling)' }
+  }
 }
 
 // ============================================
