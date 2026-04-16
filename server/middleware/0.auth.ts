@@ -93,6 +93,11 @@ export default defineEventHandler(async (event) => {
     return
   }
 
+  // Public testimonial submissions (POST)
+  if (event.node.req.method === 'POST' && url.startsWith('/api/testimonials')) {
+    return
+  }
+
   // Public lead capture forms (GET form data + POST submissions)
   if (url.startsWith('/api/lead-form/')) {
     return
