@@ -200,7 +200,9 @@ async function runSync(options) {
   }
 
   const body = {
-    syncAllStatuses: true,
+    syncAllStatuses: false,
+    syncSold: true,
+    syncPending: true,
     deduplicateWithCrea: !noDedupe,
     includeMedia: !noMedia,
     delayBetweenBatchesMs: delay
