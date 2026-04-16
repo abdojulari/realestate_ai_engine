@@ -26,9 +26,10 @@ async function requireAdminOrSyncSecret(event: any) {
 }
 
 const BATCH_LIMIT = 200
-const DELAY_BETWEEN_BATCHES_MS = 2500
+const DELAY_BETWEEN_BATCHES_MS = 3000
 const DELAY_BETWEEN_MEDIA_MS = 350
-const MAX_RETRIES_ON_401 = 3
+const MAX_RETRIES_ON_401 = 10
+const DELAY_ON_401_BASE_MS = 8000
 const MAX_RETRIES_ON_429 = 30
 const DELAY_ON_429_BASE_MS = 10000
 const MAX_MEDIA_RETRIES_ON_429 = 6
@@ -183,8 +184,9 @@ async function runSyncInBackground(params: any) {
               const msg = batchError?.message ?? String(batchError)
               if (msg.includes('401') && retries401 < MAX_RETRIES_ON_401) {
                 retries401++
-                syncProgress.phase = `retry-401 (${retries401})`
-                await delay(1000)
+                const backoff401 = Math.min(DELAY_ON_401_BASE_MS * retries401, 60000)
+                syncProgress.phase = `retry-401 (${retries401}, wait ${Math.round(backoff401 / 1000)}s)`
+                await delay(backoff401)
               } else if (msg.includes('429') && retries429 < MAX_RETRIES_ON_429) {
                 retries429++
                 const backoffMs = Math.min(DELAY_ON_429_BASE_MS * retries429, 120000)
@@ -324,6 +326,11 @@ async function runSyncInBackground(params: any) {
       }
 
       syncProgress.citiesDone++
+      if (syncProgress.citiesDone % 50 === 0) {
+        syncProgress.phase = 'cooldown'
+        await delay(15000)
+        syncProgress.phase = 'syncing'
+      }
     }
 
     syncProgress.phase = 'finalizing'
