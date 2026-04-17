@@ -52,6 +52,9 @@ export const propertyService = {
     if (filters.neighborhood) params.append('neighborhood', filters.neighborhood)
     if (filters.neighborhoodId) params.append('neighborhoodId', filters.neighborhoodId.toString())
 
+    // HOA/Condo fee filter
+    if ((filters as any).noHoaFee) params.append('noHoaFee', 'true')
+
     // Pagination controls (allow map to request all properties)
     if ((filters as any).limit) params.append('limit', String((filters as any).limit))
     if ((filters as any).page) params.append('page', String((filters as any).page))
@@ -120,6 +123,9 @@ export const propertyService = {
     if ((filters as any).subdivision) params.append('subdivision', (filters as any).subdivision)
     if (filters.neighborhood) params.append('neighborhood', filters.neighborhood)
     if (filters.neighborhoodId) params.append('neighborhoodId', filters.neighborhoodId.toString())
+
+    // HOA/Condo fee filter
+    if ((filters as any).noHoaFee) params.append('noHoaFee', 'true')
     
     // Pagination controls
     if ((filters as any).limit) params.append('limit', String((filters as any).limit))

@@ -20,15 +20,27 @@ export default defineEventHandler(async (event) => {
   const limit = parseInt((query.limit as string) || '20')
   const offset = (page - 1) * limit
 
-  const where: any = { ...tenantFilter }
+  const where: any = { AND: [] as any[] }
+
+  // Show testimonials belonging to this admin OR orphaned ones (no adminId)
+  if (tenantFilter.adminId) {
+    where.AND.push({
+      OR: [
+        { adminId: tenantFilter.adminId },
+        { adminId: null }
+      ]
+    })
+  }
   
   if (search) {
-    where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
-      { location: { contains: search, mode: 'insensitive' } },
-      { content: { contains: search, mode: 'insensitive' } }
-    ]
+    where.AND.push({
+      OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { location: { contains: search, mode: 'insensitive' } },
+        { content: { contains: search, mode: 'insensitive' } }
+      ]
+    })
   }
   
   if (status === 'pending') {

@@ -794,6 +794,8 @@ const searchWithAI = async (pageNum = 1) => {
         // HOA/Condo fees
         } else if (key === 'maxHoaFee') {
           queryParams.append('maxHoaFee', String(value))
+        } else if (key === 'noHoaFee') {
+          if (value) queryParams.append('noHoaFee', 'true')
           
         // Tax amount
         } else if (key === 'maxTaxAmount') {

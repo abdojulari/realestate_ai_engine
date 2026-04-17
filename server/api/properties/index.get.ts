@@ -51,6 +51,7 @@ export default defineEventHandler(async (event) => {
     
     // HOA/Condo fees
     maxHoaFee,
+    noHoaFee,
     
     // Subdivision/neighborhood
     subdivision,
@@ -228,20 +229,20 @@ export default defineEventHandler(async (event) => {
     }
   }
   
-  // HOA/Condo fee filtering - search in description for now
-  // TODO: When we add associationFee to schema, use that instead
-  if (maxHoaFee) {
+  // HOA/Condo fee filtering via the features JSON column.
+  // associationFee lives inside the `features` JSONB column.
+  // NOT { gt: 0 } catches: key missing, key is null, and key is 0.
+  if (noHoaFee === 'true') {
+    if (!where.AND) where.AND = []
+    where.AND.push({
+      NOT: { features: { path: ['associationFee'], gt: 0 } }
+    })
+  } else if (maxHoaFee) {
     const feeAmount = parseInt(maxHoaFee as string)
-    // For now, we search for properties mentioning low fees or specific amounts
-    // This is a best-effort search since HOA fees are in the features JSON
-    if (feeAmount < 300) {
+    if (!isNaN(feeAmount)) {
       if (!where.AND) where.AND = []
       where.AND.push({
-        OR: [
-          { description: { contains: 'low fee', mode: 'insensitive' } },
-          { description: { contains: 'low condo fee', mode: 'insensitive' } },
-          { description: { contains: 'no condo fee', mode: 'insensitive' } }
-        ]
+        NOT: { features: { path: ['associationFee'], gt: feeAmount } }
       })
     }
   }

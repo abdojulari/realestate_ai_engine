@@ -16,6 +16,17 @@
           />
         </v-col>
 
+        <!-- No HOA/Condo Fee -->
+        <v-col cols="12" sm="6" :md="expanded ? 12 : 6" class="d-flex align-center">
+          <v-checkbox
+            v-model="filters.noHoaFee"
+            label="No HOA / Condo Fee"
+            density="compact"
+            hide-details
+            color="primary"
+          />
+        </v-col>
+
         <!-- Price Range -->
         <v-col cols="12" sm="6" :md="expanded ? 12 : 6">
           <v-select
@@ -204,6 +215,7 @@ const filters = ref({
   features: [],
   status: null,
   sortBy: null,
+  noHoaFee: false,
   ...props.initialFilters
 })
 
@@ -300,7 +312,8 @@ const clearFilters = () => {
     maxSqft: null,
     features: [],
     status: null,
-    sortBy: null
+    sortBy: null,
+    noHoaFee: false
   }
 }
 

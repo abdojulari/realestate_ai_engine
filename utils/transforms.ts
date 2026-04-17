@@ -11,6 +11,7 @@ interface SearchFilters {
   status?: string
   city?: string
   type?: string
+  noHoaFee?: boolean
 }
 
 export const transformSearchFilters = (filters: any): SearchFilters => {
@@ -30,7 +31,8 @@ export const transformSearchFilters = (filters: any): SearchFilters => {
     minSqft: filters.minSqft ? Number(filters.minSqft) : undefined,
     maxSqft: filters.maxSqft ? Number(filters.maxSqft) : undefined,
     features: filters.features || [],
-    status: filters.status || undefined
+    status: filters.status || undefined,
+    noHoaFee: filters.noHoaFee || undefined
   }
 }
 

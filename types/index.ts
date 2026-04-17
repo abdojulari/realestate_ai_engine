@@ -198,6 +198,8 @@ export interface PropertyFilter {
   neighborhood?: string
   neighborhoodId?: number | null
   subdivision?: string
+  // HOA/Condo fee filter
+  noHoaFee?: boolean
 }
 
 // Viewing Request types

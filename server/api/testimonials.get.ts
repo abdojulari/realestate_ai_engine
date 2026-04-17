@@ -17,7 +17,15 @@ export default defineEventHandler(async (event) => {
     const limit = parseInt(query.limit as string) || (featured ? 10 : 50)
     const offset = parseInt(query.offset as string) || 0
 
-    const where: any = { ...tenantFilter }
+    const where: any = {}
+
+    // Include testimonials belonging to this tenant OR orphaned ones (no adminId)
+    if (tenantFilter.adminId) {
+      where.OR = [
+        { adminId: tenantFilter.adminId },
+        { adminId: null }
+      ]
+    }
     
     if (approved) {
       where.approved = true
