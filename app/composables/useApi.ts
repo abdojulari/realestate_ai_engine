@@ -59,6 +59,20 @@ export function useApi() {
     })
   }
 
+  const patch = async <T = any>(url: string, data: any, opts: FetchOpts = {}) => {
+    const headers = buildHeaders()
+    if (data instanceof FormData) {
+      delete headers['Content-Type']
+    }
+    return await $fetch<T>(url as unknown as NitroFetchRequest, {
+      baseURL,
+      method: 'PATCH',
+      body: data,
+      headers: { ...headers, ...(opts.headers || {}) },
+      ...opts
+    })
+  }
+
   const del = async <T = any>(url: string, opts: FetchOpts = {}) => {
     return await $fetch<T>(url as unknown as NitroFetchRequest, {
       baseURL,
@@ -84,6 +98,7 @@ export function useApi() {
     get,
     post,
     put,
+    patch,
     del,
     upload
   }

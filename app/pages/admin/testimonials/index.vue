@@ -278,13 +278,13 @@
 </template>
 
 <script setup lang="ts">
-// @ts-ignore
-import { api } from '~/utils/api'
 
 // Meta
 definePageMeta({
   layout: 'admin'
 })
+
+const { get, del, patch } = useApi()
 
 // Types
 interface Testimonial {
@@ -371,7 +371,7 @@ const loadTestimonials = async () => {
       ...(statusFilter.value !== 'all' && { status: statusFilter.value })
     })
 
-    const response = await api.get(`/admin/testimonials?${params}`)
+    const response = await get(`/admin/testimonials?${params}`)
     testimonials.value = response?.testimonials || []
     pagination.value = response?.pagination || { page: 1, pages: 1, total: 0, limit: 20 }
     
@@ -387,9 +387,9 @@ const loadTestimonials = async () => {
 const loadStats = async () => {
   try {
     const [allResponse, pendingResponse, featuredResponse] = await Promise.all([
-      api.get('/admin/testimonials?limit=0'),
-      api.get('/admin/testimonials?status=pending&limit=0'),
-      api.get('/admin/testimonials?status=approved&featured=true&limit=0')
+      get('/admin/testimonials?limit=0'),
+      get('/admin/testimonials?status=pending&limit=0'),
+      get('/admin/testimonials?status=approved&featured=true&limit=0')
     ])
     
     stats.value = {
@@ -404,7 +404,7 @@ const loadStats = async () => {
 
 const approveTestimonial = async (testimonial: Testimonial) => {
   try {
-    await api.patch(`/admin/testimonials/${testimonial.id}`, {
+    await patch(`/admin/testimonials/${testimonial.id}`, {
       approved: true
     })
     testimonial.approved = true
@@ -416,7 +416,7 @@ const approveTestimonial = async (testimonial: Testimonial) => {
 
 const toggleFeatured = async (testimonial: Testimonial, featured: boolean | null) => {
   try {
-    await api.patch(`/admin/testimonials/${testimonial.id}`, {
+    await patch(`/admin/testimonials/${testimonial.id}`, {
       featured
     })
     testimonial.featured = featured ?? false
@@ -432,7 +432,7 @@ const deleteTestimonial = async (testimonial: Testimonial) => {
   }
 
   try {
-    await api.delete(`/admin/testimonials/${testimonial.id}`)
+    await del(`/admin/testimonials/${testimonial.id}`)
     await loadTestimonials()
   } catch (error) {
     console.error('Error deleting testimonial:', error)
@@ -445,7 +445,7 @@ const bulkApprove = async () => {
   try {
     await Promise.all(
       selectedItems.value.map(id =>
-        api.patch(`/admin/testimonials/${id}`, { approved: true })
+        patch(`/admin/testimonials/${id}`, { approved: true })
       )
     )
     selectedItems.value = []
