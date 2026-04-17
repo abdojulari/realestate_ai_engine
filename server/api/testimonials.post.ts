@@ -28,9 +28,9 @@ export default defineEventHandler(async (event) => {
     let photoFile: any = null
 
     formData.forEach((field) => {
-      if (field.name === 'photo' && field.type?.startsWith('image/')) {
+      if (field.name === 'photo' && field.filename) {
         photoFile = field
-      } else if (field.data) {
+      } else if (field.data && !field.filename) {
         data[field.name || ''] = field.data.toString()
       }
     })
@@ -80,7 +80,13 @@ export default defineEventHandler(async (event) => {
         const uploadsDir = join(uploadRoot, 'testimonials')
         await mkdir(uploadsDir, { recursive: true })
 
-        const fileExtension = photoFile.filename?.split('.').pop() || 'jpg'
+        const ext = (photoFile.filename?.split('.').pop() || 'jpg').toLowerCase()
+        const allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp']
+        if (!allowedExt.includes(ext)) {
+          console.warn(`[Testimonial] Rejected non-image file: ${photoFile.filename}`)
+          throw new Error('Invalid image type')
+        }
+        const fileExtension = ext
         const fileName = `${randomUUID()}.${fileExtension}`
         const filePath = join(uploadsDir, fileName)
 
