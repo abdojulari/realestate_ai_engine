@@ -62,6 +62,7 @@ export default defineEventHandler(async (event) => {
         brokerageLogoUrl: null,
         footerDisclaimer: null,
         copyrightName: null,
+        googleReviewUrl: null,
         developerName: null,
         developerUrl: null,
         subdomain: null,

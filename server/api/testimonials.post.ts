@@ -4,6 +4,7 @@ import { join } from 'path'
 import { randomUUID } from 'crypto'
 import { resolveTenantFromRequest } from '../utils/tenant'
 import { upsertCrmClientFromPlatformContact } from '../utils/crmClientSync'
+import { getUploadRoot } from '../utils/uploadStorage'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -75,21 +76,19 @@ export default defineEventHandler(async (event) => {
     let avatarPath = null
     if (photoFile && photoFile.data) {
       try {
-        // Ensure uploads directory exists
-        const uploadsDir = join(process.cwd(), 'public', 'uploads', 'testimonials')
+        const uploadRoot = getUploadRoot()
+        const uploadsDir = join(uploadRoot, 'testimonials')
         await mkdir(uploadsDir, { recursive: true })
 
-        // Generate unique filename
         const fileExtension = photoFile.filename?.split('.').pop() || 'jpg'
         const fileName = `${randomUUID()}.${fileExtension}`
         const filePath = join(uploadsDir, fileName)
 
-        // Write file
         await writeFile(filePath, photoFile.data)
         avatarPath = `/uploads/testimonials/${fileName}`
+        console.log(`[Testimonial] Photo saved: ${filePath} → ${avatarPath}`)
       } catch (error) {
-        console.error('Error uploading photo:', error)
-        // Continue without photo rather than failing
+        console.error('[Testimonial] Error uploading photo:', error)
       }
     }
 

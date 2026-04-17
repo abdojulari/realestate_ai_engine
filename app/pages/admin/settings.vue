@@ -289,6 +289,19 @@
                       :rules="[v => !!v || 'Timezone is required']"
                     />
                   </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field density="compact"
+                      v-model="generalSettings.googleReviewUrl"
+                      label="Google Review URL"
+                      placeholder="https://g.page/r/..."
+                      variant="outlined"
+                      rounded="lg"
+                      class="premium-input"
+                      hint="Shown on the testimonial page so clients can also leave a Google review"
+                      persistent-hint
+                      prepend-inner-icon="mdi-google"
+                    />
+                  </v-col>
                 </v-row>
               </v-form>
             </v-card-text>
@@ -873,6 +886,7 @@ const generalSettings = ref({
   supportEmail: '',
   phone: '',
   timezone: '',
+  googleReviewUrl: '',
   logo: null as any
 })
 
@@ -997,18 +1011,28 @@ const nextSyncTime = computed(() => {
 const saveGeneralSettings = async () => {
   saving.value = true
   try {
+    const { googleReviewUrl, ...rest } = generalSettings.value
     const response = await fetch('/api/admin/settings/general', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       },
-      body: JSON.stringify(generalSettings.value)
+      body: JSON.stringify(rest)
     })
     
     if (!response.ok) {
       throw new Error('Failed to save general settings')
     }
+
+    await fetch('/api/admin/tenant-settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders()
+      },
+      body: JSON.stringify({ googleReviewUrl: googleReviewUrl || null })
+    })
     
     showToast('General settings saved successfully')
   } catch (error) {
@@ -1443,8 +1467,17 @@ const loadAllSettings = async () => {
     // Update settings with loaded data
     if (generalRes.ok) {
       const data = await generalRes.json()
-      generalSettings.value = data
+      generalSettings.value = { ...generalSettings.value, ...data }
     }
+
+    // Load googleReviewUrl from tenant settings
+    try {
+      const tenantRes = await fetch('/api/admin/tenant-settings', { headers })
+      if (tenantRes.ok) {
+        const tenantData = await tenantRes.json()
+        generalSettings.value.googleReviewUrl = tenantData.googleReviewUrl || ''
+      }
+    } catch (e) { /* ignore */ }
 
     if (emailRes.ok) {
       const data = await emailRes.json()

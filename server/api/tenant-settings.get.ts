@@ -49,6 +49,7 @@ export default defineEventHandler(async (event) => {
         brokerageLogoUrl: true,
         footerDisclaimer: true,
         copyrightName: true,
+        googleReviewUrl: true,
         developerName: true,
         developerUrl: true,
         admin: { select: { firstName: true, lastName: true, email: true } },
@@ -76,6 +77,7 @@ export default defineEventHandler(async (event) => {
         brokerageLogoUrl: null,
         footerDisclaimer: null,
         copyrightName: null,
+        googleReviewUrl: null,
         developerName: null,
         developerUrl: null,
       }

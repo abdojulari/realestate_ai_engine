@@ -147,6 +147,9 @@ model TenantSettings {
   brokerageName    String?
   brokerageLogoUrl String?
 
+  // External review links
+  googleReviewUrl  String?
+
   // Footer / legal
   footerDisclaimer String?          @db.Text
   copyrightName    String?

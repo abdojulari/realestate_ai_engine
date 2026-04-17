@@ -85,6 +85,7 @@ export default defineEventHandler(async (event) => {
       'brokerageLogoUrl',
       'footerDisclaimer',
       'copyrightName',
+      'googleReviewUrl',
       'developerName',
       'developerUrl',
       'subdomain',

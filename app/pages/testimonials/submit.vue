@@ -97,9 +97,31 @@
                 <v-icon size="80" color="success">mdi-check-circle</v-icon>
               </div>
               <h2 class="text-h4 font-weight-bold mb-4">Thank You!</h2>
-              <p class="text-body-1 text-grey-darken-1 mb-8">
+              <p class="text-body-1 text-grey-darken-1 mb-6">
                 Your testimonial has been submitted successfully. We'll review it and publish it on our website soon.
               </p>
+
+              <!-- Google Review CTA -->
+              <v-card v-if="googleReviewUrl" flat class="google-review-cta mb-8 mx-auto" max-width="460" color="blue-lighten-5" rounded="xl">
+                <v-card-text class="text-center pa-6">
+                  <v-icon size="36" color="blue" class="mb-3">mdi-google</v-icon>
+                  <p class="text-body-1 font-weight-medium text-grey-darken-3 mb-4">
+                    Would you also leave us a Google Review? It helps us reach more families!
+                  </p>
+                  <v-btn
+                    color="blue"
+                    size="large"
+                    rounded="lg"
+                    :href="googleReviewUrl"
+                    target="_blank"
+                    class="px-8"
+                  >
+                    <v-icon start>mdi-star</v-icon>
+                    Leave a Google Review
+                  </v-btn>
+                </v-card-text>
+              </v-card>
+
               <div class="d-flex justify-center flex-wrap ga-4">
                 <v-btn color="primary" size="large" to="/" rounded="lg" class="px-8">
                   <v-icon start>mdi-home</v-icon>
@@ -309,6 +331,22 @@
                   <v-icon size="14" class="mr-1">mdi-shield-check</v-icon>
                   Your information is secure and will never be shared without consent.
                 </p>
+
+                <!-- Google Review Alternative -->
+                <div v-if="googleReviewUrl" class="google-review-link text-center mt-6 pt-6" style="border-top: 1px solid rgba(0,0,0,0.08);">
+                  <p class="text-body-2 text-grey-darken-1 mb-2">You can also support us by leaving a review on Google</p>
+                  <v-btn
+                    variant="outlined"
+                    color="blue"
+                    size="small"
+                    rounded="lg"
+                    :href="googleReviewUrl"
+                    target="_blank"
+                  >
+                    <v-icon start size="16">mdi-google</v-icon>
+                    Leave a Google Review
+                  </v-btn>
+                </div>
               </v-form>
             </v-card>
           </div>
@@ -323,7 +361,7 @@ definePageMeta({
   layout: 'default'
 })
 
-const { adminFullName, adminFirstName, businessName: biz } = useTenantSettings()
+const { adminFullName, adminFirstName, businessName: biz, googleReviewUrl } = useTenantSettings()
 useSeoMeta({
   title: () => `Share Your Experience | ${biz.value || 'Real Estate'}`,
   ogTitle: () => `Share Your Experience | ${biz.value || 'Real Estate'}`,

@@ -36,6 +36,7 @@ export interface TenantSettingsData {
   copyrightName: string | null
   developerName: string | null
   developerUrl: string | null
+  googleReviewUrl: string | null
   adminEmail: string | null
   adminFirstName: string | null
   adminLastName: string | null
@@ -99,6 +100,7 @@ export function useTenantSettings() {
   const copyrightName = computed(() => tenantSettings.value?.copyrightName || businessName.value || '')
   const developerName = computed(() => tenantSettings.value?.developerName || '')
   const developerUrl = computed(() => tenantSettings.value?.developerUrl || '')
+  const googleReviewUrl = computed(() => tenantSettings.value?.googleReviewUrl || '')
   const adminEmail = computed(() => tenantSettings.value?.adminEmail || '')
   const adminFirstName = computed(() => tenantSettings.value?.adminFirstName || '')
   const adminLastName = computed(() => tenantSettings.value?.adminLastName || '')
@@ -132,6 +134,7 @@ export function useTenantSettings() {
     brokerageLogoUrl,
     footerDisclaimer,
     copyrightName,
+    googleReviewUrl,
     developerName,
     developerUrl,
     adminEmail,
