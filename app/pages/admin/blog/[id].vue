@@ -142,16 +142,29 @@
                     <v-btn @click="showImageDialog = true"><v-icon size="small">mdi-image</v-icon></v-btn>
                   </v-btn-group>
                 </div>
-                
+
                 <v-textarea density="compact"
                   ref="contentEditor"
                   v-model="form.content"
-                  :placeholder="editorMode === 'visual' ? 'Start writing your blog post...' : '# Your markdown content here...'"
+                  :placeholder="editorMode === 'visual' ? 'Write your content using the toolbar above...' : '# Your markdown content here...'"
                   variant="outlined"
-                  rows="20"
-                  class="content-textarea"
+                  :rows="editorMode === 'visual' ? 12 : 20"
+                  :class="editorMode === 'markdown' ? 'content-textarea markdown-mode' : 'content-textarea'"
                   auto-grow
+                  @mouseup="saveSelection"
+                  @keyup="saveSelection"
+                  @select="saveSelection"
+                  @focus="saveSelection"
                 />
+
+                <!-- Live Preview (Visual mode) -->
+                <div v-if="editorMode === 'visual'" class="visual-preview mt-4">
+                  <div class="preview-header">
+                    <v-icon size="small" class="mr-1">mdi-eye</v-icon>
+                    Preview
+                  </div>
+                  <div class="preview-content" v-html="renderedPreview" />
+                </div>
               </v-card-text>
             </v-card>
 
@@ -440,8 +453,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { marked } from 'marked'
 // @ts-ignore
 import { api } from '~/utils/api'
 // @ts-ignore
@@ -462,6 +476,7 @@ const form = ref<any>({})
 const categories = ref<any[]>([])
 const editorMode = ref('visual')
 const contentEditor = ref<HTMLTextAreaElement | null>(null)
+const savedSelection = ref({ start: 0, end: 0 })
 
 // Image dialog
 const showImageDialog = ref(false)
@@ -533,18 +548,23 @@ const fetchCategories = async () => {
   }
 }
 
-// Format helpers
-const insertFormat = (format: string) => {
+const saveSelection = () => {
   const textarea = (contentEditor.value as any)?.$el?.querySelector('textarea')
-  if (!textarea) return
-  
-  const start = textarea.selectionStart
-  const end = textarea.selectionEnd
-  const text = form.value.content
+  if (textarea) {
+    savedSelection.value = {
+      start: textarea.selectionStart ?? 0,
+      end: textarea.selectionEnd ?? 0
+    }
+  }
+}
+
+const insertFormat = (format: string) => {
+  const { start, end } = savedSelection.value
+  const text = form.value.content || ''
   const selectedText = text.substring(start, end)
-  
+
   let insertText = ''
-  
+
   switch (format) {
     case 'bold': insertText = `**${selectedText || 'bold text'}**`; break
     case 'italic': insertText = `*${selectedText || 'italic text'}*`; break
@@ -556,9 +576,36 @@ const insertFormat = (format: string) => {
     case 'code': insertText = `\`${selectedText || 'code'}\``; break
     case 'link': insertText = `[${selectedText || 'link text'}](url)`; break
   }
-  
+
   form.value.content = text.substring(0, start) + insertText + text.substring(end)
+
+  nextTick(() => {
+    const textarea = (contentEditor.value as any)?.$el?.querySelector('textarea')
+    if (textarea) {
+      textarea.focus()
+      const newPos = start + insertText.length
+      textarea.setSelectionRange(newPos, newPos)
+      savedSelection.value = { start: newPos, end: newPos }
+    }
+  })
 }
+
+const renderedPreview = computed(() => {
+  const content = form.value.content
+  if (!content) return '<p style="color: #999;">Start writing to see a preview...</p>'
+
+  let cleanContent = content.trim()
+  const codeFenceMatch = cleanContent.match(/^```\w*\n([\s\S]*?)\n```\s*$/)
+  if (codeFenceMatch?.[1]) {
+    cleanContent = codeFenceMatch[1]
+  }
+
+  try {
+    return marked(cleanContent, { breaks: true })
+  } catch {
+    return content
+  }
+})
 
 // Cover image
 const triggerCoverUpload = () => coverInput.value?.click()
@@ -735,9 +782,18 @@ onMounted(() => {
 }
 
 .content-textarea :deep(textarea) {
-  font-family: 'Inter', monospace;
+  font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
   line-height: 1.8;
+}
+
+.markdown-mode :deep(textarea) {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace !important;
+  font-size: 0.9rem;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  border-radius: 8px;
 }
 
 .editor-toolbar {
@@ -745,6 +801,109 @@ onMounted(() => {
   background: #f9f9f9;
   border-radius: 8px;
   border: 1px solid #eee;
+}
+
+.visual-preview {
+  border-top: 1px solid #eee;
+  padding-top: 16px;
+}
+
+.preview-header {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #999;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.preview-content {
+  padding: 24px;
+  background: #fafafa;
+  border-radius: 12px;
+  border: 1px solid #eee;
+  min-height: 200px;
+  font-size: 1rem;
+  line-height: 1.8;
+  color: #333;
+}
+
+.preview-content :deep(h1),
+.preview-content :deep(h2),
+.preview-content :deep(h3),
+.preview-content :deep(h4) {
+  font-family: 'Playfair Display', serif;
+  margin-top: 1.5rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.preview-content :deep(h1) { font-size: 2rem; }
+.preview-content :deep(h2) { font-size: 1.5rem; }
+.preview-content :deep(h3) { font-size: 1.25rem; }
+
+.preview-content :deep(p) {
+  margin-bottom: 1rem;
+}
+
+.preview-content :deep(strong) {
+  font-weight: 700;
+}
+
+.preview-content :deep(blockquote) {
+  border-left: 4px solid #8c734b;
+  padding-left: 16px;
+  margin: 1rem 0;
+  color: #666;
+  font-style: italic;
+}
+
+.preview-content :deep(code) {
+  background: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.preview-content :deep(pre) {
+  background: #1e1e1e;
+  color: #d4d4d4;
+  padding: 16px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+
+.preview-content :deep(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.preview-content :deep(ul),
+.preview-content :deep(ol) {
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.preview-content :deep(li) {
+  margin-bottom: 0.25rem;
+}
+
+.preview-content :deep(a) {
+  color: #1976D2;
+  text-decoration: underline;
+}
+
+.preview-content :deep(img) {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 1rem 0;
+}
+
+.preview-content :deep(hr) {
+  border: none;
+  border-top: 1px solid #eee;
+  margin: 2rem 0;
 }
 
 .cover-upload-zone {

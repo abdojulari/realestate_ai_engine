@@ -1,7 +1,7 @@
 <template>
   <div class="blog-post-page">
     <!-- Loading State -->
-    <div v-if="loading" class="loading-container">
+    <div v-if="status === 'pending'" class="loading-container">
       <v-container>
         <v-skeleton-loader type="image" height="400" class="mb-8" />
         <v-skeleton-loader type="heading, paragraph@3" />
@@ -280,19 +280,111 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed } from 'vue'
 import { marked } from 'marked'
 
 const route = useRoute()
 const slug = computed(() => route.params.slug as string)
+const config = useRuntimeConfig()
+const siteUrl = (config.public.siteUrl as string || '').replace(/\/$/, '')
 
-// State
-const loading = ref(true)
-const post = ref<any>(null)
-const relatedPosts = ref<any[]>([])
+// SSR-compatible data fetching — runs on server and client
+const { data, status } = await useAsyncData(
+  `blog-post-${slug.value}`,
+  async () => {
+    try {
+      return await $fetch(`/api/blog/${slug.value}`)
+    } catch (error) {
+      console.error('Error fetching post:', error)
+      return { post: null, relatedPosts: [] }
+    }
+  },
+  { watch: [slug] }
+)
+
+const post = computed(() => (data.value as any)?.post || null)
+const relatedPosts = computed(() => (data.value as any)?.relatedPosts || [])
+
+// Return 404 status server-side when post is missing — prevents indexing of empty pages
+if (import.meta.server && !post.value) {
+  setResponseStatus(useRequestEvent()!, 404)
+}
+
+// Build absolute URL helper for SEO (crawlers need fully-qualified URLs)
+const absoluteUrl = (path: string) => {
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  if (!siteUrl) return path
+  return `${siteUrl}${path.startsWith('/') ? '' : '/'}${path}`
+}
+
+const canonicalUrl = computed(() => {
+  if (!post.value) return ''
+  if (post.value.canonicalUrl) return absoluteUrl(post.value.canonicalUrl)
+  return absoluteUrl(`/blog/${post.value.slug}`)
+})
+
+const ogImageUrl = computed(() => absoluteUrl(post.value?.ogImage || post.value?.coverImage || ''))
+
 const snackbar = ref(false)
 const snackbarText = ref('')
+
+// SEO — reactive, renders during SSR because useAsyncData resolves server-side
+useSeoMeta({
+  title: () => post.value?.metaTitle || (post.value ? `${post.value.title} - Blog` : 'Blog'),
+  description: () => post.value?.metaDescription || post.value?.excerpt || post.value?.title || '',
+  keywords: () => (post.value?.metaKeywords || post.value?.tags || []).join(', '),
+  ogTitle: () => post.value?.title || '',
+  ogDescription: () => post.value?.metaDescription || post.value?.excerpt || '',
+  ogImage: () => ogImageUrl.value,
+  ogUrl: () => canonicalUrl.value,
+  ogType: 'article',
+  ogSiteName: 'Real Estate Portal',
+  twitterCard: 'summary_large_image',
+  twitterTitle: () => post.value?.title || '',
+  twitterDescription: () => post.value?.metaDescription || post.value?.excerpt || '',
+  twitterImage: () => ogImageUrl.value,
+  articlePublishedTime: () => post.value?.publishedAt || '',
+  articleModifiedTime: () => post.value?.updatedAt || '',
+  articleAuthor: () => post.value?.author ? `${post.value.author.firstName} ${post.value.author.lastName}` : '',
+  articleSection: () => post.value?.category?.name || '',
+  articleTag: () => (post.value?.tags || []).join(', '),
+  robots: () => post.value ? 'index, follow' : 'noindex, nofollow'
+})
+
+useHead({
+  link: () => post.value && canonicalUrl.value ? [
+    { rel: 'canonical', href: canonicalUrl.value }
+  ] : [],
+  script: () => post.value ? [
+    {
+      type: 'application/ld+json',
+      children: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'BlogPosting',
+        headline: post.value.title,
+        description: post.value.excerpt || post.value.metaDescription,
+        image: ogImageUrl.value || undefined,
+        datePublished: post.value.publishedAt,
+        dateModified: post.value.updatedAt,
+        author: post.value.author ? {
+          '@type': 'Person',
+          name: `${post.value.author.firstName} ${post.value.author.lastName}`
+        } : undefined,
+        publisher: {
+          '@type': 'Organization',
+          name: 'Real Estate Portal',
+          url: siteUrl || undefined
+        },
+        mainEntityOfPage: {
+          '@type': 'WebPage',
+          '@id': canonicalUrl.value
+        },
+        url: canonicalUrl.value
+      })
+    }
+  ] : []
+})
 
 // Format date
 const formatDate = (date: string) => {
@@ -307,15 +399,18 @@ const formatDate = (date: string) => {
 // Render markdown content
 const renderedContent = computed(() => {
   if (!post.value?.content) return ''
-  
-  // If content is HTML, return as-is
-  if (post.value.contentHtml) {
-    return post.value.contentHtml
+  if (post.value.contentHtml) return post.value.contentHtml
+
+  let content = post.value.content.trim()
+
+  // Strip wrapping code fences (e.g. ```markdown ... ```)
+  const codeFenceMatch = content.match(/^```\w*\n([\s\S]*?)\n```\s*$/)
+  if (codeFenceMatch?.[1]) {
+    content = codeFenceMatch[1]
   }
-  
-  // Otherwise, parse markdown
+
   try {
-    return marked(post.value.content, { breaks: true })
+    return marked(content, { breaks: true })
   } catch {
     return post.value.content
   }
@@ -354,78 +449,6 @@ const copyLink = async () => {
     snackbar.value = true
   }
 }
-
-// Fetch post
-const fetchPost = async () => {
-  loading.value = true
-  
-  try {
-    const data: any = await $fetch(`/api/blog/${slug.value}`)
-    post.value = data.post
-    relatedPosts.value = data.relatedPosts || []
-    
-    // Set SEO meta
-    if (post.value) {
-      useHead({
-        title: post.value.metaTitle || `${post.value.title} - Blog`,
-        meta: [
-          { name: 'description', content: post.value.metaDescription || post.value.excerpt || post.value.title },
-          { name: 'keywords', content: (post.value.metaKeywords || post.value.tags || []).join(', ') },
-          { property: 'og:title', content: post.value.title },
-          { property: 'og:description', content: post.value.metaDescription || post.value.excerpt },
-          { property: 'og:image', content: post.value.ogImage || post.value.coverImage },
-          { property: 'og:type', content: 'article' },
-          { property: 'article:published_time', content: post.value.publishedAt },
-          { property: 'article:author', content: post.value.author ? `${post.value.author.firstName} ${post.value.author.lastName}` : '' },
-          { property: 'article:section', content: post.value.category?.name || '' },
-          { property: 'article:tag', content: (post.value.tags || []).join(', ') },
-          { name: 'twitter:card', content: 'summary_large_image' },
-          { name: 'twitter:title', content: post.value.title },
-          { name: 'twitter:description', content: post.value.metaDescription || post.value.excerpt },
-          { name: 'twitter:image', content: post.value.ogImage || post.value.coverImage }
-        ],
-        link: [
-          { rel: 'canonical', href: post.value.canonicalUrl || `/blog/${post.value.slug}` }
-        ],
-        script: [
-          {
-            type: 'application/ld+json',
-            children: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'BlogPosting',
-              headline: post.value.title,
-              description: post.value.excerpt || post.value.metaDescription,
-              image: post.value.coverImage,
-              datePublished: post.value.publishedAt,
-              dateModified: post.value.updatedAt,
-              author: post.value.author ? {
-                '@type': 'Person',
-                name: `${post.value.author.firstName} ${post.value.author.lastName}`
-              } : undefined,
-              publisher: {
-                '@type': 'Organization',
-                name: 'Real Estate Portal'
-              },
-              mainEntityOfPage: {
-                '@type': 'WebPage',
-                '@id': `/blog/${post.value.slug}`
-              }
-            })
-          }
-        ]
-      })
-    }
-  } catch (error) {
-    console.error('Error fetching post:', error)
-    post.value = null
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(() => {
-  fetchPost()
-})
 </script>
 
 <style scoped>
