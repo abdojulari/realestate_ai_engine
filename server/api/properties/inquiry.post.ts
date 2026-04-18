@@ -231,8 +231,8 @@ Please respond to the inquirer directly at ${inquirerEmail}.
         <div class="content">
             <div class="property-info">
                 <h3>Property Details</h3>
-                <p><strong>Title:</strong> ${propertyTitle}</p>
-                <p><strong>Address:</strong> ${propertyAddress}, ${propertyCity}</p>
+                <p><strong>Title:</strong> <a href="${propertyUrl}" style="color: #2563eb; text-decoration: none;">${propertyTitle}</a></p>
+                <p><strong>Address:</strong> <a href="${propertyUrl}" style="color: #333; text-decoration: none;">${propertyAddress}, ${propertyCity}</a></p>
                 <p><strong>Price:</strong> ${propertyPrice}</p>
                 <p><strong>MLS Number:</strong> ${mlsNumber}</p>
                 <p><a href="${propertyUrl}" class="btn">View Property</a></p>

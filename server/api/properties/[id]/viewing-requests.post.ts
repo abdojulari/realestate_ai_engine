@@ -151,6 +151,8 @@ export default defineEventHandler(async (event) => {
       const clientName = `${viewingRequest.user.firstName || ''} ${viewingRequest.user.lastName || ''}`.trim() || 'A client'
       const propertyTitle = viewingRequest.property.title || viewingRequest.property.address || `Property #${propertyId}`
       const propertyAddress = [viewingRequest.property.address, viewingRequest.property.city, viewingRequest.property.province].filter(Boolean).join(', ')
+      const siteUrl = (process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
+      const propertyUrl = `${siteUrl}/property/${propertyId}`
       const formattedDate = dateTime.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
       const formattedTime = dateTime.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
       const endTime = new Date(dateTime.getTime() + 60 * 60_000)
@@ -181,8 +183,8 @@ export default defineEventHandler(async (event) => {
                 <tr><td style="padding: 10px 0; color: #666; width: 120px;">Client</td><td style="padding: 10px 0; font-weight: bold;">${clientName}</td></tr>
                 <tr><td style="padding: 10px 0; color: #666;">Email</td><td style="padding: 10px 0;"><a href="mailto:${viewingRequest.user.email}">${viewingRequest.user.email}</a></td></tr>
                 ${viewingRequest.user.phone ? `<tr><td style="padding: 10px 0; color: #666;">Phone</td><td style="padding: 10px 0;"><a href="tel:${viewingRequest.user.phone}">${viewingRequest.user.phone}</a></td></tr>` : ''}
-                <tr><td style="padding: 10px 0; color: #666;">Property</td><td style="padding: 10px 0; font-weight: bold;">${propertyTitle}</td></tr>
-                <tr><td style="padding: 10px 0; color: #666;">Address</td><td style="padding: 10px 0;">${propertyAddress}</td></tr>
+                <tr><td style="padding: 10px 0; color: #666;">Property</td><td style="padding: 10px 0; font-weight: bold;"><a href="${propertyUrl}" style="color: #1976d2; text-decoration: none;">${propertyTitle}</a></td></tr>
+                <tr><td style="padding: 10px 0; color: #666;">Address</td><td style="padding: 10px 0;"><a href="${propertyUrl}" style="color: #333; text-decoration: none;">${propertyAddress}</a></td></tr>
                 <tr><td style="padding: 10px 0; color: #666;">Date</td><td style="padding: 10px 0; font-weight: bold;">${formattedDate}</td></tr>
                 <tr><td style="padding: 10px 0; color: #666;">Time</td><td style="padding: 10px 0; font-weight: bold;">${formattedTime}</td></tr>
                 ${notes ? `<tr><td style="padding: 10px 0; color: #666;">Notes</td><td style="padding: 10px 0;">${notes}</td></tr>` : ''}
@@ -214,6 +216,8 @@ export default defineEventHandler(async (event) => {
     const formattedDate = dateTime.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
     const formattedTime = dateTime.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
     const propertyTitle = viewingRequest.property.title || viewingRequest.property.address || `Property #${propertyId}`
+    const clientSiteUrl = (process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
+    const clientPropertyUrl = `${clientSiteUrl}/property/${propertyId}`
 
     await sendEmail({
       to: viewingRequest.user.email,
@@ -224,7 +228,7 @@ export default defineEventHandler(async (event) => {
           <p>Hi ${viewingRequest.user.firstName || 'there'},</p>
           <p>Your property viewing has been scheduled.</p>
           <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
-            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Property</td><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">${propertyTitle}</td></tr>
+            <tr><td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Property</td><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;"><a href="${clientPropertyUrl}" style="color: #1976d2; text-decoration: none;">${propertyTitle}</a></td></tr>
             <tr><td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Date</td><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">${formattedDate}</td></tr>
             <tr><td style="padding: 8px; border-bottom: 1px solid #eee; color: #666;">Time</td><td style="padding: 8px; border-bottom: 1px solid #eee; font-weight: bold;">${formattedTime}</td></tr>
           </table>

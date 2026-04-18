@@ -166,15 +166,20 @@ async function sendAlertEmail(user: any, alert: any, properties: any[]) {
     }
   })
 
-  const propertyListHtml = properties.slice(0, 10).map(property => `
-    <div style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 16px 0;">
-      <h3 style="margin: 0 0 8px 0; color: #1976d2;">${property.title}</h3>
-      <p style="font-size: 18px; font-weight: bold; color: #2e7d32; margin: 0 0 8px 0;">$${property.price?.toLocaleString()}</p>
-      <p style="margin: 0 0 8px 0;">${property.address}, ${property.city}</p>
-      <p style="margin: 0 0 8px 0;">${property.beds} beds • ${property.baths} baths • ${property.sqft} sqft</p>
-      <p style="margin: 0; font-size: 14px; color: #666;">${property.description?.substring(0, 150)}...</p>
-    </div>
-  `).join('')
+  const propertyListHtml = properties.slice(0, 10).map(property => {
+    const propertyUrl = `${siteUrl}/property/${property.id}`
+    return `
+    <a href="${propertyUrl}" style="text-decoration: none; color: inherit; display: block;">
+      <div style="border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 16px 0; cursor: pointer;">
+        <h3 style="margin: 0 0 8px 0; color: #1976d2;">${property.title}</h3>
+        <p style="font-size: 18px; font-weight: bold; color: #2e7d32; margin: 0 0 8px 0;">$${property.price?.toLocaleString()}</p>
+        <p style="margin: 0 0 8px 0; color: #333;">${property.address}, ${property.city}</p>
+        <p style="margin: 0 0 8px 0; color: #333;">${property.beds} beds • ${property.baths} baths • ${property.sqft} sqft</p>
+        <p style="margin: 0 0 12px 0; font-size: 14px; color: #666;">${property.description?.substring(0, 150)}...</p>
+        <span style="color: #1976d2; font-weight: 600; font-size: 14px;">View Property &rarr;</span>
+      </div>
+    </a>`
+  }).join('')
 
   const emailHtml = `
     <html>
