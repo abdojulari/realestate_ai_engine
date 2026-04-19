@@ -8,7 +8,7 @@
       <v-img
         :src="imageSrc"
         :lazy-src="'/images/property-placeholder.svg'"
-        :alt="property.title"
+        :alt="imageAlt"
         height="200"
         cover
         class="property-image"
@@ -151,6 +151,18 @@ const props = defineProps<{
 const emit = defineEmits(['click', 'save', 'contact'])
 
 const imageSrc = ref<string>(props.property.images?.[0] || '/images/property-placeholder.svg')
+
+const imageAlt = computed(() => {
+  const media = (props.property as any)?.features?.mediaItems
+  if (Array.isArray(media) && media.length) {
+    const first = media.find((m: any) => m?.alt) || media[0]
+    if (first?.alt) return String(first.alt)
+  }
+  const addr = (props.property as any)?.address
+  const city = (props.property as any)?.city
+  if (addr && city) return `${addr}, ${city}`
+  return props.property.title || addr || 'Property image'
+})
 
 watch(() => props.property, (p) => {
   imageSrc.value = p?.images?.[0] || '/images/property-placeholder.svg'

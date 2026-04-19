@@ -157,7 +157,18 @@
               {{ item.beds }} / {{ item.baths }}
             </template>
             <template #item.soldDate="{ item }">
-              {{ formatDate(item.soldDate) }}
+              <div class="d-flex align-center" style="gap: 6px;">
+                <span>{{ formatDate(item.soldDate) }}</span>
+                <v-tooltip
+                  v-if="item.soldDateSource && item.soldDateSource !== 'closeDate' && item.soldDateSource !== 'statusChangeTimestamp'"
+                  location="top"
+                >
+                  <template #activator="{ props }">
+                    <v-icon v-bind="props" size="14" color="warning">mdi-alert-circle-outline</v-icon>
+                  </template>
+                  <span>Inferred from {{ soldDateSourceLabel(item.soldDateSource) }} — exact sold date unavailable.</span>
+                </v-tooltip>
+              </div>
             </template>
             <template #no-data>
               <div class="text-center py-6 text-medium-emphasis">
@@ -492,6 +503,20 @@ const formatCompact = (value: number) => {
 const formatDate = (value: string) => {
   if (!value) return '—'
   return new Date(value).toLocaleDateString()
+}
+
+// Human label for the sold-date provenance returned by /api/admin/cma/comps.
+// Anything other than `closeDate` / `statusChangeTimestamp` is an inferred
+// date and we surface a tooltip warning admins.
+const soldDateSourceLabel = (src: string) => {
+  switch (src) {
+    case 'closeDate': return 'closing date'
+    case 'statusChangeTimestamp': return 'status change'
+    case 'pendingTimestamp': return 'pending date'
+    case 'modificationTimestamp': return 'last MLS update'
+    case 'updatedAt': return 'last sync'
+    default: return src
+  }
 }
 
 const matchColor = (score: number) => {

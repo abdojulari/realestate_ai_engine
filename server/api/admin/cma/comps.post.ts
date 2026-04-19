@@ -26,6 +26,53 @@ type Subject = {
   longitude?: number
 }
 
+// Defensive JSON parse for the Property.features column when stored as string.
+function safeParseJson(value: unknown): any {
+  if (typeof value !== 'string') return value
+  try { return JSON.parse(value) } catch { return null }
+}
+
+// Resolve the best-available "sold date" for a property record.
+//
+// Different sources expose different timestamps and any individual field can
+// be null on a given row, so we walk a priority chain:
+//
+//   1. features.closeDate           — Pillar9's actual closing date. Gold standard.
+//   2. features.statusChangeTimestamp — CREA's StandardStatus transition (when it
+//                                       flipped to Closed/Sold). Public DDF doesn't
+//                                       expose CloseDate, so this is CREA's best signal.
+//   3. features.pendingTimestamp    — when listing went pending (firm sale).
+//                                     Used when a sold record is missing the
+//                                     status-change date but kept its pending date.
+//   4. features.modificationTimestamp — last CREA-side edit. Auto-sold rows
+//                                       usually modify on the same poll, so this
+//                                       is a tight upper bound.
+//   5. property.updatedAt           — our row mtime. Always present, but moves on
+//                                     every sync — last-resort only.
+//
+// Returns { date, source } so the UI can show provenance ("Closed: 2026-03-12")
+// vs an inferred date ("Last updated: 2026-03-15").
+type SoldDateSource = 'closeDate' | 'statusChangeTimestamp' | 'pendingTimestamp' | 'modificationTimestamp' | 'updatedAt'
+
+function resolveSoldDate(property: any, featuresObj: any): { date: Date; source: SoldDateSource } {
+  const candidates: Array<{ value: unknown; source: SoldDateSource }> = [
+    { value: featuresObj?.closeDate, source: 'closeDate' },
+    { value: featuresObj?.statusChangeTimestamp, source: 'statusChangeTimestamp' },
+    { value: featuresObj?.pendingTimestamp, source: 'pendingTimestamp' },
+    { value: featuresObj?.modificationTimestamp, source: 'modificationTimestamp' },
+    { value: property.updatedAt, source: 'updatedAt' },
+  ]
+
+  for (const c of candidates) {
+    if (c.value == null || c.value === '') continue
+    const d = c.value instanceof Date ? c.value : new Date(c.value as any)
+    if (!isNaN(d.getTime())) return { date: d, source: c.source }
+  }
+
+  // Should be unreachable — updatedAt is non-nullable on Property — but stay safe.
+  return { date: new Date(0), source: 'updatedAt' }
+}
+
 // Geocode address using a free service (OpenStreetMap Nominatim)
 async function geocodeAddress(address: string, city: string, province: string): Promise<{ lat: number; lng: number } | null> {
   try {
@@ -301,9 +348,18 @@ export default defineEventHandler(async (event) => {
   if (filters.province || subject.province) baseWhere.province = filters.province || subject.province
   if (filters.city || subject.city) baseWhere.city = { contains: (filters.city || subject.city) as string, mode: 'insensitive' }
 
+  // The true sold date can live in several places (closeDate, statusChange-
+  // Timestamp, pendingTimestamp, modificationTimestamp) — see resolveSoldDate
+  // for the priority chain. We keep a wide pre-filter on updatedAt for query
+  // performance (+90 days of buffer past the requested window so we don't miss
+  // anything CREA touched after the sale), then re-filter precisely in-memory
+  // using the resolved sold date from the JSON features blob.
   const dateFilter = parseDateRange(filters.range, filters.startDate, filters.endDate)
   if (dateFilter) {
-    baseWhere.updatedAt = dateFilter
+    const padded: { gte?: Date; lte?: Date } = {}
+    if (dateFilter.gte) padded.gte = dateFilter.gte
+    if (dateFilter.lte) padded.lte = new Date(dateFilter.lte.getTime() + 90 * 24 * 60 * 60 * 1000)
+    baseWhere.updatedAt = padded
   }
 
   // Search sold properties — strictly within the community when specified
@@ -442,6 +498,15 @@ export default defineEventHandler(async (event) => {
         ? distanceKm(subjectCoords, { lat: property.latitude, lng: property.longitude })
         : null
 
+      // Walk the sold-date fallback chain. See resolveSoldDate() for the full
+      // priority order and why each level exists.
+      const features = (property as any).features
+      const featuresObj = typeof features === 'string'
+        ? safeParseJson(features)
+        : (features || {})
+      const { date: soldDate, source: soldDateSource } = resolveSoldDate(property, featuresObj)
+      const soldDateMs = soldDate.getTime()
+
       return {
         ...property,
         images: typeof property.images === 'string' ? JSON.parse(property.images || '[]') : property.images,
@@ -458,8 +523,17 @@ export default defineEventHandler(async (event) => {
         matchedFeatures,
         missingFeatures,
         distanceKm: distance,
-        soldDate: property.updatedAt
+        soldDate,
+        soldDateMs,
+        soldDateSource,
       }
+    })
+    // Precise sold-date window using StatusChangeTimestamp.
+    .filter((property) => {
+      if (!dateFilter) return true
+      if (dateFilter.gte && property.soldDateMs < dateFilter.gte.getTime()) return false
+      if (dateFilter.lte && property.soldDateMs > dateFilter.lte.getTime()) return false
+      return true
     })
     .filter((property) => property.matchScore >= minMatchScore)
     // Filter by radius (always keep neighbourhood matches)

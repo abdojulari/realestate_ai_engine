@@ -305,13 +305,25 @@ async function fetchRelevantProperties(message: string, chatTenantFilter: { admi
     select: {
       id: true,
       title: true,
+      description: true,
       price: true,
       beds: true,
       baths: true,
+      sqft: true,
       city: true,
+      cityRegion: true,
       address: true,
       mlsNumber: true,
-      type: true
+      type: true,
+      status: true,
+      yearBuilt: true,
+      lotSizeArea: true,
+      lotSizeUnits: true,
+      propertyCondition: true,
+      waterBodyName: true,
+      daysOnMarket: true,
+      features: true,
+      listingAgentData: true,
     }
   })
 }
@@ -341,16 +353,7 @@ function buildFollowUpQuestions({
   message: string
   answer: string
   history: HistoryMessage[]
-  properties: Array<{
-    title: string
-    price: number
-    beds: number
-    baths: number
-    city: string
-    address: string
-    mlsNumber: string | null
-    type: string
-  }>
+  properties: any[]
 }): string[] {
   const normalized = normalizeText(message)
   const recentText = normalizeText(
@@ -479,16 +482,7 @@ function buildContext({
   properties
 }: {
   faqs: FAQ[]
-  properties?: Array<{
-    title: string
-    price: number
-    beds: number
-    baths: number
-    city: string
-    address: string
-    mlsNumber: string | null
-    type: string
-  }>
+  properties?: any[]
 }) {
   let context = 'You are a real estate assistant.\n\n'
 
@@ -500,22 +494,72 @@ function buildContext({
   }
 
   if (properties?.length) {
-    context += '\nRelevant Properties:\n'
+    context += '\nRelevant Properties (factual data — answer only from these fields, do not invent details):\n'
     properties.forEach((property) => {
-      context += [
-        `Title: ${property.title}`,
-        `Type: ${property.type}`,
-        `Price: $${property.price}`,
-        `Beds: ${property.beds}, Baths: ${property.baths}`,
-        `City: ${property.city}`,
-        `Address: ${property.address}`,
-        `MLS: ${property.mlsNumber || 'N/A'}`
-      ].join('\n')
-      context += '\n\n'
+      const lines: string[] = []
+      lines.push(`Title: ${property.title}`)
+      if (property.type) lines.push(`Type: ${property.type}`)
+      if (property.status) lines.push(`Status: ${property.status}`)
+      if (property.price) lines.push(`Price: $${Number(property.price).toLocaleString()}`)
+      if (property.beds || property.baths) {
+        const parts = []
+        if (property.beds) parts.push(`${property.beds} bed`)
+        if (property.baths) parts.push(`${property.baths} bath`)
+        lines.push(parts.join(', '))
+      }
+      if (property.sqft) lines.push(`Size: ${Number(property.sqft).toLocaleString()} sqft`)
+      if (property.yearBuilt) lines.push(`Year Built: ${property.yearBuilt}`)
+      if (property.lotSizeArea) lines.push(`Lot Size: ${property.lotSizeArea} ${property.lotSizeUnits || ''}`.trim())
+      if (property.propertyCondition) lines.push(`Condition: ${property.propertyCondition}`)
+      if (property.waterBodyName) lines.push(`Waterfront: ${property.waterBodyName}`)
+      if (property.address) lines.push(`Address: ${property.address}${property.cityRegion ? ` (${property.cityRegion})` : ''}, ${property.city || ''}`)
+      lines.push(`MLS: ${property.mlsNumber || 'N/A'}`)
+      if (typeof property.daysOnMarket === 'number') lines.push(`Days on Market: ${property.daysOnMarket}`)
+
+      // Surface high-signal slices of features.* without dumping the whole blob.
+      const f = (typeof property.features === 'string'
+        ? safeJsonParse(property.features)
+        : property.features) || {}
+      const featLine = (label: string, key: string) => {
+        const v = f?.[key]
+        if (Array.isArray(v) && v.length) lines.push(`${label}: ${v.slice(0, 6).join(', ')}`)
+        else if (typeof v === 'string' && v) lines.push(`${label}: ${v}`)
+      }
+      featLine('Architectural Style', 'architecturalStyle')
+      featLine('Heating', 'heating')
+      featLine('Cooling', 'cooling')
+      featLine('Appliances', 'appliances')
+      featLine('Flooring', 'flooring')
+      featLine('Basement', 'basement')
+      featLine('View', 'view')
+      featLine('Community', 'communityFeatures')
+      if (typeof f?.parking === 'number' && f.parking > 0) lines.push(`Parking Spaces: ${f.parking}`)
+      if (f?.fireplacesTotal) lines.push(`Fireplaces: ${f.fireplacesTotal}`)
+
+      // Description: trimmed plain text.
+      if (property.description) {
+        const txt = String(property.description).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+        if (txt) lines.push(`Description: ${txt.slice(0, 600)}${txt.length > 600 ? '…' : ''}`)
+      }
+
+      // Listing agent contact (so chat can refer the user when asked).
+      const a = property.listingAgentData
+      if (a) {
+        const agentName = a.fullName || [a.firstName, a.lastName].filter(Boolean).join(' ').trim()
+        const agentPhone = a.directPhone || a.mobilePhone || a.officePhone
+        if (agentName) lines.push(`Listing Agent: ${agentName}${agentPhone ? ` (${agentPhone})` : ''}`)
+      }
+
+      context += lines.join('\n') + '\n\n'
     })
   }
 
   return context.trim()
+}
+
+function safeJsonParse(value: unknown): any {
+  if (typeof value !== 'string') return value
+  try { return JSON.parse(value) } catch { return null }
 }
 
 async function askChatbot({

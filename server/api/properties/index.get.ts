@@ -52,6 +52,10 @@ export default defineEventHandler(async (event) => {
     // HOA/Condo fees
     maxHoaFee,
     noHoaFee,
+
+    // CREA-derived filters
+    maxDaysOnMarket,
+    minParking,
     
     // Subdivision/neighborhood
     subdivision,
@@ -243,6 +247,33 @@ export default defineEventHandler(async (event) => {
       if (!where.AND) where.AND = []
       where.AND.push({
         NOT: { features: { path: ['associationFee'], gt: feeAmount } }
+      })
+    }
+  }
+
+  // Days on market filter (top-level CREA column, falls back to row missing).
+  if (maxDaysOnMarket) {
+    const dom = parseInt(maxDaysOnMarket as string)
+    if (!isNaN(dom) && dom >= 0) {
+      if (!where.AND) where.AND = []
+      where.AND.push({
+        OR: [
+          { daysOnMarket: { lte: dom } },
+          // Older / non-CREA rows may not have daysOnMarket populated. Allow
+          // those to match too so we don't accidentally hide manual listings.
+          { daysOnMarket: null },
+        ],
+      })
+    }
+  }
+
+  // Minimum parking spaces (lives in features.parking JSON column).
+  if (minParking) {
+    const min = parseInt(minParking as string)
+    if (!isNaN(min) && min > 0) {
+      if (!where.AND) where.AND = []
+      where.AND.push({
+        features: { path: ['parking'], gte: min },
       })
     }
   }
@@ -628,174 +659,9 @@ export default defineEventHandler(async (event) => {
   
   // Set actual total to the database count since filtering is done at DB level
   let actualTotal = totalCount
-  
-  if (false && requiredFeatures.length > 0) {
-    console.log('🔍 Applying comprehensive feature filtering for:', requiredFeatures)
-    formattedProperties = formattedProperties.filter(property => {
-      const features = property.features
-      if (!features) return false
-      
-      return requiredFeatures.every(feature => {
-        if (feature === 'garage') {
-          // REALISTIC garage detection for Edmonton market
-          const isEdmonton = property.city?.toLowerCase() === 'edmonton'
-          const isHouse = property.type?.toLowerCase() === 'house'
-          const is4Bedroom = property.beds === 4
-          
-          // For Edmonton 4-bedroom houses, apply real estate market knowledge
-          if (isEdmonton && isHouse && is4Bedroom) {
-            // In Edmonton, 90%+ of 4-bedroom houses have garages
-            // Only exclude if explicitly states no garage/parking
-            const explicitlyNoGarage = (property.description?.toLowerCase() || '').includes('no garage') ||
-                                     (property.description?.toLowerCase() || '').includes('no parking') ||
-                                     (property.description?.toLowerCase() || '').includes('street parking only')
-            
-            return !explicitlyNoGarage // Assume garage unless explicitly stated otherwise
-          }
-          
-          // For other properties, use strict detection
-          const hasStructuredGarage = features.garage === true || 
-                                     (features.garageSpaces && features.garageSpaces > 0)
-          
-          const hasGarageAppliances = features.appliances && features.appliances.some((app: string) => 
-            app.toLowerCase().includes('garage'))
-          
-          const hasGarageInDescription = property.description && (
-            property.description.toLowerCase().includes('garage') ||
-            property.description.toLowerCase().includes('parking') ||
-            property.description.toLowerCase().includes('carport')
-          )
-          
-          return hasStructuredGarage || hasGarageAppliances || hasGarageInDescription
-          
-        } else if (feature === 'basement') {
-          const hasStructuredBasement = features.basement === true || 
-                                       (features.basementFeatures && features.basementFeatures.length > 0)
-          
-          const hasBasementInDescription = property.description && (
-            property.description.toLowerCase().includes('basement') ||
-            property.description.toLowerCase().includes('lower level') ||
-            property.description.toLowerCase().includes('rec room')
-          )
-          
-          return hasStructuredBasement || hasBasementInDescription
-          
-        // NEW: Enhanced feature detection using CREA fields
-        } else if (feature === 'pool') {
-          return features.poolFeatures && features.poolFeatures.length > 0
-          
-        } else if (feature === 'fireplace') {
-          return features.fireplacesTotal > 0 || features.fireplaceYN === true ||
-                 (features.fireplaceFeatures && features.fireplaceFeatures.length > 0)
-                 
-        } else if (feature === 'waterfront') {
-          return features.waterfrontFeatures && features.waterfrontFeatures.length > 0 ||
-                 features.waterBodyName
-                 
-        } else if (feature === 'centralac' || feature === 'centralair') {
-          return features.cooling && features.cooling.some((c: string) => 
-            c.toLowerCase().includes('central') || c.toLowerCase().includes('air conditioning'))
-            
-        // NEW: Views
-        } else if (feature === 'oceanview') {
-          return features.view && features.view.some((v: string) => 
-            v.toLowerCase().includes('ocean') || v.toLowerCase().includes('sea'))
-            
-        } else if (feature === 'mountainview') {
-          return features.view && features.view.some((v: string) => 
-            v.toLowerCase().includes('mountain'))
-            
-        } else if (feature === 'lakeview' || feature === 'waterview') {
-          return features.view && features.view.some((v: string) => 
-            v.toLowerCase().includes('lake') || v.toLowerCase().includes('water'))
-            
-        } else if (feature === 'cityview') {
-          return features.view && features.view.some((v: string) => 
-            v.toLowerCase().includes('city') || v.toLowerCase().includes('downtown'))
-            
-        // NEW: Utilities
-        } else if (feature === 'wellwater') {
-          return features.waterSource && features.waterSource.some((w: string) => 
-            w.toLowerCase().includes('well'))
-            
-        } else if (feature === 'municipalwater') {
-          return features.waterSource && features.waterSource.some((w: string) => 
-            w.toLowerCase().includes('municipal'))
-            
-        } else if (feature === 'septic') {
-          return features.sewer && features.sewer.some((s: string) => 
-            s.toLowerCase().includes('septic'))
-            
-        } else if (feature === 'municipalsewer') {
-          return features.sewer && features.sewer.some((s: string) => 
-            s.toLowerCase().includes('municipal'))
-            
-        // NEW: Building characteristics
-        } else if (feature === 'newconstruction') {
-          return features.propertyCondition && features.propertyCondition.some((c: string) => 
-            c.toLowerCase().includes('new'))
-            
-        } else if (feature === 'renovated') {
-          return features.propertyCondition && features.propertyCondition.some((c: string) => 
-            c.toLowerCase().includes('renovated') || c.toLowerCase().includes('updated'))
-            
-        // NEW: Architectural styles
-        } else if (feature === 'ranchstyle') {
-          return features.architecturalStyle && features.architecturalStyle.some((a: string) => 
-            a.toLowerCase().includes('ranch'))
-            
-        } else if (feature === 'bungalowstyle') {
-          return features.architecturalStyle && features.architecturalStyle.some((a: string) => 
-            a.toLowerCase().includes('bungalow'))
-            
-        // NEW: Rural/Acreage features
-        } else if (feature === 'acreage') {
-          return features.lotSizeUnits && features.lotSizeUnits.toLowerCase().includes('acre') ||
-                 features.lotFeatures && features.lotFeatures.some((l: string) => 
-                   l.toLowerCase().includes('acreage'))
-                   
-        } else if (feature === 'largelot') {
-          return features.lotSizeArea > 0.5 || // More than half acre
-                 features.lotFeatures && features.lotFeatures.some((l: string) => 
-                   l.toLowerCase().includes('large'))
-                   
-        } else if (feature === 'rural') {
-          return features.roadSurfaceType && features.roadSurfaceType.some((r: string) => 
-            r.toLowerCase().includes('gravel') || r.toLowerCase().includes('unpaved')) ||
-                 features.zoning && features.zoning.toLowerCase().includes('rural')
-                 
-        // NEW: Accessibility
-        } else if (feature === 'wheelchairaccessible') {
-          return features.accessibilityFeatures && features.accessibilityFeatures.length > 0
-          
-        } else if (feature === 'singlelevel') {
-          return features.stories === 1
-        }
-        
-        // Default: check if feature exists in any feature array
-        if (features[feature] === true) return true
-        
-        // Check in various feature arrays
-        const featureArrays = [
-          'heating', 'cooling', 'appliances', 'building', 'exterior', 
-          'interior', 'lot', 'utilities', 'view', 'architecturalStyle'
-        ]
-        
-        for (const arrayName of featureArrays) {
-          if (features[arrayName] && Array.isArray(features[arrayName])) {
-            if (features[arrayName].some((item: string) => 
-              item.toLowerCase().includes(feature.toLowerCase()))) {
-              return true
-            }
-          }
-        }
-        
-        return false
-      })
-    })
-    
-    console.log('🔍 After comprehensive feature filtering:', formattedProperties.length, 'properties remain')
-  }
+  // Removed: legacy dead `if (false && requiredFeatures.length > 0)` post-filter
+  // block (formerly lines 663-829). Feature filtering is now done at the DB
+  // level via buildFeatureCondition. Restore from git history if needed.
 
   // Get the TOTAL count of filtered results (not just current page)
   // actualTotal already declared above

@@ -40,6 +40,19 @@
                   +{{ images.length - 6 }} more
                 </div>
               </div>
+              <div v-if="nonPhotoMedia.length" class="mt-4 d-flex flex-wrap ga-2">
+                <a
+                  v-for="(media, idx) in nonPhotoMedia"
+                  :key="`m-${idx}`"
+                  :href="media.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="non-photo-media-chip"
+                >
+                  <v-icon size="16" class="mr-1">{{ media.icon }}</v-icon>
+                  {{ media.label }}
+                </a>
+              </div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -166,6 +179,47 @@
             </v-card-text>
           </v-card>
 
+          <!-- Listing Agent (CREA) -->
+          <v-card v-if="listingAgent || listingOffice" class="view-card mb-6" elevation="0">
+            <v-card-text class="pa-6">
+              <div class="text-h6 font-weight-bold mb-4">Listing Agent</div>
+              <div v-if="listingAgent">
+                <div class="text-body-1 font-weight-bold">
+                  {{ listingAgent.fullName || `${listingAgent.firstName || ''} ${listingAgent.lastName || ''}`.trim() || '—' }}
+                </div>
+                <div v-if="listingAgent.designations?.length" class="text-caption text-medium-emphasis">
+                  {{ listingAgent.designations.join(', ') }}
+                </div>
+                <div v-if="listingAgent.license" class="text-caption text-medium-emphasis">License: {{ listingAgent.license }}</div>
+                <div class="d-flex flex-column ga-1 mt-3">
+                  <a v-if="listingAgent.directPhone" :href="`tel:${listingAgent.directPhone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone</v-icon>{{ listingAgent.directPhone }}</a>
+                  <a v-if="listingAgent.mobilePhone && listingAgent.mobilePhone !== listingAgent.directPhone" :href="`tel:${listingAgent.mobilePhone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-cellphone</v-icon>{{ listingAgent.mobilePhone }}</a>
+                  <a v-if="listingAgent.officePhone && listingAgent.officePhone !== listingAgent.directPhone" :href="`tel:${listingAgent.officePhone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>{{ listingAgent.officePhone }}</a>
+                  <a v-if="listingAgent.email" :href="`mailto:${listingAgent.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ listingAgent.email }}</a>
+                </div>
+              </div>
+              <div v-if="listingOffice" class="mt-4 pt-3" style="border-top: 1px solid rgba(0,0,0,0.06);">
+                <div class="text-caption text-medium-emphasis">Brokerage</div>
+                <div class="text-body-2 font-weight-bold">{{ listingOffice.name || '—' }}</div>
+                <a v-if="listingOffice.phone" :href="`tel:${listingOffice.phone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>{{ listingOffice.phone }}</a>
+                <a v-if="listingOffice.email" :href="`mailto:${listingOffice.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ listingOffice.email }}</a>
+                <a v-if="listingOffice.website" :href="listingOffice.website" target="_blank" rel="noopener" class="agent-link"><v-icon size="14" class="mr-1">mdi-web</v-icon>{{ listingOffice.website }}</a>
+              </div>
+              <div v-if="coAgents.length" class="mt-4 pt-3" style="border-top: 1px solid rgba(0,0,0,0.06);">
+                <div class="text-caption text-medium-emphasis mb-2">Co-Listing Agents</div>
+                <div v-for="ca in coAgents" :key="ca.memberKey" class="mb-2">
+                  <div class="text-body-2 font-weight-bold">{{ ca.fullName || `${ca.firstName || ''} ${ca.lastName || ''}`.trim() }}</div>
+                  <a v-if="ca.directPhone || ca.mobilePhone" :href="`tel:${ca.directPhone || ca.mobilePhone}`" class="agent-link">{{ ca.directPhone || ca.mobilePhone }}</a>
+                  <a v-if="ca.email" :href="`mailto:${ca.email}`" class="agent-link">{{ ca.email }}</a>
+                </div>
+              </div>
+              <div v-if="coOffices.length" class="mt-4 pt-3" style="border-top: 1px solid rgba(0,0,0,0.06);">
+                <div class="text-caption text-medium-emphasis mb-2">Co-Listing Brokerages</div>
+                <div v-for="co in coOffices" :key="co.officeKey" class="text-body-2">{{ co.name }}</div>
+              </div>
+            </v-card-text>
+          </v-card>
+
           <!-- Quick Actions -->
           <v-card class="view-card mb-6" elevation="0">
             <v-card-text class="pa-6">
@@ -271,16 +325,52 @@ const statusColor = computed(() => {
   return 'info'
 })
 
-const infoItems = computed(() => [
-  { label: 'Property Type', value: property.value.type },
-  { label: 'Year Built', value: property.value.yearBuilt },
-  { label: 'Stories', value: property.value.stories },
-  { label: 'Lot Size', value: property.value.lotSizeDimensions },
-  { label: 'Annual Tax', value: property.value.taxAnnualAmount ? `$${Math.round(property.value.taxAnnualAmount).toLocaleString()}` : null },
-  { label: 'Zoning', value: property.value.zoning },
-  { label: 'Unit #', value: property.value.unitNumber },
-  { label: 'MLS #', value: property.value.mlsNumber },
-].filter(item => item.value))
+const infoItems = computed(() => {
+  const p = property.value
+  const f = p.features || {}
+  const lotArea = p.lotSizeArea || f.lotSizeArea
+  const lotUnits = p.lotSizeUnits || f.lotSizeUnits
+  return [
+    { label: 'Property Type', value: p.type },
+    { label: 'Year Built', value: p.yearBuilt },
+    { label: 'Stories', value: p.stories },
+    { label: 'Lot Size', value: lotArea ? `${lotArea} ${lotUnits || ''}`.trim() : null },
+    { label: 'Lot Dimensions', value: p.lotSizeDimensions },
+    { label: 'Annual Tax', value: p.taxAnnualAmount ? `$${Math.round(p.taxAnnualAmount).toLocaleString()}${p.taxYear ? ` (${p.taxYear})` : ''}` : null },
+    { label: 'Property Condition', value: p.propertyCondition },
+    { label: 'Days on Market', value: typeof p.daysOnMarket === 'number' ? `${p.daysOnMarket}` : null },
+    { label: 'Originally Listed', value: p.originalEntryTimestamp ? formatDate(p.originalEntryTimestamp) : null },
+    { label: 'Zoning', value: p.zoning },
+    { label: 'Zoning Description', value: p.zoningDescription },
+    { label: 'Water Body', value: p.waterBodyName },
+    { label: 'Parcel #', value: p.parcelNumber },
+    { label: 'Unit #', value: p.unitNumber },
+    { label: 'MLS #', value: p.mlsNumber },
+    { label: 'External ID (CREA Key)', value: p.externalId },
+  ].filter(item => item.value)
+})
+
+const nonPhotoMedia = computed(() => {
+  const items = property.value.features?.mediaItems
+  if (!Array.isArray(items)) return []
+  return items
+    .filter((m: any) => m?.url && m.category && m.category !== 'Photo')
+    .map((m: any) => {
+      const cat = String(m.category || '').toLowerCase()
+      let icon = 'mdi-link-variant'
+      let label = m.category
+      if (cat.includes('video')) { icon = 'mdi-play-circle-outline'; label = 'Video' }
+      else if (cat.includes('virtualtour') || cat.includes('virtual_tour') || cat.includes('virtual tour')) { icon = 'mdi-rotate-3d-variant'; label = 'Virtual Tour' }
+      else if (cat.includes('floorplan') || cat.includes('floor_plan') || cat.includes('floor plan')) { icon = 'mdi-floor-plan'; label = 'Floor Plan' }
+      else if (cat.includes('document') || cat.includes('pdf')) { icon = 'mdi-file-document-outline'; label = 'Document' }
+      return { url: m.url, alt: m.alt || label, icon, label }
+    })
+})
+
+const listingAgent = computed(() => property.value.listingAgentData || null)
+const listingOffice = computed(() => property.value.listingOfficeData || null)
+const coAgents = computed(() => Array.isArray(property.value.coListingAgentsData) ? property.value.coListingAgentsData : [])
+const coOffices = computed(() => Array.isArray(property.value.coListingOfficesData) ? property.value.coListingOfficesData : [])
 
 async function loadProperty() {
   loading.value = true
@@ -368,4 +458,32 @@ onMounted(loadProperty)
 .view-table {
   background: transparent !important;
 }
+
+.non-photo-media-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-decoration: none;
+  border: 1px solid #dbeafe;
+  transition: all 0.15s ease;
+}
+.non-photo-media-chip:hover {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.agent-link {
+  display: inline-flex;
+  align-items: center;
+  color: #475569;
+  text-decoration: none;
+  font-size: 0.82rem;
+  margin-right: 12px;
+}
+.agent-link:hover { color: #1d4ed8; }
 </style>

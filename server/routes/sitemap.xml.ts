@@ -62,14 +62,20 @@ export default defineEventHandler(async (event) => {
   try {
     const properties = await prisma.property.findMany({
       where: { status: { in: ['for_sale', 'active', 'sold', 'pending'] } },
-      select: { id: true, updatedAt: true },
+      select: { id: true, updatedAt: true, lastSyncAt: true, source: true },
       orderBy: { updatedAt: 'desc' },
       take: 50000,
     })
     for (const p of properties) {
+      // For CREA / pillar9 syncs the row is touched on every poll even when
+      // nothing changed. Use the freshest of (updatedAt, lastSyncAt) so Google
+      // sees an honest "last confirmed" timestamp.
+      const lastModDate = p.lastSyncAt && p.lastSyncAt > p.updatedAt
+        ? p.lastSyncAt
+        : p.updatedAt
       entries.push(buildUrlEntry(
         `${baseUrl}/property/${p.id}`,
-        toW3CDate(p.updatedAt),
+        toW3CDate(lastModDate),
         'weekly',
         '0.7'
       ))

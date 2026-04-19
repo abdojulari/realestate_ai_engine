@@ -929,7 +929,13 @@ class CreaService {
       description: creaProp.PublicRemarks || `${creaProp.PropertySubType} in ${creaProp.City}`,
       price: creaProp.ListPrice || 0,
       beds: creaProp.BedroomsTotal || 0,
-      baths: creaProp.BathroomsTotalInteger || 0,
+      // CREA: BathroomsTotalInteger is the simple sum of all bathrooms (full + partial).
+      // To match the realtor.ca convention "X.5 baths", subtract 0.5 for each partial bath.
+      // e.g. 2 full + 1 half => Integer=3, Partial=1 => 3 - 0.5 = 2.5
+      baths: Math.max(
+        0,
+        (creaProp.BathroomsTotalInteger || 0) - 0.5 * (creaProp.BathroomsPartial || 0)
+      ),
       sqft: creaProp.LivingArea || 0,
       type,
       status,
@@ -953,7 +959,13 @@ class CreaService {
       lotSizeUnits: creaProp.LotSizeUnits,
       stories: creaProp.Stories,
       yearBuilt: creaProp.YearBuilt,
-      propertyCondition: creaProp.PropertyCondition?.[0] || null, // Take first condition
+      // CREA PropertyCondition is an array (e.g. ["Excellent", "Updated/Remodeled"]).
+      // Join all values so multi-condition listings aren't silently truncated.
+      // The full array is also preserved in features.propertyCondition for queries.
+      propertyCondition:
+        creaProp.PropertyCondition && creaProp.PropertyCondition.length > 0
+          ? creaProp.PropertyCondition.join(', ')
+          : null,
       cityRegion: creaProp.CityRegion,
       waterBodyName: creaProp.WaterBodyName,
       zoning: creaProp.Zoning,

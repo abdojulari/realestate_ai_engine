@@ -12,6 +12,8 @@ interface SearchFilters {
   city?: string
   type?: string
   noHoaFee?: boolean
+  maxDaysOnMarket?: number
+  minParking?: number
 }
 
 export const transformSearchFilters = (filters: any): SearchFilters => {
@@ -32,7 +34,9 @@ export const transformSearchFilters = (filters: any): SearchFilters => {
     maxSqft: filters.maxSqft ? Number(filters.maxSqft) : undefined,
     features: filters.features || [],
     status: filters.status || undefined,
-    noHoaFee: filters.noHoaFee || undefined
+    noHoaFee: filters.noHoaFee || undefined,
+    maxDaysOnMarket: filters.maxDaysOnMarket ? Number(filters.maxDaysOnMarket) : undefined,
+    minParking: filters.minParking ? Number(filters.minParking) : undefined
   }
 }
 

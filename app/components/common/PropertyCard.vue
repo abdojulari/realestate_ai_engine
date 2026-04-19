@@ -10,7 +10,7 @@
       <v-img
         :src="imageSrc"
         :lazy-src="'/images/property-placeholder.svg'"
-        :alt="property?.title ?? 'Property Image'"
+        :alt="imageAlt"
         height="280"
         width="100%"
         cover
@@ -180,12 +180,30 @@ const props = defineProps<{
   property: Property & Record<string, any>
   showSaveButton?: boolean
   showContactButton?: boolean
+  // Accepted by callers (map-search, saved listings) so they no longer warn
+  // about unknown attrs even though the layout itself doesn't change yet.
+  compact?: boolean
+  showRemove?: boolean
 }>()
 
 const emit = defineEmits(['save', 'contact'])
 
 // Image handling with fallback
 const imageSrc = ref<string>((props.property?.images && props.property.images[0]) || '/images/property-placeholder.svg')
+
+// Best alt text for the hero image: prefer the rich alt strings synced from
+// CREA media (features.mediaItems[0].alt), then property title/address.
+const imageAlt = computed(() => {
+  const media = props.property?.features?.mediaItems
+  if (Array.isArray(media) && media.length) {
+    const first = media.find((m: any) => m?.alt) || media[0]
+    if (first?.alt) return String(first.alt)
+  }
+  const addr = props.property?.address
+  const city = props.property?.city
+  if (addr && city) return `${addr}, ${city}`
+  return props.property?.title || addr || 'Property image'
+})
 
 watch(() => props.property, (newVal) => {
   imageSrc.value = (newVal?.images && newVal.images[0]) || '/images/property-placeholder.svg'

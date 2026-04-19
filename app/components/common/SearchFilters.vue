@@ -108,6 +108,32 @@
               />
             </v-col>
 
+            <!-- Days on Market (CREA only — older/manual rows always pass) -->
+            <v-col cols="12">
+              <v-select
+                v-model="filters.maxDaysOnMarket"
+                :items="domOptions"
+                label="Days on Market (max)"
+                variant="outlined"
+                density="compact"
+                prepend-inner-icon="mdi-calendar-clock"
+                clearable
+              />
+            </v-col>
+
+            <!-- Minimum Parking Spaces -->
+            <v-col cols="12">
+              <v-select
+                v-model="filters.minParking"
+                :items="parkingOptions"
+                label="Parking Spaces (min)"
+                variant="outlined"
+                density="compact"
+                prepend-inner-icon="mdi-car-multiple"
+                clearable
+              />
+            </v-col>
+
             <!-- Features -->
             <v-col cols="12">
               <v-combobox
@@ -216,6 +242,8 @@ const filters = ref({
   status: null,
   sortBy: null,
   noHoaFee: false,
+  maxDaysOnMarket: null,
+  minParking: null,
   ...props.initialFilters
 })
 
@@ -244,6 +272,23 @@ const bedOptions = [
 ]
 
 const bathOptions = [
+  { title: 'Any', value: null },
+  { title: '1+', value: 1 },
+  { title: '2+', value: 2 },
+  { title: '3+', value: 3 },
+  { title: '4+', value: 4 }
+]
+
+const domOptions = [
+  { title: 'Any', value: null },
+  { title: 'New (≤ 7 days)', value: 7 },
+  { title: '≤ 14 days', value: 14 },
+  { title: '≤ 30 days', value: 30 },
+  { title: '≤ 60 days', value: 60 },
+  { title: '≤ 90 days', value: 90 }
+]
+
+const parkingOptions = [
   { title: 'Any', value: null },
   { title: '1+', value: 1 },
   { title: '2+', value: 2 },
@@ -313,7 +358,9 @@ const clearFilters = () => {
     features: [],
     status: null,
     sortBy: null,
-    noHoaFee: false
+    noHoaFee: false,
+    maxDaysOnMarket: null,
+    minParking: null
   }
 }
 

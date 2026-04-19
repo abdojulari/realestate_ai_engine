@@ -45,18 +45,18 @@
       <!-- Quick Actions -->
       <div v-if="showQuickActions" class="quick-actions mb-6">
         <v-row>
-          <v-col cols="6">
+          <v-col v-if="leadPhone" cols="6">
             <v-btn
               block
               prepend-icon="mdi-phone"
               class="text-capitalize bg-primary text-white"
               density="compact"
-              :href="`tel:${agent.phone}`"
+              :href="`tel:${leadPhone}`"
             >
-              Call Agent
+              Call Now
             </v-btn>
           </v-col>
-          <v-col cols="6">
+          <v-col :cols="leadPhone ? 6 : 12">
             <v-btn
               block
               prepend-icon="mdi-calendar"
@@ -265,6 +265,13 @@
 
 <script setup lang="ts">
 import { required, email, phone } from '../../../utils/validators'
+import { useTenantSettings } from '~/composables/useTenantSettings'
+
+// Primary "Call" CTA always routes to the tenant/plan owner — never to the
+// CREA listing agent. The platform exists to capture leads for the tenant;
+// dialing the third-party MLS listing agent would hand every lead to a
+// competitor at another brokerage.
+const { phone: leadPhone } = useTenantSettings()
 
 const props = defineProps({
   title: {

@@ -68,22 +68,50 @@ export function useMap() {
   }
 
   const createPropertyMarker = (property: any) => {
+    const price = Number(property.price) || 0
     const icon = L.divIcon({
       className: 'map-marker',
-      html: `<div class="marker-price">$${property.price.toLocaleString()}</div>`,
+      html: `<div class="marker-price">$${price.toLocaleString()}</div>`,
       iconSize: [40, 40],
       iconAnchor: [20, 40]
     })
 
     const marker = L.marker([property.latitude, property.longitude], { icon })
-    
+
+    // Defensive image source: don't render `<img src="undefined">` when a
+    // listing has no photos. Falls back to a 1x1 transparent GIF.
+    const firstImage = Array.isArray(property.images) && property.images.length > 0
+      ? property.images[0]
+      : ''
+    const safeAlt = String(property.title || property.address || 'Property')
+      .replace(/[<>"]/g, '')
+    const titleText = String(property.title || property.address || '').replace(/[<>]/g, '')
+    const cityText = String(property.city || '').replace(/[<>]/g, '')
+    const mlsText = property.mlsNumber ? String(property.mlsNumber).replace(/[<>]/g, '') : ''
+    const beds = property.beds ?? ''
+    const baths = property.baths ?? ''
+    const sqft = property.sqft ? `${Number(property.sqft).toLocaleString()} sqft` : ''
+    const dimensions = [
+      beds !== '' ? `${beds} beds` : '',
+      baths !== '' ? `${baths} baths` : '',
+      sqft,
+    ].filter(Boolean).join(' • ')
+    const detailUrl = property.id ? `/property/${property.id}` : ''
+
+    const imgHtml = firstImage
+      ? `<img src="${firstImage}" alt="${safeAlt}" style="width: 100%; height: 120px; object-fit: cover; border-radius: 6px 6px 0 0;" onerror="this.style.display='none'">`
+      : ''
+
     const popupContent = `
-      <div class="map-popup">
-        <img src="${property.images[0]}" alt="${property.title}" style="width: 100%; height: 120px; object-fit: cover;">
-        <div style="padding: 8px;">
-          <div style="font-weight: bold;">$${property.price.toLocaleString()}</div>
-          <div>${property.title}</div>
-          <div style="color: #666;">${property.beds} beds • ${property.baths} baths • ${property.sqft} sqft</div>
+      <div class="map-popup" style="min-width: 220px;">
+        ${imgHtml}
+        <div style="padding: 10px;">
+          <div style="font-weight: 700; font-size: 1.05rem; color: #0f172a;">$${price.toLocaleString()}</div>
+          <div style="color: #1e293b; font-size: 0.9rem; margin-top: 2px;">${titleText}</div>
+          ${cityText ? `<div style="color: #64748b; font-size: 0.78rem;">${cityText}</div>` : ''}
+          ${dimensions ? `<div style="color: #475569; font-size: 0.82rem; margin-top: 6px;">${dimensions}</div>` : ''}
+          ${mlsText ? `<div style="color: #94a3b8; font-size: 0.72rem; margin-top: 4px; font-family: monospace;">MLS: ${mlsText}</div>` : ''}
+          ${detailUrl ? `<a href="${detailUrl}" style="display:inline-block; margin-top:8px; color:#3b82f6; font-size:0.82rem; font-weight:600; text-decoration:none;">View details →</a>` : ''}
         </div>
       </div>
     `

@@ -260,13 +260,84 @@
                       <div class="detail-value font-weight-bold" style="font-family: monospace;">{{ property.mlsNumber }}</div>
                     </div>
                   </v-col>
-                  <v-col cols="6" sm="4" v-if="property.features?.originalEntryTimestamp">
+                  <v-col cols="6" sm="4" v-if="listedDateDisplay">
                     <div class="detail-item">
                       <div class="detail-label">Listed Date</div>
-                      <div class="detail-value">{{ formatListingDate(property.features.originalEntryTimestamp) }}</div>
+                      <div class="detail-value">{{ listedDateDisplay }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="typeof property.daysOnMarket === 'number' && property.daysOnMarket >= 0">
+                    <div class="detail-item">
+                      <div class="detail-label">Days on Market</div>
+                      <div class="detail-value">{{ property.daysOnMarket }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="propertyConditionDisplay">
+                    <div class="detail-item">
+                      <div class="detail-label">Property Condition</div>
+                      <div class="detail-value">{{ propertyConditionDisplay }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.waterBodyName">
+                    <div class="detail-item">
+                      <div class="detail-label">Water Body</div>
+                      <div class="detail-value">{{ property.waterBodyName }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.zoningDescription">
+                    <div class="detail-item">
+                      <div class="detail-label">Zoning Description</div>
+                      <div class="detail-value">{{ property.zoningDescription }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.cityRegion">
+                    <div class="detail-item">
+                      <div class="detail-label">Region / Community</div>
+                      <div class="detail-value">{{ property.cityRegion }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="6" sm="4" v-if="property.parcelNumber">
+                    <div class="detail-item">
+                      <div class="detail-label">Parcel Number</div>
+                      <div class="detail-value" style="font-family: monospace;">{{ property.parcelNumber }}</div>
+                    </div>
+                  </v-col>
+                  <v-col cols="12" v-if="property.features?.directions">
+                    <div class="detail-item">
+                      <div class="detail-label">Directions</div>
+                      <div class="detail-value">{{ property.features.directions }}</div>
                     </div>
                   </v-col>
                 </v-row>
+              </v-card-text>
+            </v-card>
+
+            <!-- Tours & Floorplans (CREA non-photo media) -->
+            <v-card v-if="nonPhotoMediaItems.length" class="content-card mb-8" flat>
+              <v-card-text class="pa-7">
+                <div class="card-section-header">
+                  <div class="card-section-icon"><v-icon size="20">mdi-rotate-3d-variant</v-icon></div>
+                  <span>Tours &amp; Floorplans</span>
+                </div>
+                <div class="media-grid">
+                  <a
+                    v-for="(media, idx) in nonPhotoMediaItems"
+                    :key="`media-${idx}`"
+                    :href="media.url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="media-tile"
+                  >
+                    <div class="media-tile-icon">
+                      <v-icon size="32" color="#3b82f6">{{ media.icon }}</v-icon>
+                    </div>
+                    <div class="media-tile-body">
+                      <div class="media-tile-label">{{ media.label }}</div>
+                      <div class="media-tile-alt">{{ media.alt }}</div>
+                    </div>
+                    <v-icon size="18" class="media-tile-arrow">mdi-open-in-new</v-icon>
+                  </a>
+                </div>
               </v-card-text>
             </v-card>
 
@@ -595,8 +666,16 @@
                   <v-icon class="mr-2" size="18">mdi-calendar-clock-outline</v-icon>
                   Schedule Viewing
                 </v-btn>
-                <v-btn variant="tonal" block size="large" prepend-icon="mdi-phone" :href="`tel:${property.agent?.phone}`" class="call-btn">
-                  Call Agent Now
+                <v-btn
+                  v-if="leadPhone"
+                  variant="tonal"
+                  block
+                  size="large"
+                  prepend-icon="mdi-phone"
+                  :href="`tel:${leadPhone}`"
+                  class="call-btn"
+                >
+                  Call Now
                 </v-btn>
               </v-card-text>
             </v-card>
@@ -667,6 +746,18 @@
                 <div v-else class="text-center py-6">
                   <v-icon size="40" color="#cbd5e1">mdi-account-question-outline</v-icon>
                   <div style="color: #94a3b8; margin-top: 8px; font-size: 0.85rem;">Agent information not available</div>
+                </div>
+
+                <!-- Co-listing Brokerages (offices) -->
+                <div v-if="property.coListingOfficesData?.length" class="co-agents-block">
+                  <div class="co-agents-title">Co-Listing Brokerages</div>
+                  <div v-for="coOffice in property.coListingOfficesData" :key="coOffice.officeKey" class="office-block" style="margin-bottom: 12px;">
+                    <div class="office-name">{{ coOffice.name }}</div>
+                    <a v-if="coOffice.phone" :href="`tel:${coOffice.phone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>{{ coOffice.phone }}</a>
+                    <a v-if="coOffice.email" :href="`mailto:${coOffice.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ coOffice.email }}</a>
+                    <div v-if="coOffice.address" class="office-addr"><v-icon size="14" class="mr-1">mdi-map-marker-outline</v-icon>{{ coOffice.address }}<span v-if="coOffice.city">, {{ coOffice.city }}</span><span v-if="coOffice.province">, {{ coOffice.province }}</span></div>
+                    <a v-if="coOffice.website" :href="coOffice.website" target="_blank" class="agent-link"><v-icon size="14" class="mr-1">mdi-web</v-icon>{{ coOffice.website }}</a>
+                  </div>
                 </div>
 
                 <!-- Co-listing Agents -->
@@ -746,7 +837,7 @@ import { ref, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { propertyService } from '~/services/property.service'
 
-const { businessName } = useTenantSettings()
+const { businessName, phone: tenantPhone } = useTenantSettings()
 const { public: publicConfig } = useRuntimeConfig()
 const GEOAPIFY_KEY = publicConfig.geoapifyApiKey
 const GEOAPIFY_URL = 'https://api.geoapify.com/v2'
@@ -1065,10 +1156,12 @@ const propertyOgImage = computed(() => {
 
 const propertyDescription = computed(() => {
   const p = property.value
+  const beds = p.beds ?? p.bedrooms
+  const baths = p.baths ?? p.bathrooms
   const parts = [
     p.address,
-    p.bedrooms ? `${p.bedrooms} bed` : '',
-    p.bathrooms ? `${p.bathrooms} bath` : '',
+    beds ? `${beds} bed` : '',
+    baths ? `${baths} bath` : '',
     p.sqft ? `${Number(p.sqft).toLocaleString()} sqft` : '',
     p.price ? `$${Number(p.price).toLocaleString()}` : '',
   ].filter(Boolean)
@@ -1163,14 +1256,17 @@ const realEstateSchema = computed(() => {
     }
   }
 
-  // SingleFamilyResidence-style attributes nested on the listing
+  // SingleFamilyResidence-style attributes nested on the listing.
+  // Source of truth: Prisma columns (beds, baths, lotSizeArea, yearBuilt) +
+  // features.* JSON. Bedrooms/bathrooms aliases retained for legacy/manual rows.
   const accommodation: Record<string, any> = {
     '@type': 'SingleFamilyResidence',
     name: p.address || p.title || undefined,
   }
-  if (p.bedrooms) accommodation.numberOfRooms = Number(p.bedrooms)
-  if (p.bedrooms) accommodation.numberOfBedrooms = Number(p.bedrooms)
-  if (p.bathrooms) accommodation.numberOfBathroomsTotal = Number(p.bathrooms)
+  const bedCount = Number(p.beds ?? p.bedrooms) || 0
+  const bathCount = Number(p.baths ?? p.bathrooms) || 0
+  if (bedCount > 0) accommodation.numberOfBedrooms = bedCount
+  if (bathCount > 0) accommodation.numberOfBathroomsTotal = bathCount
   if (p.sqft) {
     accommodation.floorSize = {
       '@type': 'QuantitativeValue',
@@ -1178,19 +1274,102 @@ const realEstateSchema = computed(() => {
       unitCode: 'FTK', // square feet
     }
   }
-  if (p.lotSize) {
+  const lotArea = Number(p.lotSizeArea ?? p.features?.lotSizeArea ?? p.lotSize) || 0
+  if (lotArea > 0) {
+    const lotUnits = (p.lotSizeUnits || p.features?.lotSizeUnits || '').toLowerCase()
     accommodation.lotSize = {
       '@type': 'QuantitativeValue',
-      value: Number(p.lotSize),
-      unitCode: 'FTK',
+      value: lotArea,
+      // Schema.org unit codes: FTK=sq ft, MTK=sq m, ACR=acres, HAR=hectares
+      unitCode:
+        lotUnits.includes('acre') ? 'ACR' :
+        lotUnits.includes('hect') ? 'HAR' :
+        lotUnits.includes('square m') || lotUnits === 'm2' ? 'MTK' :
+        'FTK',
     }
   }
-  if (p.yearBuilt) accommodation.yearBuilt = Number(p.yearBuilt) || p.yearBuilt
-  if (p.heating) accommodation.amenityFeature = [
-    { '@type': 'LocationFeatureSpecification', name: 'Heating', value: p.heating },
-  ]
+  const yearBuilt = Number(p.yearBuilt ?? p.features?.yearBuilt) || 0
+  if (yearBuilt > 0) accommodation.yearBuilt = yearBuilt
+
+  const amenities: Array<Record<string, any>> = []
+  const heatingValues = p.features?.heating || (p.heating ? [p.heating] : null)
+  if (Array.isArray(heatingValues) && heatingValues.length) {
+    amenities.push({ '@type': 'LocationFeatureSpecification', name: 'Heating', value: heatingValues.join(', ') })
+  } else if (typeof heatingValues === 'string' && heatingValues) {
+    amenities.push({ '@type': 'LocationFeatureSpecification', name: 'Heating', value: heatingValues })
+  }
+  if (p.features?.cooling?.length) {
+    amenities.push({ '@type': 'LocationFeatureSpecification', name: 'Cooling', value: p.features.cooling.join(', ') })
+  }
+  if (p.features?.parking) {
+    amenities.push({ '@type': 'LocationFeatureSpecification', name: 'Parking Spaces', value: String(p.features.parking) })
+  }
+  if (p.features?.view?.length) {
+    amenities.push({ '@type': 'LocationFeatureSpecification', name: 'View', value: p.features.view.join(', ') })
+  }
+  if (p.features?.waterfrontFeatures?.length || p.waterBodyName) {
+    amenities.push({
+      '@type': 'LocationFeatureSpecification',
+      name: 'Waterfront',
+      value: [p.waterBodyName, ...(p.features?.waterfrontFeatures || [])].filter(Boolean).join(', '),
+    })
+  }
+  if (amenities.length) accommodation.amenityFeature = amenities
+
   schema.accommodationCategory = p.type || undefined
   schema.itemOffered = accommodation
+
+  // Listing agent / brokerage (CREA listingAgentData / listingOfficeData).
+  const agentData = p.listingAgentData
+  const officeData = p.listingOfficeData
+  if (agentData) {
+    const agentName =
+      agentData.fullName ||
+      [agentData.firstName, agentData.lastName].filter(Boolean).join(' ').trim() ||
+      undefined
+    const agentNode: Record<string, any> = {
+      '@type': 'RealEstateAgent',
+      name: agentName,
+      telephone: agentData.directPhone || agentData.mobilePhone || agentData.officePhone || undefined,
+      email: agentData.email || undefined,
+      image: agentData.photoURL || undefined,
+    }
+    if (officeData) {
+      agentNode.worksFor = {
+        '@type': 'RealEstateOrganization',
+        name: officeData.name || undefined,
+        telephone: officeData.phone || undefined,
+        email: officeData.email || undefined,
+        url: officeData.website || undefined,
+        address: (officeData.address || officeData.city || officeData.province) ? {
+          '@type': 'PostalAddress',
+          streetAddress: officeData.address || undefined,
+          addressLocality: officeData.city || undefined,
+          addressRegion: officeData.province || undefined,
+          postalCode: officeData.postalCode || undefined,
+          addressCountry: officeData.country || 'CA',
+        } : undefined,
+      }
+    }
+    Object.keys(agentNode).forEach((k) => agentNode[k] === undefined && delete agentNode[k])
+    if (agentNode.name || agentNode.telephone || agentNode.email) {
+      schema.agent = agentNode
+    }
+  }
+
+  // Days on Market (Google understands as a numeric annotation).
+  if (typeof p.daysOnMarket === 'number' && p.daysOnMarket >= 0) {
+    schema.numberOfRooms = bedCount || undefined
+    schema.additionalProperty = [
+      { '@type': 'PropertyValue', name: 'Days on Market', value: p.daysOnMarket },
+    ]
+  }
+  if (p.propertyCondition) {
+    schema.additionalProperty = [
+      ...(schema.additionalProperty || []),
+      { '@type': 'PropertyValue', name: 'Property Condition', value: p.propertyCondition },
+    ]
+  }
 
   // Drop undefined
   Object.keys(schema).forEach((k) => schema[k] === undefined && delete schema[k])
@@ -1230,15 +1409,20 @@ const viewingForm = ref({
 // provides per-photo alt text, ordering, hero flag, and media category).
 // Falls back to building basic items from the flat images array for legacy
 // records or non-CREA properties.
-const propertyMediaItems = computed(() => {
+//
+// Photos drive the main gallery; other categories (floorplans, virtual tours,
+// videos) are exposed via `nonPhotoMediaItems` for the dedicated "Tours &
+// Floorplans" section.
+const allMediaItems = computed(() => {
   const fromFeatures = property.value.features?.mediaItems
   if (Array.isArray(fromFeatures) && fromFeatures.length) {
     return fromFeatures
       .filter((m: any) => m?.url)
-      .filter((m: any) => !m.category || m.category === 'Photo')
       .map((m: any, idx: number) => ({
         url: m.url,
-        alt: m.alt || `${property.value.address || property.value.title} - photo ${idx + 1}`,
+        alt: m.alt || `${property.value.address || property.value.title} - media ${idx + 1}`,
+        category: m.category || 'Photo',
+        order: typeof m.order === 'number' ? m.order : idx,
       }))
   }
   const images = property.value.images || []
@@ -1247,8 +1431,33 @@ const propertyMediaItems = computed(() => {
     .map((url: string, idx: number) => ({
       url,
       alt: `${property.value.address || property.value.title} - photo ${idx + 1}`,
+      category: 'Photo',
+      order: idx,
     }))
 })
+
+const propertyMediaItems = computed(() =>
+  allMediaItems.value.filter((m: any) => !m.category || m.category === 'Photo')
+)
+
+// Non-photo CREA media: floorplans, virtual tours, videos, branded virtual
+// tours, etc. Surfaced beneath the gallery so buyers can explore tours
+// without us forcing them into the main carousel.
+const nonPhotoMediaItems = computed(() =>
+  allMediaItems.value
+    .filter((m: any) => m.category && m.category !== 'Photo')
+    .map((m: any) => {
+      const cat = String(m.category || '').toLowerCase()
+      let kind: 'video' | 'virtual_tour' | 'floorplan' | 'document' | 'other' = 'other'
+      let icon = 'mdi-link-variant'
+      let label = m.category
+      if (cat.includes('video')) { kind = 'video'; icon = 'mdi-play-circle-outline'; label = 'Video Tour' }
+      else if (cat.includes('virtualtour') || cat.includes('virtual_tour') || cat.includes('virtual tour')) { kind = 'virtual_tour'; icon = 'mdi-rotate-3d-variant'; label = 'Virtual Tour' }
+      else if (cat.includes('floorplan') || cat.includes('floor_plan') || cat.includes('floor plan')) { kind = 'floorplan'; icon = 'mdi-floor-plan'; label = 'Floor Plan' }
+      else if (cat.includes('document') || cat.includes('pdf')) { kind = 'document'; icon = 'mdi-file-document-outline'; label = 'Document' }
+      return { ...m, kind, icon, label }
+    })
+)
 
 const mainImageAlt = computed(() => {
   return propertyMediaItems.value[0]?.alt || property.value.address || property.value.title || 'Property photo'
@@ -1438,6 +1647,40 @@ const hasUtilities = computed(() => {
     f.roadSurfaceType?.length
   )
 })
+
+// Listed date: prefer top-level originalEntryTimestamp (Prisma column from
+// CREA OriginalEntryTimestamp), fall back to features.* mirror, then createdAt.
+const listedDateDisplay = computed(() => {
+  const p = property.value
+  const raw =
+    p.originalEntryTimestamp ||
+    p.features?.originalEntryTimestamp ||
+    p.publishedAt ||
+    p.createdAt
+  return raw ? formatListingDate(raw) : ''
+})
+
+// Property condition: top-level column is now a comma-joined string after
+// the CREA fix; older rows or non-CREA listings may still have an array in
+// features.propertyCondition.
+const propertyConditionDisplay = computed(() => {
+  const p = property.value
+  if (p.propertyCondition) return p.propertyCondition
+  const fc = p.features?.propertyCondition
+  if (Array.isArray(fc) && fc.length) return fc.join(', ')
+  if (typeof fc === 'string' && fc) return fc
+  return ''
+})
+
+// Phone for the primary "Call Now" CTA on a property page.
+//
+// IMPORTANT: this MUST route to the tenant/plan owner — not to the CREA
+// listing agent. The platform exists to capture leads for the tenant; if the
+// CTA dialed the third-party MLS listing agent (often a competitor at a
+// different brokerage), every lead would be handed to them. Listing agent
+// contact info is still disclosed in the sidebar for transparency, but the
+// primary call-to-action belongs to whoever owns the plan.
+const leadPhone = computed(() => tenantPhone.value || '')
 
 const formatListingDate = (dateStr: string) => {
   if (!dateStr) return 'N/A'
@@ -1679,6 +1922,54 @@ const toggleSave = async () => {
 .chip-amber { background: #fffbeb; color: #b45309; }
 .chip-slate { background: #f1f5f9; color: #475569; }
 .chip-rose { background: #fff1f2; color: #be123c; }
+
+/* ── Tours & Floorplans ── */
+.media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.media-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.15s ease;
+}
+.media-tile:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  transform: translateY(-1px);
+}
+.media-tile-icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 10px;
+}
+.media-tile-body { flex: 1; min-width: 0; }
+.media-tile-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+.media-tile-alt {
+  font-size: 0.78rem;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.media-tile-arrow { color: #94a3b8; }
 
 /* ── Map ── */
 .location-address {

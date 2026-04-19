@@ -88,23 +88,47 @@ async function getListingsData(
     orderBy: { createdAt: 'desc' },
   })
 
-  return properties.map((p) => ({
-    id: p.id,
-    title: p.title,
-    price: p.price,
-    beds: p.beds,
-    baths: p.baths,
-    sqft: p.sqft,
-    type: p.type,
-    city: p.city,
-    address: p.address,
-    agent: shouldRedactUserId(actor, p.userId)
-      ? 'Restricted'
-      : `${p.user?.firstName ?? ''} ${p.user?.lastName ?? ''}`.trim() || 'N/A',
-    views: p.views,
-    createdAt: p.createdAt,
-    source: p.source,
-  }))
+  return properties.map((p: any) => {
+    const a = p.listingAgentData
+    const o = p.listingOfficeData
+    const agentName = a
+      ? a.fullName || `${a.firstName || ''} ${a.lastName || ''}`.trim()
+      : null
+    const agentPhone = a ? a.directPhone || a.mobilePhone || a.officePhone : null
+    return {
+      id: p.id,
+      mlsNumber: p.mlsNumber || '',
+      externalId: p.externalId || '',
+      title: p.title,
+      price: p.price,
+      beds: p.beds,
+      baths: p.baths,
+      sqft: p.sqft,
+      type: p.type,
+      city: p.city,
+      cityRegion: p.cityRegion || '',
+      province: p.province || '',
+      address: p.address,
+      yearBuilt: p.yearBuilt || '',
+      lotSizeArea: p.lotSizeArea || '',
+      lotSizeUnits: p.lotSizeUnits || '',
+      propertyCondition: p.propertyCondition || '',
+      taxAnnualAmount: p.taxAnnualAmount || '',
+      taxYear: p.taxYear || '',
+      daysOnMarket: typeof p.daysOnMarket === 'number' ? p.daysOnMarket : '',
+      originalEntryTimestamp: p.originalEntryTimestamp || '',
+      listingAgent: agentName || (shouldRedactUserId(actor, p.userId)
+        ? 'Restricted'
+        : `${p.user?.firstName ?? ''} ${p.user?.lastName ?? ''}`.trim() || 'N/A'),
+      listingAgentPhone: agentPhone || '',
+      listingAgentEmail: a?.email || '',
+      listingBrokerage: o?.name || '',
+      views: p.views,
+      createdAt: p.createdAt,
+      source: p.source,
+      lastSyncAt: p.lastSyncAt || '',
+    }
+  })
 }
 
 async function getUsersData(dateRange: string, customRange: any, actor: any, role?: string) {

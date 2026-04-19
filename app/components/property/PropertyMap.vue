@@ -103,6 +103,25 @@
                     :icon-size="[44, 34]"
                     :icon-anchor="[25, 34]"
                   />
+                  <l-popup>
+                    <div class="property-popup">
+                      <div class="text-subtitle-1 font-weight-bold" style="color: #0f172a;">${{ Number(property.price || 0).toLocaleString() }}</div>
+                      <div class="text-body-2" style="color: #1e293b;">{{ property.title || property.address }}</div>
+                      <div v-if="property.city" class="text-caption" style="color: #64748b;">{{ property.city }}<span v-if="property.cityRegion"> · {{ property.cityRegion }}</span></div>
+                      <div class="text-caption mt-1" style="color: #475569;">
+                        <span v-if="property.beds != null">{{ property.beds }} beds</span>
+                        <span v-if="property.baths != null"> · {{ property.baths }} baths</span>
+                        <span v-if="property.sqft"> · {{ Number(property.sqft).toLocaleString() }} sqft</span>
+                      </div>
+                      <div v-if="property.mlsNumber" class="text-caption" style="color: #94a3b8; font-family: monospace;">MLS: {{ property.mlsNumber }}</div>
+                      <a
+                        v-if="property.id"
+                        :href="`/property/${property.id}`"
+                        class="d-inline-block mt-2"
+                        style="color: #3b82f6; font-size: 0.82rem; font-weight: 600; text-decoration: none;"
+                      >View details →</a>
+                    </div>
+                  </l-popup>
                 </l-marker>
               </template>
             </template>
