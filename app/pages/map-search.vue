@@ -205,6 +205,7 @@
             :selected-property="selectedProperty"
             :latitude="mapCenter.latitude"
             :longitude="mapCenter.longitude"
+            :show-popup="false"
             @bounds-updated="handleBoundsUpdate"
             @marker-click="selectProperty"
           />

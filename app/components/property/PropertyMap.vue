@@ -103,7 +103,7 @@
                     :icon-size="[44, 34]"
                     :icon-anchor="[25, 34]"
                   />
-                  <l-popup>
+                  <l-popup v-if="showPopup">
                     <div class="property-popup">
                       <div class="text-subtitle-1 font-weight-bold" style="color: #0f172a;">${{ Number(property.price || 0).toLocaleString() }}</div>
                       <div class="text-body-2" style="color: #1e293b;">{{ property.title || property.address }}</div>
