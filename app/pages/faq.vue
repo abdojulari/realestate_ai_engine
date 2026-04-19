@@ -58,11 +58,45 @@ import { realEstateFaqs } from '~/data/realEstateFaqs'
 
 const faqs = realEstateFaqs
 
+const { businessName } = useTenantSettings()
+const config = useRuntimeConfig()
+const siteUrl = ((config.public.siteUrl as string) || '').replace(/\/$/, '')
+const canonicalUrl = siteUrl ? `${siteUrl}/faq` : undefined
+
+const faqDescription = 'Frequently asked questions about buying, selling, mortgages, closing costs, and real estate listings in Alberta.'
+
+useSeoMeta({
+  title: () => `FAQs | ${businessName.value || 'Real Estate'}`,
+  description: faqDescription,
+  ogTitle: () => `FAQs | ${businessName.value || 'Real Estate'}`,
+  ogDescription: faqDescription,
+  ogType: 'website',
+  ogUrl: canonicalUrl,
+  twitterCard: 'summary_large_image',
+  twitterTitle: () => `FAQs | ${businessName.value || 'Real Estate'}`,
+  twitterDescription: faqDescription,
+  robots: 'index, follow',
+})
+
 useHead({
-  title: 'FAQs - Real Estate',
-  meta: [
-    { name: 'description', content: 'Frequently asked questions about buying, selling, and real estate listings.' }
-  ]
+  link: canonicalUrl ? [{ rel: 'canonical', href: canonicalUrl }] : [],
+  script: [
+    {
+      type: 'application/ld+json',
+      children: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'FAQPage',
+        mainEntity: faqs.map((f) => ({
+          '@type': 'Question',
+          name: f.question,
+          acceptedAnswer: {
+            '@type': 'Answer',
+            text: f.answer,
+          },
+        })),
+      }),
+    },
+  ],
 })
 </script>
 

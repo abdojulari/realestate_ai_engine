@@ -87,7 +87,21 @@
       </v-row>
     </v-container>
   </template>
-  
+
+<script setup lang="ts">
+useSeoMeta({
+  title: 'Real Estate Guides - Buying, Selling & Compliance',
+  description: 'Practical real estate guides covering identity verification (FINTRAC), buying and selling processes, mortgages, and Alberta closing costs.',
+  ogTitle: 'Real Estate Guides - Buying, Selling & Compliance',
+  ogDescription: 'Practical real estate guides covering identity verification (FINTRAC), buying and selling processes, mortgages, and Alberta closing costs.',
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'Real Estate Guides',
+  twitterDescription: 'Practical guides for buyers, sellers, and Alberta real estate compliance.',
+  robots: 'index, follow',
+})
+</script>
+
   <style scoped>
   .guide-card {
     transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);

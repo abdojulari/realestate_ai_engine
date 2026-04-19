@@ -220,12 +220,17 @@
 import { ref, onMounted } from 'vue'
 
 // SEO Meta
-useHead({
+useSeoMeta({
   title: 'Real Estate News - Market Updates & Property Insights',
-  meta: [
-    { name: 'description', content: 'Stay updated with the latest real estate market news, property insights, and industry trends from trusted sources.' },
-    { name: 'keywords', content: 'real estate news, market updates, property news, housing market, commercial real estate' }
-  ]
+  description: 'Stay updated with the latest real estate market news, property insights, and industry trends from trusted sources.',
+  keywords: 'real estate news, market updates, property news, housing market, commercial real estate',
+  ogTitle: 'Real Estate News - Market Updates & Property Insights',
+  ogDescription: 'Stay updated with the latest real estate market news, property insights, and industry trends from trusted sources.',
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'Real Estate News - Market Updates & Property Insights',
+  twitterDescription: 'Stay updated with the latest real estate market news, property insights, and industry trends from trusted sources.',
+  robots: 'index, follow',
 })
 
 // Types

@@ -1299,11 +1299,16 @@ onMounted(async () => {
 
 
 // SEO
-useHead({
+useSeoMeta({
   title: 'AI Property Search - Find Your Dream Home with Natural Language',
-  meta: [
-    { name: 'description', content: 'Use AI to search for properties with natural language. Describe your dream home and let our intelligent search find perfect matches.' }
-  ]
+  description: 'Use AI to search for properties with natural language. Describe your dream home and let our intelligent search find perfect matches.',
+  ogTitle: 'AI Property Search - Find Your Dream Home with Natural Language',
+  ogDescription: 'Use AI to search for properties with natural language. Describe your dream home and let our intelligent search find perfect matches.',
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'AI Property Search',
+  twitterDescription: 'Describe your dream home in natural language and let AI find perfect matches.',
+  robots: 'index, follow',
 })
 </script>
 

@@ -140,6 +140,12 @@
       </v-row>
     </section>
   </v-container>
+
+  <ClusterPosts
+    category-slug="buying-in-alberta"
+    title="Deep-Dive Buying Guides"
+    subtitle="Practical, Alberta-specific articles on pre-approval, closing costs, first-time buyer programs, and more."
+  />
 </template>
 
 <script setup lang="ts">

@@ -67,6 +67,16 @@ interface CreaProperty {
   CoListOfficeKey3?: string
   ListAOR?: string
   ListAORKey?: string
+  // National Association (NRDS/NAR) IDs — required for cross-board identity
+  // and FINTRAC/compliance audits.
+  ListAgentNationalAssociationId?: string | null
+  CoListAgentNationalAssociationId?: string | null
+  CoListAgentNationalAssociationId2?: string | null
+  CoListAgentNationalAssociationId3?: string | null
+  ListOfficeNationalAssociationId?: string | null
+  CoListOfficeNationalAssociationId?: string | null
+  CoListOfficeNationalAssociationId2?: string | null
+  CoListOfficeNationalAssociationId3?: string | null
   
   // Location - Address Components
   UnparsedAddress: string
@@ -676,14 +686,39 @@ class CreaService {
       status = 'expired'
     }
 
-    // Extract images and sort by order (Media is included by default in CREA DDF OData API)
-    const images = creaProp.Media
-      ?.filter(media => media.MediaURL)
-      .sort((a, b) => a.Order - b.Order)
-      .map(media => media.MediaURL) || []
-    
-    // Log image count
-    console.log(`📸 Property ${creaProp.ListingKey}: ${images.length} images`)
+    // Build a rich mediaItems array preserving alt text, ordering, category
+    // (Photo / Floorplan / Video / VirtualTour / Document) and the preferred
+    // (hero) flag. The flat `images` array is then derived from this so older
+    // consumers keep working unchanged.
+    const mediaItemsRaw = (creaProp.Media || [])
+      .filter(m => m && m.MediaURL)
+      .sort((a, b) => {
+        // Preferred photo always wins, then by Order ascending
+        if (a.PreferredPhotoYN && !b.PreferredPhotoYN) return -1
+        if (!a.PreferredPhotoYN && b.PreferredPhotoYN) return 1
+        return (a.Order ?? 0) - (b.Order ?? 0)
+      })
+
+    const mediaItems = mediaItemsRaw.map(m => ({
+      url: m.MediaURL,
+      alt: m.LongDescription || null,
+      order: m.Order ?? 0,
+      category: m.MediaCategory || 'Photo',
+      isPreferred: !!m.PreferredPhotoYN,
+      mediaKey: m.MediaKey || null,
+      modifiedAt: m.ModificationTimestamp || null,
+      resourceRecordId: m.ResourceRecordId || null,
+      resourceRecordKey: m.ResourceRecordKey || null,
+      resourceName: m.ResourceName || null,
+    }))
+
+    // Photos only for the gallery — keeps floorplans/videos/etc. out of the
+    // hero carousel but still accessible via features.mediaItems.
+    const images = mediaItems
+      .filter(m => !m.category || m.category === 'Photo')
+      .map(m => m.url)
+
+    console.log(`📸 Property ${creaProp.ListingKey}: ${images.length} photos, ${mediaItems.length} total media items`)
 
     const normalizeDate = (value?: string | null) => {
       if (!value) return null
@@ -728,10 +763,29 @@ class CreaService {
       photosCount: creaProp.PhotosCount,
       commonInterest: creaProp.CommonInterest,
       listAOR: creaProp.ListAOR,
+      listAORKey: creaProp.ListAORKey,
       listAgentKey: creaProp.ListAgentKey,
       listOfficeKey: creaProp.ListOfficeKey,
       coListAgentKey: creaProp.CoListAgentKey,
+      coListAgentKey2: creaProp.CoListAgentKey2,
+      coListAgentKey3: creaProp.CoListAgentKey3,
       coListOfficeKey: creaProp.CoListOfficeKey,
+      coListOfficeKey2: creaProp.CoListOfficeKey2,
+      coListOfficeKey3: creaProp.CoListOfficeKey3,
+
+      // National Association (NRDS/NAR) IDs for agents and offices
+      listAgentNationalAssociationId: creaProp.ListAgentNationalAssociationId,
+      coListAgentNationalAssociationId: creaProp.CoListAgentNationalAssociationId,
+      coListAgentNationalAssociationId2: creaProp.CoListAgentNationalAssociationId2,
+      coListAgentNationalAssociationId3: creaProp.CoListAgentNationalAssociationId3,
+      listOfficeNationalAssociationId: creaProp.ListOfficeNationalAssociationId,
+      coListOfficeNationalAssociationId: creaProp.CoListOfficeNationalAssociationId,
+      coListOfficeNationalAssociationId2: creaProp.CoListOfficeNationalAssociationId2,
+      coListOfficeNationalAssociationId3: creaProp.CoListOfficeNationalAssociationId3,
+
+      // Rich media (preserves alt text, order, hero flag, and category so
+      // floorplans/videos/virtual tours can be surfaced separately).
+      mediaItems,
       
       // ===== PROPERTY CLASSIFICATION =====
       propertySubType: creaProp.PropertySubType,

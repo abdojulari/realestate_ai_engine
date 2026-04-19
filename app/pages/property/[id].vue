@@ -12,6 +12,7 @@
           >
             <v-carousel-item
               :src="(Array.isArray(property.images) && property.images.length ? property.images[0] : '/favicon.ico')"
+              :alt="mainImageAlt"
               cover
             />
           </v-carousel>
@@ -19,6 +20,7 @@
           <div v-else class="image-grid">
             <v-img
               :src="(Array.isArray(property.images) && property.images.length ? property.images[0] : '/favicon.ico')"
+              :alt="mainImageAlt"
               height="600"
               class="main-image"
               cover
@@ -37,6 +39,7 @@
                 v-for="(thumbnail, index) in thumbnailImages"
                 :key="index"
                 :src="thumbnail.url || '/favicon.ico'"
+                :alt="thumbnail.alt || mainImageAlt"
                 height="197"
                 cover
                 class="thumbnail"
@@ -703,7 +706,7 @@
         </v-toolbar>
         <div class="gallery-carousel-container">
           <v-carousel v-model="currentImageIndex" height="calc(100vh - 64px)" hide-delimiters show-arrows="hover" class="gallery-carousel">
-            <v-carousel-item v-for="(image, index) in property.images" :key="index" :src="image" contain>
+            <v-carousel-item v-for="(image, index) in property.images" :key="index" :src="image" :alt="propertyMediaItems[index]?.alt || mainImageAlt" contain>
               <template v-slot:placeholder><v-row class="fill-height ma-0" align="center" justify="center"><v-progress-circular indeterminate color="white" size="64" /></v-row></template>
             </v-carousel-item>
           </v-carousel>
@@ -918,44 +921,69 @@ async function loadSchools() {
   }
 }
 
-// Property from API (DB). Start with safe defaults, then hydrate.
-const property = ref<any>({
-  id: route.params.id,
-  title: 'Property',
-  price: 0,
-  type: 'house',
-  beds: 0,
-  baths: 0,
-  sqft: 0,
-  yearBuilt: '',
-  parking: '',
-  heating: '',
-  cooling: '',
-  lotSize: 0,
-  address: '',
-  description: '',
-  features: [],
-  images: ['/favicon.ico'],
-  latitude: 56.7268,
-  longitude: -111.3800,
-  isFavorite: false,
-  agent: { name: '', phone: '', email: '' }
-})
+// SSR-safe property fetch. Runs server-side so SEO meta + JSON-LD have real
+// data on first render (critical for crawlers and social previews).
+const { data: fetchedProperty } = await useAsyncData(
+  `property-${route.params.id}`,
+  async () => {
+    try {
+      return (await $fetch(`/api/properties/${route.params.id}`)) as any
+    } catch (error) {
+      console.error('Error fetching property:', error)
+      return null
+    }
+  },
+  { watch: [() => route.params.id] }
+)
+
+// Return a 404 status server-side when the property doesn't exist so
+// Google won't index a soft-404 page.
+if (import.meta.server && !fetchedProperty.value) {
+  const evt = useRequestEvent()
+  if (evt) setResponseStatus(evt, 404)
+}
+
+const buildPropertyState = (data: any) => {
+  const defaults = {
+    id: route.params.id,
+    title: 'Property',
+    price: 0,
+    type: 'house',
+    beds: 0,
+    baths: 0,
+    sqft: 0,
+    yearBuilt: '',
+    parking: '',
+    heating: '',
+    cooling: '',
+    lotSize: 0,
+    address: '',
+    description: '',
+    features: [],
+    images: ['/favicon.ico'],
+    latitude: 56.7268,
+    longitude: -111.3800,
+    isFavorite: false,
+    agent: { name: '', phone: '', email: '' },
+  }
+  if (!data) return defaults
+  const lat = Number(data.latitude)
+  const lng = Number(data.longitude)
+  return {
+    ...defaults,
+    ...data,
+    images: Array.isArray(data.images) && data.images.length ? data.images : ['/favicon.ico'],
+    latitude: isFinite(lat) ? lat : defaults.latitude,
+    longitude: isFinite(lng) ? lng : defaults.longitude,
+  }
+}
+
+// Writable property ref hydrated from SSR data (kept writable so existing
+// favorite/save/share handlers continue to work).
+const property = ref<any>(buildPropertyState(fetchedProperty.value))
 
 onMounted(async () => {
   try {
-    const data = await $fetch(`/api/properties/${route.params.id}`) as any
-    // Some DBs may store latitude/longitude swapped; ensure numbers
-    const d: any = data
-    const lat = Number(d.latitude)
-    const lng = Number(d.longitude)
-    property.value = {
-      ...data,
-      images: Array.isArray(d.images) && d.images.length ? d.images : ['/favicon.ico'],
-      latitude: isFinite(lat) ? lat : 56.7268,
-      longitude: isFinite(lng) ? lng : -111.3800
-    }
-    
     // Debug agent data
     if (property.value.listingAgentData) {
       console.log('🏠 Enhanced Agent Data Available:', {
@@ -1013,27 +1041,176 @@ onMounted(async () => {
   }
 })
 
+// SEO helpers (canonical + absolute URLs for og:image + JSON-LD)
+const seoConfig = useRuntimeConfig()
+const seoSiteUrl = ((seoConfig.public.siteUrl as string) || '').replace(/\/$/, '')
+
+const seoAbsoluteUrl = (path: string | null | undefined) => {
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  if (!seoSiteUrl) return path
+  return `${seoSiteUrl}${path.startsWith('/') ? '' : '/'}${path}`
+}
+
+const propertyCanonicalUrl = computed(() =>
+  seoSiteUrl ? `${seoSiteUrl}/property/${route.params.id}` : ''
+)
+
+const propertyOgImage = computed(() => {
+  const imgs = property.value.images
+  const first = Array.isArray(imgs) && imgs.length ? imgs[0] : property.value.coverImage || ''
+  if (!first || first === '/favicon.ico') return ''
+  return seoAbsoluteUrl(first)
+})
+
+const propertyDescription = computed(() => {
+  const p = property.value
+  const parts = [
+    p.address,
+    p.bedrooms ? `${p.bedrooms} bed` : '',
+    p.bathrooms ? `${p.bathrooms} bath` : '',
+    p.sqft ? `${Number(p.sqft).toLocaleString()} sqft` : '',
+    p.price ? `$${Number(p.price).toLocaleString()}` : '',
+  ].filter(Boolean)
+  if (parts.length > 1) return parts.join(' · ')
+  if (p.description) {
+    const txt = String(p.description).replace(/<[^>]+>/g, '').trim()
+    return txt.length > 200 ? txt.slice(0, 197) + '…' : txt
+  }
+  return 'View property details, photos, and features.'
+})
+
+const hasRealProperty = computed(
+  () => !!fetchedProperty.value && (property.value.address || property.value.title)
+)
+
 useSeoMeta({
   title: () => {
     const p = property.value
     const addr = p.address || p.title || 'Property Details'
     return `${addr} | ${businessName.value || 'Real Estate'}`
   },
+  description: () => propertyDescription.value,
+  keywords: () => {
+    const p = property.value
+    return [p.city, p.province, p.type, 'real estate', 'home for sale', p.mlsNumber]
+      .filter(Boolean)
+      .join(', ')
+  },
   ogTitle: () => property.value.address || property.value.title || 'Property Details',
-  description: () => {
-    const p = property.value
-    const parts = [p.address, p.bedrooms ? `${p.bedrooms} bed` : '', p.bathrooms ? `${p.bathrooms} bath` : '', p.price ? `$${Number(p.price).toLocaleString()}` : ''].filter(Boolean)
-    return parts.length > 1 ? parts.join(' · ') : 'View property details, photos, and features.'
-  },
-  ogDescription: () => {
-    const p = property.value
-    const parts = [p.address, p.bedrooms ? `${p.bedrooms} bed` : '', p.bathrooms ? `${p.bathrooms} bath` : '', p.price ? `$${Number(p.price).toLocaleString()}` : ''].filter(Boolean)
-    return parts.length > 1 ? parts.join(' · ') : 'View property details, photos, and features.'
-  },
-  ogImage: () => {
-    const imgs = property.value.images
-    return Array.isArray(imgs) && imgs.length ? imgs[0] : undefined
-  },
+  ogDescription: () => propertyDescription.value,
+  ogImage: () => propertyOgImage.value || undefined,
+  ogUrl: () => propertyCanonicalUrl.value || undefined,
+  ogType: 'website',
+  ogSiteName: () => businessName.value || 'Real Estate',
+  twitterCard: 'summary_large_image',
+  twitterTitle: () => property.value.address || property.value.title || 'Property Details',
+  twitterDescription: () => propertyDescription.value,
+  twitterImage: () => propertyOgImage.value || undefined,
+  robots: () => (hasRealProperty.value ? 'index, follow' : 'noindex, nofollow'),
+})
+
+const realEstateSchema = computed(() => {
+  if (!hasRealProperty.value) return null
+  const p = property.value
+
+  const photos = (Array.isArray(p.images) ? p.images : [])
+    .filter((img: string) => img && img !== '/favicon.ico')
+    .slice(0, 10)
+    .map((img: string) => seoAbsoluteUrl(img))
+    .filter(Boolean)
+
+  const schema: Record<string, any> = {
+    '@context': 'https://schema.org',
+    '@type': 'RealEstateListing',
+    '@id': propertyCanonicalUrl.value || undefined,
+    url: propertyCanonicalUrl.value || undefined,
+    name: p.address || p.title || undefined,
+    description: propertyDescription.value || undefined,
+    datePosted: p.publishedAt || p.createdAt || undefined,
+    image: photos.length ? photos : undefined,
+  }
+
+  if (p.price && Number(p.price) > 0) {
+    schema.offers = {
+      '@type': 'Offer',
+      price: Number(p.price),
+      priceCurrency: 'CAD',
+      availability:
+        p.status === 'sold'
+          ? 'https://schema.org/SoldOut'
+          : 'https://schema.org/InStock',
+      url: propertyCanonicalUrl.value || undefined,
+    }
+  }
+
+  if (p.address || p.city || p.province || p.postalCode) {
+    schema.address = {
+      '@type': 'PostalAddress',
+      streetAddress: p.address || undefined,
+      addressLocality: p.city || undefined,
+      addressRegion: p.province || 'AB',
+      postalCode: p.postalCode || undefined,
+      addressCountry: 'CA',
+    }
+  }
+
+  if (Number(p.latitude) && Number(p.longitude)) {
+    schema.geo = {
+      '@type': 'GeoCoordinates',
+      latitude: Number(p.latitude),
+      longitude: Number(p.longitude),
+    }
+  }
+
+  // SingleFamilyResidence-style attributes nested on the listing
+  const accommodation: Record<string, any> = {
+    '@type': 'SingleFamilyResidence',
+    name: p.address || p.title || undefined,
+  }
+  if (p.bedrooms) accommodation.numberOfRooms = Number(p.bedrooms)
+  if (p.bedrooms) accommodation.numberOfBedrooms = Number(p.bedrooms)
+  if (p.bathrooms) accommodation.numberOfBathroomsTotal = Number(p.bathrooms)
+  if (p.sqft) {
+    accommodation.floorSize = {
+      '@type': 'QuantitativeValue',
+      value: Number(p.sqft),
+      unitCode: 'FTK', // square feet
+    }
+  }
+  if (p.lotSize) {
+    accommodation.lotSize = {
+      '@type': 'QuantitativeValue',
+      value: Number(p.lotSize),
+      unitCode: 'FTK',
+    }
+  }
+  if (p.yearBuilt) accommodation.yearBuilt = Number(p.yearBuilt) || p.yearBuilt
+  if (p.heating) accommodation.amenityFeature = [
+    { '@type': 'LocationFeatureSpecification', name: 'Heating', value: p.heating },
+  ]
+  schema.accommodationCategory = p.type || undefined
+  schema.itemOffered = accommodation
+
+  // Drop undefined
+  Object.keys(schema).forEach((k) => schema[k] === undefined && delete schema[k])
+  return schema
+})
+
+useHead({
+  link: () =>
+    propertyCanonicalUrl.value
+      ? [{ rel: 'canonical', href: propertyCanonicalUrl.value }]
+      : [],
+  script: () =>
+    realEstateSchema.value
+      ? [
+          {
+            type: 'application/ld+json',
+            children: JSON.stringify(realEstateSchema.value),
+          },
+        ]
+      : [],
 })
 
 const contactForm = ref({
@@ -1049,36 +1226,63 @@ const viewingForm = ref({
   notes: ''
 })
 
-const thumbnailImages = computed(() => {
-  const images = property.value.images || []
-  if (images.length <= 1) return []
-  
-  // Always try to fill 4 thumbnail slots to avoid white space
-  const thumbnails = []
-  
-  // If we have 5+ images, use them directly
-  if (images.length >= 5) {
-    return [
-      { url: images[1], imageIndex: 1 },
-      { url: images[2], imageIndex: 2 },
-      { url: images[3], imageIndex: 3 },
-      { url: images[4], imageIndex: 4 }
-    ]
+// Rich media items: prefer the structured features.mediaItems (CREA sync now
+// provides per-photo alt text, ordering, hero flag, and media category).
+// Falls back to building basic items from the flat images array for legacy
+// records or non-CREA properties.
+const propertyMediaItems = computed(() => {
+  const fromFeatures = property.value.features?.mediaItems
+  if (Array.isArray(fromFeatures) && fromFeatures.length) {
+    return fromFeatures
+      .filter((m: any) => m?.url)
+      .filter((m: any) => !m.category || m.category === 'Photo')
+      .map((m: any, idx: number) => ({
+        url: m.url,
+        alt: m.alt || `${property.value.address || property.value.title} - photo ${idx + 1}`,
+      }))
   }
-  
-  // For fewer images, cycle through available thumbnails to fill all 4 slots
-  const availableForThumbs = images.slice(1) // All images except the first (main) one
+  const images = property.value.images || []
+  return images
+    .filter((url: string) => !!url)
+    .map((url: string, idx: number) => ({
+      url,
+      alt: `${property.value.address || property.value.title} - photo ${idx + 1}`,
+    }))
+})
+
+const mainImageAlt = computed(() => {
+  return propertyMediaItems.value[0]?.alt || property.value.address || property.value.title || 'Property photo'
+})
+
+const thumbnailImages = computed(() => {
+  const items = propertyMediaItems.value
+  if (items.length <= 1) return []
+
+  const buildEntry = (idx: number) => ({
+    url: items[idx]?.url || '',
+    alt: items[idx]?.alt || '',
+    imageIndex: idx,
+  })
+
+  // 5+ photos: take the next four after the hero
+  if (items.length >= 5) {
+    return [buildEntry(1), buildEntry(2), buildEntry(3), buildEntry(4)]
+  }
+
+  // Fewer photos: cycle through what we have to fill 4 slots
+  const thumbnails = []
+  const available = items.slice(1)
   for (let i = 0; i < 4; i++) {
-    if (availableForThumbs.length > 0) {
-      const cycleIndex = i % availableForThumbs.length
-      const actualImageIndex = cycleIndex + 1 // +1 because availableForThumbs starts at index 1
+    if (available.length > 0) {
+      const cycleIndex = i % available.length
+      const actualImageIndex = cycleIndex + 1
       thumbnails.push({
-        url: availableForThumbs[cycleIndex],
-        imageIndex: actualImageIndex
+        url: available[cycleIndex].url,
+        alt: available[cycleIndex].alt,
+        imageIndex: actualImageIndex,
       })
     }
   }
-  
   return thumbnails
 })
 

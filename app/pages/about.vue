@@ -227,8 +227,15 @@ onMounted(async () => {
   loading.value = false
 })
 
-useHead({
-  title: computed(() => metaTitle.value),
-  meta: [{ name: 'description', content: computed(() => metaDescription.value) as any }],
+useSeoMeta({
+  title: () => metaTitle.value || 'About',
+  description: () => metaDescription.value || 'Learn about our team, values, and approach to real estate.',
+  ogTitle: () => metaTitle.value || 'About',
+  ogDescription: () => metaDescription.value || 'Learn about our team, values, and approach to real estate.',
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+  twitterTitle: () => metaTitle.value || 'About',
+  twitterDescription: () => metaDescription.value || 'Learn about our team, values, and approach to real estate.',
+  robots: 'index, follow',
 })
 </script>

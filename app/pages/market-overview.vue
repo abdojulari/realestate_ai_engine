@@ -148,6 +148,12 @@
         </v-dialog>
       </v-container>
     </section>
+
+    <ClusterPosts
+      category-slug="alberta-market-reports"
+      title="Latest Alberta Market Reports"
+      subtitle="In-depth quarterly and annual market analysis for Calgary, Edmonton, and the broader Alberta real estate landscape."
+    />
   </div>
 </template>
 
@@ -207,11 +213,16 @@ const searchPropertiesInCity = () => {
   showCityDialog.value = false
 }
 
-useHead({
+useSeoMeta({
   title: 'Alberta Real Estate Intelligence | Market Overview',
-  meta: [
-    { name: 'description', content: 'Explore high-fidelity market data for Alberta real estate. Detailed neighborhood stats, average pricing, and inventory levels for Calgary, Edmonton, and surrounding areas.' }
-  ]
+  description: 'Explore high-fidelity market data for Alberta real estate. Detailed neighborhood stats, average pricing, and inventory levels for Calgary, Edmonton, and surrounding areas.',
+  ogTitle: 'Alberta Real Estate Intelligence | Market Overview',
+  ogDescription: 'Explore high-fidelity market data for Alberta real estate. Detailed neighborhood stats, average pricing, and inventory levels for Calgary, Edmonton, and surrounding areas.',
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'Alberta Real Estate Market Overview',
+  twitterDescription: 'Detailed neighborhood stats, average pricing, and inventory levels for Calgary, Edmonton, and surrounding areas.',
+  robots: 'index, follow',
 })
 </script>
 

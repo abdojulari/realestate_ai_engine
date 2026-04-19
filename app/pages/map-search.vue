@@ -255,6 +255,18 @@ import type { Property as BaseProperty, PropertyFilter, User } from '~/types'
 import { useAnalytics } from '../../utils/analytics'
 import { propertyService } from '~/services/property.service'
 import { usePropertyService } from '~/composables/usePropertyService'
+
+useSeoMeta({
+  title: 'Map Search - Browse Properties on a Map',
+  description: 'Search for homes for sale on an interactive map. Explore Calgary, Edmonton and surrounding Alberta neighborhoods visually.',
+  ogTitle: 'Map Search - Browse Properties on a Map',
+  ogDescription: 'Search for homes for sale on an interactive map. Explore Calgary, Edmonton and surrounding Alberta neighborhoods visually.',
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+  twitterTitle: 'Map Search - Browse Properties on a Map',
+  twitterDescription: 'Explore Alberta homes for sale on an interactive map.',
+  robots: 'index, follow',
+})
 import { filterResidentialProperties } from '../../utils/propertyFilters'
 
 // Interfaces

@@ -24,6 +24,97 @@ useSeoMeta({
   ogTitle: () => businessName.value || 'Real Estate',
   description: () => `${adminFullName.value || 'Your trusted REALTOR'} — search homes, get market insights, and find your dream property.`,
   ogDescription: () => `${adminFullName.value || 'Your trusted REALTOR'} — search homes, get market insights, and find your dream property.`,
+  ogType: 'website',
+  twitterCard: 'summary_large_image',
+})
+
+// SSR-safe tenant fetch for LocalBusiness JSON-LD on the homepage.
+// Layout already emits Organization/RealEstateAgent — this adds the
+// LocalBusiness variant + WebSite schema with SearchAction (sitelinks search box).
+const { data: homeTenant } = await useAsyncData('home-tenant-settings', async () => {
+  try {
+    return await $fetch<any>('/api/tenant-settings')
+  } catch {
+    return null
+  }
+})
+
+const homeConfig = useRuntimeConfig()
+const homeSiteUrl = ((homeConfig.public.siteUrl as string) || '').replace(/\/$/, '')
+const homeAbsoluteUrl = (p: string | null | undefined) => {
+  if (!p) return ''
+  if (/^https?:\/\//i.test(p)) return p
+  if (!homeSiteUrl) return p
+  return `${homeSiteUrl}${p.startsWith('/') ? '' : '/'}${p}`
+}
+
+const homeSchemas = computed(() => {
+  const t = homeTenant.value
+  const out: any[] = []
+
+  if (homeSiteUrl) {
+    out.push({
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      name: t?.businessName || 'Real Estate',
+      url: homeSiteUrl,
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: `${homeSiteUrl}/properties?q={search_term_string}`,
+        'query-input': 'required name=search_term_string',
+      },
+    })
+  }
+
+  if (t) {
+    const sameAs = Array.isArray(t.socialLinks)
+      ? t.socialLinks.map((s: any) => s?.url).filter(Boolean)
+      : []
+
+    const local: Record<string, any> = {
+      '@context': 'https://schema.org',
+      '@type': 'LocalBusiness',
+      '@id': homeSiteUrl ? `${homeSiteUrl}/#localbusiness` : undefined,
+      name: t.businessName || undefined,
+      image: homeAbsoluteUrl(t.logoUrl) || undefined,
+      logo: homeAbsoluteUrl(t.logoUrl) || undefined,
+      url: homeSiteUrl || undefined,
+      telephone: t.phone || undefined,
+      email: t.email || undefined,
+      priceRange: '$$',
+      sameAs: sameAs.length ? sameAs : undefined,
+    }
+    if (t.address || t.city || t.province || t.postalCode) {
+      local.address = {
+        '@type': 'PostalAddress',
+        streetAddress: t.address || undefined,
+        addressLocality: t.city || undefined,
+        addressRegion: t.province || undefined,
+        postalCode: t.postalCode || undefined,
+        addressCountry: 'CA',
+      }
+    }
+    if (t.city && t.province) {
+      local.areaServed = {
+        '@type': 'AdministrativeArea',
+        name: `${t.city}, ${t.province}`,
+      }
+    }
+    Object.keys(local).forEach((k) => local[k] === undefined && delete local[k])
+    out.push(local)
+  }
+
+  return out
+})
+
+useHead({
+  script: () =>
+    homeSchemas.value.length
+      ? homeSchemas.value.map((s) => ({
+          type: 'application/ld+json',
+          children: JSON.stringify(s),
+        }))
+      : [],
 })
 import HomeTemplate3 from '~/components/home-templates/HomeTemplate3.vue'
 import HomeTemplate4 from '~/components/home-templates/HomeTemplate4.vue'

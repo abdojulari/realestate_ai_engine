@@ -113,6 +113,12 @@
         </v-col>
       </v-row>
     </v-container>
+
+    <ClusterPosts
+      category-slug="selling-in-alberta"
+      title="Deep-Dive Selling Guides"
+      subtitle="Cost to sell, staging tips, the best time to list in Calgary or Edmonton, and what to expect at closing."
+    />
   </div>
 </template>
 
