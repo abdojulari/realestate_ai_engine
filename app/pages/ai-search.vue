@@ -1056,47 +1056,164 @@ const onNeighborhoodSelected = (neighborhood: any) => {
 }
 
 // Speech Recognition Functions
+//
+// Pause tolerance design
+// ──────────────────────
+// The Web Speech API by default ends a session as soon as the engine
+// produces a final result, which means a single thoughtful pause mid-query
+// terminates the recognition and the user has to click the mic again. To
+// support natural, paused speech ("3 bedrooms… in Edmonton… under 600k") we:
+//
+//   1. Set `continuous = true` so the engine keeps the session open across
+//      multiple utterances instead of bailing on the first final.
+//   2. Accumulate finalized transcripts in a closure-level buffer
+//      (`finalBuffer`) and render `finalBuffer + currentInterim` into the
+//      input. This fixes the previous bug where each new final result
+//      overwrote everything that came before it.
+//   3. Auto-restart on `onend` if the user hasn't manually stopped — Chrome's
+//      STT engine still auto-ends on long silences even with continuous=true,
+//      so we transparently re-open the session. Restart attempts are
+//      throttled and capped so a broken engine can't loop forever.
+//   4. Track a 10-second silence timer that resets every time we get fresh
+//      audio. If silence exceeds the window we end the session cleanly so
+//      the input doesn't hang open indefinitely.
+//   5. Suppress the "no-speech" toast when we already captured something —
+//      that error is harmless when it just means the user paused too long
+//      for the engine, and we have a transcript to keep.
+const SILENCE_TIMEOUT_MS = 10_000
+const MAX_RESTART_ATTEMPTS = 5
+
+// All browsers on iOS — Safari, Chrome, Edge, Firefox — are forced by Apple
+// to use WebKit under the hood, so we detect the OS rather than the browser.
+// iOS WebKit exposes webkitSpeechRecognition but ignores `continuous: true`
+// and ends sessions aggressively after each utterance. The auto-restart
+// logic in onend papers over this so pause tolerance still works on iPhone
+// and iPad — it just means each pause triggers a real session restart
+// instead of a single long-lived session like on Android/desktop Chrome.
+const isIOS = (): boolean => {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  // Modern iPads report "MacIntel" + touch; the touch check disambiguates.
+  return /iPad|iPhone|iPod/.test(ua)
+      || (ua.includes('Mac') && typeof (navigator as any).maxTouchPoints === 'number' && (navigator as any).maxTouchPoints > 1)
+}
+
 const createSpeechRecognition = () => {
   const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
   if (!SpeechRecognition) return null
 
   const recognition = new SpeechRecognition()
-  recognition.continuous = false
+  // iOS WebKit ignores `true` and ends after each utterance regardless, so
+  // explicitly set false there to avoid relying on undefined behaviour. The
+  // auto-restart logic in onend provides equivalent pause tolerance.
+  recognition.continuous = !isIOS()
   recognition.interimResults = true
   recognition.lang = 'en-US'
   recognition.maxAlternatives = 1
 
+  // Closure-level state for one recognition instance.
+  let finalBuffer = ''         // accumulated finalized text across pauses
+  let isManualStop = false     // set true when the user clicks the mic to stop
+  let restartAttempts = 0      // back-off counter for transparent restarts
+  let silenceTimer: ReturnType<typeof setTimeout> | null = null
+
+  const clearSilenceTimer = () => {
+    if (silenceTimer) {
+      clearTimeout(silenceTimer)
+      silenceTimer = null
+    }
+  }
+
+  const armSilenceTimer = () => {
+    clearSilenceTimer()
+    silenceTimer = setTimeout(() => {
+      isManualStop = true // mark as intentional so onend doesn't auto-restart
+      try { recognition.stop() } catch {}
+    }, SILENCE_TIMEOUT_MS)
+  }
+
+  // Expose flags so toggleSpeechRecognition() can mark a manual stop.
+  ;(recognition as any).__markManualStop = () => {
+    isManualStop = true
+    clearSilenceTimer()
+  }
+
   recognition.onresult = (event: any) => {
     let interimTranscript = ''
-    let finalTranscript = ''
+    let newFinalThisEvent = ''
 
     for (let i = event.resultIndex; i < event.results.length; i++) {
       const transcript = event.results[i][0].transcript
       if (event.results[i].isFinal) {
-        finalTranscript += transcript
+        newFinalThisEvent += transcript
       } else {
         interimTranscript += transcript
       }
     }
 
-    if (finalTranscript) {
-      searchQuery.value = finalTranscript
-    } else if (interimTranscript) {
-      searchQuery.value = interimTranscript
+    if (newFinalThisEvent) {
+      // Append with a space if buffer already has content; trim doubles.
+      finalBuffer = (finalBuffer + ' ' + newFinalThisEvent).replace(/\s+/g, ' ').trim()
     }
+
+    // Always render buffer + current interim so the user sees their full
+    // utterance plus the live partial mid-sentence.
+    const composed = (finalBuffer + ' ' + interimTranscript).replace(/\s+/g, ' ').trim()
+    if (composed) searchQuery.value = composed
+
+    // Any audio activity resets the silence countdown.
+    armSilenceTimer()
+
+    // Successful results reset restart back-off.
+    restartAttempts = 0
   }
 
   recognition.onend = () => {
-    isListening.value = false
+    clearSilenceTimer()
+
+    // If the user clicked the mic (or the silence timer fired) we honour the
+    // stop and surface "not listening". Otherwise the engine timed out on its
+    // own — re-open the session transparently so the pause doesn't end input.
+    if (isManualStop) {
+      isListening.value = false
+      return
+    }
+
+    if (restartAttempts >= MAX_RESTART_ATTEMPTS) {
+      // Engine keeps dying — give up and surface the state so the user can retry.
+      isListening.value = false
+      return
+    }
+
+    restartAttempts++
+    try {
+      recognition.start()
+    } catch {
+      // start() can throw "InvalidStateError" if a previous session is still
+      // tearing down. Schedule a single delayed retry; if that fails too,
+      // mark the session as ended.
+      setTimeout(() => {
+        try { recognition.start() } catch { isListening.value = false }
+      }, 250)
+    }
   }
 
   recognition.onerror = (event: any) => {
     console.error('🎤 Speech recognition error:', event.error)
-    isListening.value = false
 
-    if (event.error === 'aborted' || event.error === 'no-speech') {
+    // `aborted` is fired on every manual stop — never an error to the user.
+    // `no-speech` happens when the user pauses too long for the engine; if
+    // we already captured something, keep it and let onend auto-restart.
+    if (event.error === 'aborted') return
+    if (event.error === 'no-speech') {
+      // Don't flip isListening — onend will handle restart unless manually stopped.
       return
     }
+
+    // Real errors: clear silence timer, end session, surface a toast.
+    clearSilenceTimer()
+    isManualStop = true
+    isListening.value = false
 
     let errorMsg = 'Voice recognition failed. '
     switch (event.error) {
@@ -1125,6 +1242,13 @@ const createSpeechRecognition = () => {
   recognition.onstart = () => {
     isListening.value = true
     errorMessage.value = ''
+    // Fresh session — reset accumulated state on the FIRST start only.
+    // (Restarts triggered by onend keep finalBuffer so the user's partial
+    // utterance survives an engine timeout.)
+    if (restartAttempts === 0 && !finalBuffer) {
+      isManualStop = false
+    }
+    armSilenceTimer()
   }
 
   return recognition
@@ -1145,12 +1269,16 @@ const initSpeechRecognition = () => {
 
 const toggleSpeechRecognition = async () => {
   if (!speechSupported.value) {
-    errorMessage.value = 'Voice input is not supported on this device. Please use Chrome on desktop or Android.'
+    errorMessage.value = 'Voice input isn\'t available in this browser. Try Safari on iPhone/iPad, Chrome on Android, or Chrome/Edge/Safari on desktop.'
     setTimeout(() => { errorMessage.value = '' }, 6000)
     return
   }
 
   if (isListening.value) {
+    // Flag this as an intentional stop so onend's auto-restart logic stays
+    // out of the way. Without this flag a manual click would silently
+    // re-open the session because of pause-tolerant continuous listening.
+    try { (speechRecognition.value as any)?.__markManualStop?.() } catch {}
     speechRecognition.value?.stop()
     isListening.value = false
     return
