@@ -448,24 +448,65 @@ class CreaService {
   }
 
   async getPropertyById(listingKey: string): Promise<CreaProperty | null> {
+    const safeKey = encodeURIComponent(listingKey)
+    let property: CreaProperty | null = null
+
+    // CREA removed `Media` as an expandable navigation on Property (returns 400
+    // with "is not a navigation property or complex property"). Fetch the entity
+    // and Media separately, then merge so downstream consumers (transformProperty)
+    // keep finding `property.Media`.
     try {
-      const safeKey = encodeURIComponent(listingKey)
-      const property: CreaProperty = await this.makeCreaRequest(`/odata/v1/Property('${safeKey}')?$expand=Media`)
-      return property
+      property = await this.makeCreaRequest(`/odata/v1/Property('${safeKey}')`)
     } catch (error: any) {
-      if (error?.message?.includes('400')) {
+      const msg = error?.message || ''
+      if (msg.includes('400') || msg.includes('404')) {
         try {
           const result: { value: CreaProperty[] } = await this.makeCreaRequest(
-            `/odata/v1/Property?$filter=ListingKey eq '${safeKey}'&$expand=Media&$top=1`
+            `/odata/v1/Property?$filter=ListingKey eq '${safeKey}'&$top=1`,
           )
-          return result.value?.[0] || null
-        } catch {
-          console.error('Error fetching CREA property (fallback):', error)
+          property = result.value?.[0] || null
+        } catch (fallbackError) {
+          console.error('Error fetching CREA property (fallback):', fallbackError)
           return null
         }
+      } else {
+        console.error('Error fetching CREA property:', error)
+        return null
       }
-      console.error('Error fetching CREA property:', error)
-      return null
+    }
+
+    if (!property) return null
+
+    try {
+      property.Media = await this.getPropertyMedia(listingKey)
+    } catch (mediaError) {
+      console.warn(`Failed to fetch Media for ${listingKey}:`, (mediaError as any)?.message || mediaError)
+      property.Media = property.Media || []
+    }
+
+    return property
+  }
+
+  /**
+   * Fetch the Media collection for a Property via the standalone Media resource.
+   * Replaces the now-rejected `$expand=Media` on /Property.
+   */
+  async getPropertyMedia(listingKey: string): Promise<NonNullable<CreaProperty['Media']>> {
+    const safeKey = listingKey.replace(/'/g, "''")
+    const filter = `ResourceRecordKey eq '${safeKey}' and ResourceName eq 'Property'`
+    const endpoint = `/odata/v1/Media?$filter=${encodeURIComponent(filter)}&$top=500&$orderby=${encodeURIComponent('Order asc')}`
+    try {
+      const response: { value: NonNullable<CreaProperty['Media']> } = await this.makeCreaRequest(endpoint)
+      return response.value || []
+    } catch (error: any) {
+      const msg = error?.message || ''
+      // Some DDF tenants reject `$orderby=Order` — retry without it before giving up.
+      if (msg.includes('400')) {
+        const fallback = `/odata/v1/Media?$filter=${encodeURIComponent(filter)}&$top=500`
+        const response: { value: NonNullable<CreaProperty['Media']> } = await this.makeCreaRequest(fallback)
+        return response.value || []
+      }
+      throw error
     }
   }
 
