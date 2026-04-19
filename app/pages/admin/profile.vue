@@ -291,6 +291,195 @@
             </v-card-actions>
           </v-card>
 
+          <!-- InstaConnect card (per-user digital business card) -->
+          <v-card class="premium-card mb-8">
+            <div class="p-8 border-b border-slate-100 d-flex align-center">
+              <div class="icon-orb mr-4 bg-indigo-50">
+                <v-icon color="indigo" size="24">mdi-qrcode-scan</v-icon>
+              </div>
+              <div class="flex-grow-1">
+                <h2 class="text-h6 font-weight-bold">InstaConnect</h2>
+                <p class="text-caption text-slate-500 mb-0">
+                  Your shareable digital business card. Visitors can scan the QR, install it as an app on their phone, and send you their details.
+                </p>
+              </div>
+              <v-switch
+                v-model="instaForm.enabled"
+                color="primary"
+                hide-details
+                density="compact"
+                @update:model-value="saveInstaSettings"
+              />
+            </div>
+
+            <v-card-text class="p-8">
+              <v-row>
+                <v-col cols="12" md="7">
+                  <v-text-field
+                    v-model="instaForm.slug"
+                    label="Public handle"
+                    variant="outlined"
+                    density="comfortable"
+                    :prefix="instaUrlPrefix"
+                    hint="Lowercase letters, numbers and hyphens. 3–64 chars."
+                    persistent-hint
+                    class="mb-3"
+                  />
+                  <v-text-field
+                    v-model="instaForm.headline"
+                    label="Headline (e.g. Real Estate Agent)"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-3"
+                  />
+                  <v-text-field
+                    v-model="instaForm.company"
+                    label="Company / brokerage (optional)"
+                    variant="outlined"
+                    density="comfortable"
+                    class="mb-3"
+                  />
+                  <v-text-field
+                    v-model="instaForm.primaryColor"
+                    label="Brand color"
+                    variant="outlined"
+                    density="comfortable"
+                    placeholder="#1976D2"
+                    class="mb-4"
+                  >
+                    <template #append-inner>
+                      <div
+                        class="insta-color-swatch"
+                        :style="{ background: instaForm.primaryColor || '#1976D2' }"
+                      />
+                    </template>
+                  </v-text-field>
+
+                  <div class="d-flex flex-wrap gap-2">
+                    <v-btn
+                      color="primary"
+                      :loading="instaSaving"
+                      class="action-btn-primary px-6"
+                      @click="saveInstaSettings"
+                    >
+                      Save
+                    </v-btn>
+                    <v-btn
+                      v-if="instaSettings?.publicPath"
+                      variant="outlined"
+                      class="action-btn-outline px-4"
+                      :href="instaSettings.publicPath"
+                      target="_blank"
+                      prepend-icon="mdi-open-in-new"
+                    >
+                      Open card
+                    </v-btn>
+                    <v-btn
+                      v-if="instaShareUrl"
+                      variant="text"
+                      class="px-3"
+                      :prepend-icon="instaCopied ? 'mdi-check' : 'mdi-content-copy'"
+                      @click="copyInstaLink"
+                    >
+                      {{ instaCopied ? 'Copied' : 'Copy link' }}
+                    </v-btn>
+                  </div>
+                </v-col>
+
+                <v-col cols="12" md="5">
+                  <div class="insta-qr-card">
+                    <div v-if="instaQrDataUrl" class="insta-qr-img-wrap">
+                      <img :src="instaQrDataUrl" alt="QR code" class="insta-qr-img" />
+                    </div>
+                    <div v-else class="insta-qr-placeholder">
+                      <v-icon size="40" color="grey-lighten-1">mdi-qrcode</v-icon>
+                      <span class="text-caption text-slate-500 mt-2">
+                        Save settings to generate a QR
+                      </span>
+                    </div>
+                    <div class="text-caption text-slate-500 text-center mb-3 px-3">
+                      {{ instaShareUrl || 'Your shareable URL appears here.' }}
+                    </div>
+                    <v-btn
+                      block
+                      variant="tonal"
+                      color="primary"
+                      :disabled="!instaQrDataUrl"
+                      prepend-icon="mdi-download"
+                      @click="downloadInstaQr"
+                    >
+                      Download QR
+                    </v-btn>
+                  </div>
+                </v-col>
+              </v-row>
+
+              <v-divider class="my-6" />
+
+              <div class="d-flex align-center mb-3">
+                <h3 class="text-subtitle-1 font-weight-bold">Recent captures</h3>
+                <v-spacer />
+                <v-btn
+                  size="small"
+                  variant="text"
+                  color="primary"
+                  to="/admin/lead-generation?tab=instaconnect"
+                  append-icon="mdi-arrow-right"
+                >
+                  Review all
+                </v-btn>
+              </div>
+              <div v-if="instaCapturesLoading" class="text-caption text-slate-500">Loading…</div>
+              <div v-else-if="instaCaptures.length === 0" class="insta-empty">
+                <v-icon size="32" color="grey-lighten-1">mdi-inbox-outline</v-icon>
+                <p class="text-caption text-slate-500 mt-2 mb-0">
+                  No captures yet. Share your QR to start collecting contacts.
+                </p>
+              </div>
+              <v-list v-else density="compact" class="rounded-lg">
+                <v-list-item
+                  v-for="c in instaCaptures"
+                  :key="c.id"
+                  class="insta-capture-row"
+                >
+                  <template #prepend>
+                    <v-avatar size="36" color="primary" variant="tonal">
+                      <span class="text-caption font-weight-bold">
+                        {{ initials(c.firstName, c.lastName) }}
+                      </span>
+                    </v-avatar>
+                  </template>
+                  <v-list-item-title class="font-weight-bold">
+                    {{ c.firstName }} {{ c.lastName }}
+                  </v-list-item-title>
+                  <v-list-item-subtitle class="text-caption">
+                    {{ c.email }} · {{ c.phone }}
+                    <span v-if="c.company"> · {{ c.company }}</span>
+                  </v-list-item-subtitle>
+                  <template #append>
+                    <v-chip
+                      size="x-small"
+                      :color="captureStatusColor(c.status)"
+                      variant="tonal"
+                      class="font-weight-bold mr-2"
+                    >
+                      {{ c.status }}
+                    </v-chip>
+                    <v-btn
+                      v-if="c.status === 'pending'"
+                      size="small"
+                      color="success"
+                      variant="tonal"
+                      @click="acceptCapture(c.id)"
+                    >
+                      Accept
+                    </v-btn>
+                  </template>
+                </v-list-item>
+              </v-list>
+            </v-card-text>
+          </v-card>
+
           <v-card v-if="auth.isPrincipalAdmin" class="premium-card mb-8">
             <div class="p-8 border-b border-slate-100 d-flex align-center">
               <div class="icon-orb mr-4 bg-teal-50">
@@ -636,7 +825,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 // @ts-ignore
 import { api } from '~/utils/api'
 import { useAuthStore } from '~/stores/auth'
@@ -644,6 +833,7 @@ import {
   DELEGATION_FEATURE_LABELS,
   DELEGATION_FEATURE_ORDER,
 } from '~/utils/delegatedAdminClient'
+import { generateQrDataUrl, downloadDataUrl } from '~/utils/qr'
 
 const auth = useAuthStore()
 
@@ -722,6 +912,150 @@ const addTeamMemberForm = reactive({
   phone: '',
   password: '',
 })
+
+// ── InstaConnect ──
+interface InstaSettings {
+  slug: string | null
+  enabled: boolean
+  branding: {
+    headline?: string | null
+    company?: string | null
+    primaryColor?: string | null
+    coverImage?: string | null
+    socialLinks?: Array<{ icon?: string | null; name: string; url: string }>
+  }
+  shareUrl: string | null
+  publicPath: string | null
+  manifestPath: string | null
+  vcardPath: string | null
+}
+
+const instaSettings = ref<InstaSettings | null>(null)
+const instaSaving = ref(false)
+const instaCopied = ref(false)
+const instaQrDataUrl = ref<string | null>(null)
+const instaCaptures = ref<any[]>([])
+const instaCapturesLoading = ref(false)
+
+const instaForm = reactive({
+  slug: '',
+  enabled: true,
+  headline: '',
+  company: '',
+  primaryColor: '#1976D2',
+})
+
+const instaUrlPrefix = computed(() => {
+  if (process.client) return `${window.location.origin}/connect/`
+  return '/connect/'
+})
+
+const instaShareUrl = computed(() => {
+  if (!instaSettings.value?.publicPath) return ''
+  if (process.client) return `${window.location.origin}${instaSettings.value.publicPath}`
+  return instaSettings.value.publicPath
+})
+
+async function loadInstaSettings() {
+  try {
+    const res: any = await api.get('/api/admin/insta-connect/settings')
+    instaSettings.value = res
+    instaForm.slug = res.slug || ''
+    instaForm.enabled = !!res.enabled
+    instaForm.headline = res.branding?.headline || ''
+    instaForm.company = res.branding?.company || ''
+    instaForm.primaryColor = res.branding?.primaryColor || '#1976D2'
+    await rebuildInstaQr()
+  } catch (e) {
+    console.error('Failed to load InstaConnect settings', e)
+  }
+}
+
+async function rebuildInstaQr() {
+  if (!instaShareUrl.value) {
+    instaQrDataUrl.value = null
+    return
+  }
+  try {
+    instaQrDataUrl.value = await generateQrDataUrl(instaShareUrl.value, {
+      size: 480,
+      color: { dark: '#0F172A', light: '#FFFFFF' },
+    })
+  } catch (e) {
+    console.error('QR generation failed', e)
+  }
+}
+
+async function saveInstaSettings() {
+  instaSaving.value = true
+  try {
+    const res: any = await api.put('/api/admin/insta-connect/settings', {
+      slug: instaForm.slug || null,
+      enabled: instaForm.enabled,
+      branding: {
+        headline: instaForm.headline || null,
+        company: instaForm.company || null,
+        primaryColor: instaForm.primaryColor || null,
+      },
+    })
+    instaSettings.value = { ...(instaSettings.value || ({} as InstaSettings)), ...res }
+    instaForm.slug = res.slug || ''
+    await rebuildInstaQr()
+    showToast('InstaConnect settings saved')
+  } catch (e: any) {
+    showToast(e?.data?.statusMessage || e?.statusMessage || 'Could not save', 'error')
+  } finally {
+    instaSaving.value = false
+  }
+}
+
+async function copyInstaLink() {
+  if (!instaShareUrl.value) return
+  try {
+    await navigator.clipboard.writeText(instaShareUrl.value)
+    instaCopied.value = true
+    setTimeout(() => (instaCopied.value = false), 1800)
+  } catch {
+    showToast('Could not copy link', 'error')
+  }
+}
+
+function downloadInstaQr() {
+  if (!instaQrDataUrl.value || !instaSettings.value?.slug) return
+  downloadDataUrl(instaQrDataUrl.value, `${instaSettings.value.slug}-instaconnect.png`)
+}
+
+async function loadInstaCaptures() {
+  instaCapturesLoading.value = true
+  try {
+    const res: any = await api.get('/api/admin/insta-connect/captures?limit=5')
+    instaCaptures.value = res.captures || []
+  } catch (e) {
+    console.error('Failed to load captures', e)
+  } finally {
+    instaCapturesLoading.value = false
+  }
+}
+
+async function acceptCapture(id: number) {
+  try {
+    await api.post(`/api/admin/insta-connect/captures/${id}/accept`, {})
+    await loadInstaCaptures()
+    showToast('Promoted to CRM')
+  } catch (e: any) {
+    showToast(e?.data?.statusMessage || 'Could not accept', 'error')
+  }
+}
+
+function captureStatusColor(s: string): string {
+  return s === 'pending' ? 'warning' : s === 'accepted' ? 'success' : 'grey'
+}
+
+function initials(first?: string | null, last?: string | null): string {
+  const f = (first || '').charAt(0)
+  const l = (last || '').charAt(0)
+  return (f + l).toUpperCase() || 'U'
+}
 
 const delegationPerm = reactive<Record<string, PermRow>>({})
 
@@ -1068,6 +1402,8 @@ onMounted(async () => {
   
   await loadProfile()
   await loadAssistantsList()
+  await loadInstaSettings()
+  await loadInstaCaptures()
 })
 
 definePageMeta({
@@ -1121,6 +1457,71 @@ definePageMeta({
 
 .bg-teal-50 {
   background: rgba(0, 150, 136, 0.1) !important;
+}
+
+.bg-indigo-50 {
+  background: rgba(67, 56, 202, 0.1) !important;
+}
+
+/* InstaConnect */
+.insta-color-swatch {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  border: 1px solid #E2E8F0;
+}
+
+.insta-qr-card {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.insta-qr-img-wrap {
+  background: white;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid #E2E8F0;
+  margin-bottom: 12px;
+}
+
+.insta-qr-img {
+  width: 180px;
+  height: 180px;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.insta-qr-placeholder {
+  background: white;
+  width: 100%;
+  height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px dashed #CBD5E1;
+  margin-bottom: 12px;
+}
+
+.insta-empty {
+  background: #F8FAFC;
+  border: 1px dashed #CBD5E1;
+  border-radius: 12px;
+  padding: 24px;
+  text-align: center;
+}
+
+.insta-capture-row {
+  border: 1px solid #F1F5F9;
+  border-radius: 12px;
+  margin-bottom: 6px;
+  background: white;
 }
 
 /* Avatar Styling */

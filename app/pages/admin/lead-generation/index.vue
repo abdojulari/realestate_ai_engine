@@ -33,6 +33,25 @@
         </v-col>
       </v-row>
 
+      <!-- Tabs: Overview vs InstaConnect captures -->
+      <v-tabs v-model="activeTab" color="primary" class="mb-6 leadgen-tabs" align-tabs="start" density="comfortable">
+        <v-tab value="overview" prepend-icon="mdi-view-dashboard-outline">Overview</v-tab>
+        <v-tab value="instaconnect" prepend-icon="mdi-qrcode-scan">
+          InstaConnect
+          <v-chip
+            v-if="instaCounts.pending > 0"
+            color="warning"
+            size="x-small"
+            class="ml-2 font-weight-bold"
+            variant="flat"
+          >
+            {{ instaCounts.pending }}
+          </v-chip>
+        </v-tab>
+      </v-tabs>
+
+      <v-window v-model="activeTab">
+      <v-window-item value="overview">
       <!-- Loading skeleton -->
       <template v-if="loading && !data">
         <v-row class="mb-10">
@@ -268,7 +287,171 @@
           </v-col>
         </v-row>
       </template>
+      </v-window-item>
+
+      <v-window-item value="instaconnect">
+        <v-card class="chart-card" elevation="0">
+          <v-card-title class="d-flex align-center pt-6 px-8 flex-wrap ga-3">
+            <span class="text-overline letter-spacing-1 text-gold">InstaConnect captures</span>
+            <v-spacer />
+            <v-btn-toggle
+              v-model="instaStatusFilter"
+              mandatory
+              density="compact"
+              divided
+              color="primary"
+            >
+              <v-btn value="pending" size="small">
+                Pending
+                <v-chip v-if="instaCounts.pending" color="warning" size="x-small" class="ml-2" variant="flat">
+                  {{ instaCounts.pending }}
+                </v-chip>
+              </v-btn>
+              <v-btn value="accepted" size="small">Accepted</v-btn>
+              <v-btn value="rejected" size="small">Rejected</v-btn>
+              <v-btn value="all" size="small">All</v-btn>
+            </v-btn-toggle>
+            <v-btn
+              size="small"
+              variant="text"
+              color="primary"
+              prepend-icon="mdi-refresh"
+              :loading="instaLoading"
+              @click="loadInstaCaptures"
+            >
+              Refresh
+            </v-btn>
+          </v-card-title>
+
+          <v-card-text class="px-8 pb-8">
+            <div v-if="instaSelected.length > 0" class="insta-bulk-bar">
+              <span class="font-weight-bold">{{ instaSelected.length }} selected</span>
+              <v-spacer />
+              <v-btn
+                size="small"
+                color="success"
+                variant="flat"
+                prepend-icon="mdi-account-convert"
+                :loading="instaBulkBusy"
+                @click="bulkInsta('accept')"
+              >
+                Accept &amp; promote to CRM
+              </v-btn>
+              <v-btn
+                size="small"
+                color="warning"
+                variant="tonal"
+                prepend-icon="mdi-close-circle-outline"
+                :loading="instaBulkBusy"
+                @click="bulkInsta('reject')"
+              >
+                Reject
+              </v-btn>
+              <v-btn
+                size="small"
+                color="error"
+                variant="tonal"
+                prepend-icon="mdi-delete-outline"
+                :loading="instaBulkBusy"
+                @click="bulkInsta('delete')"
+              >
+                Delete
+              </v-btn>
+            </div>
+
+            <v-data-table
+              v-model="instaSelected"
+              :headers="instaTableHeaders"
+              :items="instaCaptures"
+              :loading="instaLoading"
+              show-select
+              item-value="id"
+              :items-per-page="10"
+              class="leads-table"
+              density="comfortable"
+            >
+              <template #item.name="{ item }">
+                <div class="d-flex align-center">
+                  <v-avatar size="32" class="mr-3" color="primary" variant="tonal">
+                    <span class="text-caption font-weight-bold">
+                      {{ getInitials(`${item.firstName} ${item.lastName}`) }}
+                    </span>
+                  </v-avatar>
+                  <div>
+                    <div class="font-weight-medium">{{ item.firstName }} {{ item.lastName }}</div>
+                    <div class="text-caption text-medium-emphasis">{{ item.email }}</div>
+                  </div>
+                </div>
+              </template>
+              <template #item.phone="{ item }">
+                <span class="text-body-2">{{ item.phone || '—' }}</span>
+              </template>
+              <template #item.company="{ item }">
+                <span class="text-body-2">{{ item.company || '—' }}</span>
+              </template>
+              <template #item.interest="{ item }">
+                <v-chip v-if="item.interest" size="x-small" variant="tonal" color="primary" label>
+                  {{ item.interest }}
+                </v-chip>
+                <span v-else class="text-caption text-medium-emphasis">—</span>
+              </template>
+              <template #item.status="{ item }">
+                <v-chip size="small" :color="instaStatusColor(item.status)" variant="flat" class="font-weight-medium">
+                  {{ item.status }}
+                </v-chip>
+              </template>
+              <template #item.createdAt="{ item }">
+                <span class="text-body-2 text-medium-emphasis">{{ formatDate(item.createdAt) }}</span>
+              </template>
+              <template #item.actions="{ item }">
+                <div class="d-flex ga-1 justify-end">
+                  <v-btn
+                    v-if="item.status === 'pending'"
+                    icon="mdi-check"
+                    size="small"
+                    variant="text"
+                    color="success"
+                    @click="acceptInsta(item.id)"
+                  />
+                  <v-btn
+                    v-if="item.status === 'pending'"
+                    icon="mdi-close"
+                    size="small"
+                    variant="text"
+                    color="warning"
+                    @click="rejectInsta(item.id)"
+                  />
+                  <v-btn
+                    icon="mdi-delete-outline"
+                    size="small"
+                    variant="text"
+                    color="error"
+                    @click="deleteInsta(item.id)"
+                  />
+                </div>
+              </template>
+
+              <template #no-data>
+                <div class="text-center py-10">
+                  <v-icon size="48" color="grey-lighten-1">mdi-qrcode-scan</v-icon>
+                  <p class="text-subtitle-2 text-medium-emphasis mt-3 mb-1">No captures yet</p>
+                  <p class="text-caption text-medium-emphasis">
+                    Share your InstaConnect QR from the
+                    <NuxtLink to="/admin/profile" class="text-decoration-underline">profile page</NuxtLink>
+                    to start collecting contacts.
+                  </p>
+                </div>
+              </template>
+            </v-data-table>
+          </v-card-text>
+        </v-card>
+      </v-window-item>
+      </v-window>
     </v-container>
+
+    <v-snackbar v-model="snack.show" :color="snack.color" location="top right" :timeout="3000">
+      {{ snack.msg }}
+    </v-snackbar>
 
     <!-- Convert to CRM dialog -->
     <v-dialog v-model="showConvert" max-width="480" persistent>
@@ -292,7 +475,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import EChart from '~/components/charts/EChart.vue'
 
 const loading = ref(false)
@@ -304,7 +488,154 @@ const convertTarget = ref<any>(null)
 const convertType = ref('buyer')
 const converting = ref(false)
 
-function getAuthHeaders() {
+// ── Tab state ──
+const route = useRoute()
+const router = useRouter()
+const activeTab = ref<'overview' | 'instaconnect'>(
+  route.query.tab === 'instaconnect' ? 'instaconnect' : 'overview',
+)
+
+watch(activeTab, (v) => {
+  router.replace({ query: { ...route.query, tab: v === 'overview' ? undefined : v } })
+  if (v === 'instaconnect') loadInstaCaptures()
+})
+
+// ── InstaConnect captures ──
+interface Capture {
+  id: number
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  company: string | null
+  interest: string | null
+  message: string | null
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: string
+}
+
+const instaCaptures = ref<Capture[]>([])
+const instaSelected = ref<number[]>([])
+const instaCounts = reactive({ pending: 0, accepted: 0, rejected: 0 })
+const instaStatusFilter = ref<'pending' | 'accepted' | 'rejected' | 'all'>('pending')
+const instaLoading = ref(false)
+const instaBulkBusy = ref(false)
+const snack = reactive({ show: false, msg: '', color: 'success' as 'success' | 'error' })
+
+const instaTableHeaders = [
+  { title: 'Name', key: 'name', sortable: true },
+  { title: 'Phone', key: 'phone', sortable: false },
+  { title: 'Company', key: 'company', sortable: false },
+  { title: 'Interest', key: 'interest', sortable: true },
+  { title: 'Status', key: 'status', sortable: true },
+  { title: 'Date', key: 'createdAt', sortable: true },
+  { title: '', key: 'actions', sortable: false, align: 'end' as const, width: 130 },
+]
+
+watch(instaStatusFilter, () => loadInstaCaptures())
+
+function instaStatusColor(s: string): string {
+  return s === 'pending' ? 'warning' : s === 'accepted' ? 'success' : 'grey'
+}
+
+async function loadInstaCaptures() {
+  instaLoading.value = true
+  try {
+    const res: any = await $fetch('/api/admin/insta-connect/captures', {
+      headers: getAuthHeaders(),
+      query: { status: instaStatusFilter.value, limit: 200 },
+    })
+    instaCaptures.value = res.captures || []
+    instaSelected.value = []
+    Object.assign(instaCounts, res.counts || { pending: 0, accepted: 0, rejected: 0 })
+  } catch (e) {
+    console.error('Failed to load InstaConnect captures', e)
+  } finally {
+    instaLoading.value = false
+  }
+}
+
+async function acceptInsta(id: number) {
+  try {
+    await $fetch(`/api/admin/insta-connect/captures/${id}/accept`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    })
+    snack.color = 'success'
+    snack.msg = 'Promoted to CRM'
+    snack.show = true
+    await loadInstaCaptures()
+  } catch (e: any) {
+    snack.color = 'error'
+    snack.msg = e?.data?.statusMessage || 'Could not accept'
+    snack.show = true
+  }
+}
+
+async function rejectInsta(id: number) {
+  try {
+    await $fetch(`/api/admin/insta-connect/captures/${id}/reject`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+    })
+    await loadInstaCaptures()
+  } catch (e) {
+    console.error('Reject failed', e)
+  }
+}
+
+async function deleteInsta(id: number) {
+  if (!confirm('Delete this capture? This cannot be undone.')) return
+  try {
+    await $fetch(`/api/admin/insta-connect/captures/${id}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders(),
+    })
+    await loadInstaCaptures()
+  } catch (e) {
+    console.error('Delete failed', e)
+  }
+}
+
+async function bulkInsta(action: 'accept' | 'reject' | 'delete') {
+  if (instaSelected.value.length === 0) return
+  if (action === 'delete' && !confirm(`Delete ${instaSelected.value.length} capture(s)?`)) return
+  instaBulkBusy.value = true
+  try {
+    const ids = [...instaSelected.value]
+    const tasks = ids.map((id) => {
+      if (action === 'accept') {
+        return $fetch(`/api/admin/insta-connect/captures/${id}/accept`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+        })
+      }
+      if (action === 'reject') {
+        return $fetch(`/api/admin/insta-connect/captures/${id}/reject`, {
+          method: 'POST',
+          headers: getAuthHeaders(),
+        })
+      }
+      return $fetch(`/api/admin/insta-connect/captures/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      })
+    })
+    const results = await Promise.allSettled(tasks)
+    const failed = results.filter((r) => r.status === 'rejected').length
+    snack.color = failed === 0 ? 'success' : 'error'
+    snack.msg =
+      failed === 0
+        ? `${ids.length} capture(s) ${action === 'accept' ? 'promoted to CRM' : action === 'reject' ? 'rejected' : 'deleted'}`
+        : `${ids.length - failed}/${ids.length} succeeded`
+    snack.show = true
+    await loadInstaCaptures()
+  } finally {
+    instaBulkBusy.value = false
+  }
+}
+
+function getAuthHeaders(): Record<string, string> {
   if (import.meta.client) {
     const token = localStorage.getItem('token')
     return token ? { Authorization: `Bearer ${token}` } : {}
@@ -480,7 +811,11 @@ async function doConvert() {
   }
 }
 
-onMounted(loadDashboard)
+onMounted(async () => {
+  await loadDashboard()
+  // Always pull counts so the tab badge is correct
+  await loadInstaCaptures()
+})
 
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
 </script>
@@ -499,6 +834,22 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
 .letter-spacing-1 { letter-spacing: 1px; }
 .premium-accent-bar { width: 40px; height: 4px; background: #8c734b; border-radius: 2px; }
 .premium-action-btn { border-radius: 12px !important; text-transform: none !important; font-weight: 700 !important; }
+
+.leadgen-tabs {
+  border-bottom: 1px solid #f1ece1;
+}
+
+.insta-bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  background: #fdf7e8;
+  border: 1px solid #efe0b8;
+  border-radius: 12px;
+}
 
 /* KPI Cards */
 .stat-card-premium {

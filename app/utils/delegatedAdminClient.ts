@@ -47,6 +47,7 @@ export const DELEGATION_FEATURE_LABELS: Record<string, string> = {
   pillar9_sync: 'Pillar9 sync',
   newsletter: 'Newsletter',
   lead_generation: 'Lead generation',
+  insta_connect: 'InstaConnect (digital business card)',
   workspace_tools: 'Workspace tools',
   content: 'Content blocks',
   resources: 'Resources',

@@ -54,6 +54,14 @@ model User {
   // Users under the same tenant this delegated assistant must not see (e.g. high-profile clients).
   delegationExcludedUserIds Int[] @default([])
 
+  // ── InstaConnect (digital business card / PWA) ──
+  // Public handle used in the shareable URL: /connect/{instaConnectSlug}
+  instaConnectSlug      String?  @unique
+  instaConnectEnabled   Boolean  @default(true)
+  // Optional per-agent overrides: { headline, company, primaryColor, coverImage, socialLinks: [{icon,name,url}] }
+  instaConnectBranding  Json?
+  instaConnectCaptures  InstaConnectCapture[] @relation("AdminInstaConnectCaptures")
+
   // Admin relationship – users belong to an admin (tenant)
   adminId              Int?
   admin                User?             @relation("AdminUsers", fields: [adminId], references: [id])
@@ -484,6 +492,43 @@ model ChatLead {
 
   @@index([adminId, email])
   @@index([adminId, status])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INSTACONNECT — captures from QR-scanned digital business card
+// (Staging area for inbound contacts before they are promoted to CRM.)
+// ═══════════════════════════════════════════════════════════════
+
+model InstaConnectCapture {
+  id           Int      @id @default(autoincrement())
+  adminId      Int
+  admin        User     @relation("AdminInstaConnectCaptures", fields: [adminId], references: [id], onDelete: Cascade)
+
+  firstName    String
+  lastName     String
+  email        String
+  phone        String
+  company      String?
+  interest     String?  // buying | selling | renting | connecting
+  message      String?  @db.Text
+  consent      Boolean  @default(false)
+
+  // pending → accepted (promoted to CRM) | rejected
+  status       String   @default("pending")
+  // crmClient row created when status flips to accepted
+  crmClientId  Int?
+
+  // Lightweight provenance
+  userAgent    String?
+  ipHash       String?
+  referrer     String?
+
+  createdAt    DateTime @default(now())
+  acceptedAt   DateTime?
+  rejectedAt   DateTime?
+
+  @@index([adminId, status, createdAt])
+  @@index([adminId, email])
 }
 
 // ═══════════════════════════════════════════════════════════════

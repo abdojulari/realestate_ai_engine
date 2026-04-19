@@ -103,6 +103,11 @@ export default defineEventHandler(async (event) => {
     return
   }
 
+  // InstaConnect public agent card + capture submission + vCard download + per-agent manifest
+  if (url.startsWith('/api/insta-connect/')) {
+    return
+  }
+
   // Gated marketing resources (catalog, metadata, unlock, file — no Bearer auth)
   if (url.startsWith('/api/public/resources')) {
     return
