@@ -7,34 +7,32 @@
       <span class="aurora aurora--c" />
     </div>
 
-    <!-- TOP NAVIGATION BAR (PREMIUM LOOK) -->
-    <div class="header-glass sticky top-0 z-50 px-8 py-4 border-b border-slate-200/60">
+    <!-- TOP NAVIGATION BAR -->
+    <div class="header-glass sticky top-0 z-50 px-8 py-4">
       <div class="max-w-[1600px] mx-auto d-flex align-center">
         <div>
-          <div class="flex items-center space-x-2 mb-0">
-            <span class="text-[10px] uppercase tracking-[0.3em] font-bold text-primary">Account Management</span>
-          </div>
-          <h1 class="text-h4 font-serif text-slate-900 font-weight-bold">Admin Profile</h1>
+          <div class="eyebrow mb-1">Account · Profile</div>
+          <h1 class="font-serif" style="font-size: 22px; line-height: 1.2; margin: 0;">
+            Admin Profile
+          </h1>
         </div>
         <v-spacer />
         <v-chip
           v-if="auth.isPrincipalAdmin"
-          color="success"
           variant="flat"
-          class="premium-chip font-weight-bold"
+          class="premium-chip"
           elevation="0"
         >
-          <v-icon start size="18">mdi-check-circle</v-icon>
+          <v-icon start size="13">mdi-check-circle-outline</v-icon>
           Account owner
         </v-chip>
         <v-chip
           v-else
-          color="info"
           variant="flat"
-          class="premium-chip font-weight-bold"
+          class="premium-chip"
           elevation="0"
         >
-          <v-icon start size="18">mdi-shield-account-outline</v-icon>
+          <v-icon start size="13">mdi-shield-account-outline</v-icon>
           Delegated access
         </v-chip>
       </div>
@@ -44,10 +42,10 @@
       <v-row>
         <!-- LEFT SECTION: Profile Info & Avatar -->
         <v-col cols="12" lg="4">
-          <v-card class="premium-card mb-8">
+          <v-card class="premium-card mb-6">
             <div class="p-8 text-center">
-              <div class="avatar-container mx-auto mb-6">
-                <v-avatar size="120" class="avatar-premium">
+              <div class="avatar-container mx-auto" style="position: relative;">
+                <v-avatar size="88" class="avatar-premium">
                   <v-img
                     :src="profileForm.avatar || '/images/default-avatar.png'"
                     alt="Profile Picture"
@@ -55,35 +53,28 @@
                 </v-avatar>
                 <v-btn
                   icon="mdi-camera"
-                  size="small"
-                  color="primary"
+                  size="x-small"
+                  variant="flat"
                   class="avatar-edit-btn"
                   @click="triggerAvatarUpload"
                 />
               </div>
-              
-              <h2 class="text-h5 font-weight-bold mb-1">{{ profileForm.firstName }} {{ profileForm.lastName }}</h2>
-              <p class="text-caption text-slate-500 font-weight-medium mb-4">{{ profileForm.email }}</p>
-              
-              <v-chip
-                color="primary"
-                variant="tonal"
-                size="small"
-                class="mb-6 font-weight-bold"
-              >
-                {{ profileForm.role?.toUpperCase() || 'ADMIN' }}
-              </v-chip>
 
-              <v-divider class="mb-6" />
+              <h2 class="identity-name">{{ profileForm.firstName }} {{ profileForm.lastName }}</h2>
+              <p class="identity-email">{{ profileForm.email }}</p>
 
-              <div class="stats-mini mb-4">
+              <span class="identity-role">
+                {{ (profileForm.role || 'admin').replace(/_/g, ' ') }}
+              </span>
+
+              <div class="stats-mini">
                 <div class="stat-mini-item">
                   <div class="stat-mini-value">{{ stats.totalLogins || 0 }}</div>
-                  <div class="stat-mini-label">Total Logins</div>
+                  <div class="stat-mini-label">Total logins</div>
                 </div>
                 <div class="stat-mini-item">
                   <div class="stat-mini-value">{{ stats.lastLogin || 'Today' }}</div>
-                  <div class="stat-mini-label">Last Login</div>
+                  <div class="stat-mini-label">Last login</div>
                 </div>
               </div>
 
@@ -100,10 +91,10 @@
           <!-- Quick Actions Card -->
           <v-card class="premium-card">
             <div class="p-6 border-b border-slate-100 d-flex align-center">
-              <div class="icon-orb icon-orb--sm mr-3 bg-amber-50">
-                <v-icon color="amber-darken-2" size="18">mdi-flash</v-icon>
+              <div class="icon-orb icon-orb--sm">
+                <v-icon size="13">mdi-flash-outline</v-icon>
               </div>
-              <h3 class="text-subtitle-1 font-weight-bold mb-0">Quick Actions</h3>
+              <h3 class="text-subtitle-1 mb-0">Quick actions</h3>
             </div>
             <v-list class="pa-2 bg-transparent">
               <v-list-item
@@ -146,12 +137,15 @@
 
         <!-- RIGHT SECTION: Profile Details -->
         <v-col cols="12" lg="8">
-          <v-card class="premium-card mb-8">
-            <div class="p-8 border-b border-slate-100 d-flex align-center">
-              <div class="icon-orb mr-4">
-                <v-icon color="primary" size="24">mdi-account-edit</v-icon>
+          <v-card class="premium-card mb-6">
+            <div class="p-6 border-b border-slate-100 d-flex align-center">
+              <div class="icon-orb">
+                <v-icon size="15">mdi-account-edit-outline</v-icon>
               </div>
-              <h2 class="text-h6 font-weight-bold">Personal Information</h2>
+              <div>
+                <div class="eyebrow" style="margin-bottom: 2px;">Identity</div>
+                <h2 class="text-h6">Personal information</h2>
+              </div>
             </div>
 
             <v-card-text class="p-8">
@@ -221,36 +215,36 @@
               </v-form>
             </v-card-text>
 
-            <v-card-actions class="px-8 pb-8">
+            <v-card-actions class="px-6 pb-6 pt-0">
               <v-spacer />
               <v-btn
                 variant="outlined"
-                class="action-btn-outline px-6"
+                class="action-btn-outline"
                 @click="resetProfileForm"
               >
                 Cancel
               </v-btn>
               <v-btn
-                color="primary"
                 :loading="saving"
                 :disabled="!isProfileFormValid"
+                class="action-btn-primary ml-2"
                 @click="saveProfile"
-                class="action-btn-primary px-8"
               >
-                Save Changes
+                Save changes
               </v-btn>
             </v-card-actions>
           </v-card>
 
           <!-- InstaConnect card (per-user digital business card) -->
-          <v-card class="premium-card mb-8">
-            <div class="p-8 border-b border-slate-100 d-flex align-center">
-              <div class="icon-orb mr-4 bg-indigo-50">
-                <v-icon color="indigo" size="24">mdi-cellphone-arrow-down</v-icon>
+          <v-card class="premium-card mb-6">
+            <div class="p-6 border-b border-slate-100 d-flex align-center">
+              <div class="icon-orb">
+                <v-icon size="15">mdi-cellphone-arrow-down</v-icon>
               </div>
               <div class="flex-grow-1">
-                <h2 class="text-h6 font-weight-bold">InstaConnect</h2>
-                <p class="text-caption text-slate-500 mb-0">
+                <div class="eyebrow" style="margin-bottom: 2px;">Digital card</div>
+                <h2 class="text-h6">InstaConnect</h2>
+                <p class="text-caption mb-0" style="margin-top: 4px; max-width: 540px;">
                   Install the InstaConnect app on your phone. From the app you can share your card with clients in person — they save your contact and send you theirs.
                 </p>
               </div>
@@ -259,6 +253,7 @@
                 color="primary"
                 hide-details
                 density="compact"
+                class="premium-switch ml-3"
                 @update:model-value="saveInstaSettings"
               />
             </div>
@@ -308,9 +303,8 @@
 
                   <div class="d-flex flex-wrap gap-2">
                     <v-btn
-                      color="primary"
                       :loading="instaSaving"
-                      class="action-btn-primary px-6"
+                      class="action-btn-primary"
                       @click="saveInstaSettings"
                     >
                       Save
@@ -318,7 +312,7 @@
                     <v-btn
                       v-if="instaSettings?.publicPath"
                       variant="outlined"
-                      class="action-btn-outline px-4"
+                      class="action-btn-outline"
                       :href="instaSettings.publicPath"
                       target="_blank"
                       prepend-icon="mdi-eye-outline"
@@ -431,17 +425,17 @@
     </v-container>
 
     <!-- Preferences Modal -->
-    <v-dialog v-model="showPreferencesDialog" max-width="720" scrollable>
+    <v-dialog v-model="showPreferencesDialog" max-width="680" scrollable>
       <v-card class="premium-card glass-card">
         <div class="p-6 border-b border-slate-100 d-flex align-center">
-          <div class="icon-orb mr-4 bg-purple-50">
-            <v-icon color="purple" size="22">mdi-tune-variant</v-icon>
+          <div class="icon-orb">
+            <v-icon size="15">mdi-tune-variant</v-icon>
           </div>
           <div class="flex-grow-1">
-            <h2 class="text-h6 font-weight-bold mb-0">Preferences</h2>
-            <p class="text-caption text-slate-500 mb-0">Timezone, language and notification channels</p>
+            <div class="eyebrow" style="margin-bottom: 2px;">Settings</div>
+            <h2 class="text-h6 mb-0">Preferences</h2>
           </div>
-          <v-btn icon="mdi-close" variant="text" @click="showPreferencesDialog = false" />
+          <v-btn icon="mdi-close" variant="text" size="small" @click="showPreferencesDialog = false" />
         </div>
 
         <v-card-text class="pa-6">
@@ -497,16 +491,15 @@
           </v-row>
         </v-card-text>
 
-        <v-card-actions class="px-6 pb-6">
+        <v-card-actions class="px-6 pb-6 pt-0">
           <v-spacer />
-          <v-btn variant="text" class="px-4" @click="showPreferencesDialog = false">Close</v-btn>
+          <v-btn variant="text" @click="showPreferencesDialog = false">Cancel</v-btn>
           <v-btn
-            color="primary"
             :loading="savingPreferences"
-            class="action-btn-primary px-6"
+            class="action-btn-primary ml-2"
             @click="savePreferences"
           >
-            Save Preferences
+            Save preferences
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -521,16 +514,17 @@
     >
       <v-card class="premium-card glass-card">
         <div class="p-6 border-b border-slate-100 d-flex align-center">
-          <div class="icon-orb mr-4 bg-teal-50">
-            <v-icon color="teal" size="22">mdi-account-supervisor</v-icon>
+          <div class="icon-orb">
+            <v-icon size="15">mdi-account-supervisor-outline</v-icon>
           </div>
           <div class="flex-grow-1">
-            <h2 class="text-h6 font-weight-bold mb-0">Team admin access</h2>
-            <p class="text-caption text-slate-500 mb-0">
+            <div class="eyebrow" style="margin-bottom: 2px;">Permissions</div>
+            <h2 class="text-h6 mb-0">Team admin access</h2>
+            <p class="text-caption mb-0" style="margin-top: 4px;">
               Grant assistants access to the admin panel and set permissions per product area.
             </p>
           </div>
-          <v-btn icon="mdi-close" variant="text" @click="showDelegationDialog = false" />
+          <v-btn icon="mdi-close" variant="text" size="small" @click="showDelegationDialog = false" />
         </div>
 
         <v-card-text class="pa-6" style="max-height: 70vh;">
@@ -651,19 +645,18 @@
           </v-alert>
         </v-card-text>
 
-        <v-card-actions class="px-6 pb-6 pt-0" v-if="delegationUserId">
+        <v-card-actions v-if="delegationUserId" class="px-6 pb-6 pt-0">
           <v-spacer />
           <v-btn
+            variant="text"
             color="error"
-            variant="tonal"
             :loading="delegationSaving"
             @click="revokeDelegationAccess"
           >
             Revoke all
           </v-btn>
           <v-btn
-            color="primary"
-            class="action-btn-primary px-6"
+            class="action-btn-primary ml-2"
             :loading="delegationSaving"
             @click="saveDelegationMatrix"
           >
@@ -674,17 +667,20 @@
     </v-dialog>
 
     <!-- Add team member (standard user on your tenant) -->
-    <v-dialog v-model="showAddTeamMemberDialog" max-width="520" persistent>
+    <v-dialog v-model="showAddTeamMemberDialog" max-width="500" persistent>
       <v-card class="premium-card">
-        <div class="p-6 border-b border-slate-100 d-flex align-center justify-space-between">
-          <div>
-            <div class="text-overline text-slate-500 letter-spacing-1 mb-1">Team</div>
-            <h2 class="text-h6 font-weight-bold mb-0">Add team member</h2>
-            <p class="text-caption text-slate-500 mb-0">
-              Creates a <strong>standard</strong> account on your team. They can sign in with this email and password; then you can assign admin permissions.
+        <div class="p-6 border-b border-slate-100 d-flex align-start">
+          <div class="icon-orb">
+            <v-icon size="15">mdi-account-plus-outline</v-icon>
+          </div>
+          <div class="flex-grow-1">
+            <div class="eyebrow" style="margin-bottom: 2px;">Team</div>
+            <h2 class="text-h6 mb-0">Add team member</h2>
+            <p class="text-caption mb-0" style="margin-top: 4px;">
+              Creates a standard account on your team. They can sign in with this email and password; then you can assign admin permissions.
             </p>
           </div>
-          <v-btn icon="mdi-close" variant="text" @click="showAddTeamMemberDialog = false" />
+          <v-btn icon="mdi-close" variant="text" size="small" @click="showAddTeamMemberDialog = false" />
         </div>
         <v-card-text class="pa-6 pt-4">
           <v-form v-model="isAddTeamMemberFormValid">
@@ -749,25 +745,31 @@
           <v-spacer />
           <v-btn variant="text" @click="showAddTeamMemberDialog = false">Cancel</v-btn>
           <v-btn
-            color="primary"
             :loading="addTeamMemberSaving"
             :disabled="!isAddTeamMemberFormValid"
+            class="action-btn-primary ml-2"
             @click="submitAddTeamMember"
           >
-            Create & select
+            Create &amp; select
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- Change Password Dialog -->
-    <v-dialog v-model="showPasswordDialog" max-width="500">
+    <v-dialog v-model="showPasswordDialog" max-width="480">
       <v-card class="premium-card">
-        <div class="p-8 bg-slate-900 text-white">
-          <h2 class="text-h5 font-serif">Change Password</h2>
-          <p class="text-caption text-slate-400 mb-0">Enter your current and new password</p>
+        <div class="p-6 border-b border-slate-100 d-flex align-center">
+          <div class="icon-orb">
+            <v-icon size="15">mdi-key-outline</v-icon>
+          </div>
+          <div class="flex-grow-1">
+            <div class="eyebrow" style="margin-bottom: 2px;">Security</div>
+            <h2 class="text-h6 mb-0">Change password</h2>
+          </div>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="showPasswordDialog = false" />
         </div>
-        <v-card-text class="p-8">
+        <v-card-text class="pa-6">
           <v-form v-model="isPasswordFormValid">
             <v-text-field density="compact"
               v-model="passwordForm.currentPassword"
@@ -804,51 +806,59 @@
             />
           </v-form>
         </v-card-text>
-        <v-card-actions class="p-8 pt-0">
+        <v-card-actions class="px-6 pb-6 pt-0">
           <v-spacer />
-          <v-btn variant="text" class="px-6" @click="showPasswordDialog = false">Cancel</v-btn>
+          <v-btn variant="text" @click="showPasswordDialog = false">Cancel</v-btn>
           <v-btn
-            color="primary"
             :loading="changingPassword"
             :disabled="!isPasswordFormValid"
+            class="action-btn-primary ml-2"
             @click="changePassword"
-            class="action-btn-primary px-8"
           >
-            Change Password
+            Change password
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
 
     <!-- 2FA Dialog -->
-    <v-dialog v-model="show2FADialog" max-width="500">
+    <v-dialog v-model="show2FADialog" max-width="460">
       <v-card class="premium-card">
-        <div class="p-8 bg-slate-900 text-white">
-          <h2 class="text-h5 font-serif">Two-Factor Authentication</h2>
-          <p class="text-caption text-slate-400 mb-0">Enhance your account security</p>
+        <div class="p-6 border-b border-slate-100 d-flex align-center">
+          <div class="icon-orb">
+            <v-icon size="15">mdi-shield-lock-outline</v-icon>
+          </div>
+          <div class="flex-grow-1">
+            <div class="eyebrow" style="margin-bottom: 2px;">Security</div>
+            <h2 class="text-h6 mb-0">Two-factor authentication</h2>
+          </div>
+          <v-btn icon="mdi-close" variant="text" size="small" @click="show2FADialog = false" />
         </div>
-        <v-card-text class="p-8">
-          <div class="text-center mb-6">
-            <v-icon size="64" color="primary" class="mb-4">mdi-shield-lock</v-icon>
-            <p class="text-body-1 mb-4">
-              {{ twoFactorEnabled ? 'Two-factor authentication is enabled' : 'Enable two-factor authentication for added security' }}
-            </p>
-            <v-chip
-              :color="twoFactorEnabled ? 'success' : 'warning'"
-              variant="flat"
-              class="premium-chip font-weight-bold"
-            >
+        <v-card-text class="pa-6">
+          <div class="d-flex align-center" style="gap: 14px;">
+            <div class="icon-orb" style="width:42px !important;height:42px !important;border-radius:10px !important;">
+              <v-icon size="20">mdi-shield-lock-outline</v-icon>
+            </div>
+            <div class="flex-grow-1">
+              <div class="text-body-2" style="font-size: 13.5px; color: var(--c-text); font-weight: 500;">
+                {{ twoFactorEnabled ? 'Two-factor authentication is enabled' : 'Add a second verification step at sign-in' }}
+              </div>
+              <div class="text-caption" style="margin-top: 2px;">
+                {{ twoFactorEnabled ? 'You\'ll be prompted for a code each time you sign in.' : 'Strongly recommended for admin accounts.' }}
+              </div>
+            </div>
+            <span class="status-pill" :data-on="twoFactorEnabled">
+              <span class="status-dot" />
               {{ twoFactorEnabled ? 'Enabled' : 'Disabled' }}
-            </v-chip>
+            </span>
           </div>
         </v-card-text>
-        <v-card-actions class="p-8 pt-0">
+        <v-card-actions class="px-6 pb-6 pt-0">
           <v-spacer />
-          <v-btn variant="text" class="px-6" @click="show2FADialog = false">Close</v-btn>
+          <v-btn variant="text" @click="show2FADialog = false">Close</v-btn>
           <v-btn
-            :color="twoFactorEnabled ? 'error' : 'primary'"
+            :class="twoFactorEnabled ? 'action-btn-outline ml-2' : 'action-btn-primary ml-2'"
             @click="toggle2FA"
-            class="action-btn-primary px-8"
           >
             {{ twoFactorEnabled ? 'Disable 2FA' : 'Enable 2FA' }}
           </v-btn>
@@ -1454,381 +1464,502 @@ definePageMeta({
 </script>
 
 <style scoped>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
 
+/* ── Design tokens ─────────────────────────────────────────────────── */
 .premium-profile-wrapper {
-  font-family: 'Inter', sans-serif;
-  letter-spacing: -0.01em;
+  --c-bg: #FAFAFB;
+  --c-surface: #FFFFFF;
+  --c-surface-2: #F6F7F9;
+  --c-surface-3: #EEF0F3;
+  --c-border: #E6E8EC;
+  --c-border-strong: #D5D9DF;
+  --c-text: #0B0D12;
+  --c-text-2: #4B5563;
+  --c-text-3: #8B93A1;
+  --c-accent: #0B0D12;
+  --c-accent-hover: #1F2937;
+  --c-focus: #2563EB;
+  --shadow-xs: 0 1px 0 rgba(15, 23, 42, 0.04);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 0 rgba(15, 23, 42, 0.02);
+  --shadow-md: 0 8px 24px -12px rgba(15, 23, 42, 0.10), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --r-card: 14px;
+  --r-input: 10px;
+
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+  letter-spacing: -0.011em;
+  color: var(--c-text);
+  background: var(--c-bg);
   min-height: 100vh;
   position: relative;
-  background:
-    radial-gradient(1200px 600px at 12% -10%, rgba(99,102,241,0.10), transparent 60%),
-    radial-gradient(900px 600px at 110% 0%, rgba(14,165,233,0.10), transparent 55%),
-    radial-gradient(800px 600px at 50% 110%, rgba(236,72,153,0.07), transparent 60%),
-    linear-gradient(180deg, #F6F8FC 0%, #FFFFFF 100%);
   overflow-x: hidden;
 }
 
-/* Soft aurora blobs (behind everything) */
-.aurora-bg {
+/* Subtle dot grid — replaces the rainbow auroras */
+.premium-profile-wrapper::before {
+  content: '';
   position: fixed;
   inset: 0;
-  pointer-events: none;
   z-index: 0;
-  overflow: hidden;
+  pointer-events: none;
+  background-image: radial-gradient(circle at 1px 1px, rgba(15, 23, 42, 0.04) 1px, transparent 0);
+  background-size: 26px 26px;
+  -webkit-mask-image: linear-gradient(180deg, rgba(0,0,0,0.55), transparent 65%);
+  mask-image: linear-gradient(180deg, rgba(0,0,0,0.55), transparent 65%);
 }
-.aurora {
-  position: absolute;
-  display: block;
-  border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.55;
-  mix-blend-mode: multiply;
-}
-.aurora--a {
-  width: 520px; height: 520px;
-  top: -120px; left: -80px;
-  background: radial-gradient(circle at 30% 30%, #93c5fd, transparent 60%);
-}
-.aurora--b {
-  width: 460px; height: 460px;
-  top: 140px; right: -120px;
-  background: radial-gradient(circle at 60% 40%, #c4b5fd, transparent 60%);
-}
-.aurora--c {
-  width: 600px; height: 600px;
-  bottom: -200px; left: 30%;
-  background: radial-gradient(circle at 50% 50%, #fbcfe8, transparent 65%);
-}
+.premium-profile-wrapper > * { position: relative; z-index: 1; }
 
-.premium-profile-wrapper > :not(.aurora-bg) {
-  position: relative;
-  z-index: 1;
-}
+/* Hide the legacy aurora markup */
+.aurora-bg, .aurora { display: none !important; }
 
+/* ── Type ──────────────────────────────────────────────────────────── */
 .font-serif {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Inter', sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+.eyebrow,
+:deep(.text-overline) {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  color: var(--c-text-3) !important;
 }
 
+/* ── Header ────────────────────────────────────────────────────────── */
 .header-glass {
-  background: rgba(255, 255, 255, 0.55) !important;
-  backdrop-filter: saturate(180%) blur(18px);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 24px -16px rgba(15,23,42,0.18);
-}
-
-/* Card Styling — glassmorphism */
-.premium-card {
-  background: rgba(255, 255, 255, 0.72) !important;
+  background: rgba(255, 255, 255, 0.78) !important;
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border: 1px solid rgba(226, 232, 240, 0.85) !important;
-  border-radius: 22px !important;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.9) inset,
-    0 24px 60px -32px rgba(15, 23, 42, 0.18),
-    0 8px 24px -16px rgba(15, 23, 42, 0.08) !important;
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  border-bottom: 1px solid var(--c-border) !important;
+  box-shadow: none !important;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────── */
+.premium-card {
+  background: var(--c-surface) !important;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--c-border) !important;
+  border-radius: var(--r-card) !important;
+  box-shadow: var(--shadow-sm) !important;
   overflow: hidden;
   position: relative;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.premium-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background:
-    linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 38%),
-    linear-gradient(315deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 40%);
-  opacity: 0.9;
-}
+.premium-card::before { display: none !important; }
 .premium-card:hover {
-  border-color: rgba(99, 102, 241, 0.32) !important;
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.95) inset,
-    0 30px 70px -28px rgba(15, 23, 42, 0.22),
-    0 12px 30px -16px rgba(99, 102, 241, 0.18) !important;
+  border-color: var(--c-border-strong) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+.glass-card { background: var(--c-surface) !important; }
+
+/* Section heads (the bordered top strip in each card) */
+.premium-card .border-b.border-slate-100,
+.premium-card > div.p-8.border-b,
+.premium-card > div.p-6.border-b {
+  padding: 18px 22px !important;
+  border-bottom: 1px solid var(--c-border) !important;
 }
 
-/* Inside-card surfaces */
-.glass-card { background: rgba(255, 255, 255, 0.92) !important; }
+/* Card body padding override */
+.premium-card .p-8 { padding: 22px !important; }
+.premium-card .p-6 { padding: 18px 22px !important; }
 
+/* Inner section titles */
+.premium-card .text-h6 {
+  font-size: 14.5px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.01em !important;
+  line-height: 1.3 !important;
+  color: var(--c-text);
+}
+.premium-card .text-h5 {
+  font-size: 17px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+}
+.premium-card .text-subtitle-1 {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.005em !important;
+}
+.premium-card .text-caption {
+  font-size: 12.5px !important;
+  color: var(--c-text-3) !important;
+  line-height: 1.55 !important;
+}
+
+/* ── Icon orbs (neutralised) ───────────────────────────────────────── */
 .icon-orb {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, rgba(25, 118, 210, 0.14), rgba(25, 118, 210, 0.04));
-  border: 1px solid rgba(25, 118, 210, 0.18);
-  border-radius: 14px;
+  width: 32px !important;
+  height: 32px !important;
+  background: var(--c-surface-2) !important;
+  border: 1px solid var(--c-border) !important;
+  border-radius: 8px !important;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+  margin-right: 12px !important;
+  box-shadow: none !important;
 }
-.icon-orb--sm {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-}
-.bg-amber-50 {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.04)) !important;
-  border-color: rgba(245, 158, 11, 0.28) !important;
-}
+.icon-orb--sm { width: 26px !important; height: 26px !important; border-radius: 7px !important; }
+.icon-orb :deep(.v-icon) { color: var(--c-text) !important; font-size: 16px !important; }
+.icon-orb--sm :deep(.v-icon) { font-size: 13px !important; }
 
-.bg-purple-50 {
-  background: linear-gradient(135deg, rgba(156, 39, 176, 0.18), rgba(156, 39, 176, 0.04)) !important;
-  border-color: rgba(156, 39, 176, 0.22) !important;
-}
-
-.bg-teal-50 {
-  background: linear-gradient(135deg, rgba(0, 150, 136, 0.18), rgba(0, 150, 136, 0.04)) !important;
-  border-color: rgba(0, 150, 136, 0.22) !important;
-}
-
+/* Force every legacy color helper to stay neutral */
+.bg-amber-50,
+.bg-purple-50,
+.bg-teal-50,
 .bg-indigo-50 {
-  background: linear-gradient(135deg, rgba(67, 56, 202, 0.18), rgba(67, 56, 202, 0.04)) !important;
-  border-color: rgba(67, 56, 202, 0.22) !important;
+  background: var(--c-surface-2) !important;
+  border-color: var(--c-border) !important;
 }
 
-/* InstaConnect */
+/* ── Avatar block ──────────────────────────────────────────────────── */
+.avatar-container { width: 88px; height: 88px; }
+.avatar-premium {
+  border: 1px solid var(--c-border) !important;
+  box-shadow: var(--shadow-xs) !important;
+}
+.avatar-edit-btn {
+  position: absolute !important;
+  bottom: -2px;
+  right: -2px;
+  background: var(--c-surface) !important;
+  color: var(--c-text) !important;
+  border: 1px solid var(--c-border);
+  box-shadow: var(--shadow-sm) !important;
+}
+.avatar-edit-btn :deep(.v-icon) { font-size: 14px !important; }
+
+/* Identity name + meta */
+.identity-name {
+  font-family: 'Inter', sans-serif;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.018em;
+  margin-top: 14px;
+  margin-bottom: 2px;
+  color: var(--c-text);
+}
+.identity-email {
+  font-size: 13px;
+  color: var(--c-text-3);
+  font-feature-settings: 'tnum';
+  margin-bottom: 12px;
+}
+.identity-role {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--c-text-2);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.identity-role::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #16A34A;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  color: var(--c-text-2);
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.status-pill .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #9CA3AF;
+}
+.status-pill[data-on="true"] .status-dot { background: #16A34A; }
+
+/* ── Stats (edge-to-edge, hairline divider) ────────────────────────── */
+.stats-mini {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border-top: 1px solid var(--c-border);
+  margin: 24px -22px -22px;
+}
+.stat-mini-item {
+  padding: 16px 18px;
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--c-border);
+  border-radius: 0;
+  text-align: left;
+}
+.stat-mini-item:last-child { border-right: 0; }
+.stat-mini-value {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--c-text);
+  letter-spacing: -0.022em;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 2px;
+}
+.stat-mini-label {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-text-3);
+}
+
+/* ── Quick Actions list ────────────────────────────────────────────── */
+.quick-action-item {
+  border-radius: 8px !important;
+  margin: 1px 4px !important;
+  min-height: 46px !important;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.quick-action-item :deep(.v-list-item__prepend) {
+  color: var(--c-text-2) !important;
+  margin-right: 10px !important;
+}
+.quick-action-item :deep(.v-list-item__prepend > .v-icon) { font-size: 17px; opacity: 0.9; }
+.quick-action-item :deep(.v-list-item-title) {
+  font-size: 13.5px !important;
+  font-weight: 500 !important;
+  color: var(--c-text) !important;
+  letter-spacing: -0.005em;
+}
+.quick-action-item :deep(.v-list-item-subtitle) {
+  font-size: 11.5px !important;
+  color: var(--c-text-3) !important;
+  opacity: 1 !important;
+  margin-top: 1px !important;
+}
+.quick-action-item:hover {
+  background: var(--c-surface-2) !important;
+  border-color: var(--c-border) !important;
+  transform: none;
+}
+.quick-action-item:hover :deep(.v-list-item__prepend) { color: var(--c-text) !important; }
+
+/* ── Inputs ────────────────────────────────────────────────────────── */
+.premium-input :deep(.v-field) {
+  border-radius: var(--r-input) !important;
+  background: var(--c-surface) !important;
+}
+.premium-input :deep(.v-field__outline__start),
+.premium-input :deep(.v-field__outline__end),
+.premium-input :deep(.v-field__outline__notch::before),
+.premium-input :deep(.v-field__outline__notch::after) {
+  border-color: var(--c-border) !important;
+  opacity: 1 !important;
+  --v-field-border-opacity: 1 !important;
+}
+.premium-input :deep(.v-field--focused .v-field__outline__start),
+.premium-input :deep(.v-field--focused .v-field__outline__end),
+.premium-input :deep(.v-field--focused .v-field__outline__notch::before),
+.premium-input :deep(.v-field--focused .v-field__outline__notch::after) {
+  border-color: var(--c-text) !important;
+  border-width: 1.5px !important;
+}
+.premium-input :deep(.v-label) {
+  font-size: 13px !important;
+  color: var(--c-text-3) !important;
+  letter-spacing: -0.005em;
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────── */
+.action-btn-primary {
+  background: var(--c-accent) !important;
+  color: #fff !important;
+  border-radius: var(--r-input) !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  text-transform: none !important;
+  box-shadow: 0 1px 2px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  transition: background 0.15s ease, box-shadow 0.15s ease !important;
+}
+.action-btn-primary:hover {
+  background: var(--c-accent-hover) !important;
+  box-shadow: 0 2px 6px rgba(15,23,42,0.16), inset 0 1px 0 rgba(255,255,255,0.06) !important;
+  transform: none !important;
+}
+.action-btn-outline {
+  background: var(--c-surface) !important;
+  border: 1px solid var(--c-border) !important;
+  color: var(--c-text) !important;
+  border-radius: var(--r-input) !important;
+  height: 38px !important;
+  min-height: 38px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-transform: none !important;
+  letter-spacing: -0.005em !important;
+  box-shadow: var(--shadow-xs) !important;
+}
+.action-btn-outline:hover {
+  border-color: var(--c-border-strong) !important;
+  background: var(--c-surface-2) !important;
+}
+
+/* Generic v-btn polish (size override only — no color) */
+.premium-card .v-btn,
+.v-dialog .v-btn {
+  text-transform: none;
+  letter-spacing: -0.005em;
+  font-weight: 500;
+}
+
+/* ── Chips / pills ─────────────────────────────────────────────────── */
+.premium-chip {
+  height: 26px !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.005em !important;
+  border-radius: 7px !important;
+  padding: 0 10px !important;
+  background: var(--c-surface-2) !important;
+  color: var(--c-text) !important;
+  border: 1px solid var(--c-border) !important;
+}
+.premium-chip :deep(.v-icon) {
+  color: var(--c-text-2) !important;
+  font-size: 13px !important;
+}
+
+/* ── Switches ──────────────────────────────────────────────────────── */
+.premium-switch :deep(.v-selection-control) { min-height: 34px !important; }
+.premium-switch :deep(.v-label) {
+  font-size: 13px !important;
+  color: var(--c-text) !important;
+  opacity: 1 !important;
+}
+
+/* ── Dividers ──────────────────────────────────────────────────────── */
+.premium-card .v-divider,
+.v-dialog .v-divider {
+  border-color: var(--c-border) !important;
+  opacity: 1 !important;
+}
+
+/* ── InstaConnect ──────────────────────────────────────────────────── */
 .insta-color-swatch {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   border-radius: 6px;
-  border: 1px solid #E2E8F0;
+  border: 1px solid var(--c-border);
 }
-
 .insta-qr-card {
-  background: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 16px;
-  padding: 16px;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-card);
+  padding: 18px;
   display: flex;
   flex-direction: column;
   align-items: center;
 }
-
 .insta-qr-tag {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: #EEF2FF;
-  color: #1D4ED8;
-  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  background: var(--c-surface);
+  color: var(--c-text-2);
+  font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-weight: 700;
+  font-weight: 500;
   padding: 4px 10px;
   border-radius: 999px;
-  margin-bottom: 12px;
+  border: 1px solid var(--c-border);
+  margin-bottom: 14px;
 }
-
+.insta-qr-tag :deep(.v-icon) { color: var(--c-text-2) !important; }
 .insta-qr-img-wrap {
-  background: white;
-  padding: 10px;
+  background: #fff;
+  padding: 12px;
   border-radius: 12px;
-  border: 1px solid #E2E8F0;
+  border: 1px solid var(--c-border);
   margin-bottom: 12px;
 }
-
-.insta-qr-img {
-  width: 180px;
-  height: 180px;
-  display: block;
-  image-rendering: pixelated;
-}
-
+.insta-qr-img { width: 168px; height: 168px; display: block; image-rendering: pixelated; }
 .insta-qr-placeholder {
-  background: white;
+  background: #fff;
   width: 100%;
-  height: 200px;
+  height: 192px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  border: 1px dashed #CBD5E1;
+  border: 1px dashed var(--c-border-strong);
   margin-bottom: 12px;
 }
-
 .insta-empty {
-  background: #F8FAFC;
-  border: 1px dashed #CBD5E1;
+  background: var(--c-surface-2);
+  border: 1px dashed var(--c-border-strong);
   border-radius: 12px;
   padding: 24px;
   text-align: center;
 }
-
 .insta-capture-row {
-  border: 1px solid #F1F5F9;
-  border-radius: 12px;
+  border: 1px solid var(--c-border);
+  border-radius: 10px;
   margin-bottom: 6px;
-  background: white;
+  background: var(--c-surface);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.insta-capture-row:hover {
+  background: var(--c-surface-2);
+  border-color: var(--c-border-strong);
 }
 
-/* Avatar Styling */
-.avatar-container {
-  position: relative;
-  width: 120px;
-  height: 120px;
-}
+/* ── Utilities ─────────────────────────────────────────────────────── */
+.bg-slate-50 { background: var(--c-surface-2) !important; }
+.border-slate-100 { border-color: var(--c-border) !important; }
+.border-slate-200 { border-color: var(--c-border) !important; }
+.text-slate-400 { color: var(--c-text-3) !important; }
+.text-slate-500 { color: var(--c-text-2) !important; }
+.text-slate-600 { color: var(--c-text-2) !important; }
+.text-slate-900 { color: var(--c-text) !important; }
+.rounded-lg { border-radius: 10px !important; }
+.rounded-xl { border-radius: 12px !important; }
+.sticky { position: sticky; }
+.top-0 { top: 0; }
+.z-50 { z-index: 50; }
 
-.avatar-premium {
-  border: 4px solid #E2E8F0 !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1) !important;
-}
-
-.avatar-edit-btn {
-  position: absolute !important;
-  bottom: 0;
-  right: 0;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2) !important;
-}
-
-/* Mini Stats */
-.stats-mini {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 16px;
-}
-
-.stat-mini-item {
-  padding: 16px;
-  background: #F8FAFC;
-  border-radius: 12px;
-  border: 1px solid #F1F5F9;
-}
-
-.stat-mini-value {
-  font-size: 1.25rem;
-  font-weight: 800;
-  color: #1976d2;
-  margin-bottom: 4px;
-}
-
-.stat-mini-label {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  color: #94A3B8;
-  letter-spacing: 0.05em;
-}
-
-/* Quick Actions */
-.quick-action-item {
-  transition: background 0.2s ease, transform 0.2s ease;
-  border: 1px solid transparent;
-}
-.quick-action-item :deep(.v-list-item__prepend) { color: #475569; }
-.quick-action-item:hover {
-  background: rgba(99, 102, 241, 0.08) !important;
-  border-color: rgba(99, 102, 241, 0.18);
-  transform: translateX(2px);
-}
-.quick-action-item:hover :deep(.v-list-item__prepend) { color: #4338ca; }
-
-/* Inputs & Buttons */
-.premium-input :deep(.v-field__outline) {
-  --v-field-border-opacity: 0.1;
-  border-radius: 12px !important;
-}
-
-.premium-input :deep(.v-field) {
-  border-radius: 12px !important;
-}
-
-.action-btn-primary {
-  background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%) !important;
-  color: white !important;
-  border-radius: 12px !important;
-  height: 52px !important;
-  font-weight: 700 !important;
-  text-transform: none !important;
-  letter-spacing: 0.02em !important;
-  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.2) !important;
-  transition: all 0.2s ease !important;
-}
-
-.action-btn-primary:hover {
-  box-shadow: 0 6px 20px rgba(25, 118, 210, 0.3) !important;
-  transform: translateY(-1px);
-}
-
-.action-btn-outline {
-  border: 2px solid #E2E8F0 !important;
-  border-radius: 12px !important;
-  height: 52px !important;
-  text-transform: none !important;
-  font-weight: 700 !important;
-  color: #475569 !important;
-}
-
-.premium-chip {
-  height: 36px !important;
-  font-size: 0.75rem !important;
-  letter-spacing: 0.02em !important;
-  border-radius: 10px !important;
-}
-
-.premium-switch :deep(.v-selection-control) {
-  min-height: 40px !important;
-}
-
-/* Utility Classes */
-.bg-slate-50 {
-  background: #F8FAFC !important;
-}
-
-.border-slate-100 {
-  border-color: #F1F5F9 !important;
-}
-
-.border-slate-200 {
-  border-color: #E2E8F0 !important;
-}
-
-.text-slate-400 {
-  color: #94A3B8 !important;
-}
-
-.text-slate-500 {
-  color: #64748B !important;
-}
-
-.text-slate-900 {
-  color: #0F172A !important;
-}
-
-.rounded-lg {
-  border-radius: 12px !important;
-}
-
-.rounded-xl {
-  border-radius: 16px !important;
-}
-
-.sticky {
-  position: sticky;
-}
-
-.top-0 {
-  top: 0;
-}
-
-.z-50 {
-  z-index: 50;
-}
+/* Dialogs sit above everything cleanly */
+:deep(.v-overlay__scrim) { background: rgba(11, 13, 18, 0.42) !important; }
+:deep(.v-dialog .v-card) { border-radius: var(--r-card) !important; }
 
 @media (max-width: 960px) {
-  .header-glass {
-    padding: 16px !important;
-  }
-  
-  .premium-card .p-8 {
-    padding: 24px !important;
-  }
+  .header-glass { padding: 16px !important; }
+  .premium-card .p-8 { padding: 18px !important; }
+  .premium-card .p-6 { padding: 16px !important; }
+  .stats-mini { margin: 20px -18px -18px; }
 }
 </style>
 
