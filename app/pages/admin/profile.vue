@@ -1,7 +1,14 @@
 <template>
-  <div class="premium-profile-wrapper bg-[#F8FAFC] min-h-screen">
+  <div class="premium-profile-wrapper min-h-screen">
+    <!-- Decorative aurora background (purely visual, behind everything) -->
+    <div class="aurora-bg" aria-hidden="true">
+      <span class="aurora aurora--a" />
+      <span class="aurora aurora--b" />
+      <span class="aurora aurora--c" />
+    </div>
+
     <!-- TOP NAVIGATION BAR (PREMIUM LOOK) -->
-    <div class="header-glass sticky top-0 z-50 px-8 py-4 border-b border-slate-200 backdrop-blur-md bg-white/80">
+    <div class="header-glass sticky top-0 z-50 px-8 py-4 border-b border-slate-200/60">
       <div class="max-w-[1600px] mx-auto d-flex align-center">
         <div>
           <div class="flex items-center space-x-2 mb-0">
@@ -92,10 +99,29 @@
 
           <!-- Quick Actions Card -->
           <v-card class="premium-card">
-            <div class="p-6 border-b border-slate-100">
-              <h3 class="text-subtitle-1 font-weight-bold">Quick Actions</h3>
+            <div class="p-6 border-b border-slate-100 d-flex align-center">
+              <div class="icon-orb icon-orb--sm mr-3 bg-amber-50">
+                <v-icon color="amber-darken-2" size="18">mdi-flash</v-icon>
+              </div>
+              <h3 class="text-subtitle-1 font-weight-bold mb-0">Quick Actions</h3>
             </div>
-            <v-list class="p-2">
+            <v-list class="pa-2 bg-transparent">
+              <v-list-item
+                prepend-icon="mdi-tune-variant"
+                title="Preferences"
+                subtitle="Timezone, language & notifications"
+                class="rounded-lg mb-1 quick-action-item"
+                @click="showPreferencesDialog = true"
+              />
+              <v-list-item
+                v-if="auth.isPrincipalAdmin"
+                prepend-icon="mdi-account-supervisor"
+                title="Team admin access"
+                subtitle="Delegate permissions to teammates"
+                class="rounded-lg mb-1 quick-action-item"
+                @click="showDelegationDialog = true"
+              />
+              <v-divider class="my-2 opacity-40" />
               <v-list-item
                 prepend-icon="mdi-key"
                 title="Change Password"
@@ -212,81 +238,6 @@
                 class="action-btn-primary px-8"
               >
                 Save Changes
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-
-          <!-- Preferences Card -->
-          <v-card class="premium-card">
-            <div class="p-8 border-b border-slate-100 d-flex align-center">
-              <div class="icon-orb mr-4 bg-purple-50">
-                <v-icon color="purple" size="24">mdi-cog</v-icon>
-              </div>
-              <h2 class="text-h6 font-weight-bold">Preferences</h2>
-            </div>
-
-            <v-card-text class="p-8">
-              <v-row>
-                <v-col cols="12" md="6">
-                  <v-select density="compact"
-                    v-model="preferencesForm.timezone"
-                    :items="timezones"
-                    label="Timezone"
-                    variant="outlined"
-                    rounded="lg"
-                    class="premium-input"
-                  />
-                </v-col>
-
-                <v-col cols="12" md="6">
-                  <v-select density="compact"
-                    v-model="preferencesForm.language"
-                    :items="languages"
-                    label="Language"
-                    variant="outlined"
-                    rounded="lg"
-                    class="premium-input"
-                  />
-                </v-col>
-
-                <v-col cols="12">
-                  <div class="p-6 bg-slate-50 rounded-xl border border-slate-100">
-                    <h4 class="text-subtitle-2 font-weight-bold mb-4">Notification Preferences</h4>
-                    <v-switch
-                      v-model="preferencesForm.emailNotifications"
-                      label="Email Notifications"
-                      color="primary"
-                      class="premium-switch mb-2"
-                      hide-details
-                    />
-                    <v-switch
-                      v-model="preferencesForm.pushNotifications"
-                      label="Push Notifications"
-                      color="primary"
-                      class="premium-switch mb-2"
-                      hide-details
-                    />
-                    <v-switch
-                      v-model="preferencesForm.smsNotifications"
-                      label="SMS Notifications"
-                      color="primary"
-                      class="premium-switch mb-0"
-                      hide-details
-                    />
-                  </div>
-                </v-col>
-              </v-row>
-            </v-card-text>
-
-            <v-card-actions class="px-8 pb-8">
-              <v-spacer />
-              <v-btn
-                color="primary"
-                :loading="savingPreferences"
-                @click="savePreferences"
-                class="action-btn-primary px-8"
-              >
-                Save Preferences
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -475,157 +426,252 @@
             </v-card-text>
           </v-card>
 
-          <v-card v-if="auth.isPrincipalAdmin" class="premium-card mb-8">
-            <div class="p-8 border-b border-slate-100 d-flex align-center">
-              <div class="icon-orb mr-4 bg-teal-50">
-                <v-icon color="teal" size="24">mdi-account-supervisor</v-icon>
-              </div>
-              <div>
-                <h2 class="text-h6 font-weight-bold">Team admin access</h2>
-                <p class="text-caption text-slate-500 mb-0">
-                  Grant assistants access to the admin panel and set permissions per product area (CRM, CMA, Facebook, etc.).
-                </p>
-              </div>
-            </div>
-            <v-card-text class="p-8">
-              <v-select
-                v-model="delegationUserId"
-                :items="assistants"
-                item-title="label"
-                item-value="id"
-                label="Team member"
-                variant="outlined"
-                density="comfortable"
-                clearable
-                :loading="delegationLoading"
-                class="mb-2"
-                hint="Users on your team (standard accounts only). Create one below if the list is empty."
-                persistent-hint
-              />
-              <div class="d-flex flex-wrap align-center gap-2 mb-6">
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  prepend-icon="mdi-account-plus"
-                  @click="openAddTeamMemberDialog"
-                >
-                  Add team member
-                </v-btn>
-                <v-btn
-                  variant="text"
-                  color="primary"
-                  size="small"
-                  prepend-icon="mdi-open-in-new"
-                  to="/admin/users"
-                >
-                  User management
-                </v-btn>
-              </div>
-              <template v-if="delegationUserId">
-                <p class="text-body-2 text-slate-600 mb-4">
-                  Read: view and lists. Write: create. Edit: update. Delete: remove records.
-                </p>
-                <v-expansion-panels variant="accordion" multiple>
-                  <v-expansion-panel
-                    v-for="key in delegationFeatureKeys"
-                    :key="key"
-                    :title="delegationLabel(key)"
-                  >
-                    <v-expansion-panel-text>
-                      <div class="d-flex flex-wrap gap-2 align-center">
-                        <v-checkbox
-                          v-model="delegationPerm[key].read"
-                          label="Read"
-                          hide-details
-                          density="compact"
-                        />
-                        <v-checkbox
-                          v-model="delegationPerm[key].write"
-                          label="Write"
-                          hide-details
-                          density="compact"
-                        />
-                        <v-checkbox
-                          v-model="delegationPerm[key].edit"
-                          label="Edit"
-                          hide-details
-                          density="compact"
-                        />
-                        <v-checkbox
-                          v-model="delegationPerm[key].delete"
-                          label="Delete"
-                          hide-details
-                          density="compact"
-                        />
-                        <v-spacer />
-                        <v-btn size="small" variant="tonal" @click="setDelegationRowAll(key, true)">All</v-btn>
-                        <v-btn size="small" variant="text" @click="setDelegationRowAll(key, false)">Clear</v-btn>
-                      </div>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
-
-                <v-divider class="my-8" />
-                <h3 class="text-subtitle-1 font-weight-bold mb-2">Hide specific users</h3>
-                <p class="text-body-2 text-slate-600 mb-4">
-                  Accounts you add here stay on your team but are hidden from this assistant in user management,
-                  contact search, and related actions (e.g. high-profile clients).
-                </p>
-                <v-select
-                  v-model="exclusionIds"
-                  :items="tenantUserOptions"
-                  item-title="title"
-                  item-value="value"
-                  label="Excluded users"
-                  variant="outlined"
-                  multiple
-                  chips
-                  closable-chips
-                  density="comfortable"
-                  class="mb-4"
-                />
-                <v-btn
-                  variant="tonal"
-                  color="secondary"
-                  :loading="exclusionSaving"
-                  :disabled="!delegationUserId"
-                  class="mb-6"
-                  @click="saveDelegationExclusions"
-                >
-                  Save exclusion list
-                </v-btn>
-
-                <div class="d-flex flex-wrap gap-3 mt-2">
-                  <v-btn
-                    color="primary"
-                    :loading="delegationSaving"
-                    @click="saveDelegationMatrix"
-                  >
-                    Save access
-                  </v-btn>
-                  <v-btn
-                    color="error"
-                    variant="tonal"
-                    :loading="delegationSaving"
-                    @click="revokeDelegationAccess"
-                  >
-                    Revoke all
-                  </v-btn>
-                </div>
-              </template>
-              <v-alert v-else type="info" variant="tonal" density="comfortable" class="mb-0">
-                <span v-if="assistants.length === 0">
-                  No standard team accounts yet. Use <strong>Add team member</strong> to create one with a login, then choose them above to grant admin access.
-                </span>
-                <span v-else>
-                  Select a team member to configure delegated admin permissions.
-                </span>
-              </v-alert>
-            </v-card-text>
-          </v-card>
         </v-col>
       </v-row>
     </v-container>
+
+    <!-- Preferences Modal -->
+    <v-dialog v-model="showPreferencesDialog" max-width="720" scrollable>
+      <v-card class="premium-card glass-card">
+        <div class="p-6 border-b border-slate-100 d-flex align-center">
+          <div class="icon-orb mr-4 bg-purple-50">
+            <v-icon color="purple" size="22">mdi-tune-variant</v-icon>
+          </div>
+          <div class="flex-grow-1">
+            <h2 class="text-h6 font-weight-bold mb-0">Preferences</h2>
+            <p class="text-caption text-slate-500 mb-0">Timezone, language and notification channels</p>
+          </div>
+          <v-btn icon="mdi-close" variant="text" @click="showPreferencesDialog = false" />
+        </div>
+
+        <v-card-text class="pa-6">
+          <v-row>
+            <v-col cols="12" md="6">
+              <v-select density="compact"
+                v-model="preferencesForm.timezone"
+                :items="timezones"
+                label="Timezone"
+                variant="outlined"
+                rounded="lg"
+                class="premium-input"
+              />
+            </v-col>
+
+            <v-col cols="12" md="6">
+              <v-select density="compact"
+                v-model="preferencesForm.language"
+                :items="languages"
+                label="Language"
+                variant="outlined"
+                rounded="lg"
+                class="premium-input"
+              />
+            </v-col>
+
+            <v-col cols="12">
+              <div class="p-6 bg-slate-50 rounded-xl border border-slate-100">
+                <h4 class="text-subtitle-2 font-weight-bold mb-4">Notification Preferences</h4>
+                <v-switch
+                  v-model="preferencesForm.emailNotifications"
+                  label="Email Notifications"
+                  color="primary"
+                  class="premium-switch mb-2"
+                  hide-details
+                />
+                <v-switch
+                  v-model="preferencesForm.pushNotifications"
+                  label="Push Notifications"
+                  color="primary"
+                  class="premium-switch mb-2"
+                  hide-details
+                />
+                <v-switch
+                  v-model="preferencesForm.smsNotifications"
+                  label="SMS Notifications"
+                  color="primary"
+                  class="premium-switch mb-0"
+                  hide-details
+                />
+              </div>
+            </v-col>
+          </v-row>
+        </v-card-text>
+
+        <v-card-actions class="px-6 pb-6">
+          <v-spacer />
+          <v-btn variant="text" class="px-4" @click="showPreferencesDialog = false">Close</v-btn>
+          <v-btn
+            color="primary"
+            :loading="savingPreferences"
+            class="action-btn-primary px-6"
+            @click="savePreferences"
+          >
+            Save Preferences
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Team Admin Access Modal -->
+    <v-dialog
+      v-if="auth.isPrincipalAdmin"
+      v-model="showDelegationDialog"
+      max-width="860"
+      scrollable
+    >
+      <v-card class="premium-card glass-card">
+        <div class="p-6 border-b border-slate-100 d-flex align-center">
+          <div class="icon-orb mr-4 bg-teal-50">
+            <v-icon color="teal" size="22">mdi-account-supervisor</v-icon>
+          </div>
+          <div class="flex-grow-1">
+            <h2 class="text-h6 font-weight-bold mb-0">Team admin access</h2>
+            <p class="text-caption text-slate-500 mb-0">
+              Grant assistants access to the admin panel and set permissions per product area.
+            </p>
+          </div>
+          <v-btn icon="mdi-close" variant="text" @click="showDelegationDialog = false" />
+        </div>
+
+        <v-card-text class="pa-6" style="max-height: 70vh;">
+          <v-select
+            v-model="delegationUserId"
+            :items="assistants"
+            item-title="label"
+            item-value="id"
+            label="Team member"
+            variant="outlined"
+            density="comfortable"
+            clearable
+            :loading="delegationLoading"
+            class="mb-2"
+            hint="Users on your team (standard accounts only). Create one below if the list is empty."
+            persistent-hint
+          />
+          <div class="d-flex flex-wrap align-center gap-2 mb-6">
+            <v-btn
+              color="primary"
+              variant="tonal"
+              prepend-icon="mdi-account-plus"
+              @click="openAddTeamMemberDialog"
+            >
+              Add team member
+            </v-btn>
+            <v-btn
+              variant="text"
+              color="primary"
+              size="small"
+              prepend-icon="mdi-open-in-new"
+              to="/admin/users"
+            >
+              User management
+            </v-btn>
+          </div>
+          <template v-if="delegationUserId">
+            <p class="text-body-2 text-slate-600 mb-4">
+              Read: view and lists. Write: create. Edit: update. Delete: remove records.
+            </p>
+            <v-expansion-panels variant="accordion" multiple>
+              <v-expansion-panel
+                v-for="key in delegationFeatureKeys"
+                :key="key"
+                :title="delegationLabel(key)"
+              >
+                <v-expansion-panel-text>
+                  <div class="d-flex flex-wrap gap-2 align-center">
+                    <v-checkbox
+                      v-model="delegationPerm[key].read"
+                      label="Read"
+                      hide-details
+                      density="compact"
+                    />
+                    <v-checkbox
+                      v-model="delegationPerm[key].write"
+                      label="Write"
+                      hide-details
+                      density="compact"
+                    />
+                    <v-checkbox
+                      v-model="delegationPerm[key].edit"
+                      label="Edit"
+                      hide-details
+                      density="compact"
+                    />
+                    <v-checkbox
+                      v-model="delegationPerm[key].delete"
+                      label="Delete"
+                      hide-details
+                      density="compact"
+                    />
+                    <v-spacer />
+                    <v-btn size="small" variant="tonal" @click="setDelegationRowAll(key, true)">All</v-btn>
+                    <v-btn size="small" variant="text" @click="setDelegationRowAll(key, false)">Clear</v-btn>
+                  </div>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+
+            <v-divider class="my-8" />
+            <h3 class="text-subtitle-1 font-weight-bold mb-2">Hide specific users</h3>
+            <p class="text-body-2 text-slate-600 mb-4">
+              Accounts you add here stay on your team but are hidden from this assistant in user management,
+              contact search, and related actions (e.g. high-profile clients).
+            </p>
+            <v-select
+              v-model="exclusionIds"
+              :items="tenantUserOptions"
+              item-title="title"
+              item-value="value"
+              label="Excluded users"
+              variant="outlined"
+              multiple
+              chips
+              closable-chips
+              density="comfortable"
+              class="mb-4"
+            />
+            <v-btn
+              variant="tonal"
+              color="secondary"
+              :loading="exclusionSaving"
+              :disabled="!delegationUserId"
+              class="mb-2"
+              @click="saveDelegationExclusions"
+            >
+              Save exclusion list
+            </v-btn>
+          </template>
+          <v-alert v-else type="info" variant="tonal" density="comfortable" class="mb-0">
+            <span v-if="assistants.length === 0">
+              No standard team accounts yet. Use <strong>Add team member</strong> to create one with a login, then choose them above to grant admin access.
+            </span>
+            <span v-else>
+              Select a team member to configure delegated admin permissions.
+            </span>
+          </v-alert>
+        </v-card-text>
+
+        <v-card-actions class="px-6 pb-6 pt-0" v-if="delegationUserId">
+          <v-spacer />
+          <v-btn
+            color="error"
+            variant="tonal"
+            :loading="delegationSaving"
+            @click="revokeDelegationAccess"
+          >
+            Revoke all
+          </v-btn>
+          <v-btn
+            color="primary"
+            class="action-btn-primary px-6"
+            :loading="delegationSaving"
+            @click="saveDelegationMatrix"
+          >
+            Save access
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Add team member (standard user on your tenant) -->
     <v-dialog v-model="showAddTeamMemberDialog" max-width="520" persistent>
@@ -840,6 +886,8 @@ const isProfileFormValid = ref(false)
 const isPasswordFormValid = ref(false)
 const showPasswordDialog = ref(false)
 const show2FADialog = ref(false)
+const showPreferencesDialog = ref(false)
+const showDelegationDialog = ref(false)
 const twoFactorEnabled = ref(false)
 const avatarInput = ref<HTMLInputElement | null>(null)
 const snackShow = ref(false)
@@ -1412,6 +1460,50 @@ definePageMeta({
   font-family: 'Inter', sans-serif;
   letter-spacing: -0.01em;
   min-height: 100vh;
+  position: relative;
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(99,102,241,0.10), transparent 60%),
+    radial-gradient(900px 600px at 110% 0%, rgba(14,165,233,0.10), transparent 55%),
+    radial-gradient(800px 600px at 50% 110%, rgba(236,72,153,0.07), transparent 60%),
+    linear-gradient(180deg, #F6F8FC 0%, #FFFFFF 100%);
+  overflow-x: hidden;
+}
+
+/* Soft aurora blobs (behind everything) */
+.aurora-bg {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+.aurora {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.55;
+  mix-blend-mode: multiply;
+}
+.aurora--a {
+  width: 520px; height: 520px;
+  top: -120px; left: -80px;
+  background: radial-gradient(circle at 30% 30%, #93c5fd, transparent 60%);
+}
+.aurora--b {
+  width: 460px; height: 460px;
+  top: 140px; right: -120px;
+  background: radial-gradient(circle at 60% 40%, #c4b5fd, transparent 60%);
+}
+.aurora--c {
+  width: 600px; height: 600px;
+  bottom: -200px; left: 30%;
+  background: radial-gradient(circle at 50% 50%, #fbcfe8, transparent 65%);
+}
+
+.premium-profile-wrapper > :not(.aurora-bg) {
+  position: relative;
+  z-index: 1;
 }
 
 .font-serif {
@@ -1419,41 +1511,85 @@ definePageMeta({
 }
 
 .header-glass {
-  backdrop-filter: blur(12px);
-  background: rgba(255, 255, 255, 0.8) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 8px 24px -16px rgba(15,23,42,0.18);
 }
 
-/* Card Styling */
+/* Card Styling — glassmorphism */
 .premium-card {
-  background: white !important;
-  border: 1px solid #E2E8F0 !important;
-  border-radius: 20px !important;
-  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.03) !important;
-  transition: transform 0.2s ease;
+  background: rgba(255, 255, 255, 0.72) !important;
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border: 1px solid rgba(226, 232, 240, 0.85) !important;
+  border-radius: 22px !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.9) inset,
+    0 24px 60px -32px rgba(15, 23, 42, 0.18),
+    0 8px 24px -16px rgba(15, 23, 42, 0.08) !important;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   overflow: hidden;
+  position: relative;
 }
+.premium-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0) 38%),
+    linear-gradient(315deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 40%);
+  opacity: 0.9;
+}
+.premium-card:hover {
+  border-color: rgba(99, 102, 241, 0.32) !important;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.95) inset,
+    0 30px 70px -28px rgba(15, 23, 42, 0.22),
+    0 12px 30px -16px rgba(99, 102, 241, 0.18) !important;
+}
+
+/* Inside-card surfaces */
+.glass-card { background: rgba(255, 255, 255, 0.92) !important; }
 
 .icon-orb {
   width: 48px;
   height: 48px;
-  background: rgba(25, 118, 210, 0.08);
-  border-radius: 12px;
+  background: linear-gradient(135deg, rgba(25, 118, 210, 0.14), rgba(25, 118, 210, 0.04));
+  border: 1px solid rgba(25, 118, 210, 0.18);
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.7);
+}
+.icon-orb--sm {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.bg-amber-50 {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(245, 158, 11, 0.04)) !important;
+  border-color: rgba(245, 158, 11, 0.28) !important;
 }
 
 .bg-purple-50 {
-  background: rgba(156, 39, 176, 0.08) !important;
+  background: linear-gradient(135deg, rgba(156, 39, 176, 0.18), rgba(156, 39, 176, 0.04)) !important;
+  border-color: rgba(156, 39, 176, 0.22) !important;
 }
 
 .bg-teal-50 {
-  background: rgba(0, 150, 136, 0.1) !important;
+  background: linear-gradient(135deg, rgba(0, 150, 136, 0.18), rgba(0, 150, 136, 0.04)) !important;
+  border-color: rgba(0, 150, 136, 0.22) !important;
 }
 
 .bg-indigo-50 {
-  background: rgba(67, 56, 202, 0.1) !important;
+  background: linear-gradient(135deg, rgba(67, 56, 202, 0.18), rgba(67, 56, 202, 0.04)) !important;
+  border-color: rgba(67, 56, 202, 0.22) !important;
 }
 
 /* InstaConnect */
@@ -1582,12 +1718,16 @@ definePageMeta({
 
 /* Quick Actions */
 .quick-action-item {
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease;
+  border: 1px solid transparent;
 }
-
+.quick-action-item :deep(.v-list-item__prepend) { color: #475569; }
 .quick-action-item:hover {
-  background: #F1F5F9 !important;
+  background: rgba(99, 102, 241, 0.08) !important;
+  border-color: rgba(99, 102, 241, 0.18);
+  transform: translateX(2px);
 }
+.quick-action-item:hover :deep(.v-list-item__prepend) { color: #4338ca; }
 
 /* Inputs & Buttons */
 .premium-input :deep(.v-field__outline) {
