@@ -295,12 +295,12 @@
           <v-card class="premium-card mb-8">
             <div class="p-8 border-b border-slate-100 d-flex align-center">
               <div class="icon-orb mr-4 bg-indigo-50">
-                <v-icon color="indigo" size="24">mdi-qrcode-scan</v-icon>
+                <v-icon color="indigo" size="24">mdi-cellphone-arrow-down</v-icon>
               </div>
               <div class="flex-grow-1">
                 <h2 class="text-h6 font-weight-bold">InstaConnect</h2>
                 <p class="text-caption text-slate-500 mb-0">
-                  Your shareable digital business card. Visitors can scan the QR, install it as an app on their phone, and send you their details.
+                  Install the InstaConnect app on your phone. From the app you can share your card with clients in person — they save your contact and send you theirs.
                 </p>
               </div>
               <v-switch
@@ -370,26 +370,21 @@
                       class="action-btn-outline px-4"
                       :href="instaSettings.publicPath"
                       target="_blank"
-                      prepend-icon="mdi-open-in-new"
+                      prepend-icon="mdi-eye-outline"
                     >
-                      Open card
-                    </v-btn>
-                    <v-btn
-                      v-if="instaShareUrl"
-                      variant="text"
-                      class="px-3"
-                      :prepend-icon="instaCopied ? 'mdi-check' : 'mdi-content-copy'"
-                      @click="copyInstaLink"
-                    >
-                      {{ instaCopied ? 'Copied' : 'Copy link' }}
+                      Preview customer view
                     </v-btn>
                   </div>
                 </v-col>
 
                 <v-col cols="12" md="5">
                   <div class="insta-qr-card">
-                    <div v-if="instaQrDataUrl" class="insta-qr-img-wrap">
-                      <img :src="instaQrDataUrl" alt="QR code" class="insta-qr-img" />
+                    <div class="insta-qr-tag">
+                      <v-icon size="14" color="primary" class="mr-1">mdi-cellphone</v-icon>
+                      Install on your phone
+                    </div>
+                    <div v-if="instaInstallQrDataUrl" class="insta-qr-img-wrap">
+                      <img :src="instaInstallQrDataUrl" alt="Install QR code" class="insta-qr-img" />
                     </div>
                     <div v-else class="insta-qr-placeholder">
                       <v-icon size="40" color="grey-lighten-1">mdi-qrcode</v-icon>
@@ -397,18 +392,18 @@
                         Save settings to generate a QR
                       </span>
                     </div>
-                    <div class="text-caption text-slate-500 text-center mb-3 px-3">
-                      {{ instaShareUrl || 'Your shareable URL appears here.' }}
-                    </div>
+                    <p class="text-caption text-slate-500 text-center mb-3 px-3">
+                      Scan with your phone camera to install the InstaConnect app. Once installed, open it to share your card with clients in person.
+                    </p>
                     <v-btn
                       block
                       variant="tonal"
                       color="primary"
-                      :disabled="!instaQrDataUrl"
+                      :disabled="!instaInstallQrDataUrl"
                       prepend-icon="mdi-download"
                       @click="downloadInstaQr"
                     >
-                      Download QR
+                      Download install QR
                     </v-btn>
                   </div>
                 </v-col>
@@ -932,8 +927,7 @@ interface InstaSettings {
 
 const instaSettings = ref<InstaSettings | null>(null)
 const instaSaving = ref(false)
-const instaCopied = ref(false)
-const instaQrDataUrl = ref<string | null>(null)
+const instaInstallQrDataUrl = ref<string | null>(null)
 const instaCaptures = ref<any[]>([])
 const instaCapturesLoading = ref(false)
 
@@ -950,10 +944,20 @@ const instaUrlPrefix = computed(() => {
   return '/connect/'
 })
 
+// Customer-facing card URL — used for "Preview customer view".
 const instaShareUrl = computed(() => {
   if (!instaSettings.value?.publicPath) return ''
   if (process.client) return `${window.location.origin}${instaSettings.value.publicPath}`
   return instaSettings.value.publicPath
+})
+
+// URL the admin scans on their own phone to install the PWA. This points at the
+// agent-facing /me page where the manifest is linked.
+const instaInstallUrl = computed(() => {
+  if (!instaSettings.value?.slug) return ''
+  const path = `/connect/${instaSettings.value.slug}/me`
+  if (process.client) return `${window.location.origin}${path}`
+  return path
 })
 
 async function loadInstaSettings() {
@@ -972,12 +976,12 @@ async function loadInstaSettings() {
 }
 
 async function rebuildInstaQr() {
-  if (!instaShareUrl.value) {
-    instaQrDataUrl.value = null
+  if (!instaInstallUrl.value) {
+    instaInstallQrDataUrl.value = null
     return
   }
   try {
-    instaQrDataUrl.value = await generateQrDataUrl(instaShareUrl.value, {
+    instaInstallQrDataUrl.value = await generateQrDataUrl(instaInstallUrl.value, {
       size: 480,
       color: { dark: '#0F172A', light: '#FFFFFF' },
     })
@@ -1009,20 +1013,9 @@ async function saveInstaSettings() {
   }
 }
 
-async function copyInstaLink() {
-  if (!instaShareUrl.value) return
-  try {
-    await navigator.clipboard.writeText(instaShareUrl.value)
-    instaCopied.value = true
-    setTimeout(() => (instaCopied.value = false), 1800)
-  } catch {
-    showToast('Could not copy link', 'error')
-  }
-}
-
 function downloadInstaQr() {
-  if (!instaQrDataUrl.value || !instaSettings.value?.slug) return
-  downloadDataUrl(instaQrDataUrl.value, `${instaSettings.value.slug}-instaconnect.png`)
+  if (!instaInstallQrDataUrl.value || !instaSettings.value?.slug) return
+  downloadDataUrl(instaInstallQrDataUrl.value, `${instaSettings.value.slug}-instaconnect-install.png`)
 }
 
 async function loadInstaCaptures() {
@@ -1479,6 +1472,21 @@ definePageMeta({
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.insta-qr-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #EEF2FF;
+  color: #1D4ED8;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 999px;
+  margin-bottom: 12px;
 }
 
 .insta-qr-img-wrap {

@@ -116,38 +116,6 @@
         </button>
       </section>
 
-      <!-- INSTALL BANNER (only outside PWA) -->
-      <section v-if="showInstallBanner" class="ic-install">
-        <div class="ic-install__icon">
-          <img src="/icons/deelbot-192.png" alt="DeelBot" />
-        </div>
-        <div class="ic-install__body">
-          <div class="ic-install__title">
-            Save {{ data.profile.firstName }} to your home screen
-          </div>
-          <div class="ic-install__sub">
-            <template v-if="isIos">
-              Tap <v-icon size="14" class="mx-1">mdi-export-variant</v-icon> then
-              <strong>Add to Home Screen</strong>.
-            </template>
-            <template v-else>
-              Install this card so it's one tap away.
-            </template>
-          </div>
-        </div>
-        <div class="ic-install__action">
-          <v-btn
-            v-if="canInstall && !isIos"
-            color="primary"
-            class="ic-btn-primary ic-btn-primary--small"
-            @click="onInstallClick"
-          >
-            Install
-          </v-btn>
-          <v-btn v-else variant="text" size="small" @click="dismissInstall">Dismiss</v-btn>
-        </div>
-      </section>
-
       <!-- ABOUT -->
       <section v-if="data.profile.bio" class="ic-about">
         <h3 class="ic-about__title">About me</h3>
@@ -169,7 +137,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, reactive, watch } from 'vue'
 import { useRoute, useRouter, useHead } from '#imports'
-import { usePwaInstall } from '~/composables/usePwaInstall'
 
 definePageMeta({ layout: false })
 
@@ -205,17 +172,7 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const data = ref<CardData | null>(null) as { value: CardData | null } & { value: any }
 const snack = reactive({ show: false, msg: '', color: 'success' as 'success' | 'error' })
-const installDismissed = ref(false)
 const step = ref<'save' | 'thanks'>('save')
-
-const { canInstall, isStandalone, isIos, promptInstall } = usePwaInstall()
-
-const showInstallBanner = computed(() => {
-  if (installDismissed.value) return false
-  if (isStandalone.value) return false
-  if (isIos.value) return true
-  return canInstall.value
-})
 
 const cssVars = computed(() => {
   const c = data.value?.branding?.primaryColor || '#0F172A'
@@ -284,51 +241,28 @@ function goToForm() {
   router.push(`/connect/${slug.value}/connect`)
 }
 
-async function onInstallClick() {
-  const outcome = await promptInstall()
-  if (outcome === 'unavailable') {
-    snack.color = 'success'
-    snack.msg = 'Use your browser menu → "Add to Home Screen"'
-    snack.show = true
-  }
-}
-
-function dismissInstall() {
-  installDismissed.value = true
-}
-
+// Customer-facing card. Intentionally:
+//  - no <link rel="manifest"> (no install prompt — customers should not install the PWA)
+//  - no service worker registration
+//  - no apple-mobile-web-app-* hints
 useHead(() => ({
-  title: data.value?.profile.fullName ? `${data.value.profile.fullName} — Instacard` : 'Instacard',
+  title: data.value?.profile.fullName ? `${data.value.profile.fullName} — Contact card` : 'Contact card',
   meta: [
     { name: 'theme-color', content: data.value?.branding?.primaryColor || '#0F172A' },
-    { name: 'apple-mobile-web-app-capable', content: 'yes' },
-    { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
-    { name: 'apple-mobile-web-app-title', content: data.value?.profile.firstName || 'Instacard' },
-    { name: 'mobile-web-app-capable', content: 'yes' },
     {
       name: 'description',
       content: data.value?.profile.fullName
-        ? `Connect with ${data.value.profile.fullName}.`
+        ? `Save ${data.value.profile.firstName}'s contact and get in touch.`
         : 'Digital business card.',
     },
   ],
   link: [
-    { rel: 'manifest', href: `/api/insta-connect/${slug.value}/manifest` },
-    { rel: 'apple-touch-icon', sizes: '180x180', href: '/icons/deelbot-apple-touch-180.png' },
     { rel: 'icon', type: 'image/png', sizes: '192x192', href: '/icons/deelbot-192.png' },
-    { rel: 'icon', type: 'image/png', sizes: '512x512', href: '/icons/deelbot-512.png' },
   ],
 }))
 
 onMounted(async () => {
   await loadCard()
-  if ('serviceWorker' in navigator) {
-    try {
-      await navigator.serviceWorker.register('/sw-instaconnect.js', { scope: '/connect/' })
-    } catch (e) {
-      console.warn('[InstaConnect] SW registration failed', e)
-    }
-  }
 })
 
 watch(slug, loadCard)
@@ -475,23 +409,6 @@ watch(slug, loadCard)
   cursor: pointer;
   text-align: center;
 }
-
-/* INSTALL BANNER */
-.ic-install {
-  margin: 18px auto 0;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 16px;
-  padding: 12px 14px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: 420px;
-}
-.ic-install__icon img { width: 38px; height: 38px; border-radius: 10px; }
-.ic-install__body { flex: 1; min-width: 0; }
-.ic-install__title { font-weight: 700; font-size: 0.92rem; }
-.ic-install__sub { font-size: 0.78rem; color: #64748b; }
 
 /* ABOUT */
 .ic-about {
