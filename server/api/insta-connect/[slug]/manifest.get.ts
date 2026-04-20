@@ -44,7 +44,11 @@ export default defineEventHandler(async (event) => {
     : null
 
   const baseUrl = getSiteBaseUrl(event)
-  const startUrl = `/connect/${encodeURIComponent(slug)}`
+  // Public client-facing URL (what the agent's QR encodes).
+  const cardUrl = `/connect/${encodeURIComponent(slug)}`
+  // Agent's installed-PWA home: a "show this to clients" screen with the QR.
+  const startUrl = `${cardUrl}/me?source=pwa`
+  const scope = cardUrl
   const themeColor = branding.primaryColor || tenant?.primaryColor || '#0F172A'
   const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'DeelBot'
   const shortName = (user.firstName || 'DeelBot').slice(0, 12)
@@ -69,8 +73,8 @@ export default defineEventHandler(async (event) => {
     short_name: shortName,
     description: 'instaConnect — your digital business card by DeelBot',
     start_url: startUrl,
-    scope: startUrl,
-    id: startUrl,
+    scope,
+    id: cardUrl,
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#FFFFFF',
@@ -81,9 +85,15 @@ export default defineEventHandler(async (event) => {
     icons,
     shortcuts: [
       {
-        name: 'Share my card',
-        short_name: 'Share',
-        url: `${startUrl}?action=share`,
+        name: 'Show my QR',
+        short_name: 'Show QR',
+        url: startUrl,
+        icons: [{ src: '/icons/deelbot-192.png', sizes: '192x192' }],
+      },
+      {
+        name: 'Preview card',
+        short_name: 'Card',
+        url: cardUrl,
         icons: [{ src: '/icons/deelbot-192.png', sizes: '192x192' }],
       },
     ],

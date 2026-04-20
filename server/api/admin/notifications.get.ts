@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
 
   const userWhere = mergeTenantUserListWhere(user as any, {})
 
-  const [latestUsers, latestProps, settings] = await Promise.all([
+  const [latestUsers, latestProps, latestCaptures, settings] = await Promise.all([
     prisma.user.findMany({
       where: userWhere,
       orderBy: { createdAt: 'desc' },
@@ -28,6 +28,23 @@ export default defineEventHandler(async (event) => {
       orderBy: { createdAt: 'desc' },
       take: 10,
       select: { id: true, title: true, address: true, createdAt: true }
+    }),
+    // InstaConnect captures (already tenant-scoped via adminId on the model).
+    prisma.instaConnectCapture.findMany({
+      where: tenantFilter.adminId ? { adminId: tenantFilter.adminId } : {},
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        company: true,
+        interest: true,
+        status: true,
+        createdAt: true,
+      },
     }),
     prisma.setting.findMany({
       where: {
@@ -62,11 +79,31 @@ export default defineEventHandler(async (event) => {
     read: p.createdAt <= lastSeenAt
   }))
 
-  const notifications = [...userNotifs, ...propNotifs]
+  const captureNotifs = latestCaptures.map(c => ({
+    id: `instaconnect-${c.id}`,
+    type: 'instaconnect',
+    title: c.status === 'pending' ? 'New InstaConnect contact' : 'InstaConnect contact',
+    message: `${c.firstName} ${c.lastName}${c.company ? ' • ' + c.company : ''}${c.interest ? ' • ' + c.interest : ''}`,
+    href: '/admin/lead-generation?tab=instaconnect',
+    createdAt: c.createdAt,
+    read: c.createdAt <= lastSeenAt,
+  }))
+
+  const notifications = [...userNotifs, ...propNotifs, ...captureNotifs]
     .filter(n => !dismissedIds.includes(n.id))
     .sort((a, b) => new Date(b.createdAt as any).getTime() - new Date(a.createdAt as any).getTime())
     .slice(0, 50)
 
   const unread = notifications.filter(n => !n.read).length
-  return { enabled, lastSeenAt, notifications, counts: { users: latestUsers.length, properties: latestProps.length, unread } }
+  return {
+    enabled,
+    lastSeenAt,
+    notifications,
+    counts: {
+      users: latestUsers.length,
+      properties: latestProps.length,
+      instaconnect: latestCaptures.length,
+      unread,
+    },
+  }
 })

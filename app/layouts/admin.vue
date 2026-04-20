@@ -234,6 +234,9 @@
           :title="notification.title"
           :subtitle="notification.message"
           :prepend-icon="getNotificationIcon(notification.type)"
+          :to="(notification as any).href || undefined"
+          :link="!!(notification as any).href"
+          @click="(notification as any).href ? (showNotifications = false) : null"
         >
           <template v-slot:append>
             <div class="text-caption">
@@ -251,6 +254,9 @@
           :title="notification.title"
           :subtitle="notification.message"
           :prepend-icon="getNotificationIcon(notification.type)"
+          :to="(notification as any).href || undefined"
+          :link="!!(notification as any).href"
+          @click="(notification as any).href ? (showNotifications = false) : null"
         >
           <template v-slot:append>
             <div class="text-caption">
@@ -439,7 +445,13 @@ const handleLogout = async () => {
 }
 
 const getNotificationIcon = (type: string) => {
-  const icons: Record<string, string> = { user: 'mdi-account', property: 'mdi-home', system: 'mdi-cog', alert: 'mdi-alert' }
+  const icons: Record<string, string> = {
+    user: 'mdi-account',
+    property: 'mdi-home',
+    system: 'mdi-cog',
+    alert: 'mdi-alert',
+    instaconnect: 'mdi-qrcode-scan',
+  }
   return icons[type] || 'mdi-bell'
 }
 

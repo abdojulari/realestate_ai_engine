@@ -405,6 +405,18 @@
               </template>
               <template #item.actions="{ item }">
                 <div class="d-flex ga-1 justify-end">
+                  <v-tooltip text="Save to my phone (vCard)" location="top">
+                    <template #activator="{ props }">
+                      <v-btn
+                        v-bind="props"
+                        icon="mdi-account-arrow-down-outline"
+                        size="small"
+                        variant="text"
+                        color="primary"
+                        @click="downloadCaptureVcard(item.id)"
+                      />
+                    </template>
+                  </v-tooltip>
                   <v-btn
                     v-if="item.status === 'pending'"
                     icon="mdi-check"
@@ -594,6 +606,27 @@ async function deleteInsta(id: number) {
     await loadInstaCaptures()
   } catch (e) {
     console.error('Delete failed', e)
+  }
+}
+
+async function downloadCaptureVcard(id: number) {
+  try {
+    const blob = await $fetch<Blob>(`/api/admin/insta-connect/captures/${id}/vcard`, {
+      headers: getAuthHeaders(),
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `instaconnect-capture-${id}.vcf`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1500)
+  } catch (e: any) {
+    snack.color = 'error'
+    snack.msg = e?.data?.statusMessage || 'Could not download contact'
+    snack.show = true
   }
 }
 
