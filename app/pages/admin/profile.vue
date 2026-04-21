@@ -1765,21 +1765,14 @@ definePageMeta({
 .premium-input :deep(.v-field) {
   border-radius: var(--r-input) !important;
   background: var(--c-surface) !important;
+  --v-field-border-opacity: 1;
 }
-.premium-input :deep(.v-field__outline__start),
-.premium-input :deep(.v-field__outline__end),
-.premium-input :deep(.v-field__outline__notch::before),
-.premium-input :deep(.v-field__outline__notch::after) {
-  border-color: var(--c-border) !important;
-  opacity: 1 !important;
+.premium-input :deep(.v-field__outline) {
   --v-field-border-opacity: 1 !important;
+  color: var(--c-border) !important;
 }
-.premium-input :deep(.v-field--focused .v-field__outline__start),
-.premium-input :deep(.v-field--focused .v-field__outline__end),
-.premium-input :deep(.v-field--focused .v-field__outline__notch::before),
-.premium-input :deep(.v-field--focused .v-field__outline__notch::after) {
-  border-color: var(--c-text) !important;
-  border-width: 1.5px !important;
+.premium-input :deep(.v-field--focused .v-field__outline) {
+  color: var(--c-text) !important;
 }
 .premium-input :deep(.v-label) {
   font-size: 13px !important;
