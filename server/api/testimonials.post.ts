@@ -27,9 +27,20 @@ export default defineEventHandler(async (event) => {
     const data: any = {}
     let photoFile: any = null
 
+    console.log('[Testimonial POST] multipart parts received:',
+      formData.map((f) => ({
+        name: f.name,
+        filename: f.filename || null,
+        type: f.type || null,
+        size: f.data?.length ?? 0,
+      }))
+    )
+
     formData.forEach((field) => {
       if (field.name === 'photo' && field.filename) {
         photoFile = field
+      } else if (field.name === 'photo' && !field.filename) {
+        console.warn('[Testimonial POST] "photo" part has no filename — multipart on the client likely sent it as a string. Skipping.')
       } else if (field.data && !field.filename) {
         data[field.name || ''] = field.data.toString()
       }

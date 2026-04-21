@@ -439,8 +439,8 @@ onUnmounted(() => {
 const formValid = ref(false)
 const submitted = ref(false)
 const submitting = ref(false)
-// v-file-input model can be File | File[] | null depending on Vuetify version
-const photoFile = ref<File | File[] | null>(null)
+// Mirrors the working CmsBrandingPanel + admin avatar pattern: store a single File only.
+const photoFile = ref<File | null>(null)
 
 const form = reactive({
   name: '',
@@ -472,17 +472,29 @@ const rules = {
   },
   minLength: (min: number) => (v: string) => 
     (v && v.length >= min) || `Minimum ${min} characters required`,
-  fileSize: (val: File | File[] | null) => {
-    const f = Array.isArray(val) ? val[0] : (val instanceof File ? val : null)
+  fileSize: (val: any) => {
+    const f = pickFile(val)
     if (!f) return true
     return f.size <= 2 * 1024 * 1024 || 'File size must be less than 2MB'
   },
-  fileType: (val: File | File[] | null) => {
-    const f = Array.isArray(val) ? val[0] : (val instanceof File ? val : null)
+  fileType: (val: any) => {
+    const f = pickFile(val)
     if (!f) return true
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
     return allowedTypes.includes(f.type) || 'Only JPG and PNG files are allowed'
   }
+}
+
+// Vuetify v-file-input may hand us File | File[] | FileList | null
+// depending on version + props. Always reduce to a single File or null.
+function pickFile(val: any): File | null {
+  if (!val) return null
+  if (val instanceof File) return val
+  if (Array.isArray(val)) return val[0] instanceof File ? val[0] : null
+  if (typeof val === 'object' && typeof val.length === 'number' && val.length > 0) {
+    return val[0] instanceof File ? val[0] : null
+  }
+  return null
 }
 
 // Methods
@@ -497,21 +509,15 @@ const getRatingText = (rating: number) => {
   return texts[rating as keyof typeof texts] || ''
 }
 
-const handlePhotoUpload = async (files: File | File[] | null) => {
-  if (!files || (Array.isArray(files) && files.length === 0)) {
+const handlePhotoUpload = (val: any) => {
+  const file = pickFile(val)
+  // Normalise the ref so submitTestimonial always sees a real File (or null)
+  photoFile.value = file
+  if (!file) {
     form.avatar = ''
     return
   }
-
-  const file = Array.isArray(files) ? files[0] : files
-  if (!file) return
-  
-  // Validate file
-  if (file.size > 2 * 1024 * 1024) {
-    return // Error will be shown by rules
-  }
-
-  // Create preview
+  if (file.size > 2 * 1024 * 1024) return // rule will show the error
   const reader = new FileReader()
   reader.onload = (e) => {
     form.avatar = e.target?.result as string
@@ -530,43 +536,38 @@ const submitTestimonial = async () => {
   submitting.value = true
   try {
     const formData = new FormData()
-    
-    // Add form fields
+
     Object.entries(form).forEach(([key, value]) => {
       if (key !== 'avatar') {
         formData.append(key, String(value))
       }
     })
 
-    // Add photo if uploaded — Vuetify 3 v-file-input may give us either a
-    // single File or a File[] depending on options/version, so normalise.
-    const raw: any = photoFile.value
-    const file: File | undefined = Array.isArray(raw)
-      ? raw[0]
-      : raw instanceof File
-        ? raw
-        : raw && raw.length
-          ? raw[0]
-          : undefined
-    if (file instanceof File) {
+    const file = pickFile(photoFile.value)
+    if (file) {
       formData.append('photo', file, file.name)
+      console.log('[Testimonial submit] attaching photo:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      })
+    } else {
+      console.log('[Testimonial submit] no photo attached (photoFile.value =', photoFile.value, ')')
     }
 
-    const response = await fetch('/api/testimonials', {
+    // Use $fetch (same as api.post) — handles FormData multipart correctly,
+    // respects Nuxt baseURL, and gives us a typed JSON response.
+    await $fetch('/api/testimonials', {
       method: 'POST',
-      body: formData
+      body: formData,
     })
-
-    if (!response.ok) {
-      const error = await response.json()
-      throw new Error(error.statusMessage || 'Failed to submit testimonial')
-    }
 
     submitted.value = true
   } catch (error: any) {
     console.error('Error submitting testimonial:', error)
-    // You might want to show an error dialog here
-    alert('Failed to submit testimonial. Please try again.')
+    const msg =
+      error?.data?.statusMessage || error?.statusMessage || error?.message || 'Failed to submit testimonial. Please try again.'
+    alert(msg)
   } finally {
     submitting.value = false
   }
