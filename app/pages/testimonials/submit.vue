@@ -546,13 +546,6 @@ const submitTestimonial = async () => {
     const file = pickFile(photoFile.value)
     if (file) {
       formData.append('photo', file, file.name)
-      console.log('[Testimonial submit] attaching photo:', {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-      })
-    } else {
-      console.log('[Testimonial submit] no photo attached (photoFile.value =', photoFile.value, ')')
     }
 
     // Use $fetch (same as api.post) — handles FormData multipart correctly,
