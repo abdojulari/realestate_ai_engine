@@ -439,7 +439,8 @@ onUnmounted(() => {
 const formValid = ref(false)
 const submitted = ref(false)
 const submitting = ref(false)
-const photoFile = ref<File[]>([])
+// v-file-input model can be File | File[] | null depending on Vuetify version
+const photoFile = ref<File | File[] | null>(null)
 
 const form = reactive({
   name: '',
@@ -471,17 +472,16 @@ const rules = {
   },
   minLength: (min: number) => (v: string) => 
     (v && v.length >= min) || `Minimum ${min} characters required`,
-  fileSize: (files: File[]) => {
-    if (!files || files.length === 0) return true
-    const file = files[0]
-    return !file || file.size <= 2 * 1024 * 1024 || 'File size must be less than 2MB'
+  fileSize: (val: File | File[] | null) => {
+    const f = Array.isArray(val) ? val[0] : (val instanceof File ? val : null)
+    if (!f) return true
+    return f.size <= 2 * 1024 * 1024 || 'File size must be less than 2MB'
   },
-  fileType: (files: File[]) => {
-    if (!files || files.length === 0) return true
-    const file = files[0]
-    if (!file) return true
+  fileType: (val: File | File[] | null) => {
+    const f = Array.isArray(val) ? val[0] : (val instanceof File ? val : null)
+    if (!f) return true
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
-    return allowedTypes.includes(file.type) || 'Only JPG and PNG files are allowed'
+    return allowedTypes.includes(f.type) || 'Only JPG and PNG files are allowed'
   }
 }
 
@@ -521,7 +521,7 @@ const handlePhotoUpload = async (files: File | File[] | null) => {
 
 const removePhoto = () => {
   form.avatar = ''
-  photoFile.value = []
+  photoFile.value = null
 }
 
 const submitTestimonial = async () => {
@@ -538,9 +538,18 @@ const submitTestimonial = async () => {
       }
     })
 
-    // Add photo if uploaded
-    if (photoFile.value && photoFile.value.length > 0) {
-      formData.append('photo', photoFile.value[0] as any)
+    // Add photo if uploaded — Vuetify 3 v-file-input may give us either a
+    // single File or a File[] depending on options/version, so normalise.
+    const raw: any = photoFile.value
+    const file: File | undefined = Array.isArray(raw)
+      ? raw[0]
+      : raw instanceof File
+        ? raw
+        : raw && raw.length
+          ? raw[0]
+          : undefined
+    if (file instanceof File) {
+      formData.append('photo', file, file.name)
     }
 
     const response = await fetch('/api/testimonials', {
@@ -576,7 +585,7 @@ const resetForm = () => {
     avatar: '',
     consent: false
   })
-  photoFile.value = []
+  photoFile.value = null
   submitted.value = false
 }
 </script>
