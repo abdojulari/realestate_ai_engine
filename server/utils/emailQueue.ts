@@ -24,12 +24,18 @@ export function getEmailQueue(): Bull.Queue<EmailJob> | null {
     }
 
     try {
+      // Prefer REDIS_URL (canonical) so the password baked into the URL is used;
+      // the legacy REDIS_HOST/REDIS_PORT/REDIS_PASSWORD path silently dropped auth
+      // when only REDIS_URL was set, which Bull would then connect to an authed Redis without a password.
+      const redisUrl = process.env.REDIS_URL
       emailQueue = new Bull<EmailJob>('email', {
-        redis: {
-          host: process.env.REDIS_HOST || 'localhost',
-          port: Number(process.env.REDIS_PORT) || 6379,
-          password: process.env.REDIS_PASSWORD
-        },
+        redis: redisUrl
+          ? redisUrl
+          : {
+              host: process.env.REDIS_HOST || 'localhost',
+              port: Number(process.env.REDIS_PORT) || 6379,
+              password: process.env.REDIS_PASSWORD,
+            },
         defaultJobOptions: {
           removeOnComplete: 10, // Keep 10 completed jobs
           removeOnFail: 50, // Keep 50 failed jobs for debugging

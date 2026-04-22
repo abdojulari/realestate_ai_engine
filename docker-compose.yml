@@ -38,20 +38,26 @@ services:
 
   redis:
     image: redis:7-alpine
+    # Bind to loopback only — the app reaches Redis over the internal docker network (host `redis`).
+    # Never publish 6379 publicly: an open Redis with no auth is a remote-takeover vector
+    # (https://redis.io/topics/security). REDIS_PASSWORD is required even on loopback as defence in depth.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:${SUHANI_REDIS_PUBLISH_PORT:-6379}:6379"
     command: >
       redis-server
       --appendonly yes
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-localdevredis}
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 5s
       timeout: 3s
       retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-localdevredis}
     networks:
       - app-network
 
@@ -76,7 +82,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-real_estate}
-      REDIS_URL: ${SUHANI_DOCKER_REDIS_URL:-redis://redis:6379}
+      REDIS_URL: ${SUHANI_DOCKER_REDIS_URL:-redis://:${REDIS_PASSWORD:-localdevredis}@redis:6379}
       JWT_SECRET: ${JWT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
