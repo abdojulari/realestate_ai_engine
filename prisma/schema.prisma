@@ -41,6 +41,10 @@ model User {
   twoFactorEnabled     Boolean           @default(false)
   twoFactorSecret      String?
 
+  // Password reset (forgot-password flow). Token is sha256 of the random secret emailed to the user.
+  passwordResetToken       String?   @unique
+  passwordResetTokenExpiry DateTime?
+
   // First-login security: force password change after provisioning
   mustChangePassword   Boolean           @default(false)
 

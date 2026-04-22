@@ -272,6 +272,9 @@ const resetTurnstile = () => {
 const handleSubmit = async () => {
   loading.value = true
   errorMessage.value = ''
+  // Cloudflare Turnstile tokens are single-use: capture this attempt's token, then immediately reset
+  // the widget so a retry (e.g. after a 401) issues a fresh challenge instead of replaying a spent token.
+  const tokenForThisAttempt = turnstileToken.value
   try {
     const verified = await verifyTurnstile()
     if (!verified) return
@@ -300,6 +303,9 @@ const handleSubmit = async () => {
     router.push(redirectTo)
   } catch (error: any) {
     console.error('Login error:', error)
+    // The captcha token was consumed by /api/auth/turnstile above. Force a fresh challenge
+    // before the next attempt; otherwise the second submit re-sends the spent token and gets 403.
+    if (tokenForThisAttempt) resetTurnstile()
     // Extract user-friendly error message
     let message = 'Login failed. Please try again.'
     if (error?.data?.statusMessage || error?.statusMessage) {
