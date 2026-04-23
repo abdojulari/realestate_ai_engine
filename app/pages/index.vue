@@ -158,23 +158,31 @@ onMounted(async () => {
     activeTemplate.value = 1
   }
 
-  // Load Stats
+  // Load Stats. These are decorative — if they fail we keep going so the
+  // rest of the homepage still renders, but we log so on-call sees the
+  // failure instead of silently shipping a broken section.
   try {
     const stats = await $fetch('/api/stats')
     if (stats?.totalUsers) totalUsers.value = stats.totalUsers
-  } catch {}
+  } catch (e) {
+    console.warn('[home] Failed to load /api/stats', e)
+  }
 
   // Load Properties
   try {
     const response = await $fetch('/api/properties?limit=10&status=for_sale')
     featuredProperties.value = Array.isArray(response) ? response : response?.properties || []
-  } catch {}
-  
+  } catch (e) {
+    console.warn('[home] Failed to load featured properties', e)
+  }
+
   // Load Testimonials
   try {
     const testimonials = await $fetch('/api/testimonials?limit=10')
     featuredTestimonials.value = testimonials || []
-  } catch {}
+  } catch (e) {
+    console.warn('[home] Failed to load testimonials', e)
+  }
 
   loading.value = false
 })

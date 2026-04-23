@@ -29,31 +29,64 @@
             <h1 class="display-serif text-h4 mb-1">{{ form.title || 'Untitled Post' }}</h1>
           </v-col>
           <v-col cols="12" md="6" class="text-md-right">
-            <v-btn variant="outlined" class="mr-2" @click="saveChanges" :loading="saving && saveType === 'save'">
-              <v-icon start>mdi-content-save</v-icon>
-              Save
-            </v-btn>
-            <v-btn 
-              v-if="form.status === 'draft'"
-              color="primary" 
-              @click="publish" 
-              :loading="saving && saveType === 'publish'"
-            >
-              <v-icon start>mdi-send</v-icon>
-              Publish
-            </v-btn>
-            <v-btn 
-              v-else-if="form.status === 'published'"
-              color="warning" 
-              variant="outlined"
-              @click="unpublish"
-            >
-              <v-icon start>mdi-eye-off</v-icon>
-              Unpublish
-            </v-btn>
-            <v-btn 
+            <!-- Live auto-save indicator: tells the author their changes are safe. -->
+            <span class="autosave-indicator mr-3" :class="`autosave-${autoSave.status.value}`">
+              <v-icon size="small" class="mr-1">{{ autoSaveIcon }}</v-icon>
+              {{ autoSaveLabel }}
+            </span>
+            <v-tooltip text="Save now (Ctrl/Cmd+S)" location="bottom">
+              <template #activator="{ props: tip }">
+                <v-btn v-bind="tip" variant="outlined" class="mr-2" @click="saveChanges" :loading="saving && saveType === 'save'">
+                  <v-icon start>mdi-content-save</v-icon>
+                  Save
+                </v-btn>
+              </template>
+            </v-tooltip>
+            <v-tooltip v-if="form.status === 'draft'" text="Make this post live on the public blog" location="bottom">
+              <template #activator="{ props: tip }">
+                <v-btn
+                  v-bind="tip"
+                  color="primary"
+                  @click="publish"
+                  :loading="saving && saveType === 'publish'"
+                >
+                  <v-icon start>mdi-send</v-icon>
+                  Publish
+                </v-btn>
+              </template>
+            </v-tooltip>
+            <v-tooltip v-else-if="form.status === 'published'" text="Hide from the public blog (post becomes a draft)" location="bottom">
+              <template #activator="{ props: tip }">
+                <v-btn
+                  v-bind="tip"
+                  color="warning"
+                  variant="outlined"
+                  @click="unpublish"
+                >
+                  <v-icon start>mdi-eye-off</v-icon>
+                  Unpublish
+                </v-btn>
+              </template>
+            </v-tooltip>
+            <v-tooltip v-if="form.status === 'published' && form.slug" text="Open the published post in a new tab" location="bottom">
+              <template #activator="{ props: tip }">
+                <v-btn
+                  v-bind="tip"
+                  variant="text"
+                  color="info"
+                  class="ml-2"
+                  :href="`/blog/${form.slug}`"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <v-icon start>mdi-open-in-new</v-icon>
+                  View live
+                </v-btn>
+              </template>
+            </v-tooltip>
+            <v-btn
               v-if="form.syncToHashnode"
-              color="info" 
+              color="info"
               variant="outlined"
               class="ml-2"
               @click="syncToHashnode"
@@ -64,6 +97,23 @@
             </v-btn>
           </v-col>
         </v-row>
+
+        <!-- First-time author guidance — dismissible, persisted in localStorage. -->
+        <v-alert
+          v-if="showHelp"
+          type="info"
+          variant="tonal"
+          density="comfortable"
+          class="mb-6"
+          closable
+          @click:close="dismissHelp"
+        >
+          <strong>New to the blog editor?</strong>
+          Drafts auto-save every couple of seconds — no need to hit Save constantly.
+          When you're happy, click <strong>Publish</strong> to push the post live.
+          Use the toolbar above the content area to format text, and drop an image into the
+          cover panel on the right (15&nbsp;MB max).
+        </v-alert>
 
         <v-row>
           <!-- Main Content Area -->
@@ -270,8 +320,19 @@
                   <div v-else class="upload-placeholder">
                     <v-icon size="48" color="grey-lighten-1">mdi-cloud-upload</v-icon>
                     <p class="text-body-2 mt-2">Click or drag to upload</p>
+                    <p class="text-caption text-medium-emphasis mb-0">
+                      JPEG, PNG, GIF, WebP · up to {{ Math.round(BLOG_IMAGE_MAX_BYTES / 1024 / 1024) }}MB
+                    </p>
                   </div>
                 </div>
+                <v-progress-linear
+                  v-if="uploadProgress !== null"
+                  :model-value="uploadProgress"
+                  color="primary"
+                  height="6"
+                  rounded
+                  class="mt-2"
+                />
                 <input
                   ref="coverInput"
                   type="file"
@@ -453,13 +514,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { marked } from 'marked'
 // @ts-ignore
 import { api } from '~/utils/api'
 // @ts-ignore
 import { formatDate } from '~/utils/formatters'
+import {
+  uploadBlogImage,
+  useBlogAutoSave,
+  BLOG_IMAGE_MAX_BYTES,
+} from '~/composables/useBlogEditor'
 
 definePageMeta({
   layout: 'admin',
@@ -469,6 +535,15 @@ definePageMeta({
 const route = useRoute()
 const router = useRouter()
 const postId = computed(() => parseInt(route.params.id as string))
+
+const HELP_DISMISS_KEY = 'blog-editor-help-dismissed-v1'
+const showHelp = ref(false)
+const dismissHelp = () => {
+  showHelp.value = false
+  if (typeof localStorage !== 'undefined') localStorage.setItem(HELP_DISMISS_KEY, '1')
+}
+
+const uploadProgress = ref<number | null>(null)
 
 // State
 const loading = ref(true)
@@ -620,18 +695,25 @@ const handleCoverDrop = async (event: DragEvent) => {
   if (file?.type.startsWith('image/')) await uploadImage(file, true)
 }
 
-const uploadImage = async (file: File, isCover = false) => {
-  const formData = new FormData()
-  formData.append('image', file)
-  
-  try {
-    const data: any = await api.upload('/api/admin/blog/upload-image', formData)
-    if (isCover) form.value.coverImage = data.url
-    else return data.url
-  } catch (error) {
-    showSnackbar('Failed to upload image', 'error')
+const uploadImage = async (file: File, isCover = false): Promise<string | null> => {
+  uploadProgress.value = 0
+  const result = await uploadBlogImage(file, (p) => {
+    uploadProgress.value = p.percent
+  })
+  uploadProgress.value = null
+
+  if (!result.ok) {
+    // Surface the *actual* server reason so authors know why a large/oversized
+    // image silently failed instead of seeing a generic toast.
+    showSnackbar(result.message, result.code === 'PAYLOAD_TOO_LARGE' ? 'warning' : 'error')
     return null
   }
+
+  if (isCover) {
+    form.value.coverImage = result.url
+    return result.url
+  }
+  return result.url
 }
 
 const insertImage = async () => {
@@ -740,9 +822,64 @@ const showSnackbar = (message: string, color: string) => {
   snackbar.value = { show: true, message, color }
 }
 
+// ── Auto-save ─────────────────────────────────────────────────────────────
+// Disabled while a manual save is in flight so we never collide with the user.
+const autoSaveEnabled = computed(() => !saving.value && !loading.value && !!form.value?.id)
+const autoSave = useBlogAutoSave({
+  postId: () => postId.value,
+  form,
+  enabled: autoSaveEnabled,
+  onSaved: (post) => {
+    if (post?.updatedAt) form.value.updatedAt = post.updatedAt
+  },
+})
+
+const autoSaveLabel = computed(() => {
+  switch (autoSave.status.value) {
+    case 'saving': return 'Saving…'
+    case 'pending': return 'Unsaved changes'
+    case 'saved':
+      return autoSave.lastSavedAt.value
+        ? `Saved · ${autoSave.lastSavedAt.value.toLocaleTimeString()}`
+        : 'Saved'
+    case 'error': return autoSave.lastError.value || 'Auto-save failed'
+    default: return 'All changes saved'
+  }
+})
+
+const autoSaveIcon = computed(() => {
+  switch (autoSave.status.value) {
+    case 'saving': return 'mdi-cloud-upload-outline'
+    case 'pending': return 'mdi-cloud-clock-outline'
+    case 'saved': return 'mdi-cloud-check-outline'
+    case 'error': return 'mdi-cloud-alert-outline'
+    default: return 'mdi-cloud-outline'
+  }
+})
+
+// Cmd/Ctrl+S → manual save (most authors expect this).
+const handleKeydown = (e: KeyboardEvent) => {
+  const isSave = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's'
+  if (!isSave) return
+  e.preventDefault()
+  void saveChanges()
+}
+
 onMounted(() => {
   fetchPost()
   fetchCategories()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', handleKeydown)
+    if (localStorage.getItem(HELP_DISMISS_KEY) !== '1') {
+      showHelp.value = true
+    }
+  }
+})
+
+onBeforeUnmount(() => {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('keydown', handleKeydown)
+  }
 })
 </script>
 
@@ -938,4 +1075,19 @@ onMounted(() => {
 .cover-upload-zone:hover .cover-overlay {
   opacity: 1;
 }
+
+/* Auto-save indicator — colour changes with status so authors can see at a
+   glance whether their work is on the server. */
+.autosave-indicator {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8125rem;
+  color: rgba(0, 0, 0, 0.55);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.autosave-saving { color: #1976d2; }
+.autosave-saved  { color: #2e7d32; }
+.autosave-pending { color: #b26a00; }
+.autosave-error  { color: #c62828; }
 </style>

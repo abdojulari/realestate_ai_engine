@@ -78,7 +78,7 @@
             <h2 class="sec-title">{{ storyTitle }}</h2>
             <p class="pe-intro">{{ heroDescription }}</p>
             <div class="pe-divider"></div>
-            <div v-if="storyContent" v-html="storyContent" class="pe-story-body"></div>
+            <div v-if="storyContent" v-html="safeStoryContent" class="pe-story-body"></div>
             <div v-else class="pe-story-body"><p>{{ storyContentDefault }}</p></div>
             <blockquote class="pe-quote">
               <div class="pq-icon"><v-icon size="20" color="white">mdi-format-quote-close</v-icon></div>
@@ -159,13 +159,15 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   heroTitle: string; heroSubtitle: string; heroDescription: string; profileImage: string
   storyTitle: string; storyName: string; storyRole: string; storyContent: string; storyContentDefault: string
   connectHeading: string; connectDescription: string; coreValues: any[]; stats: any[]
   ctaAreas: string; ctaTitle: string; ctaSubtitle: string; ctaImage: string
   contactPhone: string; contactEmail: string; qrCodeUrl: string; socialLinks: any[]
 }>()
+// CMS-supplied HTML — sanitize before rendering via v-html.
+const safeStoryContent = useSanitizedHtml(() => props.storyContent)
 function getSocialIcon(n: string): string {
   const l = n.toLowerCase()
   if (l.includes('facebook')) return 'mdi-facebook'; if (l.includes('instagram')) return 'mdi-instagram'

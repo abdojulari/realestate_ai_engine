@@ -87,28 +87,52 @@ export function requireTenantAccess(user: TenantUser, recordAdminId: number | nu
 let _fallbackAdminId: number | null | undefined
 
 /**
+ * Normalize an incoming Host header for tenant resolution:
+ *  - lower-cases
+ *  - strips port (`:3000`)
+ *  - strips a leading `www.` so `www.tonahomes.com` and `tonahomes.com`
+ *    resolve to the same tenant. This is critical: tenants typically
+ *    save their bare apex domain in `tenantSettings.customDomain` but
+ *    end users land on `www.` first, which previously fell through to
+ *    the dev fallback admin and made their published blog posts 404.
+ */
+function normalizeHost(rawHost: string | undefined | null): string {
+  let host = (rawHost || '').replace(/:.*$/, '').trim().toLowerCase()
+  if (host.startsWith('www.')) host = host.slice(4)
+  return host
+}
+
+/**
  * Resolve the tenant admin ID from the incoming request domain.
  * Used by PUBLIC routes (no auth required).
  *
  * Resolution order:
  *  1. X-Tenant-Domain header
  *  2. Host subdomain   (acme.realestatehub.ca → "acme")
- *  3. Custom domain     (acmesrealty.com)
+ *  3. Custom domain     (acmesrealty.com — tries both bare and www.)
  *  4. Fallback: first admin/super_admin (for development)
  */
 export async function resolveTenantFromRequest(event: H3Event): Promise<number | null> {
   // 1. Explicit header
   const tenantHeader = getHeader(event, 'x-tenant-domain')
   if (tenantHeader) {
+    const normHeader = normalizeHost(tenantHeader)
     const settings = await prisma.tenantSettings.findFirst({
-      where: { OR: [{ subdomain: tenantHeader }, { customDomain: tenantHeader }] },
+      where: {
+        OR: [
+          { subdomain: normHeader },
+          { customDomain: normHeader },
+          { customDomain: `www.${normHeader}` },
+        ],
+      },
       select: { adminId: true },
     })
     if (settings) return settings.adminId
   }
 
   // 2. Subdomain
-  const host = (getHeader(event, 'host') || '').replace(/:.*$/, '').toLowerCase()
+  const rawHost = getHeader(event, 'host') || ''
+  const host = normalizeHost(rawHost)
   const baseDomain = (process.env.APP_BASE_DOMAIN || '').toLowerCase()
 
   if (baseDomain && host !== baseDomain && host.endsWith('.' + baseDomain)) {
@@ -122,10 +146,16 @@ export async function resolveTenantFromRequest(event: H3Event): Promise<number |
     }
   }
 
-  // 3. Custom domain
+  // 3. Custom domain – try both the bare apex and the www. variant so
+  //    operators don't have to enter both rows in tenantSettings.
   if (host && host !== 'localhost' && !host.startsWith('127.') && !host.startsWith('192.168.')) {
     const settings = await prisma.tenantSettings.findFirst({
-      where: { customDomain: host },
+      where: {
+        OR: [
+          { customDomain: host },
+          { customDomain: `www.${host}` },
+        ],
+      },
       select: { adminId: true },
     })
     if (settings) return settings.adminId

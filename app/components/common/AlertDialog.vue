@@ -23,7 +23,7 @@
           :icon="getAlertIcon()"
           class="mb-0"
         >
-          <div v-if="typeof alertMessage === 'string'" v-html="alertMessage.replace(/\n/g, '<br>')"></div>
+          <div v-if="typeof alertMessage === 'string'" v-html="safeMessage"></div>
           <div v-else>{{ alertMessage }}</div>
         </v-alert>
       </v-card-text>
@@ -71,6 +71,13 @@ const alertType = computed(() => props.type)
 const alertTitle = computed(() => props.title)
 const alertMessage = computed(() => props.message)
 const confirmText = computed(() => props.confirmText)
+// Escape any HTML in `props.message` before binding via v-html so a payload
+// like `<script>` from an unexpected source can't execute. Newlines are
+// preserved as <br> for readability — the previous implementation only ran
+// the newline replace, which left raw HTML active.
+const safeMessage = computed(() =>
+  typeof props.message === 'string' ? escapeAndPreserveNewlines(props.message) : ''
+)
 
 const getAlertIcon = () => {
   switch (props.type) {

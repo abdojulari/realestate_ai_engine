@@ -192,12 +192,28 @@ export function useContentAdmin() {
     showAddContentDialog.value = true
   }
 
+  /**
+   * Pull a human-readable error message out of an h3/$fetch error.
+   * Without this, every backend failure surfaced as a silent console.error
+   * and the user just thought "the site doesn't save my content".
+   */
+  function describeError(e: any, fallback: string): string {
+    return (
+      e?.data?.statusMessage ||
+      e?.data?.message ||
+      e?.statusMessage ||
+      e?.message ||
+      fallback
+    )
+  }
+
   async function togglePublished(item: any) {
     try {
       await api.post(`/api/admin/content/${item.id}/toggle-published`, {})
       item.published = !item.published
     } catch (e) {
       console.error(e)
+      showError(describeError(e, 'Could not change the published state.'), 'Action Failed')
     }
   }
 
@@ -207,6 +223,7 @@ export function useContentAdmin() {
       contentItems.value.push(newItem as any)
     } catch (e) {
       console.error(e)
+      showError(describeError(e, 'Could not duplicate this content block.'), 'Action Failed')
     }
   }
 
@@ -217,6 +234,7 @@ export function useContentAdmin() {
       contentItems.value = contentItems.value.filter(i => i.id !== item.id)
     } catch (e) {
       console.error(e)
+      showError(describeError(e, 'Could not delete this content block.'), 'Action Failed')
     }
   }
 
@@ -229,6 +247,7 @@ export function useContentAdmin() {
       if (res?.url) contentForm.content = res.url
     } catch (e: any) {
       console.error('Image upload failed:', e)
+      showError(describeError(e, 'The image could not be uploaded.'), 'Upload Failed')
     } finally {
       contentForm.file = null
     }
@@ -306,7 +325,7 @@ export function useContentAdmin() {
       } catch {}
     } catch (e) {
       console.error('Save failed:', e)
-      showError((e as any)?.message || 'Unknown error occurred', 'Save Failed')
+      showError(describeError(e, 'Unknown error occurred'), 'Save Failed')
     } finally {
       saving.value = false
     }

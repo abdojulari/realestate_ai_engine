@@ -109,12 +109,34 @@
         </div>
       </v-card-text>
     </v-card>
+
+    <v-snackbar v-model="feedback.show" :color="feedback.color" :timeout="4000" location="bottom right">
+      <v-icon :icon="feedback.color === 'error' ? 'mdi-alert-circle' : 'mdi-check-circle'" class="mr-2" />
+      {{ feedback.message }}
+      <template #actions>
+        <v-btn variant="text" @click="feedback.show = false">Dismiss</v-btn>
+      </template>
+    </v-snackbar>
   </v-container>
 </template>
 
 <script setup lang="ts">
 const alerts = ref<any[]>([])
 const loading = ref(false)
+
+// Snackbar feedback so failures don't disappear into the console.
+const feedback = reactive({
+  show: false,
+  color: 'success' as 'success' | 'error',
+  message: '',
+})
+const notify = (message: string, color: 'success' | 'error' = 'success') => {
+  feedback.message = message
+  feedback.color = color
+  feedback.show = true
+}
+const describeError = (e: any, fallback: string) =>
+  e?.data?.statusMessage || e?.statusMessage || e?.message || fallback
 
 // Get user info for consent display
 const authStore = useAuthStore()
@@ -131,12 +153,14 @@ const loadAlerts = async () => {
     alerts.value = data || []
   } catch (error) {
     console.error('Failed to load alerts:', error)
+    notify(describeError(error, 'Could not load your alerts. Please refresh.'), 'error')
   } finally {
     loading.value = false
   }
 }
 
 const toggleAlert = async (alert: any) => {
+  const previous = alert.isActive
   try {
     await $fetch(`/api/buyer/alerts/${alert.id}`, {
       method: 'PUT',
@@ -145,17 +169,20 @@ const toggleAlert = async (alert: any) => {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     })
-    
+
     alert.isActive = !alert.isActive
-    console.log(`Alert ${alert.isActive ? 'activated' : 'paused'}`)
+    notify(`Alert ${alert.isActive ? 'activated' : 'paused'}`, 'success')
   } catch (error) {
     console.error('Failed to toggle alert:', error)
+    // Roll back the optimistic state so UI matches server.
+    alert.isActive = previous
+    notify(describeError(error, 'Could not update this alert.'), 'error')
   }
 }
 
 const deleteAlert = async (alert: any) => {
   if (!confirm('Are you sure you want to delete this property alert?')) return
-  
+
   try {
     await $fetch(`/api/buyer/alerts/${alert.id}`, {
       method: 'DELETE',
@@ -163,11 +190,12 @@ const deleteAlert = async (alert: any) => {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       }
     })
-    
+
     alerts.value = alerts.value.filter(a => a.id !== alert.id)
-    console.log('Alert deleted')
+    notify('Alert deleted.', 'success')
   } catch (error) {
     console.error('Failed to delete alert:', error)
+    notify(describeError(error, 'Could not delete this alert.'), 'error')
   }
 }
 

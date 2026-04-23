@@ -145,11 +145,33 @@
     <v-snackbar v-model="copied" :timeout="2000" color="success">
       Link copied to clipboard!
     </v-snackbar>
+
+    <v-snackbar v-model="feedback.show" :color="feedback.color" :timeout="4000" location="bottom right">
+      <v-icon :icon="feedback.color === 'error' ? 'mdi-alert-circle' : 'mdi-check-circle'" class="mr-2" />
+      {{ feedback.message }}
+      <template #actions>
+        <v-btn variant="text" @click="feedback.show = false">Dismiss</v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+
+// Snackbar feedback so form CRUD failures don't disappear into the console.
+const feedback = reactive({
+  show: false,
+  color: 'success' as 'success' | 'error',
+  message: '',
+})
+const notify = (message: string, color: 'success' | 'error' = 'success') => {
+  feedback.message = message
+  feedback.color = color
+  feedback.show = true
+}
+const describeError = (e: any, fallback: string) =>
+  e?.data?.statusMessage || e?.data?.message || e?.statusMessage || e?.message || fallback
 
 const forms = ref<any[]>([])
 const loading = ref(false)
@@ -212,6 +234,7 @@ async function loadForms() {
     forms.value = await $fetch('/api/admin/lead-generation/forms', { headers: getAuthHeaders() }) as any[]
   } catch (e) {
     console.error('Failed to load forms:', e)
+    notify(describeError(e, 'Could not load lead-generation forms.'), 'error')
   } finally {
     loading.value = false
   }
@@ -235,8 +258,10 @@ async function saveForm() {
     }
     closeDialog()
     await loadForms()
+    notify('Form saved.', 'success')
   } catch (e) {
     console.error('Failed to save form:', e)
+    notify(describeError(e, 'Could not save the form.'), 'error')
   } finally {
     saving.value = false
   }
@@ -262,8 +287,10 @@ async function deleteForm(id: number) {
   try {
     await $fetch(`/api/admin/lead-generation/forms/${id}`, { method: 'DELETE', headers: getAuthHeaders() })
     await loadForms()
+    notify('Form deleted.', 'success')
   } catch (e) {
     console.error('Failed to delete form:', e)
+    notify(describeError(e, 'Could not delete this form.'), 'error')
   }
 }
 
@@ -283,7 +310,13 @@ async function copyLink(slug: string) {
   try {
     await navigator.clipboard.writeText(getFormUrl(slug))
     copied.value = true
-  } catch { /* fallback ignored */ }
+  } catch (e) {
+    // Clipboard can fail in non-secure contexts (eg. http) or when the
+    // browser denies the permission. Surface a hint instead of silently
+    // doing nothing.
+    console.warn('Clipboard write failed:', e)
+    notify('Could not copy automatically — please copy the link manually.', 'error')
+  }
 }
 
 function formatDate(d: string) {

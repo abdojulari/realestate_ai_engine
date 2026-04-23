@@ -247,6 +247,14 @@
         @close="showContactDialog = false"
       />
     </v-dialog>
+
+    <v-snackbar v-model="searchError" color="error" :timeout="5000" location="top">
+      <v-icon icon="mdi-alert-circle" class="mr-2" />
+      {{ searchErrorMessage }}
+      <template #actions>
+        <v-btn variant="text" @click="searchError = false">Dismiss</v-btn>
+      </template>
+    </v-snackbar>
   </v-container>
 </template>
 
@@ -287,6 +295,8 @@ interface City {
 // State
 const loading = ref(false)
 const initialLoading = ref(true)
+const searchError = ref(false)
+const searchErrorMessage = ref('')
 const showPanel = ref(true)
 const selectedProperty = ref<Property | null>(null)
 const showContactDialog = ref(false)
@@ -388,8 +398,14 @@ const handleSearch = async (searchParams: PropertyFilter, showLoadingState: bool
       isSaved: Boolean(p.isSaved),
       agent: p.agent || p.user
     }))
-  } catch (error) {
+  } catch (error: any) {
     console.error('Search error:', error)
+    searchErrorMessage.value =
+      error?.data?.statusMessage ||
+      error?.statusMessage ||
+      error?.message ||
+      'We could not load search results. Please try again.'
+    searchError.value = true
   } finally {
     loading.value = false
     initialLoading.value = false

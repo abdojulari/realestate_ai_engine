@@ -29,6 +29,13 @@
 
     <!-- Form -->
     <div v-else-if="form" class="lead-center">
+      <v-snackbar v-model="submitError" color="error" :timeout="6000" location="top">
+        <v-icon icon="mdi-alert-circle" class="mr-2" />
+        {{ submitErrorMessage }}
+        <template #actions>
+          <v-btn variant="text" @click="submitError = false">Dismiss</v-btn>
+        </template>
+      </v-snackbar>
       <div class="form-container">
         <!-- Header -->
         <div class="form-header" :style="{ background: `linear-gradient(135deg, ${form.brandColor}, ${adjustColor(form.brandColor, -30)})` }">
@@ -123,6 +130,8 @@ const submitted = ref(false)
 const submitting = ref(false)
 const formRef = ref<any>(null)
 const submission = ref<Record<string, string>>({})
+const submitError = ref(false)
+const submitErrorMessage = ref('')
 
 const fieldConfig: Record<string, any> = {
   name: { label: 'Full Name', icon: 'mdi-account', type: 'text', required: true },
@@ -167,11 +176,20 @@ async function submitForm() {
   }
 
   submitting.value = true
+  submitError.value = false
   try {
     await $fetch(`/api/lead-form/${slug}`, { method: 'POST', body: submission.value })
     submitted.value = true
-  } catch (e) {
+  } catch (e: any) {
     console.error('Submit failed:', e)
+    // Surface the failure to the visitor — previously the spinner just
+    // stopped and they had no idea whether the form was sent.
+    submitErrorMessage.value =
+      e?.data?.statusMessage ||
+      e?.statusMessage ||
+      e?.message ||
+      'We could not submit your request. Please try again.'
+    submitError.value = true
   } finally {
     submitting.value = false
   }

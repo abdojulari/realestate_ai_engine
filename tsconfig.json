@@ -19,8 +19,7 @@
       "~/*": ["./app/*"],
       "@/*": ["./app/*"],
       "~/types": ["./types/index.ts"],
-      "~/types/*": ["./types/*"],
-      "~/utils/*": ["./utils/*"]
+      "~/types/*": ["./types/*"]
     }
   },
   "include": [

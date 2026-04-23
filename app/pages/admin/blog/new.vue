@@ -14,16 +14,42 @@
           <h1 class="display-serif text-h4 mb-1">Create Blog Post</h1>
         </v-col>
         <v-col cols="12" md="6" class="text-md-right">
-          <v-btn variant="outlined" class="mr-2" @click="saveDraft" :loading="saving && saveType === 'draft'">
-            <v-icon start>mdi-content-save-outline</v-icon>
-            Save Draft
-          </v-btn>
-          <v-btn color="primary" @click="publish" :loading="saving && saveType === 'publish'">
-            <v-icon start>mdi-send</v-icon>
-            Publish
-          </v-btn>
+          <v-tooltip text="Save as a draft so you can keep editing later" location="bottom">
+            <template #activator="{ props: tip }">
+              <v-btn v-bind="tip" variant="outlined" class="mr-2" @click="saveDraft" :loading="saving && saveType === 'draft'">
+                <v-icon start>mdi-content-save-outline</v-icon>
+                Save Draft
+              </v-btn>
+            </template>
+          </v-tooltip>
+          <v-tooltip text="Publish immediately. The post will be live on the public blog." location="bottom">
+            <template #activator="{ props: tip }">
+              <v-btn v-bind="tip" color="primary" @click="publish" :loading="saving && saveType === 'publish'">
+                <v-icon start>mdi-send</v-icon>
+                Publish
+              </v-btn>
+            </template>
+          </v-tooltip>
         </v-col>
       </v-row>
+
+      <!-- First-time author guidance — saved per-browser. -->
+      <v-alert
+        v-if="showHelp"
+        type="info"
+        variant="tonal"
+        density="comfortable"
+        class="mb-6"
+        closable
+        @click:close="dismissHelp"
+      >
+        <strong>Quick tour:</strong>
+        Add a clear <strong>title</strong> first — we'll generate a friendly URL slug
+        when you tab away. Use the <strong>toolbar</strong> above the content area for
+        formatting, and drop a cover image on the right (max
+        {{ Math.round(BLOG_IMAGE_MAX_BYTES / 1024 / 1024) }}MB).
+        <strong>Save Draft</strong> keeps it private; <strong>Publish</strong> makes it live.
+      </v-alert>
 
       <v-row>
         <!-- Main Content Area -->
@@ -210,9 +236,20 @@
                 <div v-else class="upload-placeholder">
                   <v-icon size="48" color="grey-lighten-1">mdi-cloud-upload</v-icon>
                   <p class="text-body-2 mt-2">Click or drag to upload</p>
-                  <p class="text-caption text-grey">Recommended: 1200x630px</p>
+                  <p class="text-caption text-grey">
+                    Recommended: 1200×630px ·
+                    JPEG, PNG, GIF, WebP up to {{ Math.round(BLOG_IMAGE_MAX_BYTES / 1024 / 1024) }}MB
+                  </p>
                 </div>
               </div>
+              <v-progress-linear
+                v-if="uploadProgress !== null"
+                :model-value="uploadProgress"
+                color="primary"
+                height="6"
+                rounded
+                class="mt-2"
+              />
               <input
                 ref="coverInput"
                 type="file"
@@ -385,6 +422,7 @@ import { useRouter } from 'vue-router'
 import { marked } from 'marked'
 // @ts-ignore
 import { api } from '~/utils/api'
+import { uploadBlogImage, BLOG_IMAGE_MAX_BYTES } from '~/composables/useBlogEditor'
 
 definePageMeta({
   layout: 'admin',
@@ -392,6 +430,15 @@ definePageMeta({
 })
 
 const router = useRouter()
+
+const HELP_DISMISS_KEY = 'blog-editor-help-dismissed-v1'
+const showHelp = ref(false)
+const dismissHelp = () => {
+  showHelp.value = false
+  if (typeof localStorage !== 'undefined') localStorage.setItem(HELP_DISMISS_KEY, '1')
+}
+
+const uploadProgress = ref<number | null>(null)
 
 // Form state
 const form = ref({
@@ -558,24 +605,25 @@ const handleCoverDrop = async (event: DragEvent) => {
   await uploadImage(file, true)
 }
 
-// Image upload helper
-const uploadImage = async (file: File, isCover = false) => {
-  const formData = new FormData()
-  formData.append('image', file)
-  
-  try {
-    const data: any = await api.upload('/api/admin/blog/upload-image', formData)
-    
-    if (isCover) {
-      form.value.coverImage = data.url
-    } else {
-      return data.url
-    }
-  } catch (error) {
-    console.error('Upload error:', error)
-    showSnackbar('Failed to upload image', 'error')
+// Image upload helper — surfaces real server errors (size, type, network) so
+// authors aren't left guessing why a "fail" toast appeared.
+const uploadImage = async (file: File, isCover = false): Promise<string | null> => {
+  uploadProgress.value = 0
+  const result = await uploadBlogImage(file, (p) => {
+    uploadProgress.value = p.percent
+  })
+  uploadProgress.value = null
+
+  if (!result.ok) {
+    showSnackbar(result.message, result.code === 'PAYLOAD_TOO_LARGE' ? 'warning' : 'error')
     return null
   }
+
+  if (isCover) {
+    form.value.coverImage = result.url
+    return result.url
+  }
+  return result.url
 }
 
 // Insert inline image
@@ -685,6 +733,9 @@ const fetchCategories = async () => {
 
 onMounted(() => {
   fetchCategories()
+  if (typeof window !== 'undefined' && localStorage.getItem(HELP_DISMISS_KEY) !== '1') {
+    showHelp.value = true
+  }
 })
 </script>
 

@@ -58,7 +58,7 @@
           </v-col>
           <v-col cols="12" md="7" offset-md="1">
             <div class="st-body">
-              <div v-if="storyContent" v-html="storyContent" class="st-content"></div>
+              <div v-if="storyContent" v-html="safeStoryContent" class="st-content"></div>
               <div v-else class="st-content"><p>{{ storyContentDefault }}</p></div>
             </div>
           </v-col>
@@ -149,13 +149,15 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   heroTitle: string; heroSubtitle: string; heroDescription: string; profileImage: string
   storyTitle: string; storyName: string; storyRole: string; storyContent: string; storyContentDefault: string
   connectHeading: string; connectDescription: string; coreValues: any[]; stats: any[]
   ctaAreas: string; ctaTitle: string; ctaSubtitle: string; ctaImage: string
   contactPhone: string; contactEmail: string; qrCodeUrl: string; socialLinks: any[]
 }>()
+// CMS-supplied HTML — sanitize before rendering via v-html.
+const safeStoryContent = useSanitizedHtml(() => props.storyContent)
 function getSocialIcon(n: string): string {
   const l = n.toLowerCase()
   if (l.includes('facebook')) return 'mdi-facebook'; if (l.includes('instagram')) return 'mdi-instagram'

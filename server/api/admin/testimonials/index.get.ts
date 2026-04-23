@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
+import { getTenantFilter } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -9,7 +10,7 @@ globalForPrisma.prisma = prisma
 
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
+  const user = await requireAdmin(event)
 
   const query = getQuery(event)
   const search = (query.search as string) || ''
@@ -18,7 +19,10 @@ export default defineEventHandler(async (event) => {
   const limit = parseInt((query.limit as string) || '20')
   const offset = (page - 1) * limit
 
-  const where: any = {}
+  // Tenant isolation: each admin only sees their own testimonials. Without
+  // this an admin could see (and approve / delete) every other tenant's
+  // submissions through this list endpoint.
+  const where: any = { ...getTenantFilter(user) }
 
   if (search) {
     where.OR = [

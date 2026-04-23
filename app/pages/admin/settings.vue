@@ -797,7 +797,7 @@
               <div class="text-caption text-slate-400 font-weight-bold uppercase mb-2">Subject Line</div>
               <div class="text-subtitle-1 font-weight-bold text-slate-900">{{ selectedTemplate.subject }}</div>
             </div>
-            <div class="preview-content p-6 bg-white rounded-xl border border-slate-200" v-html="previewContent" />
+            <div class="preview-content p-6 bg-white rounded-xl border border-slate-200" v-html="safePreviewContent" />
           </div>
         </v-card-text>
         <v-card-actions class="p-8 pt-0">
@@ -1238,6 +1238,11 @@ const previewContent = computed(() => {
   
   return content
 })
+
+// Sanitize the email-template preview before binding via v-html. Templates
+// can contain arbitrary HTML pasted by an admin; sanitize-html strips
+// <script>, on*= handlers and javascript: URLs.
+const safePreviewContent = useSanitizedHtml(() => previewContent.value, { allowIframes: true })
 
 const startManualSync = async () => {
   syncing.value = true

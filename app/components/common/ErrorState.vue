@@ -11,7 +11,7 @@
       {{ title }}
     </div>
 
-    <div :class="messageClass" class="mb-6" v-html="message" />
+    <div :class="messageClass" class="mb-6" v-html="safeMessage" />
 
     <div v-if="$slots.actions" class="actions">
       <slot name="actions" />
@@ -38,7 +38,9 @@
 </template>
 
 <script setup lang="ts">
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   title: {
     type: String,
     default: 'Something went wrong'
@@ -90,6 +92,11 @@ defineProps({
 })
 
 defineEmits(['retry'])
+
+// `message` is bound via v-html so callers can pass simple formatting.
+// Sanitize before rendering so a malformed/api-derived error string can't
+// inject scripts.
+const safeMessage = useSanitizedHtml(() => props.message)
 </script>
 
 <style scoped>

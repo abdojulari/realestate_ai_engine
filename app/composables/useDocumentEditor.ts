@@ -48,9 +48,15 @@ export interface SignatureElement {
 
 export function useDocumentEditor() {
   // --- Auth helper ---
+  // Guard against SSR: this composable is consumed by `pages/admin/documents/index.vue`
+  // which binds `:auth-headers="editor.getAuthHeaders()"` in the template. That
+  // expression is evaluated on every render, including the server pass — and
+  // `localStorage` is undefined on the server. Without the guard SSR throws
+  // a `ReferenceError: localStorage is not defined`.
   const getAuthHeaders = (): Record<string, string> => {
+    if (typeof window === 'undefined') return {}
     try {
-      const token = localStorage.getItem('token')
+      const token = window.localStorage.getItem('token')
       return token ? { Authorization: `Bearer ${token}` } : {}
     } catch {
       return {}

@@ -72,29 +72,63 @@ export default defineEventHandler(async (event) => {
       })
     }
 
-    // Handle photo upload
-    let avatarPath = null
+    // Handle photo upload (public, anonymous endpoint — be strict).
+    //
+    // We validate MIME type (not just extension), enforce a hard size cap,
+    // and fail the entire request on a bad upload instead of silently saving
+    // the testimonial without the photo. Prior behaviour let attackers POST
+    // arbitrary bytes up to Nitro's default 50 MB body limit.
+    const MAX_PHOTO_BYTES = 5 * 1024 * 1024 // 5 MB
+    const ALLOWED_PHOTO_MIME = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/gif',
+      'image/webp',
+    ])
+    const MIME_TO_EXT: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+    }
+
+    let avatarPath: string | null = null
     if (photoFile && photoFile.data) {
+      const mime = String(photoFile.type || '').toLowerCase()
+      if (!ALLOWED_PHOTO_MIME.has(mime)) {
+        throw createError({
+          statusCode: 415,
+          statusMessage: 'Photo must be a JPEG, PNG, GIF, or WebP image.',
+        })
+      }
+      if (photoFile.data.length > MAX_PHOTO_BYTES) {
+        throw createError({
+          statusCode: 413,
+          statusMessage: `Photo is too large. Maximum size is ${Math.round(
+            MAX_PHOTO_BYTES / (1024 * 1024)
+          )} MB.`,
+        })
+      }
+
       try {
         const uploadRoot = getUploadRoot()
         const uploadsDir = join(uploadRoot, 'testimonials')
         await mkdir(uploadsDir, { recursive: true })
 
-        const ext = (photoFile.filename?.split('.').pop() || 'jpg').toLowerCase()
-        const allowedExt = ['jpg', 'jpeg', 'png', 'gif', 'webp']
-        if (!allowedExt.includes(ext)) {
-          console.warn(`[Testimonial] Rejected non-image file: ${photoFile.filename}`)
-          throw new Error('Invalid image type')
-        }
-        const fileExtension = ext
+        // Derive the on-disk extension from the validated MIME, never from
+        // the client-supplied filename (which could carry `.exe` etc).
+        const fileExtension = MIME_TO_EXT[mime] || 'jpg'
         const fileName = `${randomUUID()}.${fileExtension}`
         const filePath = join(uploadsDir, fileName)
 
         await writeFile(filePath, photoFile.data)
         avatarPath = `/uploads/testimonials/${fileName}`
-        console.log(`[Testimonial] Photo saved: ${filePath} → ${avatarPath}`)
       } catch (error) {
-        console.error('[Testimonial] Error uploading photo:', error)
+        console.error('[Testimonial] Error writing photo:', error)
+        throw createError({
+          statusCode: 500,
+          statusMessage: 'Could not save photo. Please try again or omit the photo.',
+        })
       }
     }
 

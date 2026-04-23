@@ -373,11 +373,19 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <v-snackbar v-model="feedback.show" :color="feedback.color" :timeout="4000" location="bottom right">
+      <v-icon :icon="feedback.color === 'error' ? 'mdi-alert-circle' : 'mdi-check-circle'" class="mr-2" />
+      {{ feedback.message }}
+      <template #actions>
+        <v-btn variant="text" @click="feedback.show = false">Dismiss</v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, reactive } from 'vue'
 import type { Property, PropertyInquiry } from '~/types'
 import { propertyService } from '~/services/property.service'
 import { formatDate } from '~/utils/formatters'
@@ -394,6 +402,20 @@ const selectedProperty = ref<Property | null>(null)
 const selectedInquiry = ref<PropertyInquiry | null>(null)
 const propertyToDelete = ref<Property | null>(null)
 const deleting = ref(false)
+
+// Snackbar feedback so listing actions don't fail silently.
+const feedback = reactive({
+  show: false,
+  color: 'success' as 'success' | 'error',
+  message: '',
+})
+const notify = (message: string, color: 'success' | 'error' = 'success') => {
+  feedback.message = message
+  feedback.color = color
+  feedback.show = true
+}
+const describeError = (e: any, fallback: string) =>
+  e?.data?.statusMessage || e?.statusMessage || e?.message || fallback
 
 // Mock stats
 const stats = ref({
@@ -437,7 +459,7 @@ const loadData = async () => {
     }
   } catch (error) {
     console.error('Error loading dashboard data:', error)
-    // Show error message
+    notify(describeError(error, 'Could not load dashboard data. Please refresh.'), 'error')
   }
 }
 
@@ -475,9 +497,10 @@ const updateStatus = async (property: any, status: string) => {
   try {
     await propertyService.update(property.id, { status })
     property.status = status
+    notify(`Listing marked as ${status}.`, 'success')
   } catch (error) {
     console.error('Error updating status:', error)
-    // Show error message
+    notify(describeError(error, 'Could not update the listing status.'), 'error')
   }
 }
 
@@ -489,9 +512,10 @@ const duplicateListing = async (property: any) => {
       status: 'inactive'
     })
     properties.value.push(newProperty)
+    notify('Listing duplicated.', 'success')
   } catch (error) {
     console.error('Error duplicating listing:', error)
-    // Show error message
+    notify(describeError(error, 'Could not duplicate this listing.'), 'error')
   }
 }
 
@@ -509,9 +533,10 @@ const confirmDelete = async () => {
     properties.value = properties.value.filter(p => p.id !== propertyToDelete.value!.id)
     showDeleteDialog.value = false
     propertyToDelete.value = null
+    notify('Listing deleted.', 'success')
   } catch (error) {
     console.error('Error deleting property:', error)
-    // Show error message
+    notify(describeError(error, 'Could not delete this listing.'), 'error')
   } finally {
     deleting.value = false
   }

@@ -191,7 +191,7 @@
             <div class="text-body-2">{{ form.previewText }}</div>
           </div>
           <v-divider class="my-4" />
-          <div class="preview-content" v-html="form.content"></div>
+          <div class="preview-content" v-html="safePreview"></div>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -252,6 +252,10 @@ const form = ref({
   trackOpens: true,
   trackClicks: true
 })
+
+// Sanitized preview of the campaign body so the dialog can't execute scripts
+// embedded in pasted HTML.
+const safePreview = useSanitizedHtml(() => form.value.content, { allowIframes: true })
 
 const templates = ref<any[]>([])
 const audienceOptions = [

@@ -187,12 +187,35 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <v-snackbar v-model="feedback.show" :color="feedback.color" :timeout="4000" location="bottom right">
+      <v-icon :icon="feedback.color === 'error' ? 'mdi-alert-circle' : 'mdi-check-circle'" class="mr-2" />
+      {{ feedback.message }}
+      <template #actions>
+        <v-btn variant="text" @click="feedback.show = false">Dismiss</v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { formatDate } from '~/utils/formatters'
+
+// Snackbar feedback so subscriber CRUD doesn't fail silently. Replaces the
+// blocking `alert()` call previously used for save errors.
+const feedback = reactive({
+  show: false,
+  color: 'success' as 'success' | 'error',
+  message: '',
+})
+const notify = (message: string, color: 'success' | 'error' = 'success') => {
+  feedback.message = message
+  feedback.color = color
+  feedback.show = true
+}
+const describeError = (e: any, fallback: string) =>
+  e?.data?.statusMessage || e?.data?.message || e?.statusMessage || e?.message || fallback
 
 const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
@@ -257,6 +280,7 @@ const loadSubscribers = async () => {
     stats.value = data.stats
   } catch (error) {
     console.error('Error loading subscribers:', error)
+    notify(describeError(error, 'Could not load subscribers.'), 'error')
   } finally {
     loading.value = false
   }
@@ -282,8 +306,10 @@ const deleteSubscriber = async (subscriber: any) => {
       headers: getAuthHeaders()
     })
     await loadSubscribers()
+    notify('Subscriber deleted.', 'success')
   } catch (error) {
     console.error('Error deleting subscriber:', error)
+    notify(describeError(error, 'Could not delete this subscriber.'), 'error')
   }
 }
 
@@ -305,9 +331,10 @@ const saveSubscriber = async () => {
     }
     closeDialog()
     await loadSubscribers()
+    notify(editingSubscriber.value ? 'Subscriber updated.' : 'Subscriber added.', 'success')
   } catch (error: any) {
     console.error('Error saving subscriber:', error)
-    alert(error.data?.message || 'An error occurred')
+    notify(describeError(error, 'Could not save this subscriber.'), 'error')
   } finally {
     saving.value = false
   }

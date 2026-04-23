@@ -35,7 +35,7 @@
             </div>
           </v-col>
           <v-col cols="12" md="6">
-            <div v-if="storyContent" v-html="storyContent" class="editorial-text"></div>
+            <div v-if="storyContent" v-html="safeStoryContent" class="editorial-text"></div>
             <div v-else class="editorial-text">
               <p>{{ storyContentDefault }}</p>
             </div>
@@ -129,7 +129,7 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+const props = defineProps<{
   heroTitle: string
   heroSubtitle: string
   heroDescription: string
@@ -152,6 +152,11 @@ defineProps<{
   qrCodeUrl: string
   socialLinks: any[]
 }>()
+
+// `storyContent` is editor-supplied HTML stored in the CMS. Sanitize before
+// rendering so a stray <script> tag pasted by an admin can't run in the
+// visitor's browser.
+const safeStoryContent = useSanitizedHtml(() => props.storyContent)
 
 function getSocialIcon(name: string): string {
   const n = name.toLowerCase()

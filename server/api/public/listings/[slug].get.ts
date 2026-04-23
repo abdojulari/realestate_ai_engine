@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { resolveTenantFromRequest } from '../../../utils/tenant'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -12,8 +13,17 @@ export default defineEventHandler(async (event) => {
 
     if (!slug) throw createError({ statusCode: 400, message: 'Invalid slug' })
 
+    // The schema declares `@@unique([adminId, slug])` so two tenants can
+    // legitimately use the same slug. Without scoping by tenant we'd return
+    // whichever row was created first — meaning visitors of tenant B's
+    // domain could see tenant A's listing template under the same URL.
+    const adminId = await resolveTenantFromRequest(event)
     const template = await prisma.listingTemplate.findFirst({
-      where: { slug, status: 'published' }
+      where: {
+        slug,
+        status: 'published',
+        ...(adminId ? { adminId } : {}),
+      }
     })
 
     if (!template) throw createError({ statusCode: 404, message: 'Listing not found' })

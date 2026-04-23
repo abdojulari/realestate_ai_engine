@@ -246,7 +246,7 @@
             <div class="text-body-2">{{ form.previewText }}</div>
           </div>
           <v-divider class="my-4" />
-          <div class="preview-content" v-html="form.content"></div>
+          <div class="preview-content" v-html="safePreview"></div>
         </v-card-text>
       </v-card>
     </v-dialog>
@@ -284,6 +284,11 @@ const showSuccess = ref(false)
 const showError = ref(false)
 const successMessage = ref('')
 const errorMessage = ref('')
+
+// Sanitized preview of the campaign body. Even though the editor is admin-only,
+// pasted HTML can carry <script> or `on*=` handlers — strip them before
+// rendering inside the preview dialog.
+const safePreview = useSanitizedHtml(() => form.value.content, { allowIframes: true })
 
 // Form data
 const form = ref({

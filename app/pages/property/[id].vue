@@ -829,13 +829,35 @@
         </v-card-text>
       </v-card>
     </v-dialog>
+
+    <v-snackbar v-model="feedback.show" :color="feedback.color" :timeout="5000" location="bottom right">
+      <v-icon :icon="feedback.color === 'error' ? 'mdi-alert-circle' : 'mdi-check-circle'" class="mr-2" />
+      {{ feedback.message }}
+      <template #actions>
+        <v-btn variant="text" @click="feedback.show = false">Dismiss</v-btn>
+      </template>
+    </v-snackbar>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { propertyService } from '~/services/property.service'
+
+// Snackbar feedback so contact / viewing / save actions don't fail silently.
+const feedback = reactive({
+  show: false,
+  color: 'success' as 'success' | 'error',
+  message: '',
+})
+const notify = (message: string, color: 'success' | 'error' = 'success') => {
+  feedback.message = message
+  feedback.color = color
+  feedback.show = true
+}
+const describeError = (e: any, fallback: string) =>
+  e?.data?.statusMessage || e?.statusMessage || e?.message || fallback
 
 const { businessName, phone: tenantPhone } = useTenantSettings()
 const { public: publicConfig } = useRuntimeConfig()
@@ -1564,8 +1586,10 @@ const handleSubmit = async () => {
       message: contactForm.value.message,
       property: snapshot
     } as any)
+    notify("Message sent. We'll be in touch shortly.", 'success')
   } catch (error) {
     console.error('Submit error:', error)
+    notify(describeError(error, 'Could not send your message. Please try again.'), 'error')
   } finally {
     loading.value = false
   }
@@ -1596,8 +1620,10 @@ const submitViewingRequest = async () => {
       property: snapshot
     } as any)
     showViewingDialog.value = false
+    notify('Viewing request sent.', 'success')
   } catch (error) {
     console.error('Viewing request error:', error)
+    notify(describeError(error, 'Could not submit the viewing request.'), 'error')
   } finally {
     viewingLoading.value = false
   }
@@ -1692,12 +1718,14 @@ const formatListingDate = (dateStr: string) => {
 // Save functionality
 const toggleSave = async () => {
   if (!property.value?.id) return
-  
+
   try {
     await toggleSaveProperty(property.value.id)
     property.value.isSaved = !property.value.isSaved
+    notify(property.value.isSaved ? 'Saved to your favourites.' : 'Removed from favourites.', 'success')
   } catch (error) {
     console.error('Error toggling save:', error)
+    notify(describeError(error, 'Could not update your saved properties.'), 'error')
   }
 }
 </script>

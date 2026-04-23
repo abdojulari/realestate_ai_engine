@@ -142,10 +142,19 @@
         </v-card>
       </v-col>
     </v-row>
+
+    <v-snackbar v-model="feedback.show" :color="feedback.color" :timeout="4000" location="bottom right">
+      <v-icon :icon="feedback.color === 'error' ? 'mdi-alert-circle' : 'mdi-check-circle'" class="mr-2" />
+      {{ feedback.message }}
+      <template #actions>
+        <v-btn variant="text" @click="feedback.show = false">Dismiss</v-btn>
+      </template>
+    </v-snackbar>
   </v-container>
 </template>
 
 <script setup lang="ts">
+import { reactive } from 'vue'
 import { useAuthStore } from '~/stores/auth'
 const auth = useAuthStore()
 const { $fetch } = useNuxtApp()
@@ -155,6 +164,20 @@ const loading = ref(false)
 const isFormValid = ref(false)
 const savedSearches = ref<any[]>([])
 const viewingRequests = ref<any[]>([])
+
+// Snackbar feedback so profile / saved-search actions don't fail silently.
+const feedback = reactive({
+  show: false,
+  color: 'success' as 'success' | 'error',
+  message: '',
+})
+const notify = (message: string, color: 'success' | 'error' = 'success') => {
+  feedback.message = message
+  feedback.color = color
+  feedback.show = true
+}
+const describeError = (e: any, fallback: string) =>
+  e?.data?.statusMessage || e?.statusMessage || e?.message || fallback
 
 const formData = ref({
   firstName: '',
@@ -205,9 +228,11 @@ const handleSubmit = async () => {
     if (response) {
       // reflect server response if needed
       isEditing.value = false
+      notify('Profile updated.', 'success')
     }
   } catch (error) {
     console.error('Update profile error:', error)
+    notify(describeError(error, 'Could not update your profile.'), 'error')
   } finally {
     loading.value = false
   }
@@ -220,6 +245,7 @@ const loadSavedSearches = async () => {
     savedSearches.value = response
   } catch (error) {
     console.error('Load saved searches error:', error)
+    notify(describeError(error, 'Could not load your saved searches.'), 'error')
   }
 }
 
@@ -230,6 +256,7 @@ const loadViewingRequests = async () => {
     viewingRequests.value = response
   } catch (error) {
     console.error('Load viewing requests error:', error)
+    notify(describeError(error, 'Could not load your viewing requests.'), 'error')
   }
 }
 
@@ -240,8 +267,10 @@ const deleteSavedSearch = async (id: number) => {
       method: 'DELETE'
     })
     savedSearches.value = savedSearches.value.filter(search => search.id !== id)
+    notify('Saved search removed.', 'success')
   } catch (error) {
     console.error('Delete saved search error:', error)
+    notify(describeError(error, 'Could not delete this saved search.'), 'error')
   }
 }
 
