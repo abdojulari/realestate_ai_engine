@@ -352,16 +352,17 @@ class Pillar9Service {
     const defaultSelect = [
       // Core identifiers
       'ListingId', 'ListingKeyNumeric', 'MlsStatus',
-      // Pricing — incl. RESO standard original / previous list prices so the
-      // Best Deals page can detect reductions that happened before we started
-      // tracking the listing. Matrix returns null for any of these the board
-      // doesn't publish, so they're safe to request unconditionally.
+      // Pricing.
+      // NOTE: We tried adding RESO standard OriginalListPrice / PreviousListPrice
+      // / PriceChangeTimestamp / MajorChangeTimestamp / MajorChangeType here so
+      // the Best Deals page could detect pre-ingest reductions, but at least
+      // one of them is rejected by Matrix — and Matrix rejects the WHOLE query
+      // when any $select field is unknown, taking down every city. CREA's
+      // holistic sync already populates OriginalListPrice for the same Alberta
+      // listings, so dropping them here is safe. If you want to re-enable
+      // them, test each field individually against the Matrix metadata
+      // (`/odata/$metadata`) before adding it back.
       'ListPrice',
-      'OriginalListPrice',
-      'PreviousListPrice',
-      'PriceChangeTimestamp',
-      'MajorChangeTimestamp',
-      'MajorChangeType',
       // Rooms & size
       'BedroomsTotal', 'BathroomsTotalInteger',
       'LivingAreaSF',
