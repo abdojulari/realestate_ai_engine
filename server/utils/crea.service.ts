@@ -745,6 +745,19 @@ class CreaService {
         return (a.Order ?? 0) - (b.Order ?? 0)
       })
 
+    // RESO MediaCategory is technically a controlled enum but in practice CREA
+    // and individual boards return any of: 'Photo', 'Photos', 'PropertyPhoto',
+    // 'AerialPhoto', 'Floor Plan', 'FloorPlan', 'Branded Virtual Tour', etc.
+    // Treat anything containing "photo" (other than agent/office/logo headshots)
+    // as a property photo. Everything else (floorplan/video/virtual tour/etc.)
+    // is surfaced separately on the listing page under Tours & Floorplans.
+    const isPhotoCategory = (cat?: string | null): boolean => {
+      if (!cat) return true
+      const c = String(cat).toLowerCase()
+      if (c.includes('agent') || c.includes('office') || c.includes('logo')) return false
+      return c.includes('photo')
+    }
+
     const mediaItems = mediaItemsRaw.map(m => ({
       url: m.MediaURL,
       alt: m.LongDescription || null,
@@ -759,9 +772,11 @@ class CreaService {
     }))
 
     // Photos only for the gallery — keeps floorplans/videos/etc. out of the
-    // hero carousel but still accessible via features.mediaItems.
+    // hero carousel but still accessible via features.mediaItems. Use the
+    // tolerant photo classifier so RESO variants like "PropertyPhoto" and
+    // "Photos" don't get filtered out as if they were tours/documents.
     const images = mediaItems
-      .filter(m => !m.category || m.category === 'Photo')
+      .filter(m => isPhotoCategory(m.category))
       .map(m => m.url)
 
     console.log(`📸 Property ${creaProp.ListingKey}: ${images.length} photos, ${mediaItems.length} total media items`)

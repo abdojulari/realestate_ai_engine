@@ -1435,6 +1435,20 @@ const viewingForm = ref({
 // Photos drive the main gallery; other categories (floorplans, virtual tours,
 // videos) are exposed via `nonPhotoMediaItems` for the dedicated "Tours &
 // Floorplans" section.
+// RESO MediaCategory in the wild has multiple variants ("Photo", "Photos",
+// "PropertyPhoto", "AerialPhoto", board-specific casing, etc.). A literal
+// `=== 'Photo'` check used to dump these into the Tours & Floorplans section
+// even though they're regular property photos. Treat anything containing
+// "photo" — except agent/office headshots and brand logos — as a property
+// photo, which keeps non-photo categories (floorplan/video/virtualtour/
+// document) for the dedicated tours section.
+const isPhotoCategory = (cat?: string | null): boolean => {
+  if (!cat) return true
+  const c = String(cat).toLowerCase()
+  if (c.includes('agent') || c.includes('office') || c.includes('logo')) return false
+  return c.includes('photo')
+}
+
 const allMediaItems = computed(() => {
   const fromFeatures = property.value.features?.mediaItems
   if (Array.isArray(fromFeatures) && fromFeatures.length) {
@@ -1459,7 +1473,7 @@ const allMediaItems = computed(() => {
 })
 
 const propertyMediaItems = computed(() =>
-  allMediaItems.value.filter((m: any) => !m.category || m.category === 'Photo')
+  allMediaItems.value.filter((m: any) => isPhotoCategory(m.category))
 )
 
 // Non-photo CREA media: floorplans, virtual tours, videos, branded virtual
@@ -1467,7 +1481,7 @@ const propertyMediaItems = computed(() =>
 // without us forcing them into the main carousel.
 const nonPhotoMediaItems = computed(() =>
   allMediaItems.value
-    .filter((m: any) => m.category && m.category !== 'Photo')
+    .filter((m: any) => !isPhotoCategory(m.category))
     .map((m: any) => {
       const cat = String(m.category || '').toLowerCase()
       let kind: 'video' | 'virtual_tour' | 'floorplan' | 'document' | 'other' = 'other'

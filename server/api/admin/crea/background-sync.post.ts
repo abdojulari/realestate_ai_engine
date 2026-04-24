@@ -92,28 +92,36 @@ export default defineEventHandler(async (event) => {
           
           for (const creaProp of batch) {
             try {
-              // CRITICAL: Fetch agent and office data for each property before storing
+              // CRITICAL: Fetch agent and office data PLUS the full property
+              // with its Media collection. The bulk /Property feed (creaProp)
+              // does NOT include Media — only the per-listing fetch does — so
+              // we must use the enriched record from getPropertyWithAgentDetails
+              // for the transform. Falling back to creaProp keeps non-image
+              // fields working even if the enrichment call fails.
               let agentData = undefined
+              let propertyForTransform: any = creaProp
               try {
                 console.log(`🔍 Fetching agent/office data for ${creaProp.ListingKey}...`)
                 const propertyWithAgents = await creaService.getPropertyWithAgentDetails(creaProp.ListingKey)
                 
                 if (propertyWithAgents.property) {
+                  propertyForTransform = propertyWithAgents.property
                   agentData = {
                     listingAgent: propertyWithAgents.listingAgent,
                     listingOffice: propertyWithAgents.listingOffice,
                     coListingAgents: propertyWithAgents.coListingAgents,
                     coListingOffices: propertyWithAgents.coListingOffices
                   }
-                  console.log(`📋 Agent: ${agentData.listingAgent?.MemberFullName || 'No agent'} @ ${agentData.listingOffice?.OfficeName || 'No office'}`)
+                  const mediaCount = propertyWithAgents.property.Media?.length ?? 0
+                  console.log(`📋 Agent: ${agentData.listingAgent?.MemberFullName || 'No agent'} @ ${agentData.listingOffice?.OfficeName || 'No office'} (${mediaCount} media)`)
                 } else {
-                  console.warn(`⚠️ Property ${creaProp.ListingKey} not found when fetching agent details`)
+                  console.warn(`⚠️ Property ${creaProp.ListingKey} not found when fetching agent details — saving without Media`)
                 }
               } catch (agentError: any) {
                 console.warn(`⚠️ Failed to fetch agent data for ${creaProp.ListingKey}:`, agentError.message)
               }
 
-              const transformedProperty = creaService.transformToLocalProperty(creaProp, agentData)
+              const transformedProperty = creaService.transformToLocalProperty(propertyForTransform, agentData)
               
               // Skip if transformer returned null (likely commercial property)
               if (!transformedProperty) {

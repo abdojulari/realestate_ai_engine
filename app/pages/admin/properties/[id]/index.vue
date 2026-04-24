@@ -350,11 +350,21 @@ const infoItems = computed(() => {
   ].filter(item => item.value)
 })
 
+// Mirror the same tolerant photo classifier used on the public listing page
+// so the admin UI doesn't dump regular photos (e.g. RESO "PropertyPhoto" /
+// "AerialPhoto" variants) into the Tours & Floorplans list.
+const isPhotoCategory = (cat?: string | null): boolean => {
+  if (!cat) return true
+  const c = String(cat).toLowerCase()
+  if (c.includes('agent') || c.includes('office') || c.includes('logo')) return false
+  return c.includes('photo')
+}
+
 const nonPhotoMedia = computed(() => {
   const items = property.value.features?.mediaItems
   if (!Array.isArray(items)) return []
   return items
-    .filter((m: any) => m?.url && m.category && m.category !== 'Photo')
+    .filter((m: any) => m?.url && !isPhotoCategory(m.category))
     .map((m: any) => {
       const cat = String(m.category || '').toLowerCase()
       let icon = 'mdi-link-variant'
