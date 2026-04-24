@@ -73,6 +73,15 @@ export interface Property {
   lastSyncAt?: string | null // Last time synced from CREA
   originalEntryTimestamp?: string | Date | null // When listing was first entered
   daysOnMarket?: number | null // Days since originalEntryTimestamp
+
+  // MLS-native price tracking (RESO standard fields). Populated from CREA's
+  // OriginalListPrice / PreviousListPrice and Pillar9's equivalents — used by
+  // the Best Deals page to surface reductions that happened before we first
+  // ingested the listing.
+  firstEntryPrice?: number | null // Price the first time we synced the listing into our DB
+  originalListPrice?: number | null // MLS OriginalListPrice — the original asking price
+  previousListPrice?: number | null // MLS PreviousListPrice — the asking price before the most recent change
+  priceChangeTimestamp?: string | Date | null // When the most recent MLS price change happened
   
   // Enhanced Residential Fields (from schema)
   lotSizeArea?: number | null

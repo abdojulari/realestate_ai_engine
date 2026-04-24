@@ -45,10 +45,20 @@ export default defineEventHandler(async (event) => {
       cityConditions.push({ city: { in: matchingCodes } })
     }
 
+    // A row qualifies as a deal candidate if we have ANY usable baseline
+    // (preferred: MLS OriginalListPrice straight from CREA/Pillar9; fallback:
+    // our internal firstEntryPrice captured on the first sync). The actual
+    // `price < baseline` check is applied below in code so we can pick whichever
+    // baseline is present per row.
     const andConditions: any[] = [
       { ...tenantFilter },
       { status: { in: ['for_sale', 'pending'] } },
-      { firstEntryPrice: { not: null } },
+      {
+        OR: [
+          { originalListPrice: { not: null } },
+          { firstEntryPrice: { not: null } },
+        ],
+      },
       { OR: cityConditions },
     ]
 
@@ -85,25 +95,42 @@ export default defineEventHandler(async (event) => {
       take: 2000,
     })
 
-    // Filter to only properties where current price < firstEntryPrice
+    // Pick the strongest baseline available for each row, in this order:
+    //   1. MLS OriginalListPrice (truth from the feed — captures pre-ingest cuts)
+    //   2. firstEntryPrice (our snapshot from the very first sync — only sees
+    //      drops that happen after we started tracking)
+    // Then keep rows whose current price is strictly below that baseline.
     let priceCutProperties = allCandidates
-      .filter((p: any) => p.firstEntryPrice !== null && p.price < p.firstEntryPrice)
       .map((p: any) => {
-        const firstPrice = p.firstEntryPrice as number
-        const changeAmt = p.price - firstPrice
-        const changePct = parseFloat(((changeAmt / firstPrice) * 100).toFixed(2))
+        const baseline =
+          typeof p.originalListPrice === 'number' && p.originalListPrice > 0
+            ? p.originalListPrice
+            : (typeof p.firstEntryPrice === 'number' && p.firstEntryPrice > 0
+              ? p.firstEntryPrice
+              : null)
+
+        if (baseline === null || !(p.price < baseline)) return null
+
+        const changeAmt = p.price - baseline
+        const changePct = parseFloat(((changeAmt / baseline) * 100).toFixed(2))
 
         return {
           ...p,
           priceDrop: {
-            originalPrice: firstPrice,
+            originalPrice: baseline,
             currentPrice: p.price,
             changeAmt,
             changePct,
             dollarSaved: Math.abs(changeAmt),
+            // Surface which signal we trusted so the UI can show "MLS verified"
+            // vs "tracked since first sync" if it ever wants to.
+            source: typeof p.originalListPrice === 'number' && p.originalListPrice > 0
+              ? 'mls'
+              : 'tracked',
           },
         }
       })
+      .filter((p: any): p is any => p !== null)
 
     // Minimum drop filter
     if (minDrop > 0) {

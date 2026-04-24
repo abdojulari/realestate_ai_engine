@@ -12,33 +12,33 @@ datasource db {
 // ═══════════════════════════════════════════════════════════════
 
 model User {
-  id                   Int               @id @default(autoincrement())
-  email                String            @unique
+  id                   Int       @id @default(autoincrement())
+  email                String    @unique
   password             String?
   firstName            String
   lastName             String
   phone                String?
   preferredContactTime String?
-  role                 String            @default("user") // super_admin, admin, user
+  role                 String    @default("user") // super_admin, admin, user
   provider             String?
   providerId           String?
-  createdAt            DateTime          @default(now())
-  updatedAt            DateTime          @updatedAt
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
   consentDate          DateTime?
   consentIpAddress     String?
-  marketingConsent     Boolean           @default(false)
+  marketingConsent     Boolean   @default(false)
   avatar               String?
   bio                  String?
-  emailNotifications   Boolean           @default(true)
-  language             String?           @default("English")
+  emailNotifications   Boolean   @default(true)
+  language             String?   @default("English")
   lastLoginAt          DateTime?
-  loginCount           Int               @default(0)
-  pushNotifications    Boolean           @default(true)
-  smsNotifications     Boolean           @default(false)
-  timezone             String?           @default("America/New_York")
+  loginCount           Int       @default(0)
+  pushNotifications    Boolean   @default(true)
+  smsNotifications     Boolean   @default(false)
+  timezone             String?   @default("America/New_York")
   twoFactorCode        String?
   twoFactorCodeExpiry  DateTime?
-  twoFactorEnabled     Boolean           @default(false)
+  twoFactorEnabled     Boolean   @default(false)
   twoFactorSecret      String?
 
   // Password reset (forgot-password flow). Token is sha256 of the random secret emailed to the user.
@@ -46,10 +46,10 @@ model User {
   passwordResetTokenExpiry DateTime?
 
   // First-login security: force password change after provisioning
-  mustChangePassword   Boolean           @default(false)
+  mustChangePassword Boolean @default(false)
 
   // Subscription tier for admins (basic, silver, gold, platinum)
-  subscriptionTier     String?
+  subscriptionTier String?
 
   // When set on a team member (role user), grants scoped /admin API + UI access for the delegator's tenant.
   // Shape: { "crm": { "read": true, "write": false, "edit": false, "delete": false }, ... }
@@ -60,70 +60,70 @@ model User {
 
   // ── InstaConnect (digital business card / PWA) ──
   // Public handle used in the shareable URL: /connect/{instaConnectSlug}
-  instaConnectSlug      String?  @unique
-  instaConnectEnabled   Boolean  @default(true)
+  instaConnectSlug     String?               @unique
+  instaConnectEnabled  Boolean               @default(true)
   // Optional per-agent overrides: { headline, company, primaryColor, coverImage, socialLinks: [{icon,name,url}] }
-  instaConnectBranding  Json?
-  instaConnectCaptures  InstaConnectCapture[] @relation("AdminInstaConnectCaptures")
+  instaConnectBranding Json?
+  instaConnectCaptures InstaConnectCapture[] @relation("AdminInstaConnectCaptures")
 
   // Admin relationship – users belong to an admin (tenant)
-  adminId              Int?
-  admin                User?             @relation("AdminUsers", fields: [adminId], references: [id])
-  users                User[]            @relation("AdminUsers")
+  adminId Int?
+  admin   User?  @relation("AdminUsers", fields: [adminId], references: [id])
+  users   User[] @relation("AdminUsers")
 
   // ── Personal-data relations (userId / authorId) ──
-  activityLogs         ActivityLog[]
-  documents            Document[]
-  homeEstimates        HomeEstimate[]    @relation("UserEstimates")
-  properties           Property[]        @relation("UserProperties")
-  propertyAlerts       PropertyAlert[]
-  inquiries            PropertyInquiry[] @relation("UserInquiries")
-  propertyViews        PropertyView[]
-  savedProperties      SavedProperty[]
-  savedSearches        SavedSearch[]
-  signatures           Signature[]
-  viewingRequests      ViewingRequest[]
-  blogPosts            BlogPost[]        @relation("AuthorPosts")
+  activityLogs    ActivityLog[]
+  documents       Document[]
+  homeEstimates   HomeEstimate[]    @relation("UserEstimates")
+  properties      Property[]        @relation("UserProperties")
+  propertyAlerts  PropertyAlert[]
+  inquiries       PropertyInquiry[] @relation("UserInquiries")
+  propertyViews   PropertyView[]
+  savedProperties SavedProperty[]
+  savedSearches   SavedSearch[]
+  signatures      Signature[]
+  viewingRequests ViewingRequest[]
+  blogPosts       BlogPost[]        @relation("AuthorPosts")
 
   // ── Tenant-owned data relations (adminId) ──
   // Records belonging to this admin's tenant
-  tenantProperties         Property[]             @relation("TenantProperties")
-  tenantContentBlocks      ContentBlock[]
-  tenantSettingsRows       Setting[]              @relation("TenantSettingRows")
-  tenantEmailTemplates     EmailTemplate[]
-  tenantTestimonials       Testimonial[]
-  tenantSubscribers        NewsletterSubscriber[]
-  tenantNewsTemplates      NewsletterTemplate[]
-  tenantNewsletters        Newsletter[]
-  tenantAutomations        NewsletterAutomation[]
-  tenantBlogCategories     BlogCategory[]
-  tenantBlogTags           BlogTag[]
-  tenantBlogPosts          BlogPost[]             @relation("TenantPosts")
-  tenantChatLeads          ChatLead[]
-  tenantEstimates          HomeEstimate[]         @relation("TenantEstimates")
-  tenantInquiries          PropertyInquiry[]      @relation("TenantInquiries")
-  tenantSiteSettings       TenantSettings?
+  tenantProperties     Property[]             @relation("TenantProperties")
+  tenantContentBlocks  ContentBlock[]
+  tenantSettingsRows   Setting[]              @relation("TenantSettingRows")
+  tenantEmailTemplates EmailTemplate[]
+  tenantTestimonials   Testimonial[]
+  tenantSubscribers    NewsletterSubscriber[]
+  tenantNewsTemplates  NewsletterTemplate[]
+  tenantNewsletters    Newsletter[]
+  tenantAutomations    NewsletterAutomation[]
+  tenantBlogCategories BlogCategory[]
+  tenantBlogTags       BlogTag[]
+  tenantBlogPosts      BlogPost[]             @relation("TenantPosts")
+  tenantChatLeads      ChatLead[]
+  tenantEstimates      HomeEstimate[]         @relation("TenantEstimates")
+  tenantInquiries      PropertyInquiry[]      @relation("TenantInquiries")
+  tenantSiteSettings   TenantSettings?
 
   // ── New feature relations (tenant-scoped) ──
-  tenantListingTemplates   ListingTemplate[]        @relation("TenantListingTemplates")
-  tenantCrmClients         CrmClient[]              @relation("TenantCrmClients")
-  tenantCrmTransactions    CrmTransaction[]         @relation("TenantCrmTransactions")
-  tenantCalendarEvents     CalendarEvent[]          @relation("TenantCalendarEvents")
-  tenantBookingSlots       BookingSlot[]            @relation("TenantBookingSlots")
-  tenantBookings           Booking[]                @relation("TenantBookings")
-  tenantFacebookIntegration FacebookIntegration?    @relation("TenantFacebookIntegration")
-  tenantFacebookPosts      FacebookPost[]           @relation("TenantFacebookPosts")
-  tenantPriceCutSearches   PriceCutSearch[]         @relation("TenantPriceCutSearches")
-  tenantLeadForms          LeadForm[]               @relation("TenantLeadForms")
-  tenantMarketingResources MarketingResource[]      @relation("TenantMarketingResources")
-  tenantWorkspaceTools     WorkspaceTool[]          @relation("TenantWorkspaceTools")
-  tenantFlashNews          FlashNews[]              @relation("TenantFlashNews")
+  tenantListingTemplates    ListingTemplate[]    @relation("TenantListingTemplates")
+  tenantCrmClients          CrmClient[]          @relation("TenantCrmClients")
+  tenantCrmTransactions     CrmTransaction[]     @relation("TenantCrmTransactions")
+  tenantCalendarEvents      CalendarEvent[]      @relation("TenantCalendarEvents")
+  tenantBookingSlots        BookingSlot[]        @relation("TenantBookingSlots")
+  tenantBookings            Booking[]            @relation("TenantBookings")
+  tenantFacebookIntegration FacebookIntegration? @relation("TenantFacebookIntegration")
+  tenantFacebookPosts       FacebookPost[]       @relation("TenantFacebookPosts")
+  tenantPriceCutSearches    PriceCutSearch[]     @relation("TenantPriceCutSearches")
+  tenantLeadForms           LeadForm[]           @relation("TenantLeadForms")
+  tenantMarketingResources  MarketingResource[]  @relation("TenantMarketingResources")
+  tenantWorkspaceTools      WorkspaceTool[]      @relation("TenantWorkspaceTools")
+  tenantFlashNews           FlashNews[]          @relation("TenantFlashNews")
 
   // ── Bookkeeping relations (tenant-scoped) ──
-  tenantBkExpenses         BkExpense[]              @relation("TenantBkExpenses")
-  tenantBkRevenues         BkRevenue[]              @relation("TenantBkRevenues")
-  tenantBkEmployees        BkEmployee[]             @relation("TenantBkEmployees")
-  tenantBkPayrollPayments  BkPayrollPayment[]       @relation("TenantBkPayrollPayments")
+  tenantBkExpenses        BkExpense[]        @relation("TenantBkExpenses")
+  tenantBkRevenues        BkRevenue[]        @relation("TenantBkRevenues")
+  tenantBkEmployees       BkEmployee[]       @relation("TenantBkEmployees")
+  tenantBkPayrollPayments BkPayrollPayment[] @relation("TenantBkPayrollPayments")
 
   @@index([adminId])
 }
@@ -133,47 +133,47 @@ model User {
 // ═══════════════════════════════════════════════════════════════
 
 model TenantSettings {
-  id               Int      @id @default(autoincrement())
-  adminId          Int      @unique
-  admin            User     @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  id      Int  @id @default(autoincrement())
+  adminId Int  @unique
+  admin   User @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
   // Branding
-  businessName     String?          // "DeelBot"
-  tagline          String?          // Displayed under logo
-  logoUrl          String?
-  faviconUrl       String?
-  primaryColor     String?          @default("#1976D2")
+  businessName String? // "DeelBot"
+  tagline      String? // Displayed under logo
+  logoUrl      String?
+  faviconUrl   String?
+  primaryColor String? @default("#1976D2")
 
   // Contact
-  phone            String?
-  email            String?
-  address          String?
-  city             String?
-  province         String?
-  postalCode       String?
+  phone      String?
+  email      String?
+  address    String?
+  city       String?
+  province   String?
+  postalCode String?
 
   // Social links  [{icon,name,url}]
-  socialLinks      Json?
+  socialLinks Json?
 
   // Brokerage
   brokerageName    String?
   brokerageLogoUrl String?
 
   // External review links
-  googleReviewUrl  String?
+  googleReviewUrl String?
 
   // Footer / legal
-  footerDisclaimer String?          @db.Text
+  footerDisclaimer String? @db.Text
   copyrightName    String?
   developerName    String?
   developerUrl     String?
 
   // Domain mapping (multi-tenant routing)
-  subdomain        String?          @unique   // acme → acme.realestatehub.ca
-  customDomain     String?          @unique   // acmesrealty.com
+  subdomain    String? @unique // acme → acme.realestatehub.ca
+  customDomain String? @unique // acmesrealty.com
 
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -181,9 +181,9 @@ model TenantSettings {
 // ═══════════════════════════════════════════════════════════════
 
 model Property {
-  id                     Int                   @id @default(autoincrement())
+  id                     Int                    @id @default(autoincrement())
   adminId                Int?
-  admin                  User?                 @relation("TenantProperties", fields: [adminId], references: [id])
+  admin                  User?                  @relation("TenantProperties", fields: [adminId], references: [id])
   title                  String
   description            String
   price                  Float
@@ -201,9 +201,9 @@ model Property {
   features               Json?
   images                 Json
   userId                 Int?
-  createdAt              DateTime              @default(now())
-  updatedAt              DateTime              @updatedAt
-  views                  Int                   @default(0)
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  views                  Int                    @default(0)
   cityRegion             String?
   externalId             String?
   lastSyncAt             DateTime?
@@ -213,7 +213,7 @@ model Property {
   mlsNumber              String?
   parcelNumber           String?
   propertyCondition      String?
-  source                 String                @default("manual")
+  source                 String                 @default("manual")
   stories                Int?
   streetName             String?
   streetNumber           String?
@@ -230,8 +230,15 @@ model Property {
   listingOfficeData      Json?
   daysOnMarket           Int?
   originalEntryTimestamp DateTime?
-  firstEntryPrice        Float?                // Price when first synced – never updated after creation
-  user                   User?                 @relation("UserProperties", fields: [userId], references: [id])
+  firstEntryPrice        Float? // Price when first synced – never updated after creation
+  // True original/previous list prices straight from the MLS feed (RESO standard).
+  // These let the "Best Deals" page detect reductions that happened BEFORE we
+  // first ingested a listing — `firstEntryPrice` only captures changes that
+  // occurred after the property was already in our DB.
+  originalListPrice      Float? // MLS OriginalListPrice — the very first asking price
+  previousListPrice      Float? // MLS PreviousListPrice — the asking price before the most recent change
+  priceChangeTimestamp   DateTime? // MLS PriceChangeTimestamp / MajorChangeTimestamp for the most recent price move
+  user                   User?                  @relation("UserProperties", fields: [userId], references: [id])
   inquiries              PropertyInquiry[]
   neighborhood           PropertyNeighborhood?
   propertyViews          PropertyView[]
@@ -504,32 +511,32 @@ model ChatLead {
 // ═══════════════════════════════════════════════════════════════
 
 model InstaConnectCapture {
-  id           Int      @id @default(autoincrement())
-  adminId      Int
-  admin        User     @relation("AdminInstaConnectCaptures", fields: [adminId], references: [id], onDelete: Cascade)
+  id      Int  @id @default(autoincrement())
+  adminId Int
+  admin   User @relation("AdminInstaConnectCaptures", fields: [adminId], references: [id], onDelete: Cascade)
 
-  firstName    String
-  lastName     String
-  email        String
-  phone        String
-  company      String?
-  interest     String?  // buying | selling | renting | connecting
-  message      String?  @db.Text
-  consent      Boolean  @default(false)
+  firstName String
+  lastName  String
+  email     String
+  phone     String
+  company   String?
+  interest  String? // buying | selling | renting | connecting
+  message   String? @db.Text
+  consent   Boolean @default(false)
 
   // pending → accepted (promoted to CRM) | rejected
-  status       String   @default("pending")
+  status      String @default("pending")
   // crmClient row created when status flips to accepted
-  crmClientId  Int?
+  crmClientId Int?
 
   // Lightweight provenance
-  userAgent    String?
-  ipHash       String?
-  referrer     String?
+  userAgent String?
+  ipHash    String?
+  referrer  String?
 
-  createdAt    DateTime @default(now())
-  acceptedAt   DateTime?
-  rejectedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  acceptedAt DateTime?
+  rejectedAt DateTime?
 
   @@index([adminId, status, createdAt])
   @@index([adminId, email])
@@ -562,21 +569,21 @@ model ActivityLog {
 // ═══════════════════════════════════════════════════════════════
 
 model Document {
-  id               Int      @id @default(autoincrement())
+  id               Int                  @id @default(autoincrement())
   userId           Int
   name             String
   originalName     String
   type             String
   fileSize         Int
   filePath         String
-  status           String   @default("draft")
-  isSigned         Boolean  @default(false)
+  status           String               @default("draft")
+  isSigned         Boolean              @default(false)
   signatureData    Json?
-  watermarkApplied Boolean  @default(false)
+  watermarkApplied Boolean              @default(false)
   metadata         Json?
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   legalReview      DocumentLegalReview?
   dateAlerts       DocumentDateAlert[]
 
@@ -602,14 +609,14 @@ model DocumentLegalReview {
 }
 
 model DocumentDateAlert {
-  id          Int       @id @default(autoincrement())
-  documentId  Int
-  label       String
-  dueDate     DateTime
-  daysBefore  Int       @default(2)
-  sentAt      DateTime?
-  createdAt   DateTime  @default(now())
-  document    Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  id         Int       @id @default(autoincrement())
+  documentId Int
+  label      String
+  dueDate    DateTime
+  daysBefore Int       @default(2)
+  sentAt     DateTime?
+  createdAt  DateTime  @default(now())
+  document   Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   @@index([documentId])
   @@index([dueDate, sentAt])
@@ -862,10 +869,10 @@ model PropertyPriceHistory {
   id         Int      @id @default(autoincrement())
   propertyId Int
   price      Float
-  event      String   // listed, price_increase, price_decrease, sold
-  changeAmt  Float?   // dollar amount of change
-  changePct  Float?   // percentage change
-  source     String?  // crea, pillar9, manual
+  event      String // listed, price_increase, price_decrease, sold
+  changeAmt  Float? // dollar amount of change
+  changePct  Float? // percentage change
+  source     String? // crea, pillar9, manual
   createdAt  DateTime @default(now())
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
@@ -886,16 +893,16 @@ model ListingTemplate {
   propertyAddress String?
   description     String?  @db.Text
   aiDescription   String?  @db.Text
-  theme           String   @default("luxury")   // luxury, modern, classic, minimal
+  theme           String   @default("luxury") // luxury, modern, classic, minimal
   primaryColor    String?  @default("#1a1a2e")
   accentColor     String?  @default("#c9a96e")
   fontFamily      String?  @default("Playfair Display")
-  images          Json?    // [{url, caption, type: 'hero'|'gallery'|'floorplan', order}]
-  floorPlans      Json?    // [{url, label}]
+  images          Json? // [{url, caption, type: 'hero'|'gallery'|'floorplan', order}]
+  floorPlans      Json? // [{url, label}]
   brandingLogo    String?
-  features        Json?    // highlight features
+  features        Json? // highlight features
   layout          String   @default("hero-gallery") // hero-gallery, slideshow, grid, split
-  status          String   @default("draft")  // draft, published
+  status          String   @default("draft") // draft, published
   slug            String?
   views           Int      @default(0)
   createdBy       Int?
@@ -918,7 +925,9 @@ model WorkspaceTool {
   slug        String
   description String?  @db.Text
   icon        String   @default("mdi-draw")
-  /** whiteboard = Excalidraw scene in sceneData */
+  /**
+   * whiteboard = Excalidraw scene in sceneData
+   */
   kind        String   @default("whiteboard")
   sceneData   Json?
   sortOrder   Int      @default(0)
@@ -935,22 +944,22 @@ model WorkspaceTool {
 // ═══════════════════════════════════════════════════════════════
 
 model CrmClient {
-  id          Int      @id @default(autoincrement())
-  adminId     Int?
-  admin       User?    @relation("TenantCrmClients", fields: [adminId], references: [id])
-  firstName   String
-  lastName    String
-  email       String?
-  phone       String?
-  type        String   // buyer, seller, investor, lead
-  status      String   @default("active")  // active, inactive, closed
-  source      String?  // inquiry, chat, estimate, referral, manual
-  sourceId    Int?     // link to original lead record
-  notes       String?  @db.Text
-  tags        Json?
-  metadata    Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           Int              @id @default(autoincrement())
+  adminId      Int?
+  admin        User?            @relation("TenantCrmClients", fields: [adminId], references: [id])
+  firstName    String
+  lastName     String
+  email        String?
+  phone        String?
+  type         String // buyer, seller, investor, lead
+  status       String           @default("active") // active, inactive, closed
+  source       String? // inquiry, chat, estimate, referral, manual
+  sourceId     Int? // link to original lead record
+  notes        String?          @db.Text
+  tags         Json?
+  metadata     Json?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
   transactions CrmTransaction[]
 
   @@unique([adminId, email])
@@ -958,45 +967,45 @@ model CrmClient {
 }
 
 model CrmTransaction {
-  id            Int      @id @default(autoincrement())
-  adminId       Int?
-  admin         User?    @relation("TenantCrmTransactions", fields: [adminId], references: [id])
-  clientId      Int
-  client        CrmClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  propertyId    Int?
-  type          String   // buying, selling
-  status        String   @default("active")  // active, conditional, firm, closed, cancelled
+  id              Int                @id @default(autoincrement())
+  adminId         Int?
+  admin           User?              @relation("TenantCrmTransactions", fields: [adminId], references: [id])
+  clientId        Int
+  client          CrmClient          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  propertyId      Int?
+  type            String // buying, selling
+  status          String             @default("active") // active, conditional, firm, closed, cancelled
   propertyAddress String?
-  salePrice     Float?
-  closingDate   DateTime?
-  possessionDate DateTime?
-  notes         String?  @db.Text
-  progress      Float    @default(0) // 0-100 percentage
-  currentStage  String?
-  metadata      Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  checklist     CrmChecklistItem[]
+  salePrice       Float?
+  closingDate     DateTime?
+  possessionDate  DateTime?
+  notes           String?            @db.Text
+  progress        Float              @default(0) // 0-100 percentage
+  currentStage    String?
+  metadata        Json?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  checklist       CrmChecklistItem[]
 
   @@index([adminId, status])
   @@index([clientId])
 }
 
 model CrmChecklistItem {
-  id            Int       @id @default(autoincrement())
+  id            Int            @id @default(autoincrement())
   transactionId Int
   transaction   CrmTransaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
   label         String
   description   String?
-  isCompleted   Boolean   @default(false)
+  isCompleted   Boolean        @default(false)
   completedAt   DateTime?
   completedBy   Int?
-  sortOrder     Int       @default(0)
+  sortOrder     Int            @default(0)
   dueDate       DateTime?
-  isRequired    Boolean   @default(true)
-  category      String?   // pre-approval, showing, offer, conditions, closing
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  isRequired    Boolean        @default(true)
+  category      String? // pre-approval, showing, offer, conditions, closing
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
 
   @@index([transactionId, sortOrder])
 }
@@ -1011,16 +1020,16 @@ model CalendarEvent {
   admin       User?     @relation("TenantCalendarEvents", fields: [adminId], references: [id])
   title       String
   description String?   @db.Text
-  type        String    // task, meeting, showing, open_house, reminder, personal
+  type        String // task, meeting, showing, open_house, reminder, personal
   startTime   DateTime
   endTime     DateTime?
   allDay      Boolean   @default(false)
   location    String?
   color       String?
   status      String    @default("scheduled") // scheduled, completed, cancelled
-  priority    String?   @default("normal")    // low, normal, high, urgent
-  reminders   Json?     // [{type: 'email'|'push', minutesBefore: 30}]
-  recurrence  Json?     // {frequency, interval, endDate}
+  priority    String?   @default("normal") // low, normal, high, urgent
+  reminders   Json? // [{type: 'email'|'push', minutesBefore: 30}]
+  recurrence  Json? // {frequency, interval, endDate}
   propertyId  Int?
   clientId    Int?
   isPublic    Boolean   @default(false)
@@ -1034,45 +1043,45 @@ model CalendarEvent {
 }
 
 model BookingSlot {
-  id          Int       @id @default(autoincrement())
-  adminId     Int?
-  admin       User?     @relation("TenantBookingSlots", fields: [adminId], references: [id])
-  dayOfWeek   Int?      // 0-6 (Sun-Sat), null for specific dates
+  id           Int       @id @default(autoincrement())
+  adminId      Int?
+  admin        User?     @relation("TenantBookingSlots", fields: [adminId], references: [id])
+  dayOfWeek    Int? // 0-6 (Sun-Sat), null for specific dates
   specificDate DateTime? // for one-off slots
-  startTime   String    // HH:mm format
-  endTime     String    // HH:mm format
-  duration    Int       @default(30) // minutes per booking
-  maxBookings Int       @default(1)
-  isActive    Boolean   @default(true)
-  propertyId  Int?      // if slot is property-specific
-  label       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  startTime    String // HH:mm format
+  endTime      String // HH:mm format
+  duration     Int       @default(30) // minutes per booking
+  maxBookings  Int       @default(1)
+  isActive     Boolean   @default(true)
+  propertyId   Int? // if slot is property-specific
+  label        String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([adminId, dayOfWeek, isActive])
   @@index([adminId, specificDate])
 }
 
 model Booking {
-  id          Int       @id @default(autoincrement())
-  adminId     Int?
-  admin       User?     @relation("TenantBookings", fields: [adminId], references: [id])
-  slotId      Int?
-  clientName  String
-  clientEmail String
-  clientPhone String?
-  propertyId  Int?
-  dateTime    DateTime
-  endTime     DateTime?
-  duration    Int       @default(30)
-  status      String    @default("confirmed") // confirmed, cancelled, completed, no_show
-  type        String    @default("showing")   // showing, consultation, open_house
-  notes       String?   @db.Text
-  confirmationSent Boolean @default(false)
-  reminderSent     Boolean @default(false)
-  metadata    Json?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id               Int       @id @default(autoincrement())
+  adminId          Int?
+  admin            User?     @relation("TenantBookings", fields: [adminId], references: [id])
+  slotId           Int?
+  clientName       String
+  clientEmail      String
+  clientPhone      String?
+  propertyId       Int?
+  dateTime         DateTime
+  endTime          DateTime?
+  duration         Int       @default(30)
+  status           String    @default("confirmed") // confirmed, cancelled, completed, no_show
+  type             String    @default("showing") // showing, consultation, open_house
+  notes            String?   @db.Text
+  confirmationSent Boolean   @default(false)
+  reminderSent     Boolean   @default(false)
+  metadata         Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   @@index([adminId, dateTime])
   @@index([adminId, status])
@@ -1091,9 +1100,9 @@ model FacebookIntegration {
   pageAccessToken String?   @db.Text
   pageId          String?
   pageName        String?
-  userId          String?   // Facebook user ID
+  userId          String? // Facebook user ID
   userName        String?
-  permissions     Json?     // granted permissions
+  permissions     Json? // granted permissions
   tokenExpiry     DateTime?
   isActive        Boolean   @default(true)
   adAccountId     String?
@@ -1102,24 +1111,24 @@ model FacebookIntegration {
 }
 
 model FacebookPost {
-  id          Int       @id @default(autoincrement())
-  adminId     Int?
-  admin       User?     @relation("TenantFacebookPosts", fields: [adminId], references: [id])
-  propertyId  Int?
-  postId      String?   // Facebook post ID
-  content     String    @db.Text
-  images      Json?     // image URLs posted
-  link        String?
-  status      String    @default("draft") // draft, scheduled, posted, failed
+  id           Int       @id @default(autoincrement())
+  adminId      Int?
+  admin        User?     @relation("TenantFacebookPosts", fields: [adminId], references: [id])
+  propertyId   Int?
+  postId       String? // Facebook post ID
+  content      String    @db.Text
+  images       Json? // image URLs posted
+  link         String?
+  status       String    @default("draft") // draft, scheduled, posted, failed
   scheduledFor DateTime?
-  postedAt    DateTime?
+  postedAt     DateTime?
   errorMessage String?
-  engagement  Json?     // {likes, comments, shares}
-  postType    String    @default("listing") // listing, campaign, custom
-  metadata    Json?
-  createdBy   Int?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  engagement   Json? // {likes, comments, shares}
+  postType     String    @default("listing") // listing, campaign, custom
+  metadata     Json?
+  createdBy    Int?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([adminId, status])
   @@index([propertyId])
@@ -1130,16 +1139,16 @@ model FacebookPost {
 // ═══════════════════════════════════════════════════════════════
 
 model PriceCutSearch {
-  id         Int       @id @default(autoincrement())
-  adminId    Int?
-  admin      User?     @relation("TenantPriceCutSearches", fields: [adminId], references: [id])
-  name       String
-  filters    Json      // {city, community, area, propertyType, minDrop, maxPrice}
-  resultCount Int      @default(0)
-  lastRunAt  DateTime?
-  isActive   Boolean   @default(true)
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          Int       @id @default(autoincrement())
+  adminId     Int?
+  admin       User?     @relation("TenantPriceCutSearches", fields: [adminId], references: [id])
+  name        String
+  filters     Json // {city, community, area, propertyType, minDrop, maxPrice}
+  resultCount Int       @default(0)
+  lastRunAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([adminId, isActive])
 }
@@ -1149,27 +1158,27 @@ model PriceCutSearch {
 // ═══════════════════════════════════════════════════════════════
 
 model BkExpense {
-  id              Int       @id @default(autoincrement())
-  adminId         Int?
-  admin           User?     @relation("TenantBkExpenses", fields: [adminId], references: [id])
-  vendor          String
-  receiptNumber   String?
-  date            DateTime
-  subtotal        Float
-  gstAmount       Float     @default(0)
-  hstAmount       Float     @default(0)
-  pstAmount       Float     @default(0)
-  taxAmount       Float     @default(0)
-  total           Float
-  category        String    @default("general")
-  description     String?
-  receiptUrl      String?
-  paymentMethod   String?   // cash, credit, debit, etransfer, cheque
-  isReconciled    Boolean   @default(false)
-  ocrRawData      Json?     // raw OCR extraction for debugging
-  createdBy       Int?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            Int      @id @default(autoincrement())
+  adminId       Int?
+  admin         User?    @relation("TenantBkExpenses", fields: [adminId], references: [id])
+  vendor        String
+  receiptNumber String?
+  date          DateTime
+  subtotal      Float
+  gstAmount     Float    @default(0)
+  hstAmount     Float    @default(0)
+  pstAmount     Float    @default(0)
+  taxAmount     Float    @default(0)
+  total         Float
+  category      String   @default("general")
+  description   String?
+  receiptUrl    String?
+  paymentMethod String? // cash, credit, debit, etransfer, cheque
+  isReconciled  Boolean  @default(false)
+  ocrRawData    Json? // raw OCR extraction for debugging
+  createdBy     Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([adminId, date])
   @@index([adminId, category])
@@ -1180,21 +1189,21 @@ model BkExpense {
 // ═══════════════════════════════════════════════════════════════
 
 model BkRevenue {
-  id              Int       @id @default(autoincrement())
-  adminId         Int?
-  admin           User?     @relation("TenantBkRevenues", fields: [adminId], references: [id])
-  source          String    @default("manual") // manual, commission, listing, referral
-  listingId       Int?
-  date            DateTime
-  amount          Float
-  category        String    @default("commission")
-  description     String?
-  clientName      String?
-  invoiceNumber   String?
-  isReconciled    Boolean   @default(false)
-  createdBy       Int?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id            Int      @id @default(autoincrement())
+  adminId       Int?
+  admin         User?    @relation("TenantBkRevenues", fields: [adminId], references: [id])
+  source        String   @default("manual") // manual, commission, listing, referral
+  listingId     Int?
+  date          DateTime
+  amount        Float
+  category      String   @default("commission")
+  description   String?
+  clientName    String?
+  invoiceNumber String?
+  isReconciled  Boolean  @default(false)
+  createdBy     Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([adminId, date])
   @@index([adminId, category])
@@ -1205,23 +1214,23 @@ model BkRevenue {
 // ═══════════════════════════════════════════════════════════════
 
 model BkEmployee {
-  id              Int       @id @default(autoincrement())
-  adminId         Int?
-  admin           User?     @relation("TenantBkEmployees", fields: [adminId], references: [id])
-  name            String
-  email           String?
-  role            String?
-  salaryType      String    @default("hourly") // hourly, fixed
-  hourlyRate      Float?
-  fixedSalary     Float?
-  province        String    @default("AB")
-  startDate       DateTime  @default(now())
-  isActive        Boolean   @default(true)
-  isSelf          Boolean   @default(false)
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  id          Int      @id @default(autoincrement())
+  adminId     Int?
+  admin       User?    @relation("TenantBkEmployees", fields: [adminId], references: [id])
+  name        String
+  email       String?
+  role        String?
+  salaryType  String   @default("hourly") // hourly, fixed
+  hourlyRate  Float?
+  fixedSalary Float?
+  province    String   @default("AB")
+  startDate   DateTime @default(now())
+  isActive    Boolean  @default(true)
+  isSelf      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  payments        BkPayrollPayment[]
+  payments BkPayrollPayment[]
 
   @@index([adminId, isActive])
 }
@@ -1231,23 +1240,23 @@ model BkEmployee {
 // ═══════════════════════════════════════════════════════════════
 
 model BkPayrollPayment {
-  id                  Int       @id @default(autoincrement())
-  adminId             Int?
-  admin               User?     @relation("TenantBkPayrollPayments", fields: [adminId], references: [id])
-  employeeId          Int
-  employee            BkEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  payDate             DateTime
-  periodStart         DateTime?
-  periodEnd           DateTime?
-  hoursWorked         Float?
-  grossAmount         Float
-  cppDeduction        Float     @default(0)
-  eiDeduction         Float     @default(0)
-  incomeTaxDeduction  Float     @default(0)
-  otherDeductions     Float     @default(0)
-  netAmount           Float
-  notes               String?
-  createdAt           DateTime  @default(now())
+  id                 Int        @id @default(autoincrement())
+  adminId            Int?
+  admin              User?      @relation("TenantBkPayrollPayments", fields: [adminId], references: [id])
+  employeeId         Int
+  employee           BkEmployee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payDate            DateTime
+  periodStart        DateTime?
+  periodEnd          DateTime?
+  hoursWorked        Float?
+  grossAmount        Float
+  cppDeduction       Float      @default(0)
+  eiDeduction        Float      @default(0)
+  incomeTaxDeduction Float      @default(0)
+  otherDeductions    Float      @default(0)
+  netAmount          Float
+  notes              String?
+  createdAt          DateTime   @default(now())
 
   @@index([adminId, payDate])
   @@index([employeeId])
@@ -1311,7 +1320,9 @@ model MarketingResource {
   publicSlug       String   @unique
   title            String
   description      String?  @db.Text
-  /** Filename only; files live under storage/marketing-resources (not web-public). */
+  /**
+   * Filename only; files live under storage/marketing-resources (not web-public).
+   */
   storageKey       String
   originalFileName String
   mimeType         String
@@ -1349,20 +1360,20 @@ model ResourceDownloadLead {
 // ═══════════════════════════════════════════════════════════════
 
 model FlashNews {
-  id          Int       @id @default(autoincrement())
-  adminId     Int
-  admin       User      @relation("TenantFlashNews", fields: [adminId], references: [id], onDelete: Cascade)
-  headline    String
-  slug        String
-  content     String    @db.Text
-  ctaLabel    String?
-  ctaUrl      String?
-  published   Boolean   @default(false)
-  sortOrder   Int       @default(0)
-  startsAt    DateTime?
-  expiresAt   DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id        Int       @id @default(autoincrement())
+  adminId   Int
+  admin     User      @relation("TenantFlashNews", fields: [adminId], references: [id], onDelete: Cascade)
+  headline  String
+  slug      String
+  content   String    @db.Text
+  ctaLabel  String?
+  ctaUrl    String?
+  published Boolean   @default(false)
+  sortOrder Int       @default(0)
+  startsAt  DateTime?
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@unique([adminId, slug])
   @@index([adminId])

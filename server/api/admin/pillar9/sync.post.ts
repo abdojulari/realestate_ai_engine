@@ -290,40 +290,67 @@ async function runSyncInBackground(params: any) {
             if (!transformedProperty) { syncProgress.stats.skipped++; continue }
 
             if (deduplicateWithCrea && transformedProperty.mlsNumber) {
-              const existingCrea = await prisma.property.findFirst({
+              const existingCrea: any = await prisma.property.findFirst({
                 where: { source: 'crea', mlsNumber: transformedProperty.mlsNumber }
               })
               if (existingCrea) {
                 const p9Status = transformedProperty.status as string
                 const statusUpdateNeeded = ['sold', 'terminated', 'withdrawn', 'expired'].includes(p9Status)
                   && existingCrea.status !== p9Status
-                if (statusUpdateNeeded) {
+
+                // Opportunistically backfill MLS-native price fields on the
+                // CREA-owned row when they're missing or stale. We never
+                // overwrite CREA's `price` from Pillar9 here — CREA is the
+                // authoritative price feed for active listings — but if Pillar9
+                // exposes the original / previous list price and CREA hasn't,
+                // this is the cheapest way to make the Best Deals page work for
+                // legacy rows that pre-date this column.
+                const p9OriginalListPrice = (transformedProperty as any).originalListPrice as number | null | undefined
+                const p9PreviousListPrice = (transformedProperty as any).previousListPrice as number | null | undefined
+                const p9PriceChangeTs = (transformedProperty as any).priceChangeTimestamp as Date | null | undefined
+                const priceFieldUpdate: Record<string, any> = {}
+                if (existingCrea.originalListPrice == null && typeof p9OriginalListPrice === 'number') {
+                  priceFieldUpdate.originalListPrice = p9OriginalListPrice
+                }
+                if (existingCrea.previousListPrice == null && typeof p9PreviousListPrice === 'number') {
+                  priceFieldUpdate.previousListPrice = p9PreviousListPrice
+                }
+                if (existingCrea.priceChangeTimestamp == null && p9PriceChangeTs instanceof Date) {
+                  priceFieldUpdate.priceChangeTimestamp = p9PriceChangeTs
+                }
+
+                if (statusUpdateNeeded || Object.keys(priceFieldUpdate).length > 0) {
                   try {
-                    const updateData: any = { status: p9Status, lastSyncAt: new Date() }
-                    if (p9Status === 'sold' && transformedProperty.features) {
-                      const existingFeatures = typeof existingCrea.features === 'string'
-                        ? JSON.parse(existingCrea.features || '{}')
-                        : (existingCrea as any).features || {}
-                      const p9Features = typeof transformedProperty.features === 'string'
-                        ? JSON.parse(transformedProperty.features as string)
-                        : transformedProperty.features
-                      updateData.features = {
-                        ...existingFeatures,
-                        closeDate: (p9Features as any)?.closeDate || null,
-                        closePrice: (p9Features as any)?.closePrice || null,
-                        statusChangeTimestamp: new Date().toISOString(),
+                    const updateData: any = { ...priceFieldUpdate, lastSyncAt: new Date() }
+                    if (statusUpdateNeeded) {
+                      updateData.status = p9Status
+                      if (p9Status === 'sold' && transformedProperty.features) {
+                        const existingFeatures = typeof existingCrea.features === 'string'
+                          ? JSON.parse(existingCrea.features || '{}')
+                          : (existingCrea as any).features || {}
+                        const p9Features = typeof transformedProperty.features === 'string'
+                          ? JSON.parse(transformedProperty.features as string)
+                          : transformedProperty.features
+                        updateData.features = {
+                          ...existingFeatures,
+                          closeDate: (p9Features as any)?.closeDate || null,
+                          closePrice: (p9Features as any)?.closePrice || null,
+                          statusChangeTimestamp: new Date().toISOString(),
+                        }
+                        if ((p9Features as any)?.closePrice) updateData.price = (p9Features as any).closePrice
                       }
-                      if ((p9Features as any)?.closePrice) updateData.price = (p9Features as any).closePrice
                     }
                     await prisma.property.update({ where: { id: existingCrea.id }, data: updateData })
-                    if (p9Status === 'sold') {
+                    if (statusUpdateNeeded && p9Status === 'sold') {
                       await (prisma as any).propertyPriceHistory.create({
                         data: { propertyId: existingCrea.id, price: existingCrea.price, event: 'sold', source: 'pillar9' }
                       }).catch(() => {})
                     }
-                    syncProgress.stats.updated++
-                    const sKey = statusToKey(status)
-                    if (syncProgress.stats.byStatus[sKey]) syncProgress.stats.byStatus[sKey]!.updated++
+                    if (statusUpdateNeeded) {
+                      syncProgress.stats.updated++
+                      const sKey = statusToKey(status)
+                      if (syncProgress.stats.byStatus[sKey]) syncProgress.stats.byStatus[sKey]!.updated++
+                    }
                   } catch (_err) { /* non-critical */ }
                 }
                 syncProgress.stats.duplicates++

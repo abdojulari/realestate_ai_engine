@@ -7,6 +7,11 @@ interface Pillar9Property {
   PropertySubType?: string
   PropertyType?: string
   ListPrice: number | null
+  OriginalListPrice?: number | null
+  PreviousListPrice?: number | null
+  PriceChangeTimestamp?: string | null
+  MajorChangeTimestamp?: string | null
+  MajorChangeType?: string | null
   ClosePrice?: number | null
   BedroomsTotal: number | null
   BathroomsTotalInteger: number | null
@@ -347,8 +352,16 @@ class Pillar9Service {
     const defaultSelect = [
       // Core identifiers
       'ListingId', 'ListingKeyNumeric', 'MlsStatus',
-      // Pricing
+      // Pricing — incl. RESO standard original / previous list prices so the
+      // Best Deals page can detect reductions that happened before we started
+      // tracking the listing. Matrix returns null for any of these the board
+      // doesn't publish, so they're safe to request unconditionally.
       'ListPrice',
+      'OriginalListPrice',
+      'PreviousListPrice',
+      'PriceChangeTimestamp',
+      'MajorChangeTimestamp',
+      'MajorChangeType',
       // Rooms & size
       'BedroomsTotal', 'BathroomsTotalInteger',
       'LivingAreaSF',
@@ -638,6 +651,14 @@ class Pillar9Service {
         ? Math.floor((Date.now() - new Date(p9Prop.ListDate).getTime()) / (1000 * 60 * 60 * 24))
         : null),
       originalEntryTimestamp: p9Prop.ListDate ? new Date(p9Prop.ListDate) : null,
+
+      // RESO standard MLS price tracking — surfaces reductions that pre-date
+      // our first ingest (used by Best Deals page).
+      originalListPrice: typeof p9Prop.OriginalListPrice === 'number' ? p9Prop.OriginalListPrice : null,
+      previousListPrice: typeof p9Prop.PreviousListPrice === 'number' ? p9Prop.PreviousListPrice : null,
+      priceChangeTimestamp: p9Prop.PriceChangeTimestamp
+        ? new Date(p9Prop.PriceChangeTimestamp)
+        : (p9Prop.MajorChangeTimestamp ? new Date(p9Prop.MajorChangeTimestamp) : null),
 
       // Agent data (simplified - Pillar9 provides less agent detail than CREA)
       listingAgentData: p9Prop.ListAgentFullName ? {

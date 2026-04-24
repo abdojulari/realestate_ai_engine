@@ -27,6 +27,11 @@ interface CreaProperty {
   
   // Pricing & Lease Information
   ListPrice: number | null
+  OriginalListPrice?: number | null
+  PreviousListPrice?: number | null
+  PriceChangeTimestamp?: string | null
+  MajorChangeTimestamp?: string | null
+  MajorChangeType?: string | null
   LeaseAmount?: number | null
   LeaseAmountFrequency?: string
   LeasePerUnit?: string
@@ -1025,6 +1030,14 @@ class CreaService {
       daysOnMarket: creaProp.OriginalEntryTimestamp 
         ? Math.floor((Date.now() - new Date(creaProp.OriginalEntryTimestamp).getTime()) / (1000 * 60 * 60 * 24))
         : null,
+
+      // RESO standard MLS price tracking — surfaces reductions that pre-date
+      // our first ingest of the listing (used by Best Deals page).
+      originalListPrice: typeof creaProp.OriginalListPrice === 'number' ? creaProp.OriginalListPrice : null,
+      previousListPrice: typeof creaProp.PreviousListPrice === 'number' ? creaProp.PreviousListPrice : null,
+      priceChangeTimestamp: creaProp.PriceChangeTimestamp
+        ? new Date(creaProp.PriceChangeTimestamp)
+        : (creaProp.MajorChangeTimestamp ? new Date(creaProp.MajorChangeTimestamp) : null),
       
       // Store raw agent and office data for detailed display
       listingAgentData: agentData?.listingAgent ? {
