@@ -15,7 +15,12 @@ set -euo pipefail
 
 export TZ="America/Edmonton"
 
-APP_DIR="opt/apps/suhani"
+# Resolve APP_DIR from the script's own location so the script works no
+# matter what cwd it's invoked from (cron, manual, /root, /tmp, anywhere).
+# Previous behavior used a relative path which silently broke when the
+# script was run from any cwd that wasn't the parent of opt/apps/suhani.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APP_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_DIR="${APP_DIR}/logs"
 TIMESTAMP=$(date '+%Y-%m-%d_%H-%M-%S')
 RETENTION_DAYS=14
@@ -49,23 +54,28 @@ echo "  Node     : ${NODE} ($(${NODE} --version))"
 echo "=========================================="
 
 # --- CREA holistic sync ---
+# We capture the exit code into a dedicated variable BEFORE the next echo,
+# because $(date ...) inside the message would clobber $? — that's how the
+# script previously reported "exited with code 0" on real failures.
 CREA_LOG="${LOG_DIR}/crea-sync-${TIMESTAMP}.log"
 echo ""
 echo "[$(date '+%H:%M:%S')] Starting CREA holistic sync …"
-if "${NODE}" "${APP_DIR}/scripts/holistic-sync.mjs" > "${CREA_LOG}" 2>&1; then
+"${NODE}" "${APP_DIR}/scripts/holistic-sync.mjs" > "${CREA_LOG}" 2>&1 && CREA_RC=0 || CREA_RC=$?
+if [ "${CREA_RC}" -eq 0 ]; then
   echo "[$(date '+%H:%M:%S')] CREA sync completed successfully."
 else
-  echo "[$(date '+%H:%M:%S')] CREA sync exited with code $?. Check ${CREA_LOG}"
+  echo "[$(date '+%H:%M:%S')] CREA sync exited with code ${CREA_RC}. Check ${CREA_LOG}"
 fi
 
 # --- Pillar9 sync ---
 PILLAR9_LOG="${LOG_DIR}/pillar9-sync-${TIMESTAMP}.log"
 echo ""
 echo "[$(date '+%H:%M:%S')] Starting Pillar9 sync …"
-if "${NODE}" "${APP_DIR}/scripts/pillar9-sync.mjs" > "${PILLAR9_LOG}" 2>&1; then
+"${NODE}" "${APP_DIR}/scripts/pillar9-sync.mjs" > "${PILLAR9_LOG}" 2>&1 && PILLAR9_RC=0 || PILLAR9_RC=$?
+if [ "${PILLAR9_RC}" -eq 0 ]; then
   echo "[$(date '+%H:%M:%S')] Pillar9 sync completed successfully."
 else
-  echo "[$(date '+%H:%M:%S')] Pillar9 sync exited with code $?. Check ${PILLAR9_LOG}"
+  echo "[$(date '+%H:%M:%S')] Pillar9 sync exited with code ${PILLAR9_RC}. Check ${PILLAR9_LOG}"
 fi
 
 # --- Cleanup old logs ---
