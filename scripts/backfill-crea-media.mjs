@@ -118,7 +118,7 @@ async function main() {
   console.log(`Max batches: ${opts.maxBatches === Infinity ? 'unlimited' : opts.maxBatches}`)
   console.log('========================================\n')
 
-  const totals = { attempted: 0, updated: 0, noMedia: 0, failed: 0 }
+  const totals = { attempted: 0, updated: 0, noMedia: 0, expired: 0, failed: 0 }
   const startedAt = Date.now()
   let batch = 0
 
@@ -158,12 +158,13 @@ async function main() {
     totals.attempted += s.attempted || 0
     totals.updated += s.updated || 0
     totals.noMedia += s.noMedia || 0
+    totals.expired += s.expired || 0
     totals.failed += s.failed || 0
 
     const elapsed = ((Date.now() - batchStart) / 1000).toFixed(1)
     const totalElapsed = ((Date.now() - startedAt) / 60000).toFixed(1)
     console.log(
-      `Batch ${batch}: attempted=${s.attempted} updated=${s.updated} noMedia=${s.noMedia} failed=${s.failed} (${elapsed}s, total=${totalElapsed}m)`
+      `Batch ${batch}: attempted=${s.attempted} updated=${s.updated} noMedia=${s.noMedia} expired=${s.expired || 0} failed=${s.failed} (${elapsed}s, total=${totalElapsed}m)`
     )
 
     if (s.reasons && s.reasons.length) {
@@ -185,10 +186,11 @@ async function main() {
   console.log('\n========================================')
   console.log('BACKFILL COMPLETE')
   console.log('========================================')
-  console.log(`Total attempted: ${totals.attempted}`)
-  console.log(`Updated:         ${totals.updated}`)
+  console.log(`Total attempted:  ${totals.attempted}`)
+  console.log(`Updated:          ${totals.updated}`)
   console.log(`No media in CREA: ${totals.noMedia}`)
-  console.log(`Failed:          ${totals.failed}`)
+  console.log(`Expired (404):    ${totals.expired}`)
+  console.log(`Failed:           ${totals.failed}`)
   console.log(`Elapsed:         ${totalMin} minutes`)
   console.log('========================================\n')
 

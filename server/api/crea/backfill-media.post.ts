@@ -71,6 +71,7 @@ export default defineEventHandler(async (event) => {
       attempted: properties.length,
       updated: 0,
       noMedia: 0,
+      expired: 0,
       failed: 0,
       reasons: [] as string[],
     }
@@ -167,11 +168,27 @@ export default defineEventHandler(async (event) => {
           await new Promise(r => setTimeout(r, delay))
         }
       } catch (err: any) {
+        const msg = err?.message || String(err)
+
+        // CREA returns 404 when a listing has dropped out of their feed
+        // entirely (sold / withdrawn / expired). Mark the row as expired so
+        // the predicate in this query stops matching it on subsequent runs
+        // AND so the listing stops appearing as for-sale on the site. This
+        // mirrors what backfill-agents.post.ts already does.
+        if (/\b404\b/.test(msg)) {
+          await prisma.property.update({
+            where: { id: prop.id },
+            data: { status: 'expired', lastSyncAt: new Date() },
+          })
+          stats.expired++
+          continue
+        }
+
         stats.failed++
         if (stats.reasons.length < 20) {
-          stats.reasons.push(`${listingKey}: ${err?.message || err}`)
+          stats.reasons.push(`${listingKey}: ${msg}`)
         }
-        console.error(`❌ ${listingKey}:`, err?.message || err)
+        console.error(`❌ ${listingKey}:`, msg)
       }
     }
 
