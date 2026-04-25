@@ -34,6 +34,10 @@ export default defineEventHandler(async (event) => {
     '/api/crea/sync-province',
     '/api/crea/sync-with-agents',
     '/api/crea/count',
+    // One-shot media repair tool driven by scripts/backfill-crea-media.mjs.
+    // Same trust model as the other /api/crea/* sync endpoints above —
+    // gated by being unreachable from the public edge if you're behind nginx.
+    '/api/crea/backfill-media',
     // Service worker endpoints for scheduled CREA sync
     '/api/admin/settings/crea-sync',
     '/api/admin/crea/background-sync',
