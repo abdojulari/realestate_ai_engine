@@ -34,7 +34,7 @@ export default defineEventHandler(async (event) => {
     '/api/crea/sync-province',
     '/api/crea/sync-with-agents',
     '/api/crea/count',
-    // One-shot media repair tool driven by scripts/backfill-crea-media.mjs.
+    // One-shot media repair tool driven by `node scripts/backfill.mjs crea-media`.
     // Same trust model as the other /api/crea/* sync endpoints above —
     // gated by being unreachable from the public edge if you're behind nginx.
     '/api/crea/backfill-media',

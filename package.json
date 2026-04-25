@@ -9,7 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "test": "ts-node tests/test.ts",
-    "check:delegate-sensitive-queries": "node scripts/check-delegate-sensitive-model-queries.mjs",
+    "check:delegate-sensitive-queries": "node scripts/check.mjs delegate-sensitive-queries",
     "db:migrate": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "verdocs:smoke": "tsx scripts/verdocs-live-smoke.ts"

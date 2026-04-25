@@ -254,7 +254,7 @@ npx prisma db seed      # Seed database
 ./scripts/deploy.sh                    # Docker deploy + migrate (default: standalone)
 ./scripts/deploy.sh verify-db          # DB / Prisma checks only (troubleshoot P1000; no rebuild)
 ./scripts/issue-custom-domain-cert.sh  # Let's Encrypt for a tenant custom domain
-node scripts/backfill-tenant-admin-ids.mjs   # One-time tenant adminId backfill
+node scripts/backfill.mjs tenant-admin-ids   # One-time tenant adminId backfill
 node scripts/pillar9-sync.mjs         # Cron: Pillar9 sync (set env secrets)
 node scripts/holistic-sync.mjs        # Cron: CREA holistic sync
 node scripts/database-backup.mjs      # backup | restore | cleanup

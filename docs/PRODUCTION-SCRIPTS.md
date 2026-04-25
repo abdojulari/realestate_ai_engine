@@ -51,12 +51,15 @@ If the control plane lives in a **sibling** checkout (e.g. `Frontends/saas-contr
 
 | Script | When to run | Purpose |
 |--------|-------------|---------|
-| [`scripts/backfill-tenant-admin-ids.mjs`](../scripts/backfill-tenant-admin-ids.mjs) | After introducing tenant-scoped `adminId`, or if legacy rows have `adminId = null` | Sets `adminId` on tenant-scoped models to the **first** `super_admin` / `admin`, and creates **`TenantSettings`** for that user if missing. |
+| [`scripts/backfill.mjs`](../scripts/backfill.mjs) `tenant-admin-ids` | After introducing tenant-scoped `adminId`, or if legacy rows have `adminId = null` | Sets `adminId` on tenant-scoped models to the **first** `super_admin` / `admin`, and creates **`TenantSettings`** for that user if missing. |
+| [`scripts/backfill.mjs`](../scripts/backfill.mjs) `crea-media` | After CREA sync ran with the discard-media bug | Repairs `Property.images` for CREA rows that ended up with empty galleries. Calls `/api/crea/backfill-media` in batches. |
+| [`scripts/backfill.mjs`](../scripts/backfill.mjs) `original-list-price` | One-time fixup for the deals page | Clears bogus `firstEntryPrice` values from the April-10 lazy backfill and seeds `originalListPrice` from `firstEntryPrice` when useful. Idempotent. |
 
 ```bash
 cd /path/to/suhani
 set -a && source .env.production && set +a   # or: export DATABASE_URL=...
-node scripts/backfill-tenant-admin-ids.mjs
+node scripts/backfill.mjs tenant-admin-ids
+node scripts/backfill.mjs --help              # list all subcommands
 ```
 
 Run **once** per environment (or again only if you understand the data impact).
@@ -115,7 +118,8 @@ Example cron (adjust paths and URLs):
 |--------|--------|
 | [`scripts/fresh-sync.mjs`](../scripts/fresh-sync.mjs) | Defaults to `http://localhost:3000`; dev-oriented. Prefer **holistic-sync** with a real API base. |
 | [`scripts/verdocs-live-smoke.ts`](../scripts/verdocs-live-smoke.ts) | Live Verdocs smoke test—typically **staging** or manual QA. |
-| [`scripts/check-delegate-sensitive-model-queries.mjs`](../scripts/check-delegate-sensitive-model-queries.mjs) | CI / local guardrail, not a production runtime task. |
+| [`scripts/check.mjs`](../scripts/check.mjs) `delegate-sensitive-queries` | CI / local guardrail, not a production runtime task. |
+| [`scripts/check.mjs`](../scripts/check.mjs) `prisma-migration-drift` | Local pre-merge sanity check; fails if `prisma/schema.prisma` and applied migrations have diverged. |
 
 ---
 
@@ -124,7 +128,7 @@ Example cron (adjust paths and URLs):
 1. DNS + TLS for control plane and **`*.deelbot.ai`** (see [PRODUCTION-DNS-TLS-AND-CUSTOM-DOMAINS.md](./PRODUCTION-DNS-TLS-AND-CUSTOM-DOMAINS.md)).  
 2. **`./scripts/deploy.sh`** or **`./scripts/deploy.sh stack`**.  
 3. Create first tenant/admin (signup / control plane provisioning).  
-4. If legacy data needs it: **`node scripts/backfill-tenant-admin-ids.mjs`**.  
+4. If legacy data needs it: **`node scripts/backfill.mjs tenant-admin-ids`**.  
 5. Cron: **`pillar9-sync.mjs`** / **`holistic-sync.mjs`** if you use those feeds.  
 6. Cron: **`database-backup.mjs backup`** if you rely on this utility.  
 7. Per custom domain: DNS → **`issue-custom-domain-cert.sh`** → nginx **`custom-domains.conf`** → reload.
@@ -137,7 +141,8 @@ Example cron (adjust paths and URLs):
 |------|------|
 | `scripts/deploy.sh` | Bash — Docker deploy + migrations (standalone / stack / CP) |
 | `scripts/issue-custom-domain-cert.sh` | Bash — Certbot webroot for custom hostnames |
-| `scripts/backfill-tenant-admin-ids.mjs` | Node — one-time tenant adminId / TenantSettings |
+| `scripts/backfill.mjs` | Node — consolidated backfill CLI (subcommands: `tenant-admin-ids`, `crea-media`, `original-list-price`) |
+| `scripts/check.mjs` | Node — consolidated check CLI (subcommands: `delegate-sensitive-queries`, `prisma-migration-drift`) |
 | `scripts/pillar9-sync.mjs` | Node — cron Pillar9 sync |
 | `scripts/holistic-sync.mjs` | Node — cron CREA holistic sync |
 | `scripts/database-backup.mjs` | Node — backup / restore / cleanup |
@@ -145,4 +150,3 @@ Example cron (adjust paths and URLs):
 | `scripts/admin-tools.mjs` | Node — interactive ops |
 | `scripts/fresh-sync.mjs` | Node — dev-oriented CREA sync |
 | `scripts/verdocs-live-smoke.ts` | TypeScript — Verdocs smoke |
-| `scripts/check-delegate-sensitive-model-queries.mjs` | Node — static check |

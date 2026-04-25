@@ -1,5 +1,5 @@
 -- Sync: Prisma `migrate diff` (migrations folder → schema.prisma) with shadow DB.
--- Regenerate if schema drifts: ./scripts/check-prisma-migration-drift.sh
+-- Regenerate if schema drifts: node scripts/check.mjs prisma-migration-drift
 
 -- DropIndex
 DROP INDEX "ContentBlock_key_key";
