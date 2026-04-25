@@ -21,6 +21,7 @@
  *   node --env-file=.env scripts/test-pillar9-direct.mjs --cities=0046,0047
  *   node --env-file=.env scripts/test-pillar9-direct.mjs --status=Closed
  *   node --env-file=.env scripts/test-pillar9-direct.mjs --probe-only
+ *   node --env-file=.env scripts/test-pillar9-direct.mjs --list-statuses
  *
  * Output: ./pillar9-sold-<timestamp>.json (full list + summary)
  *         ./pillar9-sold-<timestamp>.csv  (lightweight per-city counts)
@@ -75,6 +76,18 @@ const ALBERTA_CITY_CODES = [
 // directly while others use abbreviated MlsStatus enums.
 const SOLD_STATUS_CANDIDATES = ['Sold', 'Closed', 'S', 's', 'C', 'SO', 'CL']
 
+// Full Pillar9/Matrix MlsStatus enum we want to probe individually. Mirrors
+// the constant in server/utils/pillar9.service.ts (MLS_STATUSES). Used by
+// `probeAllStatuses` to answer "which MlsStatus values does this tenant
+// actually return data for?" — important because the inference rule for
+// pseudo-sold (pending listing missing from feed → sold) needs to know
+// whether W (Withdrawn) / X (Expired) / T (Terminated) are observable in
+// THIS tenant. If they aren't, we can't distinguish withdrawn from sold and
+// have to live with that false-positive class.
+const STATUS_CANDIDATES = {
+  MlsStatus: ['A', 'P', 'S', 'W', 'X', 'T', 'I'],
+}
+
 // Fields we know every Matrix tenant in this network exposes — verified by
 // the historical version of this script that successfully ran with this
 // exact list. Used for the discovery probe and as the safe baseline if the
@@ -118,6 +131,7 @@ function parseArgs() {
   return {
     help: args.includes('--help') || args.includes('-h'),
     probeOnly: args.includes('--probe-only'),
+    listStatuses: args.includes('--list-statuses'),
     cities: (get('cities') || '').split(',').map(s => s.trim()).filter(Boolean),
     status: get('status'),
     minClose: get('min-close-date'), // ISO date — only export sales newer than this
@@ -133,6 +147,11 @@ Usage:
 
 Options:
   --probe-only             Only run status discovery; don't extract.
+  --list-statuses          Probe every MlsStatus value (A, P, S, W, X, T, I)
+                           and report the row count Pillar9 returns for each.
+                           Use this to confirm whether the tenant exposes
+                           anything beyond Active/Pending (we already know
+                           S is gated; this tells us if W/X/T are too).
   --status=Closed          Skip discovery and use this status directly.
   --cities=0046,0047       Restrict extraction to these city codes.
   --min-close-date=2025-01 Only export sales with CloseDate >= this date.
@@ -140,7 +159,7 @@ Options:
 `)
 }
 
-async function fetchBatch({ filter, top = 200, skip = 0, select = activeSelectFields.join(',') }) {
+async function fetchBatch({ filter, top = 200, skip = 0, select = activeSelectFields.join(','), withCount = false }) {
   const params = new URLSearchParams({
     '$filter': filter,
     '$top': String(top),
@@ -148,6 +167,7 @@ async function fetchBatch({ filter, top = 200, skip = 0, select = activeSelectFi
     '$select': select,
     '$orderby': 'ListingKeyNumeric asc',
   })
+  if (withCount) params.set('$count', 'true')
   const url = `https://${API_HOST}${API_PATH}?${params}`
 
   const start = Date.now()
@@ -162,13 +182,21 @@ async function fetchBatch({ filter, top = 200, skip = 0, select = activeSelectFi
   const elapsed = Date.now() - start
 
   if (res.status === 404) {
-    return { ok: true, status: 404, count: 0, properties: [], elapsed, endOfData: true }
+    return { ok: true, status: 404, count: 0, properties: [], elapsed, endOfData: true, totalCount: 0 }
   }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     return { ok: false, status: res.status, error: text, elapsed, endOfData: false }
   }
   const json = await res.json().catch(() => ({}))
+  // Matrix's OData implementation returns the total count under
+  // `@odata.count` when supported; some installs surface it without the @
+  // prefix or not at all. Normalize to a number, or null when missing so
+  // the caller can fall back to a sample count.
+  const rawCount = json['@odata.count'] ?? json['odata.count'] ?? null
+  const totalCount = typeof rawCount === 'number'
+    ? rawCount
+    : (typeof rawCount === 'string' && /^\d+$/.test(rawCount) ? Number(rawCount) : null)
   return {
     ok: true,
     status: res.status,
@@ -176,6 +204,7 @@ async function fetchBatch({ filter, top = 200, skip = 0, select = activeSelectFi
     properties: json.value || [],
     elapsed,
     endOfData: false,
+    totalCount,
   }
 }
 
@@ -281,11 +310,111 @@ async function tabulateActualStatuses() {
   return sorted.map(([k]) => k)
 }
 
+// Probe every MlsStatus value the documented enum defines and report what
+// Pillar9 actually returns for each. Distinguishes four outcomes per
+// status:
+//   - REJECTED:  Matrix returned an error that isn't the "More than N
+//                results" soft cap, e.g. "is not a valid enumeration
+//                constant". The value isn't in this tenant's schema.
+//   - 0 rows:    Value is in the enum but the feed has no rows with it
+//                (could be permissions or just genuinely empty).
+//   - N rows:    Value works AND the tenant returned data; exact count
+//                because the sample wasn't capped.
+//   - ≥N rows:   Sample hit the 200-row cap or the cap-error sentinel —
+//                the status has at least N rows but probably many more.
+//
+// Why no `$count=true`: Matrix is unreliable about it on this network.
+// `abrls.matrixwebapi.com` either returns
+//   400 "User does not have permission to perform count on this table"
+// or — worse — silently returns `@odata.count = 0` while the same filter
+// has thousands of real matches. We trust the page sample instead, which
+// matches what the existing `discoverSoldStatus` does.
+async function probeAllStatuses() {
+  console.log('--- Probing every MlsStatus value across major Alberta cities ---')
+  const field = 'MlsStatus'
+  const probeCities = ['0046', '0047', '0265'] // Calgary, Airdrie, Edmonton-area
+  const results = []
+
+  for (const status of STATUS_CANDIDATES[field]) {
+    let sampleAcrossCities = 0
+    let anyCapped = false
+    let anyAccepted = false
+    let lastError = null
+
+    for (const city of probeCities) {
+      const filter = `${field} eq '${status}' and City eq '${city}'`
+      const r = await fetchBatch({ filter, top: 200, skip: 0, select: 'ListingId' })
+
+      if (!r.ok) {
+        // "More than N results" is Matrix's soft cap — it means the status
+        // is valid AND has lots of data, just too much for one page. Treat
+        // it as "≥200" rather than rejection.
+        if (r.error && /More than|exceed|too many/i.test(r.error)) {
+          anyAccepted = true
+          anyCapped = true
+          sampleAcrossCities += 200
+          continue
+        }
+        lastError = `${r.status} ${r.error?.substring(0, 200).replace(/\s+/g, ' ').trim()}`
+        continue
+      }
+      anyAccepted = true
+      sampleAcrossCities += r.count
+      if (r.count >= 200) anyCapped = true
+    }
+
+    if (!anyAccepted) {
+      results.push({ status, accepted: false, count: null, capped: false, error: lastError })
+      console.log(`  ${status.padEnd(4)} REJECTED across all probe cities — ${lastError}`)
+      continue
+    }
+
+    results.push({ status, accepted: true, count: sampleAcrossCities, capped: anyCapped, error: null })
+    const label = anyCapped
+      ? `≥${sampleAcrossCities} (sample capped — likely many more)`
+      : `${sampleAcrossCities} rows (across ${probeCities.length} cities)`
+    console.log(`  ${status.padEnd(4)} ${label}`)
+  }
+
+  const withData = results.filter(r => r.accepted && r.count > 0)
+  const acceptedEmpty = results.filter(r => r.accepted && r.count === 0)
+  const rejected = results.filter(r => !r.accepted)
+  console.log()
+  console.log(`  Summary: ${withData.length} status(es) returned data, ${acceptedEmpty.length} accepted but empty, ${rejected.length} rejected.`)
+  if (withData.length > 0) {
+    console.log(`  Pillar9 returns rows for: ${withData.map(r => r.status).join(', ')}`)
+  }
+  if (acceptedEmpty.length > 0) {
+    console.log(`  Accepted but empty (enum valid, no data on this tenant): ${acceptedEmpty.map(r => r.status).join(', ')}`)
+  }
+  if (rejected.length > 0) {
+    console.log(`  Rejected (not in this tenant's enum): ${rejected.map(r => r.status).join(', ')}`)
+  }
+  console.log()
+  return results
+}
+
 // Try each candidate status against a known-rich city until one returns
-// non-empty results. We probe both Calgary (0046) and Edmonton (0047) since
-// some boards split data weirdly across major metros.
-async function discoverSoldStatus() {
+// non-empty results. When `probeResults` from `probeAllStatuses` is passed
+// in, reuse those instead of re-querying. Otherwise probe Calgary (0046)
+// and Edmonton (0047) since some boards split data weirdly across major
+// metros.
+async function discoverSoldStatus(probeResults = null) {
   console.log('--- Discovering sold-status code ---')
+
+  // Reuse the all-statuses probe if we have it — only S maps to sold in
+  // Pillar9's enum; everything else is either active/pending/withdrawn/etc.
+  if (probeResults) {
+    const hit = probeResults.find(r => r.status === 'S' && r.accepted && r.count > 0)
+    if (hit) {
+      const display = hit.capped ? `≥${hit.count}` : `${hit.count}`
+      console.log(`  Reusing probe: MlsStatus='S' → ${display} rows`)
+      return { field: 'MlsStatus', status: 'S' }
+    }
+    console.log("  All-status probe shows MlsStatus='S' is unavailable on this tenant.")
+    console.log('  Falling back to legacy candidate sweep (Sold / Closed / SO / CL / …).')
+  }
+
   const probeCities = ['0046', '0047']
   const working = []
   const rejected = []
@@ -440,12 +569,23 @@ async function run() {
     console.log('   would need a separate VOW/historical contract or a different feed source.\n')
   }
 
+  // Always run the per-status probe — answers "which MlsStatus values does
+  // this tenant return data for?" by hitting Pillar9 with each enum value.
+  // Critical for designing the pseudo-sold inference: anything REJECTED or
+  // empty here can't be used to rule out a "missing pending" listing.
+  const statusProbe = await probeAllStatuses()
+
+  if (opts.listStatuses) {
+    console.log('--list-statuses set; exiting after status probe.')
+    process.exit(0)
+  }
+
   let probe
   if (opts.status) {
     probe = { field: 'MlsStatus', status: opts.status }
     console.log(`Using user-supplied status: ${probe.field}='${probe.status}'\n`)
   } else {
-    probe = await discoverSoldStatus()
+    probe = await discoverSoldStatus(statusProbe)
     if (!probe) {
       console.error('Could not find any working sold-status code. Aborting.')
       process.exit(1)

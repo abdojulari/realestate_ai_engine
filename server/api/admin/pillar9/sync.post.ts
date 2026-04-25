@@ -2,6 +2,16 @@ import { defineEventHandler, readBody, createError, getHeader, getQuery } from '
 import { pillar9Service } from '../../../utils/pillar9.service'
 import { requireAdmin } from '../../../utils/auth'
 import { PrismaClient } from '@prisma/client'
+import {
+  PSEUDO_SOLD_REVERSED_EVENT,
+  REAL_SOLD_EVENT,
+  applyPseudoSoldTransition,
+  makeSeenInRun,
+  parseFeatures,
+  recordSeen,
+  runPendingDisappearanceDiff,
+  stampLastSeen,
+} from '../../../utils/pseudo-sold'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -147,6 +157,23 @@ async function runSyncInBackground(params: any) {
     : ['A', ...(syncSold ? ['S'] : []), ...(syncPending ? ['P'] : []), ...syncStatuses]
 
   const citiesToSync = cityCodes.length > 0 ? cityCodes : pillar9Service.getAlbertaCityCodes()
+
+  // ── Pseudo-sold inference state (per-run, in memory) ─────────────────
+  // Track which {externalId, mlsNumber} pairs Pillar9 actually returned
+  // under each MlsStatus this run. Combined with `lastSeenStatuses` on
+  // each Property row, this lets us infer "was pending, no longer in any
+  // observable status this run → sold" once the city loop completes.
+  // See server/utils/pseudo-sold.ts for the full rationale.
+  const seenInRun = makeSeenInRun()
+  const citiesScopedThisRun = new Set<string>()
+  for (const code of citiesToSync) {
+    // `getCityName` returns the mapped name when known, otherwise the
+    // code itself. Either way, that's what `pillar9Service.transform...`
+    // stores in `Property.city`, so it's the right key to query by.
+    const name = pillar9Service.getCityName(code) || code
+    if (name) citiesScopedThisRun.add(name)
+  }
+  const pseudoSoldRunId = `pillar9-${new Date().toISOString()}-${Math.random().toString(36).slice(2, 8)}`
 
   const byStatus: Record<string, { created: number; updated: number }> = {}
   for (const s of statusesToSync) byStatus[statusToKey(s)] = { created: 0, updated: 0 }
@@ -295,6 +322,32 @@ async function runSyncInBackground(params: any) {
               })
               if (existingCrea) {
                 const p9Status = transformedProperty.status as string
+
+                // Pseudo-sold tracking: stamp `lastSeenStatuses[X]` on the
+                // CREA row so the end-of-run diff can detect "was pending,
+                // no longer in any feed pass" for cross-source listings.
+                // CREA itself never exposes MlsStatus, so this is the only
+                // place we get to record that Pillar9 saw this MLS# under
+                // status X today. Done unconditionally for every dedupe
+                // hit, before anything else, so even no-op dedupes still
+                // refresh the marker.
+                const dedupeExternalId = p9Prop.ListingKeyNumeric != null
+                  ? String(p9Prop.ListingKeyNumeric)
+                  : p9Prop.ListingId
+                recordSeen(seenInRun, status, dedupeExternalId, transformedProperty.mlsNumber)
+
+                const existingCreaFeatures = parseFeatures(existingCrea.features)
+                const stampedFeatures = stampLastSeen(existingCreaFeatures, status)
+                const transition = applyPseudoSoldTransition(stampedFeatures, status)
+                // Reversal: listing came back as A or P after we'd inferred
+                // it sold — undo the inferred sold status on the CREA row
+                // so it shows live again. CREA's mapping for both A and P
+                // is `for_sale` (CREA doesn't have a Pending status of its
+                // own), so that's the status to restore.
+                const reversalStatus = transition.priceHistoryEvent === PSEUDO_SOLD_REVERSED_EVENT
+                  ? 'for_sale'
+                  : null
+
                 const statusUpdateNeeded = ['sold', 'terminated', 'withdrawn', 'expired'].includes(p9Status)
                   && existingCrea.status !== p9Status
 
@@ -319,40 +372,69 @@ async function runSyncInBackground(params: any) {
                   priceFieldUpdate.priceChangeTimestamp = p9PriceChangeTs
                 }
 
-                if (statusUpdateNeeded || Object.keys(priceFieldUpdate).length > 0) {
-                  try {
-                    const updateData: any = { ...priceFieldUpdate, lastSyncAt: new Date() }
-                    if (statusUpdateNeeded) {
-                      updateData.status = p9Status
-                      if (p9Status === 'sold' && transformedProperty.features) {
-                        const existingFeatures = typeof existingCrea.features === 'string'
-                          ? JSON.parse(existingCrea.features || '{}')
-                          : (existingCrea as any).features || {}
-                        const p9Features = typeof transformedProperty.features === 'string'
-                          ? JSON.parse(transformedProperty.features as string)
-                          : transformedProperty.features
-                        updateData.features = {
-                          ...existingFeatures,
-                          closeDate: (p9Features as any)?.closeDate || null,
-                          closePrice: (p9Features as any)?.closePrice || null,
-                          statusChangeTimestamp: new Date().toISOString(),
-                        }
-                        if ((p9Features as any)?.closePrice) updateData.price = (p9Features as any).closePrice
+                // We now always write at least the `lastSeenStatuses`
+                // stamp (and the reversal status when applicable), so the
+                // outer `if` only gates the legacy status/price changes —
+                // the update itself is unconditional.
+                try {
+                  // Start the features payload from `transition.features`
+                  // (which has the fresh stamp baked in and `soldInference`
+                  // cleared if the listing was being un-pseudo-sold).
+                  let mergedFeatures: any = transition.features
+                  const updateData: any = {
+                    ...priceFieldUpdate,
+                    lastSyncAt: new Date(),
+                    features: mergedFeatures,
+                  }
+
+                  if (reversalStatus) {
+                    updateData.status = reversalStatus
+                  }
+
+                  if (statusUpdateNeeded) {
+                    updateData.status = p9Status
+                    if (p9Status === 'sold' && transformedProperty.features) {
+                      const p9Features = typeof transformedProperty.features === 'string'
+                        ? JSON.parse(transformedProperty.features as string)
+                        : transformedProperty.features
+                      mergedFeatures = {
+                        ...mergedFeatures,
+                        closeDate: (p9Features as any)?.closeDate || null,
+                        closePrice: (p9Features as any)?.closePrice || null,
+                        statusChangeTimestamp: new Date().toISOString(),
                       }
+                      updateData.features = mergedFeatures
+                      if ((p9Features as any)?.closePrice) updateData.price = (p9Features as any).closePrice
                     }
-                    await prisma.property.update({ where: { id: existingCrea.id }, data: updateData })
-                    if (statusUpdateNeeded && p9Status === 'sold') {
-                      await (prisma as any).propertyPriceHistory.create({
-                        data: { propertyId: existingCrea.id, price: existingCrea.price, event: 'sold', source: 'pillar9' }
-                      }).catch(() => {})
-                    }
-                    if (statusUpdateNeeded) {
-                      syncProgress.stats.updated++
-                      const sKey = statusToKey(status)
-                      if (syncProgress.stats.byStatus[sKey]) syncProgress.stats.byStatus[sKey]!.updated++
-                    }
-                  } catch (_err) { /* non-critical */ }
-                }
+                  }
+
+                  await prisma.property.update({ where: { id: existingCrea.id }, data: updateData })
+
+                  if (statusUpdateNeeded && p9Status === 'sold') {
+                    await (prisma as any).propertyPriceHistory.create({
+                      data: { propertyId: existingCrea.id, price: existingCrea.price, event: 'sold', source: 'pillar9' }
+                    }).catch(() => {})
+                  }
+                  // Audit the pseudo-sold reversal/upgrade so analytics can
+                  // tell "we wrongly inferred sold then corrected" from a
+                  // genuine sold event.
+                  if (transition.priceHistoryEvent) {
+                    await (prisma as any).propertyPriceHistory.create({
+                      data: {
+                        propertyId: existingCrea.id,
+                        price: existingCrea.price,
+                        event: transition.priceHistoryEvent,
+                        source: 'pillar9',
+                      }
+                    }).catch(() => {})
+                  }
+                  if (statusUpdateNeeded || reversalStatus) {
+                    syncProgress.stats.updated++
+                    const sKey = statusToKey(status)
+                    if (syncProgress.stats.byStatus[sKey]) syncProgress.stats.byStatus[sKey]!.updated++
+                  }
+                } catch (_err) { /* non-critical */ }
+
                 syncProgress.stats.duplicates++
                 continue
               }
@@ -369,6 +451,21 @@ async function runSyncInBackground(params: any) {
             const existingProperty: any = await prisma.property.findFirst({
               where: { source: 'pillar9', externalId }
             })
+
+            // Pseudo-sold tracking on the Pillar9-owned row. Same shape as
+            // the dedupe block above: stamp `lastSeenStatuses[X]`, then
+            // ask `applyPseudoSoldTransition` whether the existing row's
+            // inferred-sold marker has been contradicted (back to A/P) or
+            // upgraded (real S now arriving).
+            recordSeen(seenInRun, status, externalId, transformedProperty.mlsNumber || null)
+            const existingP9Features = parseFeatures(existingProperty?.features)
+            const incomingP9Features = parseFeatures((propertyData as any).features)
+            const stampedP9Features = stampLastSeen(
+              { ...existingP9Features, ...incomingP9Features },
+              status,
+            )
+            const p9Transition = applyPseudoSoldTransition(stampedP9Features, status)
+            ;(propertyData as any).features = p9Transition.features
 
             const statusKey = statusToKey(status)
             const newPrice = propertyData.price || 0
@@ -395,6 +492,26 @@ async function runSyncInBackground(params: any) {
                     } catch (_) { /* non-critical */ }
                   }
                   await (prisma.property as any).update({ where: { id: existingProperty.id }, data })
+                  // Audit pseudo-sold reversal/upgrade events on the
+                  // Pillar9 row, mirroring the dedupe path.
+                  if (p9Transition.priceHistoryEvent) {
+                    await (prisma as any).propertyPriceHistory.create({
+                      data: {
+                        propertyId: existingProperty.id,
+                        price: newPrice,
+                        event: p9Transition.priceHistoryEvent,
+                        source: 'pillar9',
+                      }
+                    }).catch(() => {})
+                    // Real-S upgrade also deserves the standard 'sold' row
+                    // so existing analytics queries that filter by event
+                    // ='sold' pick it up.
+                    if (p9Transition.priceHistoryEvent === REAL_SOLD_EVENT) {
+                      await (prisma as any).propertyPriceHistory.create({
+                        data: { propertyId: existingProperty.id, price: newPrice, event: 'sold', source: 'pillar9' }
+                      }).catch(() => {})
+                    }
+                  }
                   syncProgress.stats.updated++
                   if (syncProgress.stats.byStatus[statusKey]) syncProgress.stats.byStatus[statusKey].updated++
                 } else {
@@ -430,6 +547,29 @@ async function runSyncInBackground(params: any) {
 
     syncProgress.phase = 'finalizing'
 
+    // ── Pseudo-sold inference (runs only on a clean city-loop completion) ──
+    // We only get here if the for-cityCode loop completed without
+    // throwing. Partial runs would risk false-positive sold inferences,
+    // since the absence of a listing in `seenInRun` could just mean we
+    // never reached its city. The diff itself enforces the additional
+    // rule that A and P must both have been part of `statusesToSync`.
+    syncProgress.phase = 'inferring-sold'
+    let pseudoSoldResult: Awaited<ReturnType<typeof runPendingDisappearanceDiff>> | null = null
+    try {
+      pseudoSoldResult = await runPendingDisappearanceDiff({
+        prisma,
+        seenInRun,
+        citiesScopedThisRun,
+        statusesSyncedThisRun: new Set(statusesToSync.map((s: string) => s.toUpperCase())),
+        runId: pseudoSoldRunId,
+        province: filters.province || 'AB',
+      })
+      console.log('🔮 Pseudo-sold inference:', pseudoSoldResult)
+    } catch (inferErr: any) {
+      console.error('❌ Pseudo-sold inference failed:', inferErr)
+      syncProgress.stats.errorDetails.push(`pseudo-sold: ${inferErr.message ?? inferErr}`)
+    }
+
     const cutoffDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     const staleProperties = await prisma.property.updateMany({
       where: { source: 'pillar9', lastSyncAt: { lt: cutoffDate }, status: 'for_sale' },
@@ -447,8 +587,12 @@ async function runSyncInBackground(params: any) {
     syncProgress.result = {
       success: true,
       stats: { ...syncProgress.stats },
+      pseudoSold: pseudoSoldResult,
       stalePropertiesMarked: staleProperties.count,
       message: `Sync completed: ${syncProgress.stats.created} created, ${syncProgress.stats.updated} updated, ${syncProgress.stats.duplicates} duplicates skipped, ${syncProgress.stats.errors} errors`
+        + (pseudoSoldResult
+          ? ` | pseudo-sold: scanned ${pseudoSoldResult.candidatesScanned}, promoted ${pseudoSoldResult.promoted} (CREA propagated ${pseudoSoldResult.propagatedToCrea})${pseudoSoldResult.skippedReason ? ` [skipped: ${pseudoSoldResult.skippedReason}]` : ''}`
+          : ''),
     }
     syncProgress.phase = 'completed'
     console.log('\n✅ Pillar9 sync completed:', syncProgress.stats)

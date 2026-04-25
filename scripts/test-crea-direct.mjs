@@ -28,8 +28,10 @@
  * Usage:
  *   node --env-file=.env scripts/test-crea-direct.mjs
  *   node --env-file=.env scripts/test-crea-direct.mjs --probe-only
+ *   node --env-file=.env scripts/test-crea-direct.mjs --list-statuses
  *   node --env-file=.env scripts/test-crea-direct.mjs --provinces=Alberta
  *   node --env-file=.env scripts/test-crea-direct.mjs --status=Sold
+ *   node --env-file=.env scripts/test-crea-direct.mjs --status=Pending
  *   node --env-file=.env scripts/test-crea-direct.mjs --status=Closed
  *   node --env-file=.env scripts/test-crea-direct.mjs --min-close-date=2025-01-01
  *
@@ -60,8 +62,30 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
 // every $select containing MlsStatus is rejected by the API). Production
 // code in server/utils/crea.service.ts only ever filters on StandardStatus,
 // passing 'Active' / 'Sold', so we use the same vocabulary here.
-const SOLD_STATUS_CANDIDATES = {
-  StandardStatus: ['Sold', 'Closed', 'Sale Pending', 'Pending', 'Expired', 'Cancelled'],
+//
+// The list below is the full RESO 2.0 StandardStatus enum we want to probe.
+// We keep `Active` first because it's the baseline every DDF tenant exposes;
+// the rest (Pending / Active Under Contract / Sold / Closed / etc.) are
+// permission-gated on a per-tenant basis. `probeAllStatuses` runs each one
+// and reports the actual row count so we can see which statuses CREA
+// actually delivers to *this* tenant — answering the recurring question of
+// "do we get anything other than Active?".
+const STATUS_CANDIDATES = {
+  StandardStatus: [
+    'Active',
+    'ComingSoon',
+    'Pending',
+    'Sale Pending',
+    'Active Under Contract',
+    'Sold',
+    'Closed',
+    'Hold',
+    'Withdrawn',
+    'Expired',
+    'Cancelled',
+    'Canceled',
+    'Delete',
+  ],
 }
 
 // Minimal baseline known to exist on every CREA DDF tenant. Verified against
@@ -139,6 +163,7 @@ function parseArgs() {
   return {
     help: args.includes('--help') || args.includes('-h'),
     probeOnly: args.includes('--probe-only'),
+    listStatuses: args.includes('--list-statuses'),
     provinces: (get('provinces') || '').split(',').map(s => s.trim()).filter(Boolean),
     status: get('status'),
     field: get('field'), // defaults to 'StandardStatus' (only field DDF supports)
@@ -155,6 +180,10 @@ Usage:
 
 Options:
   --probe-only             Field detection + status sample, no extraction.
+  --list-statuses          Probe every StandardStatus value (Active, Pending,
+                           Sold, Closed, …) and report the row count CREA
+                           returns for each one. Use this to confirm whether
+                           the tenant exposes anything beyond Active.
   --provinces=Alberta,...  Provinces to extract from. Default: Alberta.
   --status=Sold            Skip discovery and use this status value.
   --field=StandardStatus   Status field to filter on. CREA DDF only exposes
@@ -166,7 +195,7 @@ Options:
 
 // ─── HTTP helper ───────────────────────────────────────────────────────────
 
-async function fetchBatch({ filter, top = 100, skip = 0, select = activeSelectFields.join(',') }) {
+async function fetchBatch({ filter, top = 100, skip = 0, select = activeSelectFields.join(','), withCount = false }) {
   const token = await getAccessToken()
   const params = new URLSearchParams({
     '$filter': filter,
@@ -175,6 +204,7 @@ async function fetchBatch({ filter, top = 100, skip = 0, select = activeSelectFi
     '$select': select,
     '$orderby': 'ListingKey asc',
   })
+  if (withCount) params.set('$count', 'true')
   const url = `${BASE_URL}/odata/v1/Property?${params}`
   const start = Date.now()
   let res
@@ -187,12 +217,19 @@ async function fetchBatch({ filter, top = 100, skip = 0, select = activeSelectFi
   }
   const elapsed = Date.now() - start
 
-  if (res.status === 404) return { ok: true, status: 404, count: 0, properties: [], elapsed, endOfData: true }
+  if (res.status === 404) return { ok: true, status: 404, count: 0, properties: [], elapsed, endOfData: true, totalCount: 0 }
   if (!res.ok) {
     const text = await res.text().catch(() => '')
     return { ok: false, status: res.status, error: text, elapsed, endOfData: false }
   }
   const json = await res.json().catch(() => ({}))
+  // CREA DDF returns the OData v4 count under @odata.count when supported;
+  // some tenants surface it as `odata.count` with no @ prefix. Normalize
+  // either to a number (or null if neither was returned).
+  const rawCount = json['@odata.count'] ?? json['odata.count'] ?? null
+  const totalCount = typeof rawCount === 'number'
+    ? rawCount
+    : (typeof rawCount === 'string' && /^\d+$/.test(rawCount) ? Number(rawCount) : null)
   return {
     ok: true,
     status: res.status,
@@ -200,6 +237,7 @@ async function fetchBatch({ filter, top = 100, skip = 0, select = activeSelectFi
     properties: json.value || [],
     elapsed,
     endOfData: false,
+    totalCount,
   }
 }
 
@@ -308,13 +346,82 @@ async function tabulateActualStatuses(province) {
   return { standard: stdSorted.map(([k]) => k) }
 }
 
-async function discoverSoldStatus(province) {
-  console.log('--- Discovering sold-status code ---')
-  // CREA DDF only exposes StandardStatus, no MlsStatus. The candidate list
-  // is the RESO 2.0 vocabulary — production code uses 'Sold', but if this
-  // tenant follows strict RESO it might be 'Closed' instead.
+// Probe every StandardStatus value the spec defines and report what CREA
+// returns. Distinguishes three outcomes per status:
+//   - REJECTED:  CREA returned an error (usually "not a valid enumeration"),
+//                meaning this tenant's schema doesn't include the value.
+//   - 0 rows:    Value is in the enum but the feed has no rows with it
+//                in this province (could be permissions or just genuinely
+//                empty).
+//   - N rows:    Value works AND the tenant is allowed to see it. This is
+//                the answer to "do we get anything other than Active?".
+//
+// Tries `$count=true` first for an exact total; falls back to "≥ N (sample)"
+// if the tenant doesn't echo a count.
+async function probeAllStatuses(province) {
+  console.log(`--- Probing every StandardStatus value in ${province} ---`)
   const field = 'StandardStatus'
-  for (const status of SOLD_STATUS_CANDIDATES[field]) {
+  const results = []
+  for (const status of STATUS_CANDIDATES[field]) {
+    const filter = `StateOrProvince eq '${province}' and ${field} eq '${status}'`
+    // $top=0 + $count=true is the cheapest way to ask "how many?". If the
+    // tenant ignores $count, fall back to a 100-row sample so we still
+    // surface a lower bound.
+    let r = await fetchBatch({ filter, top: 0, skip: 0, withCount: true, select: 'ListingKey' })
+    if (r.ok && r.totalCount == null) {
+      r = await fetchBatch({ filter, top: 100, skip: 0, select: 'ListingKey' })
+    }
+
+    if (!r.ok) {
+      const msg = (r.error || '').substring(0, 200).replace(/\s+/g, ' ').trim()
+      results.push({ status, accepted: false, count: null, sample: null, error: msg })
+      console.log(`  ${status.padEnd(24)} REJECTED  (${r.status}) ${msg}`)
+      continue
+    }
+
+    if (typeof r.totalCount === 'number') {
+      results.push({ status, accepted: true, count: r.totalCount, sample: null, error: null })
+      console.log(`  ${status.padEnd(24)} ${String(r.totalCount).padStart(8)} rows`)
+    } else {
+      const lower = r.count
+      const note = lower >= 100 ? `≥${lower} (sample, no $count)` : `${lower} (sample, no $count)`
+      results.push({ status, accepted: true, count: null, sample: lower, error: null })
+      console.log(`  ${status.padEnd(24)} ${note.padStart(8)}`)
+    }
+  }
+
+  const withData = results.filter(r => r.accepted && (r.count > 0 || r.sample > 0))
+  const acceptedEmpty = results.filter(r => r.accepted && (r.count === 0 || r.sample === 0))
+  const rejected = results.filter(r => !r.accepted)
+  console.log()
+  console.log(`  Summary: ${withData.length} status(es) returned data, ${acceptedEmpty.length} accepted but empty, ${rejected.length} rejected.`)
+  if (withData.length > 0) {
+    console.log(`  CREA returns rows for: ${withData.map(r => r.status).join(', ')}`)
+  }
+  console.log()
+  return results
+}
+
+async function discoverSoldStatus(province, probeResults = null) {
+  console.log('--- Discovering sold-status code ---')
+  // Reuse the all-statuses probe results when we have them — no point
+  // hitting CREA twice for the same questions. Production code uses 'Sold',
+  // but strict-RESO tenants use 'Closed'.
+  const field = 'StandardStatus'
+  const soldOrder = ['Sold', 'Closed', 'Sale Pending', 'Pending', 'Active Under Contract']
+  if (probeResults) {
+    for (const wanted of soldOrder) {
+      const hit = probeResults.find(r => r.status === wanted && r.accepted && (r.count > 0 || r.sample > 0))
+      if (hit) {
+        console.log(`  Reusing probe: ${field}='${wanted}' → ${hit.count ?? `≥${hit.sample}`} rows`)
+        return { field, status: wanted }
+      }
+    }
+    console.log('  No sold-style status returned data in the all-status probe.')
+    return null
+  }
+
+  for (const status of soldOrder) {
     const r = await fetchBatch({
       filter: `StateOrProvince eq '${province}' and ${field} eq '${status}'`,
       top: 1,
@@ -436,12 +543,22 @@ async function run() {
     console.log('   (DDF tenants without VOW/historical permission only ever see live listings.)\n')
   }
 
+  // Always run the per-status probe — answers "do we get anything other
+  // than Active?" definitively (Pending, Sold, Closed, Active Under
+  // Contract, etc.) by hitting CREA with each enum value.
+  const statusProbe = await probeAllStatuses(probeProvince)
+
+  if (opts.listStatuses) {
+    console.log('--list-statuses set; exiting after status probe.')
+    process.exit(0)
+  }
+
   let probe
   if (opts.status) {
     probe = { field: opts.field || 'StandardStatus', status: opts.status }
     console.log(`Using user-supplied status: ${probe.field}='${probe.status}'\n`)
   } else {
-    probe = await discoverSoldStatus(probeProvince)
+    probe = await discoverSoldStatus(probeProvince, statusProbe)
     if (!probe) {
       console.error('Could not find a working sold-status value. Use --status=... to force one.')
       process.exit(1)
