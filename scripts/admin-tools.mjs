@@ -21,6 +21,15 @@
  *   seed-about           Seed about page content for a tenant.
  *   seed-hero            Seed hero section content for a tenant.
  *   update-about         Replace about page with the bundled rich HTML for a tenant.
+ *   reset-about          Delete a tenant's About CMS content (about.* + legacy
+ *                        about-* keys). Use this to clear personal content
+ *                        that leaked into a tenant via the old
+ *                        seedAboutDefaults() personal template. Defaults to a
+ *                        dry-run (preview only); pass --confirm to actually
+ *                        delete. Backs up to a JSON file before deleting.
+ *                        Pass --reseed to immediately re-insert the current
+ *                        neutral defaults so the tenant doesn't briefly see
+ *                        the generic Vue-side fallbacks.
  *   help                 Show this message.
  *
  * Flags:
@@ -47,6 +56,9 @@
 
 import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
+import { writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { createInterface } from 'node:readline'
 
 const prisma = new PrismaClient()
 
@@ -534,6 +546,162 @@ async function seedHero(args) {
   console.log('\nSeeded hero title and subtitle.')
 }
 
+// ─── Reset / clean a tenant's About CMS content ────────────────────────────
+//
+// Surgical fix for the historical leak where the SaaS owner's personal bio
+// (Abdul) was seeded into every new tenant's CMS via
+// `useContentAdmin.ts:seedAboutDefaults()`. After fixing the seed template,
+// any tenant that already triggered the seed still has the old personal
+// rows in their `ContentBlock` table — this command wipes those rows and
+// (optionally) re-inserts the new neutral defaults.
+//
+// Safety model:
+//   - --admin-id=N is REQUIRED. We do NOT fall back to "first super_admin"
+//     because that's exactly the kind of typo that nukes the wrong tenant
+//     in production. (Other commands in this script are happy with the
+//     fallback; this one isn't.)
+//   - Default is a dry-run preview. The actual DELETE only fires when
+//     --confirm is also passed. With --confirm there's still an interactive
+//     yes/no prompt unless --yes is also passed (for non-interactive use
+//     in scripts/CI).
+//   - Before any DELETE we write the affected rows to a JSON backup file
+//     (path overridable via --backup-file=path). Restoring is one line of
+//     `node -e "... JSON.parse(fs.readFileSync(...)) ..."` plus an upsert.
+//
+// Key matching:
+//   - New CMS keys all start with `about.` (e.g. about.hero.title,
+//     about.values.1, about.cta.image).
+//   - Legacy seed-about keys are `about-title`, `about-subtitle`,
+//     `about-body`, `about-image`. We sweep both naming conventions so a
+//     tenant that has accumulated rows from multiple eras gets cleared
+//     in one pass.
+//
+// Re-seed:
+//   - --reseed inserts the current neutral defaults inline. The list MUST
+//     stay in sync with `app/composables/useContentAdmin.ts:aboutDefaults`
+//     — there's a TODO at the bottom of this function pointing that out.
+//     If you don't pass --reseed, the next time the tenant's admin opens
+//     the About CMS section the Vue composable will auto-seed the same
+//     defaults; the only difference is timing.
+
+const LEGACY_ABOUT_KEYS = ['about-title', 'about-subtitle', 'about-body', 'about-image']
+
+// Kept in sync with app/composables/useContentAdmin.ts (aboutDefaults).
+// If you change either side, change both. Tested only by visual inspection.
+const NEUTRAL_ABOUT_DEFAULTS = [
+  { key: 'about.hero.title', title: 'Hero Title', type: 'text', content: 'ABOUT.', metadata: { section: 'about', published: true } },
+  { key: 'about.hero.subtitle', title: 'Hero Subtitle', type: 'text', content: 'Passionate about helping you find your perfect home.', metadata: { section: 'about', published: true } },
+  { key: 'about.hero.description', title: 'Hero Description', type: 'text', content: 'Providing excellence in real estate services with a personalized approach.', metadata: { section: 'about', published: true } },
+  { key: 'about.hero.image', title: 'Hero Image (Profile Photo)', type: 'image', content: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=800&auto=format&fit=crop', metadata: { section: 'about', published: true } },
+  { key: 'about.story.title', title: 'Story Title', type: 'text', content: 'Your Trusted Real Estate Professional', metadata: { section: 'about', published: true } },
+  { key: 'about.story.name', title: 'Story Author Name', type: 'text', content: '', metadata: { section: 'about', published: true } },
+  { key: 'about.story.role', title: 'Story Author Role / Title', type: 'text', content: '', metadata: { section: 'about', published: true } },
+  { key: 'about.story.content', title: 'Story Content (HTML)', type: 'hero-title', content: '<p>Tell visitors about yourself, your background, and what makes your real estate practice unique. Edit this section in the CMS to add your personal story.</p>', metadata: { section: 'about', published: true } },
+  { key: 'about.values.1', title: 'Work Hard', type: 'text', content: 'Dedicated to finding you your perfect home.', metadata: { section: 'about', icon: 'mdi-hammer-wrench', published: true } },
+  { key: 'about.values.2', title: 'Live Well', type: 'text', content: 'The right home is essential to living well.', metadata: { section: 'about', icon: 'mdi-home-heart', published: true } },
+  { key: 'about.values.3', title: 'Give Back', type: 'text', content: 'A great home gives back to your life every day.', metadata: { section: 'about', icon: 'mdi-hand-heart', published: true } },
+  { key: 'about.connect.heading', title: 'Connect Heading', type: 'text', content: 'Connect With Me', metadata: { section: 'about', published: true } },
+  { key: 'about.connect.description', title: 'Connect Description', type: 'text', content: 'Reach out through your preferred channel or scan the QR code to save my contact details.', metadata: { section: 'about', published: true } },
+  { key: 'about.cta.areas', title: 'CTA Area Names', type: 'text', content: '', metadata: { section: 'about', published: true } },
+  { key: 'about.cta.title', title: 'CTA Title', type: 'text', content: 'Ready to Find Your Dream Home?', metadata: { section: 'about', published: true } },
+  { key: 'about.cta.subtitle', title: 'CTA Subtitle', type: 'text', content: "Let's work together to make your real estate goals a reality.", metadata: { section: 'about', published: true } },
+  { key: 'about.cta.image', title: 'CTA Background Image', type: 'image', content: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop', metadata: { section: 'about', published: true } },
+  { key: 'about.meta.title', title: 'Meta Title (SEO)', type: 'text', content: 'About | Real Estate Expert', metadata: { section: 'about', published: true } },
+  { key: 'about.meta.description', title: 'Meta Description (SEO)', type: 'text', content: 'Learn about your trusted real estate professional.', metadata: { section: 'about', published: true } },
+]
+
+async function promptYesNo(question) {
+  const rl = createInterface({ input: process.stdin, output: process.stdout })
+  const answer = await new Promise((res) => rl.question(`${question} `, res))
+  rl.close()
+  return /^y(es)?$/i.test(answer.trim())
+}
+
+async function resetAbout(args) {
+  const adminIdFlag = args.flags['admin-id']
+  if (!adminIdFlag) {
+    console.error('❌ reset-about requires --admin-id=N (no fallback — too dangerous in production).')
+    console.error('   Use `node scripts/admin-tools.mjs query-users` to find the right id first.')
+    process.exit(1)
+  }
+
+  const admin = await resolveAdminId(adminIdFlag)
+  const confirm = !!args.flags['confirm']
+  const skipPrompt = !!args.flags['yes']
+  const reseed = !!args.flags['reseed']
+  const backupFile = args.flags['backup-file']
+    || resolve(process.cwd(), `about-reset-backup-admin${admin.id}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`)
+
+  console.log(`Tenant: adminId=${admin.id} (${admin.email}) [role=${admin.role}]`)
+  console.log(`Mode:   ${confirm ? 'EXECUTE' : 'DRY-RUN (no DELETE will be issued)'}`)
+  console.log(`Reseed: ${reseed ? 'yes (will insert neutral defaults after delete)' : 'no'}`)
+  console.log()
+
+  const where = {
+    adminId: admin.id,
+    OR: [
+      { key: { startsWith: 'about.' } },
+      { key: { in: LEGACY_ABOUT_KEYS } },
+    ],
+  }
+
+  const rows = await prisma.contentBlock.findMany({
+    where,
+    orderBy: { key: 'asc' },
+  })
+
+  if (rows.length === 0) {
+    console.log('Nothing to reset — tenant has no About content rows.')
+    if (reseed) {
+      console.log('\nProceeding with reseed since --reseed was passed.')
+    } else {
+      return
+    }
+  } else {
+    console.log(`Found ${rows.length} About content row(s):\n`)
+    for (const r of rows) {
+      const preview = (r.content ?? '').toString().slice(0, 80).replace(/\s+/g, ' ')
+      console.log(`  - id=${r.id}  key=${r.key.padEnd(30)}  "${preview}${r.content?.length > 80 ? '…' : ''}"`)
+    }
+    console.log()
+  }
+
+  if (!confirm) {
+    console.log('Dry-run only. Re-run with --confirm to actually delete.')
+    console.log(`Example: node scripts/admin-tools.mjs reset-about --admin-id=${admin.id} --confirm`)
+    if (!reseed) console.log('         (add --reseed to also insert neutral defaults)')
+    return
+  }
+
+  if (rows.length > 0) {
+    if (!skipPrompt) {
+      const ok = await promptYesNo(`Delete these ${rows.length} row(s) for adminId=${admin.id} (${admin.email})? [y/N]`)
+      if (!ok) {
+        console.log('Aborted by user.')
+        return
+      }
+    }
+
+    writeFileSync(backupFile, JSON.stringify(rows, null, 2))
+    console.log(`Backup written: ${backupFile}`)
+
+    const result = await prisma.contentBlock.deleteMany({ where })
+    console.log(`Deleted ${result.count} row(s).`)
+  }
+
+  if (reseed) {
+    console.log(`\nReseeding ${NEUTRAL_ABOUT_DEFAULTS.length} neutral default(s)...`)
+    for (const item of NEUTRAL_ABOUT_DEFAULTS) {
+      try {
+        await upsertContent(admin.id, item)
+        console.log(`  ✓ ${item.key}`)
+      } catch (err) {
+        console.error(`  ✗ ${item.key}: ${err.message}`)
+      }
+    }
+  }
+}
+
 async function updateAbout(args) {
   const admin = await resolveAdminId(args.flags['admin-id'])
   console.log(`Updating About page for tenant adminId=${admin.id} (${admin.email})...\n`)
@@ -705,11 +873,19 @@ Available commands:
   seed-about           Seed about page content for a tenant
   seed-hero            Seed hero section content for a tenant
   update-about         Replace about page with bundled rich HTML for a tenant
+  reset-about          Wipe a tenant's About CMS content (about.* + legacy
+                       about-* keys). Dry-run by default; pass --confirm to
+                       actually delete. --reseed inserts neutral defaults.
   help                 Show this help message
 
 Common flags:
-  --admin-id=N         Tenant scope. Defaults to first super_admin/admin.
+  --admin-id=N         Tenant scope. Defaults to first super_admin/admin
+                       (EXCEPT reset-about, which requires it explicitly).
   --all-tenants        (fix-zero-prices only) operate without a tenant scope.
+  --confirm            (reset-about only) actually perform the DELETE.
+  --yes                (reset-about only) skip the interactive y/N prompt.
+  --reseed             (reset-about only) insert neutral defaults after delete.
+  --backup-file=path   (reset-about only) override the backup JSON path.
 
 Usage:
   node scripts/admin-tools.mjs <command> [flags]
@@ -720,6 +896,9 @@ Examples:
   node scripts/admin-tools.mjs restore-content --admin-id=1
   node scripts/admin-tools.mjs fix-zero-prices --admin-id=1
   node scripts/admin-tools.mjs test-crea-api
+  node scripts/admin-tools.mjs reset-about --admin-id=42                  # dry-run
+  node scripts/admin-tools.mjs reset-about --admin-id=42 --confirm        # delete (with prompt)
+  node scripts/admin-tools.mjs reset-about --admin-id=42 --confirm --reseed --yes
 `)
 }
 
@@ -762,6 +941,9 @@ async function main() {
         break
       case 'update-about':
         await updateAbout(args)
+        break
+      case 'reset-about':
+        await resetAbout(args)
         break
       default:
         console.error(`❌ Unknown command: ${command}`)
