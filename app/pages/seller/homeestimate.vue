@@ -293,7 +293,7 @@
           </v-card>
 
           <v-card class="agent-card rounded-xl overflow-hidden shadow-lg">
-            <v-img src="/images/about/abdul.JPG" height="200" cover />
+            <v-img :src="agentPhotoUrl" height="200" cover />
             <v-card-text class="pa-6">
               <div class="text-overline text-primary mb-1">Local Lead Expert</div>
               <div class="text-h6 font-weight-bold mb-1">{{ adminFullName }}</div>
@@ -311,7 +311,7 @@
     <v-dialog v-model="showProcessDialog" max-width="700" scrollable transition="dialog-bottom-transition">
       <v-card class="rounded-xl overflow-hidden">
         <v-toolbar color="white" flat class="border-b px-4">
-          <v-toolbar-title class="font-weight-black">The Ojulari Methodology</v-toolbar-title>
+          <v-toolbar-title class="font-weight-black">{{ methodologyTitle }}</v-toolbar-title>
           <v-spacer></v-spacer>
           <v-btn icon="mdi-close" variant="text" @click="showProcessDialog = false"></v-btn>
         </v-toolbar>
@@ -358,9 +358,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 
 const { adminFullName, adminFirstName, businessName: biz } = useTenantSettings()
+
+// Generic fallback when the tenant hasn't uploaded a profile photo via
+// the CMS yet. NEVER point at a person-specific asset here — each tenant
+// supplies their own through `about.hero.image` in the content CMS.
+const FALLBACK_AGENT_PHOTO = 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=800&auto=format&fit=crop'
+
+const tenantAgentPhoto = ref<string>('')
+const agentPhotoUrl = computed(() => tenantAgentPhoto.value || FALLBACK_AGENT_PHOTO)
+
+// "The {Name} Methodology" — falls back to a neutral title when the
+// tenant's admin name is unknown so we don't render "The  Methodology".
+const methodologyTitle = computed(() => {
+  const name = adminFullName.value?.trim()
+  return name ? `The ${name} Methodology` : 'Our Valuation Methodology'
+})
+
+onMounted(async () => {
+  // Same CMS source the About page uses (`about.hero.image`) so the
+  // agent card here matches the agent shown on /about per tenant.
+  try {
+    const pageData = await $fetch('/api/content/page/about') as any
+    const items: any[] = pageData?.items || []
+    const heroImage = items.find(i => i.key === 'about.hero.image' || i.key === 'about-image')
+    if (heroImage?.content) tenantAgentPhoto.value = heroImage.content
+  } catch {
+    // Non-critical — falls back to FALLBACK_AGENT_PHOTO via the computed.
+  }
+})
 
 const currentStep = ref(1)
 const progress = computed(() => (currentStep.value / 3) * 100)

@@ -38,10 +38,15 @@ import AboutTemplate3 from '~/components/about-templates/AboutTemplate3.vue'
 import AboutTemplate4 from '~/components/about-templates/AboutTemplate4.vue'
 import AboutTemplate5 from '~/components/about-templates/AboutTemplate5.vue'
 
-const { phone, contactEmail: tenantEmail, socialLinks: tenantSocialLinks, adminEmail, adminFullName } = useTenantSettings()
+const { phone, contactEmail: tenantEmail, socialLinks: tenantSocialLinks } = useTenantSettings()
 
-const OWNER_EMAILS = ['abdulkabirojulari@gmail.com', 'realojus@gmail.com']
-
+// Generic, tenant-agnostic defaults. Per-tenant personalization (agent
+// bio, photo, target neighborhoods, etc.) MUST come from the CMS via
+// /api/content/page/about — never from hardcoded owner-email gates.
+// A previous version branched on `OWNER_EMAILS` to inject a personal
+// bio when the tenant's adminEmail matched the SaaS owner's, but that
+// also fires on any tenant the SaaS owner provisions, leaking owner
+// content to other tenants (e.g. tonahomes showing aohomes's bio).
 const GENERIC_DEFAULTS = {
   heroTitle: 'ABOUT.',
   heroSubtitle: 'Passionate about helping you find your perfect home.',
@@ -64,37 +69,6 @@ const GENERIC_DEFAULTS = {
     { key: 'work-hard', title: 'Work Hard', description: 'Dedicated to finding you your perfect home.', icon: 'mdi-hammer-wrench' },
     { key: 'live-well', title: 'Live Well', description: 'The right home is essential to living well.', icon: 'mdi-home-heart' },
     { key: 'give-back', title: 'Give Back', description: 'A great home gives back to your life every day.', icon: 'mdi-hand-heart' },
-  ],
-}
-
-const PERSONAL_DEFAULTS = {
-  heroTitle: 'ABOUT.',
-  heroSubtitle: "I'm passionate about innovation and driven by impact.",
-  heroDescription: 'Providing excellence in real estate services with a personalized approach. Helping you navigate the journey home with safety and peace of mind.',
-  profileImage: '/images/about/abdul.JPG',
-  storyTitle: 'A Realtor with a Purpose',
-  storyName: adminFullName.value || 'Your REALTOR',
-  storyRole: 'eXp Realty | Licensed REALTOR®',
-  storyContent: '',
-  storyContentDefault: `With over 20 years of experience in the IT industry as a Senior Software Developer, I bring a strong analytical mindset and technology-driven approach to real estate. I hold multiple industry certifications, and have developed innovative software solutions for the real estate industry that simplify processes and enhance the client experience.
-
-Now a licensed REALTOR® in Alberta specializing in residential real estate, I am passionate about helping clients feel confident, informed, and supported throughout every stage of their real estate journey. My background allows me to offer data-driven insights, clear guidance, and strategic advice so clients can make well-informed decisions.
-
-Whether you are buying or selling, I go above and beyond to ensure your needs are clearly understood and fully represented. I believe no client should ever feel confused or pressured.
-
-Approachable, responsive, and easy to work with, I value collaboration and continuously learn from my clients to deliver exceptional results while providing honest advice and meaningful market insights.`,
-  connectHeading: 'Connect With Me',
-  connectDescription: 'Scan the QR code to save my contact details directly to your phone or find me on your favorite platform.',
-  ctaAreas: 'WINDERMERE • QUARRY RIDGE • LAKESIDE',
-  ctaTitle: 'Ready to Find Your Dream Home?',
-  ctaSubtitle: "Let's work together to make your real estate goals a reality in Edmonton's most prestigious communities.",
-  ctaImage: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop',
-  metaTitle: 'About | Real Estate Expert',
-  metaDescription: 'Learn about your trusted real estate professional.',
-  defaultValues: [
-    { key: 'work-hard', title: 'Work Hard', description: 'My mission is to work hard to find you your forever home.', icon: 'mdi-hammer-wrench' },
-    { key: 'live-well', title: 'Live Well', description: 'The right home is the essential ingredient needed to live well.', icon: 'mdi-home-heart' },
-    { key: 'give-back', title: 'Give Back', description: 'When I find the right match, your new home will give back to your life.', icon: 'mdi-hand-heart' },
   ],
 }
 
@@ -169,9 +143,7 @@ function applyDefaults(defaults: typeof GENERIC_DEFAULTS) {
 }
 
 onMounted(async () => {
-  // Determine which defaults to use based on the tenant's admin email
-  const isOwner = OWNER_EMAILS.includes((adminEmail.value || '').toLowerCase())
-  applyDefaults(isOwner ? PERSONAL_DEFAULTS : GENERIC_DEFAULTS)
+  applyDefaults(GENERIC_DEFAULTS)
 
   // Load active template
   try {

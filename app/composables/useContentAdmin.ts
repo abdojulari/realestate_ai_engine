@@ -86,23 +86,28 @@ export function useContentAdmin() {
     ]
   }
 
+  // Tenant-agnostic placeholder content seeded on first CMS visit. Each
+  // tenant fills these in via the admin UI; nothing here may reference
+  // a specific person, brokerage, neighborhood, or bio. (A previous
+  // version seeded the SaaS owner's personal bio + photo into every new
+  // tenant's CMS, leaking owner content cross-tenant.)
   const aboutDefaults: Array<{ key: string; title: string; type: string; content: string; metadata?: Record<string, any> }> = [
     { key: 'about.hero.title', title: 'Hero Title', type: 'text', content: 'ABOUT.' },
-    { key: 'about.hero.subtitle', title: 'Hero Subtitle', type: 'text', content: "I'm passionate about innovation and driven by impact." },
-    { key: 'about.hero.description', title: 'Hero Description', type: 'text', content: 'Providing excellence in real estate services with a personalized approach. Helping you navigate the journey home with safety and peace of mind.' },
-    { key: 'about.hero.image', title: 'Hero Image (Profile Photo)', type: 'image', content: '/images/about/abdul.JPG' },
-    { key: 'about.story.title', title: 'Story Title', type: 'text', content: 'A Realtor with a Purpose' },
+    { key: 'about.hero.subtitle', title: 'Hero Subtitle', type: 'text', content: 'Passionate about helping you find your perfect home.' },
+    { key: 'about.hero.description', title: 'Hero Description', type: 'text', content: 'Providing excellence in real estate services with a personalized approach.' },
+    { key: 'about.hero.image', title: 'Hero Image (Profile Photo)', type: 'image', content: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?q=80&w=800&auto=format&fit=crop' },
+    { key: 'about.story.title', title: 'Story Title', type: 'text', content: 'Your Trusted Real Estate Professional' },
     { key: 'about.story.name', title: 'Story Author Name', type: 'text', content: '' },
-    { key: 'about.story.role', title: 'Story Author Role / Title', type: 'text', content: 'eXp Realty | Licensed REALTOR\u00AE' },
-    { key: 'about.story.content', title: 'Story Content (HTML)', type: 'hero-title', content: '<p>With over 20 years of experience in the IT industry as a Senior Software Developer, I bring a strong analytical mindset and technology-driven approach to real estate. I hold multiple industry certifications, and have developed innovative software solutions for the real estate industry that simplify processes and enhance the client experience.</p><p>Now a licensed REALTOR\u00AE in Alberta specializing in residential real estate, I am passionate about helping clients feel confident, informed, and supported throughout every stage of their real estate journey. My background allows me to offer data-driven insights, clear guidance, and strategic advice so clients can make well-informed decisions.</p><p>Whether you are buying or selling, I go above and beyond to ensure your needs are clearly understood and fully represented. I believe no client should ever feel confused or pressured.</p><p>Approachable, responsive, and easy to work with, I value collaboration and continuously learn from my clients to deliver exceptional results while providing honest advice and meaningful market insights.</p>' },
-    { key: 'about.values.1', title: 'Work Hard', type: 'text', content: 'My mission is to work hard to find you your forever home.', metadata: { icon: 'mdi-hammer-wrench' } },
-    { key: 'about.values.2', title: 'Live Well', type: 'text', content: 'The right home is the essential ingredient needed to live well.', metadata: { icon: 'mdi-home-heart' } },
-    { key: 'about.values.3', title: 'Give Back', type: 'text', content: 'When I find the right match, your new home will give back to your life.', metadata: { icon: 'mdi-hand-heart' } },
+    { key: 'about.story.role', title: 'Story Author Role / Title', type: 'text', content: '' },
+    { key: 'about.story.content', title: 'Story Content (HTML)', type: 'hero-title', content: '<p>Tell visitors about yourself, your background, and what makes your real estate practice unique. Edit this section in the CMS to add your personal story.</p>' },
+    { key: 'about.values.1', title: 'Work Hard', type: 'text', content: 'Dedicated to finding you your perfect home.', metadata: { icon: 'mdi-hammer-wrench' } },
+    { key: 'about.values.2', title: 'Live Well', type: 'text', content: 'The right home is essential to living well.', metadata: { icon: 'mdi-home-heart' } },
+    { key: 'about.values.3', title: 'Give Back', type: 'text', content: 'A great home gives back to your life every day.', metadata: { icon: 'mdi-hand-heart' } },
     { key: 'about.connect.heading', title: 'Connect Heading', type: 'text', content: 'Connect With Me' },
-    { key: 'about.connect.description', title: 'Connect Description', type: 'text', content: 'Scan the QR code to save my contact details directly to your phone or find me on your favorite platform.' },
-    { key: 'about.cta.areas', title: 'CTA Area Names', type: 'text', content: 'WINDERMERE \u2022 QUARRY RIDGE \u2022 LAKESIDE' },
+    { key: 'about.connect.description', title: 'Connect Description', type: 'text', content: 'Reach out through your preferred channel or scan the QR code to save my contact details.' },
+    { key: 'about.cta.areas', title: 'CTA Area Names', type: 'text', content: '' },
     { key: 'about.cta.title', title: 'CTA Title', type: 'text', content: 'Ready to Find Your Dream Home?' },
-    { key: 'about.cta.subtitle', title: 'CTA Subtitle', type: 'text', content: "Let's work together to make your real estate goals a reality in Edmonton's most prestigious communities." },
+    { key: 'about.cta.subtitle', title: 'CTA Subtitle', type: 'text', content: "Let's work together to make your real estate goals a reality." },
     { key: 'about.cta.image', title: 'CTA Background Image', type: 'image', content: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop' },
     { key: 'about.meta.title', title: 'Meta Title (SEO)', type: 'text', content: 'About | Real Estate Expert' },
     { key: 'about.meta.description', title: 'Meta Description (SEO)', type: 'text', content: 'Learn about your trusted real estate professional.' },
