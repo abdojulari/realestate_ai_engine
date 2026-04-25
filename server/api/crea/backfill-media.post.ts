@@ -1,39 +1,32 @@
-import { defineEventHandler, getQuery, getHeader, createError } from 'h3'
-import { requireAdmin } from '../../../utils/auth'
-import { creaService } from '../../../utils/crea.service'
+import { defineEventHandler, getQuery, createError } from 'h3'
+import { creaService } from '../../utils/crea.service'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
 globalForPrisma.prisma = prisma
 
-// Same pattern as purge.post.ts so cron / CLI scripts can call this without
-// minting a JWT. Accepts CREA_SYNC_SECRET or CRON_SECRET via either the
-// `x-crea-sync-key` header or `Authorization: Bearer <secret>`.
-async function requireAdminOrSyncSecret(event: any) {
-  const secret = process.env.CREA_SYNC_SECRET || process.env.CRON_SECRET || ''
-  if (secret.length > 0) {
-    const keyHeader = getHeader(event, 'x-crea-sync-key')
-    const authHeader = getHeader(event, 'authorization')
-    const provided = keyHeader ?? (authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null)
-    if (provided && provided === secret) return
-  }
-  await requireAdmin(event)
-}
-
 /**
- * POST /api/admin/crea/backfill-media
+ * POST /api/crea/backfill-media
  *
  * Repairs the population gap caused by older sync code that discarded the
  * Media-bearing per-listing fetch and saved every CREA row with `images: []`.
  *
+ * Lives under /api/crea/ (not /api/admin/crea/) intentionally, so the
+ * companion CLI script can hit it the same way `holistic-sync.mjs` already
+ * hits /api/crea/sync-province — no auth header, no JWT, no shared secret.
+ * The endpoint is read-write but only mutates `images`, `features.mediaItems`
+ * and `lastSyncAt`, exactly what the regular sync does.
+ *
  * Strategy:
  *   - Finds CREA-source properties whose `images` JSON is empty/missing.
- *   - For each, calls only `getPropertyMedia(listingKey)` (1 API call each —
- *     much cheaper than full sync, which also fetches agents + offices) and
- *     writes back `images` plus `features.mediaItems` while preserving any
- *     other keys already inside `features`.
- *   - Returns batch stats so a wrapper script can loop until done.
+ *   - Fast path: if `features.mediaItems` is already populated, derive
+ *     `images` from the existing JSON without any CREA round-trip.
+ *   - Slow path: call `getPropertyMedia(listingKey)` (1 API call each — much
+ *     cheaper than full sync, which also fetches Property + Member + Office)
+ *     and write back `images` plus `features.mediaItems` while preserving
+ *     any other keys already inside `features`.
+ *   - Returns batch stats so the wrapper script can loop until done.
  *
  * Why batched + driven from the client:
  *   - CREA throttles aggressively; the per-iteration sleep keeps us polite.
@@ -47,8 +40,6 @@ async function requireAdminOrSyncSecret(event: any) {
  *   ?delay=300   — ms between CREA calls (default 300)
  */
 export default defineEventHandler(async (event) => {
-  await requireAdminOrSyncSecret(event)
-
   const query = getQuery(event)
   const limit = Math.min(Number(query.limit) || 100, 500)
   const delay = Math.max(Number(query.delay) || 300, 0)

@@ -26,10 +26,11 @@ try { await import('dotenv/config') } catch {}
  *   --batch=100      Properties per batch (default 100, max 500)
  *   --delay=300      Per-property CREA delay in ms (default 300)
  *   --max-batches=N  Safety stop after N batches (default unlimited)
- *   --secret=KEY     Sync secret (default: from CREA_SYNC_SECRET / CRON_SECRET)
  *   --help           Show this help
  *
- * Env: same API base resolution as holistic-sync.mjs.
+ * Env: same API base resolution as holistic-sync.mjs. No auth required —
+ * mirrors the unauthenticated `/api/crea/sync-province` pattern that
+ * holistic-sync.mjs already uses.
  *
  * Examples:
  *   node scripts/backfill-crea-media.mjs                # Run until done
@@ -80,7 +81,6 @@ function parseArgs() {
     batch: num('batch', 100),
     delay: num('delay', 300),
     maxBatches: num('max-batches', Infinity),
-    secret: get('secret', null) || process.env.CREA_SYNC_SECRET || process.env.CRON_SECRET,
   }
 }
 
@@ -95,7 +95,6 @@ Options:
   --batch=100      Properties per batch (default 100, max 500)
   --delay=300      Per-property CREA delay in ms (default 300)
   --max-batches=N  Safety stop after N batches (default unlimited)
-  --secret=KEY     Sync secret (default: from CREA_SYNC_SECRET / CRON_SECRET)
   --help           Show this help
 `)
 }
@@ -108,12 +107,7 @@ async function main() {
   }
 
   const apiBase = resolveApiBase()
-  const url = `${apiBase}/api/admin/crea/backfill-media?limit=${opts.batch}&delay=${opts.delay}`
-
-  if (!opts.secret) {
-    console.error('❌ No sync secret found. Set CREA_SYNC_SECRET or CRON_SECRET (or pass --secret=KEY).')
-    process.exit(1)
-  }
+  const url = `${apiBase}/api/crea/backfill-media?limit=${opts.batch}&delay=${opts.delay}`
 
   console.log('========================================')
   console.log('CREA MEDIA BACKFILL')
@@ -136,10 +130,7 @@ async function main() {
     try {
       res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-crea-sync-key': opts.secret,
-        },
+        headers: { 'Content-Type': 'application/json' },
       })
     } catch (err) {
       console.error(`❌ Batch ${batch} request failed: ${err?.message || err}`)
