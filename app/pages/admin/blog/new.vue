@@ -76,6 +76,7 @@
                 prepend-inner-icon="mdi-link"
                 hint="The URL-friendly version of the title"
                 persistent-hint
+                readonly
               />
             </v-card-text>
           </v-card>
