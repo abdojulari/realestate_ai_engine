@@ -15,7 +15,24 @@
           </p>
         </v-col>
         <v-col cols="12" md="4" class="text-md-right">
-          <v-btn color="primary" class="premium-action-btn mr-2" prepend-icon="mdi-account-plus" @click="showAddClient = true">
+          <v-btn
+            variant="tonal"
+            color="warning"
+            class="premium-action-btn mr-2"
+            prepend-icon="mdi-cake-variant"
+            to="/admin/crm/celebrations"
+          >
+            Celebrations
+            <v-badge
+              v-if="celebrationsToday > 0"
+              :content="celebrationsToday"
+              color="error"
+              floating
+              inline
+              class="ml-2"
+            />
+          </v-btn>
+          <v-btn color="primary" class="premium-action-btn" prepend-icon="mdi-account-plus" @click="showAddClient = true">
             Add Client
           </v-btn>
         </v-col>
