@@ -72,10 +72,11 @@
               <div>
                 <span class="display-serif text-h5">Message Templates</span>
                 <div class="text-caption text-medium-emphasis">
-                  Available placeholders: <code>{{ '{{firstName}}' }}</code>,
-                  <code>{{ '{{lastName}}' }}</code>,
-                  <code>{{ '{{adminName}}' }}</code>,
-                  <code>{{ '{{year}}' }}</code>
+                  Available placeholders:
+                  <code v-pre>{{firstName}}</code>,
+                  <code v-pre>{{lastName}}</code>,
+                  <code v-pre>{{adminName}}</code>,
+                  <code v-pre>{{year}}</code>
                 </div>
               </div>
             </v-card-title>
