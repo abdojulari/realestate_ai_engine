@@ -115,25 +115,114 @@
       </v-row>
 
       <!-- Add/Edit Dialog -->
-      <v-dialog v-model="showAddDialog" max-width="500" persistent>
-        <v-card class="rounded-xl">
-          <v-card-title class="pa-6 display-serif text-h6">{{ editingClient ? 'Edit' : 'Add' }} Client</v-card-title>
+      <v-dialog v-model="showAddDialog" max-width="640" persistent scrollable>
+        <v-card class="rounded-xl client-dialog">
+          <v-card-title class="pa-6 d-flex align-center">
+            <div>
+              <div class="text-overline text-gold letter-spacing-2">CRM Client</div>
+              <div class="display-serif text-h5">{{ editingClient ? 'Edit Client' : 'Add Client' }}</div>
+            </div>
+            <v-spacer />
+            <v-btn icon="mdi-close" variant="text" size="small" @click="closeDialog" />
+          </v-card-title>
           <v-divider />
           <v-card-text class="pa-6">
-            <v-row>
-              <v-col cols="6"><v-text-field density="compact" v-model="form.firstName" label="First Name" variant="outlined" /></v-col>
-              <v-col cols="6"><v-text-field density="compact" v-model="form.lastName" label="Last Name" variant="outlined" /></v-col>
-              <v-col cols="12"><v-text-field density="compact" v-model="form.email" label="Email" variant="outlined" type="email" /></v-col>
-              <v-col cols="12"><v-text-field density="compact" v-model="form.phone" label="Phone" variant="outlined" /></v-col>
-              <v-col cols="12"><v-select density="compact" v-model="form.type" :items="['lead', 'buyer', 'seller', 'investor']" label="Type" variant="outlined" /></v-col>
-              <v-col cols="12"><v-textarea density="compact" v-model="form.notes" label="Notes" variant="outlined" rows="3" /></v-col>
-            </v-row>
+            <v-tabs v-model="dialogTab" color="primary" density="compact" class="mb-4">
+              <v-tab value="basics">
+                <v-icon size="16" class="mr-2">mdi-account-outline</v-icon>
+                Basics
+              </v-tab>
+              <v-tab value="celebrations">
+                <v-icon size="16" class="mr-2">mdi-cake-variant-outline</v-icon>
+                Celebrations
+              </v-tab>
+            </v-tabs>
+
+            <v-window v-model="dialogTab">
+              <v-window-item value="basics">
+                <v-row>
+                  <v-col cols="6"><v-text-field density="compact" v-model="form.firstName" label="First Name" variant="outlined" /></v-col>
+                  <v-col cols="6"><v-text-field density="compact" v-model="form.lastName" label="Last Name" variant="outlined" /></v-col>
+                  <v-col cols="12"><v-text-field density="compact" v-model="form.email" label="Email" variant="outlined" type="email" prepend-inner-icon="mdi-email-outline" /></v-col>
+                  <v-col cols="12"><v-text-field density="compact" v-model="form.phone" label="Phone" variant="outlined" prepend-inner-icon="mdi-phone-outline" /></v-col>
+                  <v-col cols="12"><v-select density="compact" v-model="form.type" :items="['lead', 'buyer', 'seller', 'investor']" label="Type" variant="outlined" /></v-col>
+                  <v-col cols="12"><v-textarea density="compact" v-model="form.notes" label="Notes" variant="outlined" rows="3" /></v-col>
+                </v-row>
+              </v-window-item>
+
+              <v-window-item value="celebrations">
+                <p class="text-caption text-medium-emphasis mb-4">
+                  Add personal anniversary dates so the CRM can remind you (or auto-send) on the right day.
+                  Year is stored but only the month and day are used for matching.
+                </p>
+                <v-row>
+                  <v-col cols="12" sm="4">
+                    <v-text-field
+                      v-model="form.dateOfBirth"
+                      label="Date of Birth"
+                      variant="outlined"
+                      density="compact"
+                      type="date"
+                      prepend-inner-icon="mdi-cake-variant"
+                      clearable
+                    />
+                  </v-col>
+                  <v-col cols="12" sm="4">
+                    <v-text-field
+                      v-model="form.weddingAnniversary"
+                      label="Wedding Anniversary"
+                      variant="outlined"
+                      density="compact"
+                      type="date"
+                      prepend-inner-icon="mdi-heart-outline"
+                      clearable
+                    />
+                  </v-col>
+                  <v-col cols="12" sm="4">
+                    <v-text-field
+                      v-model="form.closingAnniversary"
+                      label="Successful Closing Date"
+                      variant="outlined"
+                      density="compact"
+                      type="date"
+                      prepend-inner-icon="mdi-key-variant"
+                      clearable
+                      hint="Used for the 1-year-after-closing thank-you"
+                      persistent-hint
+                    />
+                  </v-col>
+                </v-row>
+
+                <v-divider class="my-5" />
+
+                <div class="text-overline letter-spacing-1 mb-2">Holiday Exceptions</div>
+                <p class="text-caption text-medium-emphasis mb-3">
+                  Tick a holiday to exclude this client from those tenant-wide messages
+                  (e.g. some clients prefer not to receive Christmas or New Year wishes).
+                </p>
+                <div class="d-flex flex-wrap ga-2">
+                  <v-chip
+                    v-for="opt in HOLIDAY_OPTIONS"
+                    :key="opt.value"
+                    :color="form.holidayExceptions.includes(opt.value) ? 'error' : 'default'"
+                    :variant="form.holidayExceptions.includes(opt.value) ? 'flat' : 'outlined'"
+                    @click="toggleException(opt.value)"
+                    class="exception-chip"
+                  >
+                    <v-icon start size="14">{{ form.holidayExceptions.includes(opt.value) ? 'mdi-cancel' : opt.icon }}</v-icon>
+                    {{ opt.label }}
+                  </v-chip>
+                </div>
+              </v-window-item>
+            </v-window>
           </v-card-text>
           <v-divider />
           <v-card-actions class="pa-6">
             <v-spacer />
             <v-btn variant="text" @click="closeDialog">Cancel</v-btn>
-            <v-btn color="primary" @click="saveClient" :loading="saving">Save</v-btn>
+            <v-btn color="primary" @click="saveClient" :loading="saving" class="premium-action-btn">
+              {{ editingClient ? 'Save Changes' : 'Create Client' }}
+            </v-btn>
           </v-card-actions>
         </v-card>
       </v-dialog>
@@ -188,8 +277,48 @@ const convertingClient = ref<any>(null)
 const saving = ref(false)
 const converting = ref(false)
 
-const form = ref({ firstName: '', lastName: '', email: '', phone: '', type: 'lead', notes: '' })
+interface ClientForm {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  type: string
+  notes: string
+  dateOfBirth: string
+  weddingAnniversary: string
+  closingAnniversary: string
+  holidayExceptions: string[]
+}
+
+const emptyForm = (): ClientForm => ({
+  firstName: '', lastName: '', email: '', phone: '', type: 'lead', notes: '',
+  dateOfBirth: '', weddingAnniversary: '', closingAnniversary: '', holidayExceptions: []
+})
+
+const form = ref<ClientForm>(emptyForm())
 const convertForm = ref({ type: 'buying', propertyAddress: '', salePrice: null as number | null })
+const dialogTab = ref<'basics' | 'celebrations'>('basics')
+
+const HOLIDAY_OPTIONS = [
+  { value: 'christmas', label: 'Christmas',  icon: 'mdi-pine-tree' },
+  { value: 'new_year',  label: 'New Year',   icon: 'mdi-firework' },
+  { value: 'eid',       label: 'Eid',        icon: 'mdi-star-crescent' },
+] as const
+
+function toggleException(value: string) {
+  const set = new Set(form.value.holidayExceptions)
+  if (set.has(value)) set.delete(value)
+  else set.add(value)
+  form.value.holidayExceptions = Array.from(set)
+}
+
+// ISO date → "YYYY-MM-DD" (for v-text-field type=date). Empty for null/invalid.
+function toDateInput(v: any): string {
+  if (!v) return ''
+  const d = new Date(v)
+  if (isNaN(d.getTime())) return ''
+  return d.toISOString().slice(0, 10)
+}
 
 let searchTimeout: any = null
 function debouncedSearch() {
@@ -216,8 +345,13 @@ function editClient(client: any) {
     email: client.email || '',
     phone: client.phone || '',
     type: client.type,
-    notes: client.notes || ''
+    notes: client.notes || '',
+    dateOfBirth: toDateInput(client.dateOfBirth),
+    weddingAnniversary: toDateInput(client.weddingAnniversary),
+    closingAnniversary: toDateInput(client.closingAnniversary),
+    holidayExceptions: Array.isArray(client.holidayExceptions) ? [...client.holidayExceptions] : [],
   }
+  dialogTab.value = 'basics'
   showAddDialog.value = true
 }
 
@@ -230,7 +364,8 @@ function convertClient(client: any) {
 function closeDialog() {
   showAddDialog.value = false
   editingClient.value = null
-  form.value = { firstName: '', lastName: '', email: '', phone: '', type: 'lead', notes: '' }
+  form.value = emptyForm()
+  dialogTab.value = 'basics'
 }
 
 async function saveClient() {
@@ -312,4 +447,14 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
   background: white !important;
 }
 .cursor-pointer { cursor: pointer; }
+
+.client-dialog :deep(.v-tab) {
+  text-transform: none;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+.exception-chip { cursor: pointer; }
+.exception-chip :deep(.v-chip__content) { font-weight: 600; }
+.ga-2 { gap: 8px; }
+.letter-spacing-1 { letter-spacing: 1px; }
 </style>

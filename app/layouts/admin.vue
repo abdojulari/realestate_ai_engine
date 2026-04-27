@@ -451,6 +451,7 @@ const getNotificationIcon = (type: string) => {
     system: 'mdi-cog',
     alert: 'mdi-alert',
     instaconnect: 'mdi-qrcode-scan',
+    celebration: 'mdi-cake-variant',
   }
   return icons[type] || 'mdi-bell'
 }

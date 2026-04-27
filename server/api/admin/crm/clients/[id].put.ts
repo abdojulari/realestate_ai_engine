@@ -22,8 +22,16 @@ export default defineEventHandler(async (event) => {
 
     const {
       firstName, lastName, email, phone,
-      type, status, source, notes, tags
+      type, status, source, notes, tags,
+      dateOfBirth, weddingAnniversary, closingAnniversary, holidayExceptions
     } = body
+
+    const toDateOrNull = (v: unknown): Date | null | undefined => {
+      if (v === undefined) return undefined
+      if (v === null || v === '') return null
+      const d = new Date(v as string)
+      return isNaN(d.getTime()) ? null : d
+    }
 
     const client = await prisma.crmClient.update({
       where: { id },
@@ -37,6 +45,10 @@ export default defineEventHandler(async (event) => {
         ...(source !== undefined && { source }),
         ...(notes !== undefined && { notes }),
         ...(tags !== undefined && { tags }),
+        ...(dateOfBirth !== undefined && { dateOfBirth: toDateOrNull(dateOfBirth) }),
+        ...(weddingAnniversary !== undefined && { weddingAnniversary: toDateOrNull(weddingAnniversary) }),
+        ...(closingAnniversary !== undefined && { closingAnniversary: toDateOrNull(closingAnniversary) }),
+        ...(Array.isArray(holidayExceptions) && { holidayExceptions: holidayExceptions.map(String) }),
       }
     })
 

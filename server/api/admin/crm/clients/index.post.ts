@@ -15,11 +15,19 @@ export default defineEventHandler(async (event) => {
 
     const {
       firstName, lastName, email, phone,
-      type = 'lead', source = 'manual', sourceId, notes, tags
+      type = 'lead', source = 'manual', sourceId, notes, tags,
+      dateOfBirth, weddingAnniversary, closingAnniversary, holidayExceptions
     } = body
 
     if (!firstName || !lastName) {
       throw createError({ statusCode: 400, message: 'First name and last name are required' })
+    }
+
+    const toDateOrNull = (v: unknown): Date | null | undefined => {
+      if (v === undefined) return undefined
+      if (v === null || v === '') return null
+      const d = new Date(v as string)
+      return isNaN(d.getTime()) ? null : d
     }
 
     const client = await prisma.crmClient.create({
@@ -33,7 +41,11 @@ export default defineEventHandler(async (event) => {
         sourceId,
         notes,
         tags: tags || [],
-        adminId: getAdminIdForCreate(user)
+        adminId: getAdminIdForCreate(user),
+        ...(dateOfBirth !== undefined && { dateOfBirth: toDateOrNull(dateOfBirth) }),
+        ...(weddingAnniversary !== undefined && { weddingAnniversary: toDateOrNull(weddingAnniversary) }),
+        ...(closingAnniversary !== undefined && { closingAnniversary: toDateOrNull(closingAnniversary) }),
+        ...(Array.isArray(holidayExceptions) && { holidayExceptions: holidayExceptions.map(String) }),
       }
     })
 

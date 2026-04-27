@@ -102,6 +102,126 @@
         </v-col>
       </v-row>
 
+      <!-- Celebrations -->
+      <v-row class="mb-10">
+        <v-col cols="12">
+          <v-card class="celebrations-card" elevation="0">
+            <v-card-title class="pa-6 d-flex align-center">
+              <v-icon color="warning" class="mr-3">mdi-cake-variant</v-icon>
+              <div>
+                <span class="display-serif text-h5">Celebrations</span>
+                <div class="text-caption text-medium-emphasis">
+                  <span v-if="celebrationsToday > 0" class="font-weight-bold text-warning">
+                    {{ celebrationsToday }} today
+                  </span>
+                  <span v-else>Nothing today</span>
+                  <span v-if="upcomingPersonal.length"> · {{ upcomingPersonal.length }} in the next 14 days</span>
+                </div>
+              </div>
+              <v-spacer />
+              <v-btn
+                variant="tonal"
+                size="small"
+                prepend-icon="mdi-cog-outline"
+                to="/admin/crm/celebrations"
+              >Settings</v-btn>
+            </v-card-title>
+            <v-divider class="opacity-10" />
+            <v-card-text class="pa-6">
+              <!-- Empty state -->
+              <div v-if="!loadingCelebrations && upcomingPersonal.length === 0 && upcomingFixed.length === 0" class="text-center py-8">
+                <v-icon size="48" color="grey-lighten-1" class="mb-2">mdi-calendar-blank-outline</v-icon>
+                <div class="text-body-1 text-medium-emphasis">No upcoming celebrations.</div>
+                <div class="text-caption text-medium-emphasis">Add birthdays or anniversaries on a client to see them here.</div>
+              </div>
+
+              <!-- Personal celebrations -->
+              <v-row v-if="upcomingPersonal.length">
+                <v-col v-for="item in upcomingPersonal" :key="`${item.kind}-${item.clientId}`" cols="12" md="6" lg="4">
+                  <div class="celebration-item" :class="{ 'celebration-today': item.daysUntil === 0 }">
+                    <div class="celebration-icon" :class="`kind-${item.kind}`">
+                      <v-icon size="20">{{ kindIcon(item.kind) }}</v-icon>
+                    </div>
+                    <div class="celebration-info flex-grow-1">
+                      <div class="d-flex align-center">
+                        <span class="font-weight-bold">{{ item.firstName }} {{ item.lastName }}</span>
+                        <v-chip
+                          v-if="item.daysUntil === 0"
+                          size="x-small"
+                          color="warning"
+                          class="ml-2 text-uppercase font-weight-bold"
+                        >Today</v-chip>
+                        <v-chip
+                          v-else-if="item.daysUntil <= 3"
+                          size="x-small"
+                          color="info"
+                          variant="tonal"
+                          class="ml-2"
+                        >In {{ item.daysUntil }}d</v-chip>
+                      </div>
+                      <div class="text-caption text-medium-emphasis">
+                        {{ kindLabel(item.kind) }} · {{ formatDayMonth(item.date) }}
+                        <span v-if="!item.email" class="text-error ml-1">· no email</span>
+                      </div>
+                    </div>
+                    <v-btn
+                      v-if="item.email"
+                      :color="item.alreadySentToday ? 'success' : (item.daysUntil === 0 ? 'warning' : 'primary')"
+                      :variant="item.alreadySentToday ? 'tonal' : 'flat'"
+                      size="small"
+                      :prepend-icon="item.alreadySentToday ? 'mdi-check' : 'mdi-send'"
+                      @click="openSendForItem(item)"
+                      class="celebration-send-btn"
+                    >
+                      {{ item.alreadySentToday ? 'Sent' : 'Send' }}
+                    </v-btn>
+                  </div>
+                </v-col>
+              </v-row>
+
+              <!-- Fixed holidays banner -->
+              <div v-if="upcomingFixed.length" class="mt-6">
+                <v-divider class="mb-4" />
+                <div class="text-overline letter-spacing-1 text-medium-emphasis mb-3">Fixed Holidays</div>
+                <v-row>
+                  <v-col v-for="h in upcomingFixed" :key="h.kind" cols="12" md="6">
+                    <div class="fixed-holiday-card">
+                      <div class="d-flex align-center mb-2">
+                        <v-icon :color="h.kind === 'christmas' ? 'red-darken-2' : 'indigo-darken-2'" class="mr-2">
+                          {{ h.kind === 'christmas' ? 'mdi-pine-tree' : 'mdi-firework' }}
+                        </v-icon>
+                        <span class="font-weight-bold">
+                          {{ h.kind === 'christmas' ? 'Christmas' : 'New Year' }}
+                        </span>
+                        <v-chip
+                          v-if="h.daysUntil === 0"
+                          size="x-small"
+                          color="warning"
+                          class="ml-2 text-uppercase font-weight-bold"
+                        >Today</v-chip>
+                        <v-chip v-else size="x-small" variant="tonal" class="ml-2">
+                          In {{ h.daysUntil }} day{{ h.daysUntil === 1 ? '' : 's' }}
+                        </v-chip>
+                      </div>
+                      <div class="text-caption text-medium-emphasis mb-3">
+                        {{ h.eligibleClientCount }} eligible clients (after exception list)
+                      </div>
+                      <v-btn
+                        size="small"
+                        variant="tonal"
+                        color="primary"
+                        prepend-icon="mdi-send-outline"
+                        @click="openBulkSend(h.kind, h.eligibleClientCount)"
+                      >Send to all</v-btn>
+                    </div>
+                  </v-col>
+                </v-row>
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+
       <!-- Active Transactions Pipeline -->
       <v-row class="mb-10">
         <v-col cols="12">
@@ -217,6 +337,18 @@
         </v-col>
       </v-row>
 
+      <!-- Send Celebration Dialog -->
+      <SendCelebrationDialog
+        v-model="showSendDialog"
+        :kind="sendKind"
+        :recipient="sendRecipient"
+        :bulk="sendBulk"
+        :bulk-eligible-count="sendBulkCount"
+        :defaults="celebrationDefaults"
+        :admin-name="adminName"
+        @sent="onCelebrationSent"
+      />
+
       <!-- Add Client Dialog -->
       <v-dialog v-model="showAddClient" max-width="500" persistent>
         <v-card class="rounded-xl">
@@ -257,7 +389,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import SendCelebrationDialog from '~/components/crm/SendCelebrationDialog.vue'
 
 const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
@@ -274,6 +407,112 @@ const dashboard = ref<any>({
   recentClients: [],
   activeTransactions: []
 })
+
+// ── Celebrations widget state ─────────────────────────────
+type PersonalKind = 'birthday' | 'anniversary' | 'closing'
+type FixedKind = 'christmas' | 'new_year'
+type AnyKind = PersonalKind | FixedKind | 'eid'
+
+interface PersonalItem {
+  kind: PersonalKind
+  clientId: number
+  firstName: string
+  lastName: string
+  email: string | null
+  phone: string | null
+  date: string
+  daysUntil: number
+  alreadySentToday: boolean
+}
+interface FixedItem {
+  kind: FixedKind
+  date: string
+  daysUntil: number
+  eligibleClientCount: number
+}
+
+const loadingCelebrations = ref(false)
+const upcomingPersonal = ref<PersonalItem[]>([])
+const upcomingFixed = ref<FixedItem[]>([])
+const celebrationDefaults = ref<Record<string, { subject: string; body: string }>>({})
+const adminName = ref('')
+
+const celebrationsToday = computed(() =>
+  upcomingPersonal.value.filter(p => p.daysUntil === 0).length
+  + upcomingFixed.value.filter(f => f.daysUntil === 0).length
+)
+
+const showSendDialog = ref(false)
+const sendKind = ref<AnyKind>('birthday')
+const sendRecipient = ref<{ id: number; firstName: string; lastName: string; email: string | null } | null>(null)
+const sendBulk = ref(false)
+const sendBulkCount = ref<number | null>(null)
+
+function kindIcon(kind: PersonalKind) {
+  return kind === 'birthday' ? 'mdi-cake-variant'
+    : kind === 'anniversary' ? 'mdi-heart'
+    : 'mdi-key-variant'
+}
+function kindLabel(kind: PersonalKind) {
+  return kind === 'birthday' ? 'Birthday'
+    : kind === 'anniversary' ? 'Wedding Anniversary'
+    : 'Closing Anniversary'
+}
+function formatDayMonth(d: string) {
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+function openSendForItem(item: PersonalItem) {
+  sendKind.value = item.kind
+  sendRecipient.value = {
+    id: item.clientId,
+    firstName: item.firstName,
+    lastName: item.lastName,
+    email: item.email,
+  }
+  sendBulk.value = false
+  sendBulkCount.value = null
+  showSendDialog.value = true
+}
+
+function openBulkSend(kind: FixedKind, count: number) {
+  sendKind.value = kind
+  sendRecipient.value = null
+  sendBulk.value = true
+  sendBulkCount.value = count
+  showSendDialog.value = true
+}
+
+async function onCelebrationSent() {
+  await loadCelebrations()
+}
+
+async function loadCelebrations() {
+  loadingCelebrations.value = true
+  try {
+    const [upcomingRes, settingsRes] = await Promise.all([
+      $fetch('/api/admin/crm/celebrations/upcoming?days=14', { headers: getAuthHeaders() }) as Promise<any>,
+      $fetch('/api/admin/crm/celebrations/settings', { headers: getAuthHeaders() }) as Promise<any>,
+    ])
+    upcomingPersonal.value = upcomingRes.personal || []
+    upcomingFixed.value = upcomingRes.fixed || []
+    celebrationDefaults.value = settingsRes.defaults || {}
+  } catch (e) {
+    console.error('Error loading celebrations:', e)
+  } finally {
+    loadingCelebrations.value = false
+  }
+}
+
+async function loadAdminName() {
+  try {
+    const res: any = await $fetch('/api/auth/me', { headers: getAuthHeaders() })
+    const u = res?.user || res
+    adminName.value = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim() || u?.email || ''
+  } catch {
+    // Non-fatal — placeholders fall back to "Your Agent"
+  }
+}
 
 const showAddClient = ref(false)
 const addingClient = ref(false)
@@ -323,7 +562,9 @@ async function loadDashboard() {
   }
 }
 
-onMounted(loadDashboard)
+onMounted(async () => {
+  await Promise.all([loadDashboard(), loadCelebrations(), loadAdminName()])
+})
 
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
 </script>
@@ -368,4 +609,53 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
 .transaction-mini-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.1) !important; }
 
 .list-item-hover:hover { background: #f9f9f9; }
+
+/* ── Celebrations widget ── */
+.celebrations-card {
+  border-radius: 20px !important;
+  border: 1px solid rgba(0,0,0,0.05) !important;
+  background: linear-gradient(135deg, #fffaf0 0%, #ffffff 60%) !important;
+}
+.celebration-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.05);
+  background: #fff;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+  height: 100%;
+}
+.celebration-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.06);
+  border-color: rgba(140, 115, 75, 0.4);
+}
+.celebration-today {
+  border-color: #f59e0b !important;
+  background: linear-gradient(135deg, #fff8eb 0%, #ffffff 80%) !important;
+}
+.celebration-icon {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: #fff;
+}
+.kind-birthday    { background: linear-gradient(135deg, #f59e0b, #fb923c); }
+.kind-anniversary { background: linear-gradient(135deg, #ef4444, #f43f5e); }
+.kind-closing     { background: linear-gradient(135deg, #10b981, #14b8a6); }
+.celebration-info { min-width: 0; }
+.celebration-info .font-weight-bold {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.celebration-send-btn { text-transform: none; font-weight: 700; }
+
+.fixed-holiday-card {
+  padding: 16px 18px;
+  border-radius: 14px;
+  border: 1px dashed rgba(0,0,0,0.1);
+  background: #fafaf8;
+}
 </style>

@@ -108,6 +108,8 @@ model User {
   tenantListingTemplates    ListingTemplate[]    @relation("TenantListingTemplates")
   tenantCrmClients          CrmClient[]          @relation("TenantCrmClients")
   tenantCrmTransactions     CrmTransaction[]     @relation("TenantCrmTransactions")
+  tenantCelebrationSettings CelebrationSettings? @relation("TenantCelebrationSettings")
+  tenantCelebrationLogs     CelebrationLog[]     @relation("TenantCelebrationLogs")
   tenantCalendarEvents      CalendarEvent[]      @relation("TenantCalendarEvents")
   tenantBookingSlots        BookingSlot[]        @relation("TenantBookingSlots")
   tenantBookings            Booking[]            @relation("TenantBookings")
@@ -944,23 +946,34 @@ model WorkspaceTool {
 // ═══════════════════════════════════════════════════════════════
 
 model CrmClient {
-  id           Int              @id @default(autoincrement())
-  adminId      Int?
-  admin        User?            @relation("TenantCrmClients", fields: [adminId], references: [id])
-  firstName    String
-  lastName     String
-  email        String?
-  phone        String?
-  type         String // buyer, seller, investor, lead
-  status       String           @default("active") // active, inactive, closed
-  source       String? // inquiry, chat, estimate, referral, manual
-  sourceId     Int? // link to original lead record
-  notes        String?          @db.Text
-  tags         Json?
-  metadata     Json?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
-  transactions CrmTransaction[]
+  id                    Int              @id @default(autoincrement())
+  adminId               Int?
+  admin                 User?            @relation("TenantCrmClients", fields: [adminId], references: [id])
+  firstName             String
+  lastName              String
+  email                 String?
+  phone                 String?
+  type                  String // buyer, seller, investor, lead
+  status                String           @default("active") // active, inactive, closed
+  source                String? // inquiry, chat, estimate, referral, manual
+  sourceId              Int? // link to original lead record
+  notes                 String?          @db.Text
+  tags                  Json?
+  metadata              Json?
+  // ── Celebration / anniversary tracking ──
+  // Stored as DateTime for portability; only month/day are used for fixed-anniversary matching.
+  dateOfBirth           DateTime?
+  weddingAnniversary    DateTime?
+  // Successful closing anniversary. Mirrored from the latest closed CrmTransaction.closingDate
+  // when set, so we don't have to JOIN on every cron run.
+  closingAnniversary    DateTime?
+  // Holiday opt-outs. Keys: "christmas", "new_year", "eid", and any future ones.
+  // Stored as String[] (Postgres array) so we can do `has`/`hasSome` queries cheaply.
+  holidayExceptions     String[]         @default([])
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+  transactions          CrmTransaction[]
+  celebrationLogs       CelebrationLog[]
 
   @@unique([adminId, email])
   @@index([adminId, type, status])
@@ -1008,6 +1021,59 @@ model CrmChecklistItem {
   updatedAt     DateTime       @updatedAt
 
   @@index([transactionId, sortOrder])
+}
+
+// Per-tenant configuration for celebration emails.
+// One row per admin (tenant). Created lazily on first GET if missing.
+model CelebrationSettings {
+  id                  Int      @id @default(autoincrement())
+  adminId             Int      @unique
+  admin               User     @relation("TenantCelebrationSettings", fields: [adminId], references: [id], onDelete: Cascade)
+  // Auto-send toggles (per kind). When false, the cron only surfaces the celebration
+  // as a notification on the CRM and the admin sends manually.
+  autoSendBirthday    Boolean  @default(false)
+  autoSendAnniversary Boolean  @default(false)
+  autoSendClosing     Boolean  @default(false)
+  autoSendChristmas   Boolean  @default(false)
+  autoSendNewYear     Boolean  @default(false)
+  // Templates. Body uses {{firstName}} / {{lastName}} / {{adminName}} placeholders.
+  birthdayTemplate    String?  @db.Text
+  anniversaryTemplate String?  @db.Text
+  closingTemplate     String?  @db.Text
+  christmasTemplate   String?  @db.Text
+  newYearTemplate     String?  @db.Text
+  eidTemplate         String?  @db.Text
+  birthdaySubject     String?
+  anniversarySubject  String?
+  closingSubject      String?
+  christmasSubject    String?
+  newYearSubject      String?
+  eidSubject          String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+// Audit trail for celebration messages. Also used to dedupe (avoid sending the same
+// kind to the same client twice in the same calendar day).
+model CelebrationLog {
+  id        Int       @id @default(autoincrement())
+  adminId   Int
+  admin     User      @relation("TenantCelebrationLogs", fields: [adminId], references: [id], onDelete: Cascade)
+  clientId  Int
+  client    CrmClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  // birthday | anniversary | closing | christmas | new_year | eid | custom
+  kind      String
+  subject   String
+  body      String    @db.Text
+  // auto = sent by cron with template; manual = admin clicked Send Wishes
+  mode      String    @default("manual")
+  // ok | failed | skipped
+  status    String    @default("ok")
+  error     String?
+  sentAt    DateTime  @default(now())
+
+  @@index([adminId, kind, sentAt])
+  @@index([clientId, kind, sentAt])
 }
 
 // ═══════════════════════════════════════════════════════════════
