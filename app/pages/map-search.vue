@@ -4,12 +4,20 @@
       <!-- Search Panel: Sidebar -->
       <v-col 
         cols="12" 
-        lg="4" 
-        xl="3"
         class="search-panel-col"
-        :class="{ 'panel-hidden': !showPanel }"
+        :class="{ 'panel-hidden': !showPanel, 'is-resizing': isResizing }"
+        :style="{ '--sidebar-width': sidebarWidth + 'px' }"
       >
         <div class="search-panel">
+          <!-- Resize Handle (drag to resize, double-click to reset) -->
+          <div
+            class="resize-handle d-none d-lg-flex"
+            @mousedown="startResize"
+            @dblclick="resetSidebarWidth"
+            :title="`Drag to resize · double-click to reset (${sidebarWidth}px)`"
+          >
+            <span class="resize-grip"></span>
+          </div>
           <!-- Premium Dark Header -->
           <div class="panel-header">
             <div class="panel-header-top">
@@ -23,12 +31,13 @@
                 </div>
               </div>
               <v-btn
-                icon="mdi-close"
+                icon="mdi-chevron-double-left"
                 variant="text"
                 density="comfortable"
                 color="white"
                 @click="showPanel = false"
-                class="d-lg-none close-panel-btn"
+                class="close-panel-btn"
+                title="Hide panel"
               />
             </div>
 
@@ -190,16 +199,17 @@
 
       <!-- Map Section -->
       <v-col class="map-container-col">
-        <!-- Floating Mobile Toggle -->
+        <!-- Floating Toggle (mobile + desktop when panel is collapsed) -->
         <v-btn
           v-if="!showPanel"
-          class="mobile-panel-toggle d-lg-none"
+          class="panel-toggle-btn"
           icon="mdi-filter-variant"
           elevation="0"
           @click="showPanel = true"
+          title="Show filters"
         />
 
-        <div class="map-wrapper">
+        <div class="map-wrapper" @click="handleMapClick">
           <PropertyMap
             :properties="properties"
             :selected-property="selectedProperty"
@@ -259,7 +269,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import type { Property as BaseProperty, PropertyFilter, User } from '~/types'
 import { useAnalytics } from '../../utils/analytics'
 import { propertyService } from '~/services/property.service'
@@ -298,6 +308,57 @@ const initialLoading = ref(true)
 const searchError = ref(false)
 const searchErrorMessage = ref('')
 const showPanel = ref(true)
+
+// Sidebar resize / dock state (desktop only)
+const SIDEBAR_DEFAULT_WIDTH = 380
+const SIDEBAR_MIN_WIDTH = 300
+const SIDEBAR_MAX_WIDTH = 640
+const SIDEBAR_STORAGE_KEY = 'mapSearch.sidebarWidth'
+const sidebarWidth = ref(SIDEBAR_DEFAULT_WIDTH)
+const isResizing = ref(false)
+
+const startResize = (e: MouseEvent) => {
+  e.preventDefault()
+  isResizing.value = true
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  window.addEventListener('mousemove', onResizeMove)
+  window.addEventListener('mouseup', stopResize)
+}
+
+const onResizeMove = (e: MouseEvent) => {
+  if (!isResizing.value) return
+  const next = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, e.clientX))
+  sidebarWidth.value = next
+}
+
+const stopResize = () => {
+  if (!isResizing.value) return
+  isResizing.value = false
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
+  window.removeEventListener('mousemove', onResizeMove)
+  window.removeEventListener('mouseup', stopResize)
+  try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(sidebarWidth.value)) } catch {}
+  // Let leaflet recompute container size after width change
+  window.dispatchEvent(new Event('resize'))
+}
+
+const resetSidebarWidth = () => {
+  sidebarWidth.value = SIDEBAR_DEFAULT_WIDTH
+  try { localStorage.setItem(SIDEBAR_STORAGE_KEY, String(SIDEBAR_DEFAULT_WIDTH)) } catch {}
+  window.dispatchEvent(new Event('resize'))
+}
+
+// Click on the map background hides the sidebar for full-width view.
+// Marker clicks bubble up too — that's intentional: selecting a property collapses the
+// sidebar so the floating property card has the full map as backdrop.
+const handleMapClick = (e: MouseEvent) => {
+  // Ignore clicks on leaflet UI controls (zoom, attribution, etc.)
+  const target = e.target as HTMLElement | null
+  if (target?.closest('.leaflet-control')) return
+  if (showPanel.value) showPanel.value = false
+}
 const selectedProperty = ref<Property | null>(null)
 const showContactDialog = ref(false)
 const contactProperty = ref<Property | null>(null)
@@ -515,7 +576,21 @@ const scrollToResultsTop = () => {
 onMounted(async () => {
   useAnalytics().trackPageView({ path: '/map-search', title: 'Property Search' })
   try { await registerServiceWorker() } catch (e) {}
+  try {
+    const saved = localStorage.getItem(SIDEBAR_STORAGE_KEY)
+    if (saved) {
+      const n = parseInt(saved, 10)
+      if (Number.isFinite(n)) sidebarWidth.value = Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, n))
+    }
+  } catch {}
   await handleSearch(filters.value)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('mousemove', onResizeMove)
+  window.removeEventListener('mouseup', stopResize)
+  document.body.style.cursor = ''
+  document.body.style.userSelect = ''
 })
 </script>
 
@@ -537,31 +612,73 @@ onMounted(async () => {
    SIDEBAR PANEL
    ═══════════════════════════════════════════ */
 .search-panel-col {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 10;
   background: #fff;
   height: 100%;
   display: flex;
   flex-direction: column;
 }
+/* Desktop: width comes from --sidebar-width (drag-resizable) */
+@media (min-width: 1264px) {
+  .search-panel-col {
+    flex: 0 0 var(--sidebar-width, 380px) !important;
+    max-width: var(--sidebar-width, 380px) !important;
+    width: var(--sidebar-width, 380px) !important;
+  }
+  /* While dragging, disable transitions for snappy feel */
+  .search-panel-col.is-resizing { transition: none !important; }
+}
 .search-panel {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
   border-right: 1px solid #e2e8f0;
 }
 
+/* ── Resize Handle ── */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  z-index: 50;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  transition: background 0.15s;
+}
+.resize-handle:hover,
+.search-panel-col.is-resizing .resize-handle {
+  background: rgba(59, 130, 246, 0.08);
+}
+.resize-grip {
+  width: 2px;
+  height: 36px;
+  border-radius: 2px;
+  background: #cbd5e1;
+  transition: background 0.15s, height 0.15s;
+}
+.resize-handle:hover .resize-grip,
+.search-panel-col.is-resizing .resize-grip {
+  background: #3b82f6;
+  height: 56px;
+}
+
 /* ── Dark Header ── */
 .panel-header {
   background: linear-gradient(145deg, #0f172a, #1e293b);
-  padding: 24px 24px 20px;
+  padding: 18px 20px 16px;
   flex-shrink: 0;
 }
 .panel-header-top {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 .header-icon-badge {
   width: 40px; height: 40px;
@@ -593,24 +710,34 @@ onMounted(async () => {
   flex-direction: column;
 }
 .premium-input :deep(.v-field) {
-  border-radius: 10px !important;
-  background: rgba(255,255,255,0.07) !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
+  border-radius: 9px !important;
+  background: rgba(255,255,255,0.06) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
   backdrop-filter: blur(4px);
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  min-height: 40px !important;
 }
+.premium-input :deep(.v-field__input) {
+  min-height: 40px !important;
+  padding-top: 10px !important;
+  padding-bottom: 6px !important;
+  font-size: 0.85rem !important;
+}
+.premium-input :deep(.v-field__field) { min-height: 40px !important; }
+.premium-input :deep(.v-label) { font-size: 0.78rem !important; }
 .premium-input :deep(.v-field:hover) {
-  background: rgba(255,255,255,0.1) !important;
-  border-color: rgba(255,255,255,0.18) !important;
+  background: rgba(255,255,255,0.09) !important;
+  border-color: rgba(255,255,255,0.16) !important;
 }
 .premium-input :deep(.v-field--focused) {
-  background: rgba(255,255,255,0.12) !important;
+  background: rgba(255,255,255,0.11) !important;
   border-color: rgba(59,130,246,0.5) !important;
   box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
 }
 .premium-input :deep(.v-field__input),
 .premium-input :deep(.v-label),
-.premium-input :deep(.v-field__append-inner .v-icon) {
+.premium-input :deep(.v-field__append-inner .v-icon),
+.premium-input :deep(.v-field__prepend-inner .v-icon) {
   color: rgba(255,255,255,0.8) !important;
 }
 
@@ -664,31 +791,74 @@ onMounted(async () => {
 /* ── Filters ── */
 .filters-section {
   flex-shrink: 0;
-  padding: 20px 24px;
+  padding: 14px 20px 8px;
 }
 .filters-label {
   display: flex;
   align-items: center;
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: #94a3b8;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+}
+
+/* Slim, clean filter fields */
+.custom-filters :deep(.v-card) {
+  box-shadow: none !important;
+  background: transparent !important;
+}
+.custom-filters :deep(.v-card-text) {
+  padding: 0 !important;
+}
+.custom-filters :deep(.v-row) {
+  margin: 0 -4px !important;
+}
+.custom-filters :deep(.v-col) {
+  padding: 4px !important;
 }
 .custom-filters :deep(.v-field) {
-  border-radius: 10px !important;
-  background: #f1f5f9 !important;
+  border-radius: 9px !important;
+  background: #f8fafc !important;
   border: 1px solid #e2e8f0 !important;
-  transition: all 0.2s;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+  min-height: 38px !important;
+}
+.custom-filters :deep(.v-field__field),
+.custom-filters :deep(.v-field__input) {
+  min-height: 38px !important;
+}
+.custom-filters :deep(.v-field__input) {
+  padding-top: 8px !important;
+  padding-bottom: 4px !important;
+  font-size: 0.82rem !important;
+}
+.custom-filters :deep(.v-field__outline) { display: none !important; }
+.custom-filters :deep(.v-label) {
+  font-size: 0.74rem !important;
+  opacity: 0.75;
+}
+.custom-filters :deep(.v-field__prepend-inner .v-icon) {
+  font-size: 16px !important;
+  opacity: 0.55;
+  margin-inline-end: 4px !important;
 }
 .custom-filters :deep(.v-field:hover) {
-  background: #e8edf3 !important;
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
 }
 .custom-filters :deep(.v-field--focused) {
   background: #fff !important;
   border-color: #3b82f6 !important;
   box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+.custom-filters :deep(.v-checkbox) {
+  margin-top: 0 !important;
+}
+.custom-filters :deep(.v-checkbox .v-label) {
+  font-size: 0.82rem !important;
+  opacity: 0.85;
 }
 
 .section-divider {
@@ -859,8 +1029,8 @@ onMounted(async () => {
   background: #eef2f7;
 }
 
-/* ── Mobile Toggle ── */
-.mobile-panel-toggle {
+/* ── Floating Panel Toggle (mobile + desktop) ── */
+.panel-toggle-btn {
   position: absolute;
   top: 16px;
   left: 16px;
@@ -871,9 +1041,12 @@ onMounted(async () => {
   background: #0f172a !important;
   color: #fff !important;
   box-shadow: 0 4px 20px rgba(15,23,42,0.3) !important;
-  transition: transform 0.2s;
+  transition: transform 0.2s, background 0.2s;
 }
-.mobile-panel-toggle:hover { transform: scale(1.05); }
+.panel-toggle-btn:hover {
+  transform: scale(1.05);
+  background: #1e293b !important;
+}
 
 /* ── Floating Card ── */
 .floating-property-detail {
@@ -915,6 +1088,15 @@ onMounted(async () => {
 /* ═══════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════ */
+/* Desktop: collapsed = slide off-screen */
+@media (min-width: 1264px) {
+  .search-panel-col.panel-hidden {
+    flex: 0 0 0 !important;
+    max-width: 0 !important;
+    width: 0 !important;
+    overflow: hidden;
+  }
+}
 @media (max-width: 1263px) {
   .layout-row { flex-wrap: wrap; }
   .search-panel-col {
@@ -927,11 +1109,12 @@ onMounted(async () => {
   .panel-hidden { transform: translateX(-110%); }
   .map-container-col { width: 100%; flex: 1 1 100%; }
   .floating-property-detail { bottom: 20px; }
+  .resize-handle { display: none !important; }
 }
 @media (max-width: 600px) {
   .search-panel-col { max-width: 100%; }
-  .panel-header { padding: 20px 20px 16px; }
-  .filters-section { padding: 16px 20px; }
-  .results-container { padding: 16px 20px; }
+  .panel-header { padding: 16px 16px 14px; }
+  .filters-section { padding: 12px 16px 6px; }
+  .results-container { padding: 14px 16px; }
 }
 </style>

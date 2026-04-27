@@ -67,10 +67,12 @@
             <!-- Map Tile Layers -->
             <l-tile-layer
               v-if="mapType === 'map'"
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
               layer-type="base"
-              name="OpenStreetMap"
-              attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors"
+              name="CARTO Positron"
+              attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors &copy; <a href='https://carto.com/attributions'>CARTO</a>"
+              :subdomains="['a', 'b', 'c', 'd']"
+              :max-zoom="20"
             />
             
             <l-tile-layer
@@ -286,8 +288,8 @@ function getPricePin(price: number): string {
       </filter>
     </defs>
     <g filter='url(#s)'>
-      <rect x='6' y='3' rx='17' ry='17' width='96' height='46' fill='#b00020' stroke='#8a0019' stroke-width='2'/>
-      <path d='M54 66 L44 49 H64 Z' fill='#b00020' stroke='#8a0019' stroke-width='2'/>
+      <rect x='6' y='3' rx='17' ry='17' width='96' height='46' fill='#2A81CB' stroke='#1F6299' stroke-width='2'/>
+      <path d='M54 66 L44 49 H64 Z' fill='#2A81CB' stroke='#1F6299' stroke-width='2'/>
       <text x='54' y='33' text-anchor='middle' font-family='Arial, Helvetica, sans-serif' font-size='22' font-weight='700' fill='#fff'>${label}</text>
     </g>
   </svg>`
