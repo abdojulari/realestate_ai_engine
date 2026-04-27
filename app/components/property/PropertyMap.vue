@@ -54,7 +54,7 @@
     <v-card-text>
     
       <!-- Map Container -->
-      <div class="map-container hidden lg:block lg:h-[90vh] xl:h-[81.5vh]">
+      <div ref="mapContainerRef" class="map-container hidden lg:block lg:h-[90vh] xl:h-[81.5vh]">
         <client-only>
           <l-map
             ref="mapRef"
@@ -72,7 +72,10 @@
               name="CARTO Positron"
               attribution="&copy; <a href='https://www.openstreetmap.org/copyright'>OpenStreetMap</a> contributors &copy; <a href='https://carto.com/attributions'>CARTO</a>"
               :subdomains="['a', 'b', 'c', 'd']"
-              :max-zoom="20"
+              :detect-retina="true"
+              :max-native-zoom="20"
+              :max-zoom="22"
+              :tile-size="256"
             />
             
             <l-tile-layer
@@ -373,10 +376,39 @@ function isValidLatLng(val: any): val is [number, number] {
   return typeof lat === 'number' && typeof lng === 'number' && isFinite(lat) && isFinite(lng)
 }
 
-// keep map sized correctly
+// Keep the Leaflet map sized to its container.
+//
+// `window resize` alone is not enough: when the parent sidebar collapses or is
+// drag-resized, the window doesn't fire `resize` — only the map's container does.
+// Without notifying Leaflet, you get grey gaps where tiles haven't been laid out.
+// A ResizeObserver on the actual container catches both window resizes AND
+// container-only resizes (sidebar collapse / drag / panel toggle / orientation).
+const mapContainerRef = ref<HTMLDivElement | null>(null)
 const onResize = () => { try { map.value?.invalidateSize?.() } catch {} }
-onMounted(() => { if (typeof window !== 'undefined') window.addEventListener('resize', onResize) })
-onUnmounted(() => { if (typeof window !== 'undefined') window.removeEventListener('resize', onResize) })
+let resizeObserver: ResizeObserver | null = null
+let resizeRaf: number | null = null
+const scheduleInvalidate = () => {
+  // Coalesce rapid resizes (e.g. mid-drag) into a single rAF tick to avoid jank.
+  if (resizeRaf !== null) cancelAnimationFrame(resizeRaf)
+  resizeRaf = requestAnimationFrame(() => {
+    resizeRaf = null
+    onResize()
+  })
+}
+onMounted(() => {
+  if (typeof window === 'undefined') return
+  window.addEventListener('resize', onResize)
+  if (typeof ResizeObserver !== 'undefined' && mapContainerRef.value) {
+    resizeObserver = new ResizeObserver(scheduleInvalidate)
+    resizeObserver.observe(mapContainerRef.value)
+  }
+})
+onUnmounted(() => {
+  if (typeof window !== 'undefined') window.removeEventListener('resize', onResize)
+  if (resizeRaf !== null) cancelAnimationFrame(resizeRaf)
+  resizeObserver?.disconnect()
+  resizeObserver = null
+})
 
 // Watch for latitude/longitude changes and recenter the map
 watch(
