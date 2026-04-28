@@ -1,9 +1,9 @@
 <template>
   <v-container fluid class="pa-0 map-search-wrapper">
-    <v-row no-gutters class="layout-row">
-      <!-- Search Panel: Sidebar -->
-      <v-col 
-        cols="12" 
+    <!-- Sidebar overlay (floats on top of the map; map underneath stays full-bleed) -->
+    <v-row no-gutters class="sidebar-row">
+       <!-- Search Panel: Sidebar -->
+      <v-col
         class="search-panel-col"
         :class="{ 'panel-hidden': !showPanel, 'is-resizing': isResizing }"
         :style="{ '--sidebar-width': sidebarWidth + 'px' }"
@@ -196,6 +196,9 @@
           </div>
         </div>
       </v-col>
+    </v-row>
+    <v-row no-gutters class="layout-row">
+     
 
       <!-- Map Section -->
       <v-col class="map-container-col">
@@ -599,35 +602,58 @@ onBeforeUnmount(() => {
    BASE
    ═══════════════════════════════════════════ */
 .map-search-wrapper {
+  position: relative;
   height: calc(100vh - 64px);
   background-color: #f8fafc;
   overflow: hidden;
 }
+
+/* Map row = full-bleed base layer. Map ALWAYS takes 100% × 100%, so it
+   never has to "redress" when the sidebar opens/closes (no grey gap). */
 .layout-row {
+  position: absolute;
+  inset: 0;
   height: 100%;
+  width: 100%;
   flex-wrap: nowrap;
+  z-index: 1;
+}
+
+/* Sidebar row is a positioned wrapper for the floating panel. It is taken
+   out of normal flow so it never pushes the map row down. */
+.sidebar-row {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* let map clicks pass through outside the panel */
+  z-index: 20;
 }
 
 /* ═══════════════════════════════════════════
-   SIDEBAR PANEL
+   SIDEBAR PANEL (floating overlay)
    ═══════════════════════════════════════════ */
 .search-panel-col {
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 10;
-  background: #fff;
+  pointer-events: auto;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
   height: 100%;
+  width: var(--sidebar-width, 380px);
+  max-width: var(--sidebar-width, 380px);
+  flex: 0 0 var(--sidebar-width, 380px);
+  background: #fff;
   display: flex;
   flex-direction: column;
+  transform: translateX(0);
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 8px 0 32px rgba(15, 23, 42, 0.08);
 }
-/* Desktop: width comes from --sidebar-width (drag-resizable) */
-@media (min-width: 1264px) {
-  .search-panel-col {
-    flex: 0 0 var(--sidebar-width, 380px) !important;
-    max-width: var(--sidebar-width, 380px) !important;
-    width: var(--sidebar-width, 380px) !important;
-  }
-  /* While dragging, disable transitions for snappy feel */
-  .search-panel-col.is-resizing { transition: none !important; }
+/* While dragging the resize handle, kill transitions for a snappy feel */
+.search-panel-col.is-resizing { transition: none !important; }
+/* Hidden state: slide off to the left — map stays full size underneath */
+.search-panel-col.panel-hidden {
+  transform: translateX(-110%);
+  box-shadow: none;
 }
 .search-panel {
   position: relative;
@@ -635,6 +661,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100%;
   border-right: 1px solid #e2e8f0;
+  background: #fff;
 }
 
 /* ── Resize Handle ── */
@@ -1088,31 +1115,23 @@ onBeforeUnmount(() => {
 /* ═══════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════ */
-/* Desktop: collapsed = slide off-screen */
-@media (min-width: 1264px) {
-  .search-panel-col.panel-hidden {
-    flex: 0 0 0 !important;
-    max-width: 0 !important;
-    width: 0 !important;
-    overflow: hidden;
-  }
-}
+/* Tablet: cap the overlay width so the map peeks behind it */
 @media (max-width: 1263px) {
-  .layout-row { flex-wrap: wrap; }
   .search-panel-col {
-    position: fixed;
-    top: 0; left: 0; bottom: 0;
-    width: 100% !important;
+    width: min(var(--sidebar-width, 380px), 400px);
     max-width: 400px;
     box-shadow: 12px 0 40px rgba(0,0,0,0.15);
   }
-  .panel-hidden { transform: translateX(-110%); }
-  .map-container-col { width: 100%; flex: 1 1 100%; }
   .floating-property-detail { bottom: 20px; }
   .resize-handle { display: none !important; }
 }
+/* Mobile: panel becomes a full-screen drawer */
 @media (max-width: 600px) {
-  .search-panel-col { max-width: 100%; }
+  .search-panel-col {
+    width: 100%;
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
   .panel-header { padding: 16px 16px 14px; }
   .filters-section { padding: 12px 16px 6px; }
   .results-container { padding: 14px 16px; }
