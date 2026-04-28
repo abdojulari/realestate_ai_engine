@@ -23,25 +23,53 @@
 
       <v-divider />
 
-      <v-list nav>
-        <v-list-item
-          v-for="item in menuItems"
-          :key="item.to"
-          :to="item.to"
-          :title="rail ? '' : item.title"
-          :value="item.title"
-        >
-          <template #prepend>
-            <v-icon>{{ item.icon }}</v-icon>
-          </template>
-          <template v-slot:append v-if="!rail && item.badge">
-            <v-badge
-              :content="item.badge"
-              color="error"
-              floating
-            />
-          </template>
-        </v-list-item>
+      <v-list nav v-model:opened="openedGroups">
+        <template v-for="node in groupedMenu" :key="node.type === 'group' ? `g-${node.key}` : `i-${node.to}`">
+          <!-- Top-level leaf items -->
+          <v-list-item
+            v-if="node.type === 'item'"
+            :to="node.to"
+            :title="rail ? '' : node.title"
+            :value="node.title"
+          >
+            <template #prepend>
+              <v-icon>{{ node.icon }}</v-icon>
+            </template>
+            <template v-slot:append v-if="!rail && node.badge">
+              <v-badge :content="node.badge" color="error" floating />
+            </template>
+          </v-list-item>
+
+          <!-- Grouped collapsible section -->
+          <v-list-group v-else :value="node.key">
+            <template v-slot:activator="{ props }">
+              <v-list-item
+                v-bind="props"
+                :title="rail ? '' : node.title"
+                :value="`group-${node.key}`"
+              >
+                <template #prepend>
+                  <v-icon>{{ node.icon }}</v-icon>
+                </template>
+              </v-list-item>
+            </template>
+
+            <v-list-item
+              v-for="child in node.children"
+              :key="child.to"
+              :to="child.to"
+              :title="rail ? '' : child.title"
+              :value="child.title"
+            >
+              <template #prepend>
+                <v-icon>{{ child.icon }}</v-icon>
+              </template>
+              <template v-slot:append v-if="!rail && child.badge">
+                <v-badge :content="child.badge" color="error" floating />
+              </template>
+            </v-list-item>
+          </v-list-group>
+        </template>
       </v-list>
 
       <template v-slot:append>
@@ -337,32 +365,54 @@ const userBadge = ref<number | undefined>(undefined)
 const crmBadge = ref<number | undefined>(undefined)
 
 // Menu metadata: delegateFeature = key needed for read access; principalOnly = owners only; skipDelegateFeatureCheck = always for delegates (e.g. public site link)
+// `groupKey` references one of MENU_GROUPS below. Items without a groupKey
+// stay at the top level of the drawer (Dashboard, Site, Site Management).
+// Within a group children are alphabetized by `title` at render time.
 const allMenuItems = [
   { title: 'Dashboard', icon: 'mdi-view-dashboard', to: '/admin', requiresFeature: null, delegateFeature: 'core' },
   { title: 'Site', icon: 'mdi-home', to: '/', requiresFeature: null, skipDelegateFeatureCheck: true },
   { title: 'Site Management', icon: 'mdi-palette', to: '/admin/site-management', requiresFeature: null, delegateFeature: 'site_management' },
-  { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', requiresFeature: null, delegateFeature: 'user_management', getBadge: () => userBadge.value },
-  { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/crm', requiresFeature: null, delegateFeature: 'crm', getBadge: () => crmBadge.value },
-  { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties', requiresFeature: null, delegateFeature: 'properties' },
-  { title: 'Listing Templates', icon: 'mdi-image-multiple', to: '/admin/listing-templates', requiresFeature: FEATURES.LISTING_TEMPLATES, tier: 'gold', delegateFeature: 'listing_templates' },
-  { title: 'Best Deals', icon: 'mdi-tag-arrow-down', to: '/admin/deals', requiresFeature: FEATURES.BEST_DEALS, tier: 'basic', delegateFeature: 'best_deals' },
-  { title: 'Off-Market', icon: 'mdi-home-off-outline', to: '/admin/off-market', requiresFeature: null, superAdminOnly: true, delegateFeature: 'off_market' },
-  { title: 'Calendar', icon: 'mdi-calendar-clock', to: '/admin/calendar', requiresFeature: null, delegateFeature: 'calendar' },
-  { title: 'Facebook', icon: 'mdi-facebook', to: '/admin/facebook', requiresFeature: null, delegateFeature: 'facebook' },
-  { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null, delegateFeature: 'blog' },
-  { title: 'Testimonials', icon: 'mdi-comment-quote', to: '/admin/testimonials', requiresFeature: null, delegateFeature: 'content' },
-  { title: 'Flash News', icon: 'mdi-newspaper-variant', to: '/admin/flash-news', requiresFeature: null, delegateFeature: 'content' },
-  { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma', requiresFeature: FEATURES.CMA, tier: 'silver', delegateFeature: 'cma' },
-  { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync', requiresFeature: FEATURES.CREA_SYNC, tier: 'basic', delegateFeature: 'crea_sync' },
-  { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync', requiresFeature: FEATURES.PILLAR9_SYNC, tier: 'basic', delegateFeature: 'pillar9_sync' },
-  { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter', requiresFeature: FEATURES.NEWSLETTER, tier: 'basic', delegateFeature: 'newsletter' },
-  { title: 'Lead Generation', icon: 'mdi-account-search', to: '/admin/lead-generation', requiresFeature: FEATURES.LEAD_GENERATION, tier: 'gold', delegateFeature: 'lead_generation' },
-  { title: 'Tools', icon: 'mdi-draw', to: '/admin/tools', requiresFeature: FEATURES.WORKSPACE_TOOLS, tier: 'silver', delegateFeature: 'workspace_tools' },
-  { title: 'Content', icon: 'mdi-file-document', to: '/admin/content', requiresFeature: null, delegateFeature: 'content' },
-  { title: 'Resources', icon: 'mdi-folder-download', to: '/admin/resources', requiresFeature: null, delegateFeature: 'resources' },
-  { title: 'Documents', icon: 'mdi-file-cabinet', to: '/admin/documents', requiresFeature: FEATURES.DOCUMENTS, tier: 'silver', delegateFeature: 'documents' },
-  { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports', requiresFeature: FEATURES.REPORTS, tier: 'silver', delegateFeature: 'reports' },
-  { title: 'Book Keeping', icon: 'mdi-book-open-page-variant', to: '/admin/bookkeeping', requiresFeature: FEATURES.BOOKKEEPING, tier: 'basic', delegateFeature: 'bookkeeping' },
+
+  // User Management
+  { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/crm', requiresFeature: null, delegateFeature: 'crm', getBadge: () => crmBadge.value, groupKey: 'users' },
+  { title: 'Lead Generation', icon: 'mdi-account-search', to: '/admin/lead-generation', requiresFeature: FEATURES.LEAD_GENERATION, tier: 'gold', delegateFeature: 'lead_generation', groupKey: 'users' },
+  { title: 'Testimonials', icon: 'mdi-comment-quote', to: '/admin/testimonials', requiresFeature: null, delegateFeature: 'content', groupKey: 'users' },
+  { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', requiresFeature: null, delegateFeature: 'user_management', getBadge: () => userBadge.value, groupKey: 'users' },
+
+  // Properties & Listings
+  { title: 'Best Deals', icon: 'mdi-tag-arrow-down', to: '/admin/deals', requiresFeature: FEATURES.BEST_DEALS, tier: 'basic', delegateFeature: 'best_deals', groupKey: 'properties' },
+  { title: 'CREA Sync', icon: 'mdi-cloud-sync', to: '/admin/crea-sync', requiresFeature: FEATURES.CREA_SYNC, tier: 'basic', delegateFeature: 'crea_sync', groupKey: 'properties' },
+  { title: 'Listing Templates', icon: 'mdi-image-multiple', to: '/admin/listing-templates', requiresFeature: FEATURES.LISTING_TEMPLATES, tier: 'gold', delegateFeature: 'listing_templates', groupKey: 'properties' },
+  { title: 'Off-Market', icon: 'mdi-home-off-outline', to: '/admin/off-market', requiresFeature: null, superAdminOnly: true, delegateFeature: 'off_market', groupKey: 'properties' },
+  { title: 'Pillar9 Sync', icon: 'mdi-database-sync', to: '/admin/pillar9-sync', requiresFeature: FEATURES.PILLAR9_SYNC, tier: 'basic', delegateFeature: 'pillar9_sync', groupKey: 'properties' },
+  { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties', requiresFeature: null, delegateFeature: 'properties', groupKey: 'properties' },
+
+  // Marketing & Communications
+  { title: 'Facebook', icon: 'mdi-facebook', to: '/admin/facebook', requiresFeature: null, delegateFeature: 'facebook', groupKey: 'marketing' },
+  { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter', requiresFeature: FEATURES.NEWSLETTER, tier: 'basic', delegateFeature: 'newsletter', groupKey: 'marketing' },
+
+  // News & Resources
+  { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null, delegateFeature: 'blog', groupKey: 'content' },
+  { title: 'Content', icon: 'mdi-file-document', to: '/admin/content', requiresFeature: null, delegateFeature: 'content', groupKey: 'content' },
+  { title: 'Flash News', icon: 'mdi-newspaper-variant', to: '/admin/flash-news', requiresFeature: null, delegateFeature: 'content', groupKey: 'content' },
+  { title: 'Resources', icon: 'mdi-folder-download', to: '/admin/resources', requiresFeature: null, delegateFeature: 'resources', groupKey: 'content' },
+
+  // Tools & Reports
+  { title: 'Book Keeping', icon: 'mdi-book-open-page-variant', to: '/admin/bookkeeping', requiresFeature: FEATURES.BOOKKEEPING, tier: 'basic', delegateFeature: 'bookkeeping', groupKey: 'workspace' },
+  { title: 'Calendar', icon: 'mdi-calendar-clock', to: '/admin/calendar', requiresFeature: null, delegateFeature: 'calendar', groupKey: 'workspace' },
+  { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma', requiresFeature: FEATURES.CMA, tier: 'silver', delegateFeature: 'cma', groupKey: 'workspace' },
+  { title: 'Documents', icon: 'mdi-file-cabinet', to: '/admin/documents', requiresFeature: FEATURES.DOCUMENTS, tier: 'silver', delegateFeature: 'documents', groupKey: 'workspace' },
+  { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports', requiresFeature: FEATURES.REPORTS, tier: 'silver', delegateFeature: 'reports', groupKey: 'workspace' },
+  { title: 'Tools', icon: 'mdi-draw', to: '/admin/tools', requiresFeature: FEATURES.WORKSPACE_TOOLS, tier: 'silver', delegateFeature: 'workspace_tools', groupKey: 'workspace' },
+]
+
+// Order here drives the order groups appear in the drawer.
+const MENU_GROUPS: { key: string; title: string; icon: string }[] = [
+  { key: 'users',      title: 'User Management',          icon: 'mdi-account-cog' },
+  { key: 'properties', title: 'Properties & Listings',    icon: 'mdi-home-search' },
+  { key: 'marketing',  title: 'Marketing & Communications', icon: 'mdi-bullhorn' },
+  { key: 'content',    title: 'News & Resources',         icon: 'mdi-bookshelf' },
+  { key: 'workspace',  title: 'Tools & Reports',          icon: 'mdi-toolbox' },
 ]
 
 const isDelegatedAssistant = computed(
@@ -401,6 +451,7 @@ const menuItems = computed(() => {
         title: item.title,
         icon: item.icon,
         to: item.to,
+        groupKey: (item as any).groupKey ?? null,
         badge: item.getBadge ? (item.getBadge() ? String(item.getBadge()) : undefined) : undefined
       }))
   }
@@ -415,15 +466,80 @@ const menuItems = computed(() => {
       title: item.title,
       icon: item.icon,
       to: item.to,
+      groupKey: (item as any).groupKey ?? null,
       badge: item.getBadge ? (item.getBadge() ? String(item.getBadge()) : undefined) : undefined
     }))
 })
 
+// Drawer rendering model: a flat list of either { type: 'item' } leaves or
+// { type: 'group', children: [...] } collapsibles. Top-level singles keep
+// their existing position; groups slot in where MENU_GROUPS defines them.
+type MenuLeaf = {
+  type: 'item'
+  title: string
+  icon: string
+  to: string
+  badge?: string
+}
+type MenuGroup = {
+  type: 'group'
+  key: string
+  title: string
+  icon: string
+  children: MenuLeaf[]
+}
+type MenuNode = MenuLeaf | MenuGroup
+
+const groupedMenu = computed<MenuNode[]>(() => {
+  const items = menuItems.value
+  const topLevel: MenuLeaf[] = items
+    .filter(i => !i.groupKey)
+    .map(i => ({ type: 'item', title: i.title, icon: i.icon, to: i.to, badge: i.badge }))
+
+  const groups: MenuGroup[] = MENU_GROUPS
+    .map(g => {
+      const children = items
+        .filter(i => i.groupKey === g.key)
+        .sort((a, b) => a.title.localeCompare(b.title))
+        .map<MenuLeaf>(i => ({ type: 'item', title: i.title, icon: i.icon, to: i.to, badge: i.badge }))
+      const group: MenuGroup = { type: 'group', key: g.key, title: g.title, icon: g.icon, children }
+      return group
+    })
+    .filter(g => g.children.length > 0)
+
+  return [...topLevel, ...groups]
+})
+
+// Auto-expand the group containing the current route, so users land in
+// context after a refresh / direct navigation.
+const activeGroupKey = computed<string | null>(() => {
+  const here = route.path
+  const match = (allMenuItems as any[]).find(i => i.to && i.to === here)
+  return match?.groupKey ?? null
+})
+const openedGroups = ref<string[]>([])
+
+watch(
+  activeGroupKey,
+  (key) => {
+    if (!key) return
+    if (!openedGroups.value.includes(key)) openedGroups.value = [...openedGroups.value, key]
+  },
+  { immediate: true },
+)
+
 // Computed
 const currentPageTitle = computed(() => {
   const currentRoute = route.path
-  const item = menuItems.value.find(item => item.to === currentRoute)
-  if (item) return item.title
+  // Search across leaves and grouped children — same effect as before, just
+  // walking the new tree shape.
+  for (const node of groupedMenu.value) {
+    if (node.type === 'item' && node.to === currentRoute) return node.title
+    if (node.type === 'group') {
+      const child = node.children.find(c => c.to === currentRoute)
+      if (child) return child.title
+    }
+  }
   if (currentRoute.startsWith('/admin/tools/') && currentRoute !== '/admin/tools') {
     return 'Workspace tool'
   }
