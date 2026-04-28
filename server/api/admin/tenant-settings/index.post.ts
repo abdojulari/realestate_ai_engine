@@ -88,13 +88,25 @@ export default defineEventHandler(async (event) => {
       'googleReviewUrl',
       'developerName',
       'developerUrl',
+      'awardsCount',
       'subdomain',
       'customDomain',
     ]
 
     for (const field of allowedFields) {
       if (body[field] !== undefined) {
-        data[field] = body[field]
+        // awardsCount is an integer; coerce strings/empty to null gracefully
+        if (field === 'awardsCount') {
+          const raw = body[field]
+          if (raw === null || raw === '' || raw === undefined) {
+            data[field] = null
+          } else {
+            const n = Number(raw)
+            data[field] = Number.isFinite(n) && n >= 0 ? Math.floor(n) : null
+          }
+        } else {
+          data[field] = body[field]
+        }
       }
     }
 

@@ -10,6 +10,8 @@
     :hero-image="heroImage"
     :featured-testimonials="featuredTestimonials"
     :total-users="totalUsers"
+    :total-properties="totalProperties"
+    :awards-count="awardsCount"
   />
 </template>
 
@@ -126,6 +128,8 @@ const featuredProperties = ref<any[]>([])
 const heroImage = ref<string>('')
 const featuredTestimonials = ref<any[]>([])
 const totalUsers = ref<number>(0)
+const totalProperties = ref<number>(0)
+const awardsCount = ref<number>(0)
 
 // Template components mapping
 const templateComponents: Record<number, any> = {
@@ -161,11 +165,22 @@ onMounted(async () => {
   // Load Stats. These are decorative — if they fail we keep going so the
   // rest of the homepage still renders, but we log so on-call sees the
   // failure instead of silently shipping a broken section.
+  // /api/stats returns tenant-scoped counts: totalUsers (admin + their users)
+  // and totalProperties (CREA + Pillar9 shared MLS + this tenant's manual listings).
   try {
-    const stats = await $fetch('/api/stats')
-    if (stats?.totalUsers) totalUsers.value = stats.totalUsers
+    const stats: any = await $fetch('/api/stats')
+    if (typeof stats?.totalUsers === 'number') totalUsers.value = stats.totalUsers
+    if (typeof stats?.totalProperties === 'number') totalProperties.value = stats.totalProperties
   } catch (e) {
     console.warn('[home] Failed to load /api/stats', e)
+  }
+
+  // Awards-won is admin-editable per tenant via the CMS branding panel.
+  try {
+    const ts: any = await $fetch('/api/tenant-settings')
+    if (typeof ts?.awardsCount === 'number') awardsCount.value = ts.awardsCount
+  } catch (e) {
+    console.warn('[home] Failed to load /api/tenant-settings for awardsCount', e)
   }
 
   // Load Properties

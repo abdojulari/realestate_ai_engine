@@ -167,15 +167,17 @@ const props = defineProps<{
   heroImage?: string
   featuredTestimonials?: any[]
   totalUsers?: number
+  totalProperties?: number
+  awardsCount?: number
 }>()
 
 const searchActive = ref(false)
 const isShowcaseVisible = ref(false)
 
 const stats = computed(() => [
-  { icon: 'mdi-home-city-outline', value: props.featuredProperties?.length ? `${props.featuredProperties.length}+` : '1,200+', label: 'Properties Available' },
-  { icon: 'mdi-account-group-outline', value: props.totalUsers ? `${props.totalUsers}+` : '500+', label: 'Happy Families' },
-  { icon: 'mdi-trophy-variant-outline', value: '100+', label: 'Awards Won' }
+  { icon: 'mdi-home-city-outline', value: `${props.totalProperties ?? 0}+`, label: 'Properties Available' },
+  { icon: 'mdi-account-group-outline', value: `${props.totalUsers ?? 0}+`, label: 'Happy Families' },
+  { icon: 'mdi-trophy-variant-outline', value: `${props.awardsCount ?? 0}+`, label: 'Awards Won' }
 ])
 
 const onIntersect = (isIntersecting: boolean) => {

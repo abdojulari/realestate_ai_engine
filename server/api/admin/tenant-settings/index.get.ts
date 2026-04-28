@@ -65,6 +65,7 @@ export default defineEventHandler(async (event) => {
         googleReviewUrl: null,
         developerName: null,
         developerUrl: null,
+        awardsCount: null,
         subdomain: null,
         customDomain: null,
         createdAt: null,

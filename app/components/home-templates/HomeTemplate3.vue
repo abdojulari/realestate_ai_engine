@@ -64,7 +64,7 @@
           </v-col>
           <v-col cols="12" md="4">
             <div class="stat-box">
-              <div class="stat-number-minimal">100+</div>
+              <div class="stat-number-minimal">{{ awardsDisplay }}</div>
               <div class="stat-label-minimal">Industry Awards</div>
             </div>
           </v-col>
@@ -150,13 +150,12 @@ const props = defineProps<{
   heroImage?: string
   featuredTestimonials?: any[]
   totalUsers?: number
+  totalProperties?: number
+  awardsCount?: number
 }>()
 
-const totalProperties = computed(() => {
-  return props.featuredProperties && props.featuredProperties.length > 0 
-    ? `${props.featuredProperties.length}+` 
-    : '1200+'
-})
+const totalProperties = computed(() => `${props.totalProperties ?? 0}+`)
+const awardsDisplay = computed(() => `${props.awardsCount ?? 0}+`)
 
 const handleSearch = (params: any) => {
   navigateTo({ path: '/properties', query: params })

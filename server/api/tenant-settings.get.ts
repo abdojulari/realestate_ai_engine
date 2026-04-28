@@ -52,6 +52,7 @@ export default defineEventHandler(async (event) => {
         googleReviewUrl: true,
         developerName: true,
         developerUrl: true,
+        awardsCount: true,
         admin: { select: { firstName: true, lastName: true, email: true } },
         // Intentionally excluded: subdomain, customDomain, adminId
       },
@@ -80,6 +81,7 @@ export default defineEventHandler(async (event) => {
         googleReviewUrl: null,
         developerName: null,
         developerUrl: null,
+        awardsCount: null,
       }
     }
 

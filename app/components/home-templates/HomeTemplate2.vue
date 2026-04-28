@@ -67,7 +67,7 @@
                 <div class="stat-icon-wrapper">
                   <v-icon class="stat-icon" color="amber-lighten-3">mdi-trophy-variant-outline</v-icon>
                 </div>
-                <div class="stat-value">100+</div>
+                <div class="stat-value">{{ awardsDisplay }}</div>
                 <div class="stat-text">Awards</div>
               </div>
             </div>
@@ -160,13 +160,12 @@ const props = defineProps<{
   heroImage?: string
   featuredTestimonials?: any[]
   totalUsers?: number
+  totalProperties?: number
+  awardsCount?: number
 }>()
 
-const totalProperties = computed(() => {
-  return props.featuredProperties && props.featuredProperties.length > 0 
-    ? `${props.featuredProperties.length}+` 
-    : '1200+'
-})
+const totalProperties = computed(() => `${props.totalProperties ?? 0}+`)
+const awardsDisplay = computed(() => `${props.awardsCount ?? 0}+`)
 
 const handleSearch = (params: any) => {
   // Note: Standard Vue Router uses useRouter() or navigateTo in Nuxt

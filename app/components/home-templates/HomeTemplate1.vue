@@ -49,7 +49,7 @@
               </div>
               <div class="stat-divider"></div>
               <div class="stat-item">
-                <div class="stat-number">100+</div>
+                <div class="stat-number">{{ awardsDisplay }}</div>
                 <div class="stat-label">Awards</div>
               </div>
             </div>
@@ -162,13 +162,12 @@ const props = defineProps<{
   heroImage?: string
   featuredTestimonials?: any[]
   totalUsers?: number
+  totalProperties?: number
+  awardsCount?: number
 }>()
 
-const totalProperties = computed(() => {
-  return props.featuredProperties && props.featuredProperties.length > 0 
-    ? `${props.featuredProperties.length}+` 
-    : '1200+'
-})
+const totalProperties = computed(() => `${props.totalProperties ?? 0}+`)
+const awardsDisplay = computed(() => `${props.awardsCount ?? 0}+`)
 
 const handleSearch = (params: any) => {
   navigateTo({ path: '/properties', query: params })

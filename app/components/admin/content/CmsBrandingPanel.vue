@@ -133,6 +133,26 @@
 
       <v-divider class="my-6" />
 
+      <!-- Homepage Hero Stats -->
+      <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">HOMEPAGE STATS</div>
+      <v-row dense class="mb-6">
+        <v-col cols="12" md="4">
+          <v-text-field
+            v-model.number="branding.awardsCount"
+            type="number"
+            min="0"
+            label="Awards Won"
+            variant="outlined"
+            density="compact"
+            prepend-inner-icon="mdi-trophy-variant-outline"
+            hint="Shown on the homepage hero (e.g. 100 → '100+'). Properties &amp; Clients are computed automatically."
+            persistent-hint
+          />
+        </v-col>
+      </v-row>
+
+      <v-divider class="my-6" />
+
       <!-- Footer / Legal -->
       <div class="text-overline font-weight-bold text-slate-400 tracking-widest mb-4">FOOTER &amp; LEGAL</div>
       <v-row dense class="mb-2">
@@ -193,6 +213,7 @@ const branding = reactive({
   copyrightName: '',
   developerName: '',
   developerUrl: '',
+  awardsCount: null as number | null,
 })
 
 const logoFile = ref<File | null>(null)
@@ -257,6 +278,7 @@ async function loadBranding() {
       copyrightName: data.copyrightName || '',
       developerName: data.developerName || '',
       developerUrl: data.developerUrl || '',
+      awardsCount: data.awardsCount ?? null,
     })
   } catch (e: any) {
     console.error('Failed to load branding:', e)

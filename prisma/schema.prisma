@@ -164,6 +164,9 @@ model TenantSettings {
   // External review links
   googleReviewUrl String?
 
+  // Homepage hero stats (admin-editable)
+  awardsCount Int? // Awards-won number shown in the homepage hero stats card
+
   // Footer / legal
   footerDisclaimer String? @db.Text
   copyrightName    String?
