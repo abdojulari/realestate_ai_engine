@@ -608,16 +608,90 @@ export function useDocumentEditor() {
 
   // ─── Save PDF ──────────────────────────────────────────
 
+  /**
+   * Build a fresh, clean PDF from the rendered pdf.js pages — used when the
+   * source PDF was encrypted. pdf.js already decrypted the page content for
+   * display, so we re-render each page at high DPI, embed the resulting
+   * image as a full-page background, and overlay any text / signature
+   * elements the user added. Result: an unencrypted, readable PDF that
+   * Acrobat opens cleanly. Tradeoff: no selectable text layer.
+   */
+  const buildRasterizedPdf = async (): Promise<Uint8Array> => {
+    if (!pdfDocument) throw new Error('No PDF loaded')
+    const RENDER_SCALE = 2.0 // ~144 DPI — sharp enough for print, ~5x file size of source page
+    const newDoc = await PDFDocument.create()
+
+    for (let p = 1; p <= totalPages.value; p++) {
+      const page = await pdfDocument.getPage(p)
+      const viewport = page.getViewport({ scale: RENDER_SCALE })
+
+      // Off-screen canvas so we don't disturb the visible editor canvases.
+      const canvas = document.createElement('canvas')
+      canvas.width = viewport.width
+      canvas.height = viewport.height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) continue
+      // White background — some PDFs assume it and would otherwise look
+      // transparent on a JPEG embed.
+      ctx.fillStyle = '#ffffff'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      await page.render({ canvasContext: ctx, viewport }).promise
+
+      // JPEG @ 0.92 quality keeps file size reasonable while staying crisp.
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
+      const base64 = dataUrl.split(',')[1] ?? ''
+      const imgBytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0))
+      const img = await newDoc.embedJpg(imgBytes)
+
+      // New page sized to the original page (in PDF points, scale=1).
+      const baseViewport = page.getViewport({ scale: 1 })
+      const newPage = newDoc.addPage([baseViewport.width, baseViewport.height])
+      newPage.drawImage(img, { x: 0, y: 0, width: baseViewport.width, height: baseViewport.height })
+    }
+
+    // Overlay text + signature elements onto the rasterized pages. Editor
+    // coordinates are stored in pdf.js display space (scale 1.5), so divide
+    // by 1.5 to convert to PDF points.
+    const newPages = newDoc.getPages()
+    for (const textEl of textElements.value) {
+      const page = newPages[textEl.page - 1]
+      if (!page) continue
+      let font
+      try {
+        if (textEl.fontFamily === 'Times-Roman') font = await newDoc.embedFont(StandardFonts.TimesRoman)
+        else if (textEl.fontFamily === 'Courier') font = await newDoc.embedFont(StandardFonts.Courier)
+        else font = await newDoc.embedFont(StandardFonts.Helvetica)
+      } catch { font = await newDoc.embedFont(StandardFonts.Helvetica) }
+      const c = hexToRgb(textEl.color)
+      const ph = page.getHeight()
+      page.drawText(textEl.content, {
+        x: textEl.x, y: ph - textEl.y - textEl.fontSize,
+        size: textEl.fontSize, font, color: rgb(c.r, c.g, c.b),
+      })
+    }
+    for (const sigEl of signatureElements.value) {
+      const page = newPages[sigEl.page - 1]
+      if (!page) continue
+      const ph = page.getHeight()
+      if (sigEl.type === 'draw' || sigEl.type === 'upload') {
+        const img = await newDoc.embedPng(sigEl.data)
+        page.drawImage(img, {
+          x: sigEl.x, y: ph - sigEl.y - sigEl.height,
+          width: sigEl.width, height: sigEl.height,
+        })
+      } else if (sigEl.type === 'type') {
+        const font = await newDoc.embedFont(StandardFonts.HelveticaBold)
+        page.drawText(sigEl.data, {
+          x: sigEl.x, y: ph - sigEl.y - 32, size: 32, font, color: rgb(0, 0, 0),
+        })
+      }
+    }
+
+    return newDoc.save(SAFE_SAVE_OPTS)
+  }
+
   const savePdf = async () => {
     if (!currentPdfDoc || !activeDoc.value) return
-    // Encrypted PDFs were loaded with `ignoreEncryption: true`. Their in-
-    // memory streams are still ciphertext; saving via pdf-lib would write
-    // those bytes out as if they were plaintext → unreadable file. Refuse.
-    if (wasEncrypted.value) {
-      throw new Error(
-        'This PDF is encrypted and cannot be saved from the editor. Please remove the encryption with another tool and re-upload.',
-      )
-    }
 
     const hasPendingText = textElements.value.length > 0
     const hasPendingSig = signatureElements.value.length > 0
@@ -627,7 +701,13 @@ export function useDocumentEditor() {
     try {
       let pdfBytes: Uint8Array
 
-      if (needsFlatten) {
+      // Encrypted source PDF: pdf-lib's in-memory streams are still
+      // ciphertext (we used ignoreEncryption: true so we could render via
+      // pdf.js). A normal pdf-lib save would emit garbage. Instead, rebuild
+      // a clean PDF by rasterizing the decrypted pdf.js pages.
+      if (wasEncrypted.value) {
+        pdfBytes = await buildRasterizedPdf()
+      } else if (needsFlatten) {
         const pages = currentPdfDoc.getPages()
 
         // Flatten text elements
@@ -695,9 +775,9 @@ export function useDocumentEditor() {
         method: 'PUT', headers: getAuthHeaders(), body: formData,
       })
 
-      // Auto-download (only when we re-flattened — avoid spamming downloads
-      // on a no-op save).
-      if (needsFlatten || isDirty.value) {
+      // Auto-download (only when we re-flattened or rebuilt — avoid spamming
+      // downloads on a no-op save).
+      if (needsFlatten || isDirty.value || wasEncrypted.value) {
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
         link.href = url

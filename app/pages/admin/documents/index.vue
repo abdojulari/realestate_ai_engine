@@ -751,12 +751,19 @@ async function handleOCRAll() {
 }
 
 async function handleSave() {
+  // Snapshot before save: closeEditor() inside savePdf() resets these flags.
+  const wasEnc = editor.wasEncrypted.value
   try {
     const ok = await editor.savePdf()
-    if (ok) { showSnackbar('Document saved successfully'); await loadDocuments() }
+    if (ok) {
+      showSnackbar(
+        wasEnc
+          ? 'Saved (rebuilt from page images — original was encrypted, so the text layer is not selectable).'
+          : 'Document saved successfully',
+      )
+      await loadDocuments()
+    }
   } catch (err: any) {
-    // Surface the composable's own message when present (e.g. encrypted-PDF
-    // refusal) — the generic fallback covers network / server errors.
     const msg = (err && (err.message || err.data?.message)) || 'Failed to save document'
     showSnackbar(msg, 'error')
   }
