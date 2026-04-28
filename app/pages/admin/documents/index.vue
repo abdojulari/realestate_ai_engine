@@ -452,6 +452,14 @@
             @click:append-inner="showPdfPassword = !showPdfPassword"
             @keyup.enter="submitPdfPassword"
           />
+          <v-alert
+            v-if="passwordAttempts >= 2"
+            type="warning"
+            variant="tonal"
+            density="compact"
+            class="mt-2"
+            text="If you didn't set a password on this file, it may be corrupted (sometimes happens after editing & saving). Try re-uploading the original."
+          />
         </v-card-text>
         <v-card-actions class="px-6 pb-4">
           <v-spacer />
@@ -569,6 +577,7 @@ const autoOcrRunning = ref(false)
 const pdfPassword = ref('')
 const showPdfPassword = ref(false)
 const passwordFieldRef = ref<any>(null)
+const passwordAttempts = ref(0)
 
 watch(
   () => editor.passwordRequired.value,
@@ -576,17 +585,19 @@ watch(
     if (now) {
       pdfPassword.value = ''
       showPdfPassword.value = false
-      // Auto-focus the input on next tick
+      passwordAttempts.value = 0
       nextTick(() => { try { passwordFieldRef.value?.focus?.() } catch {} })
     }
   },
 )
 
 async function submitPdfPassword() {
+  passwordAttempts.value++
   const ok = await editor.unlockPdf(pdfPassword.value)
   if (ok) {
     pdfPassword.value = ''
     showPdfPassword.value = false
+    passwordAttempts.value = 0
     showSnackbar('Document unlocked')
   }
 }
@@ -740,8 +751,15 @@ async function handleOCRAll() {
 }
 
 async function handleSave() {
-  try { const ok = await editor.savePdf(); if (ok) { showSnackbar('Document saved successfully'); await loadDocuments() } }
-  catch { showSnackbar('Failed to save document', 'error') }
+  try {
+    const ok = await editor.savePdf()
+    if (ok) { showSnackbar('Document saved successfully'); await loadDocuments() }
+  } catch (err: any) {
+    // Surface the composable's own message when present (e.g. encrypted-PDF
+    // refusal) — the generic fallback covers network / server errors.
+    const msg = (err && (err.message || err.data?.message)) || 'Failed to save document'
+    showSnackbar(msg, 'error')
+  }
 }
 
 // ─── File conversion ─────────────────────────────────────

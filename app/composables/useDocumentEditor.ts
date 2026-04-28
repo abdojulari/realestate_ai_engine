@@ -22,6 +22,19 @@ import { createWorker } from 'tesseract.js'
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
 
+// pdf-lib `save()` options tuned for maximum reader compatibility. Without
+// `useObjectStreams: false` pdf-lib emits PDF 1.5 cross-reference streams +
+// object streams which some PDFs round-trip badly (Acrobat error 132,
+// "There was a problem reading this document"). Disabling object streams
+// forces a classic xref table, which is far more forgiving.
+// `updateFieldAppearances: false` skips re-rendering AcroForm widget
+// appearances (we don't edit form fields here, and that step is the source
+// of many regenerated-PDF bugs).
+const SAFE_SAVE_OPTS = {
+  useObjectStreams: false,
+  updateFieldAppearances: false,
+} as const
+
 // ─── Types ───────────────────────────────────────────────
 
 export interface TextElement {
@@ -90,6 +103,21 @@ export function useDocumentEditor() {
   const passwordError = ref('') // populated when the user submits a wrong password
   const unlocking = ref(false)
 
+  // True when pdf-lib detected an /Encrypt dictionary on the loaded PDF.
+  // We loaded with `ignoreEncryption: true` so we can still render via pdf.js
+  // (with the supplied password), but in-memory streams in pdf-lib are still
+  // ciphertext — calling `currentPdfDoc.save()` would emit corrupted bytes.
+  // Save is therefore disabled for encrypted PDFs.
+  const wasEncrypted = ref(false)
+
+  // Tracks whether the in-memory PDF differs from the bytes we last loaded
+  // (`pendingPdfBuffer`). When false, "Save" can re-upload the original bytes
+  // verbatim — avoiding a pdf-lib round-trip that some PDFs don't survive
+  // (compressed xref streams, hybrid xref tables, XFA, etc. → Acrobat error
+  // 132 / pdf.js misreporting corrupted streams as PasswordException).
+  const isDirty = ref(false)
+  const markDirty = () => { isDirty.value = true }
+
   // Canvas / thumbnail ref maps
   const canvasRefs = new Map<number, HTMLCanvasElement>()
   const thumbnailRefs = new Map<number, HTMLCanvasElement>()
@@ -128,6 +156,8 @@ export function useDocumentEditor() {
     passwordRequired.value = false
     passwordError.value = ''
     pendingPdfBuffer = null
+    wasEncrypted.value = false
+    isDirty.value = false
 
     await nextTick()
 
@@ -181,6 +211,10 @@ export function useDocumentEditor() {
       ignoreEncryption: true,
       ...(password ? { password } : {}),
     } as any)
+    // Track whether the source PDF was encrypted. Because we passed
+    // `ignoreEncryption: true`, pdf-lib gave us a document whose streams are
+    // still ciphertext — round-tripping it via `save()` would corrupt it.
+    try { wasEncrypted.value = !!currentPdfDoc?.isEncrypted } catch { wasEncrypted.value = false }
 
     const loadingTask = pdfjsLib.getDocument({
       data: bufForJs,
@@ -280,6 +314,8 @@ export function useDocumentEditor() {
     passwordRequired.value = false
     passwordError.value = ''
     unlocking.value = false
+    wasEncrypted.value = false
+    isDirty.value = false
   }
 
   // ─── Navigation ────────────────────────────────────────
@@ -323,12 +359,14 @@ export function useDocumentEditor() {
 
   const addTextElement = (element: TextElement) => {
     textElements.value.push(element)
+    markDirty()
   }
 
   // ─── Signature Elements ────────────────────────────────
 
   const addSignatureElement = (element: SignatureElement) => {
     signatureElements.value.push(element)
+    markDirty()
   }
 
   // ─── Drag & Drop ───────────────────────────────────────
@@ -413,8 +451,12 @@ export function useDocumentEditor() {
       const { width, height } = page.getSize()
       page.drawImage(img, { x: 0, y: 0, width, height })
 
-      const pdfBytes = await currentPdfDoc.save()
-      await loadPdfDocument(pdfBytes.buffer)
+      const pdfBytes = await currentPdfDoc.save(SAFE_SAVE_OPTS)
+      // Refresh the cached buffer so a subsequent unedited "Save" uploads
+      // the markup-applied bytes (not the pre-markup original).
+      pendingPdfBuffer = (pdfBytes as Uint8Array).buffer.slice(0)
+      await loadPdfDocument(pendingPdfBuffer)
+      markDirty()
     } finally {
       processing.value = false
     }
@@ -483,8 +525,10 @@ export function useDocumentEditor() {
           rotate: degrees(rotation),
         })
       })
-      const pdfBytes = await currentPdfDoc.save()
-      await loadPdfDocument(pdfBytes.buffer)
+      const pdfBytes = await currentPdfDoc.save(SAFE_SAVE_OPTS)
+      pendingPdfBuffer = (pdfBytes as Uint8Array).buffer.slice(0)
+      await loadPdfDocument(pendingPdfBuffer)
+      markDirty()
     } finally {
       processing.value = false
     }
@@ -566,49 +610,81 @@ export function useDocumentEditor() {
 
   const savePdf = async () => {
     if (!currentPdfDoc || !activeDoc.value) return
+    // Encrypted PDFs were loaded with `ignoreEncryption: true`. Their in-
+    // memory streams are still ciphertext; saving via pdf-lib would write
+    // those bytes out as if they were plaintext → unreadable file. Refuse.
+    if (wasEncrypted.value) {
+      throw new Error(
+        'This PDF is encrypted and cannot be saved from the editor. Please remove the encryption with another tool and re-upload.',
+      )
+    }
+
+    const hasPendingText = textElements.value.length > 0
+    const hasPendingSig = signatureElements.value.length > 0
+    const needsFlatten = hasPendingText || hasPendingSig
+
     saving.value = true
     try {
-      const pages = currentPdfDoc.getPages()
+      let pdfBytes: Uint8Array
 
-      // Flatten text elements
-      for (const textEl of textElements.value) {
-        const page = pages[textEl.page - 1]
-        if (!page) continue
-        let font
-        try {
-          if (textEl.fontFamily === 'Helvetica') font = await currentPdfDoc.embedFont(StandardFonts.Helvetica)
-          else if (textEl.fontFamily === 'Times-Roman') font = await currentPdfDoc.embedFont(StandardFonts.TimesRoman)
-          else if (textEl.fontFamily === 'Courier') font = await currentPdfDoc.embedFont(StandardFonts.Courier)
-          else font = await currentPdfDoc.embedFont(StandardFonts.Helvetica)
-        } catch { font = await currentPdfDoc.embedFont(StandardFonts.Helvetica) }
-        const c = hexToRgb(textEl.color)
-        const pageHeight = page.getHeight()
-        page.drawText(textEl.content, {
-          x: textEl.x * 1.5, y: pageHeight - (textEl.y * 1.5) - textEl.fontSize,
-          size: textEl.fontSize, font, color: rgb(c.r, c.g, c.b),
-        })
-      }
+      if (needsFlatten) {
+        const pages = currentPdfDoc.getPages()
 
-      // Flatten signature elements
-      for (const sigEl of signatureElements.value) {
-        const page = pages[sigEl.page - 1]
-        if (!page) continue
-        const pageHeight = page.getHeight()
-        if (sigEl.type === 'draw' || sigEl.type === 'upload') {
-          const img = await currentPdfDoc.embedPng(sigEl.data)
-          page.drawImage(img, {
-            x: sigEl.x * 1.5, y: pageHeight - (sigEl.y * 1.5) - (sigEl.height * 1.5),
-            width: sigEl.width * 1.5, height: sigEl.height * 1.5,
-          })
-        } else if (sigEl.type === 'type') {
-          const font = await currentPdfDoc.embedFont(StandardFonts.HelveticaBold)
-          page.drawText(sigEl.data, {
-            x: sigEl.x * 1.5, y: pageHeight - (sigEl.y * 1.5) - 40, size: 32, font, color: rgb(0, 0, 0),
+        // Flatten text elements
+        for (const textEl of textElements.value) {
+          const page = pages[textEl.page - 1]
+          if (!page) continue
+          let font
+          try {
+            if (textEl.fontFamily === 'Helvetica') font = await currentPdfDoc.embedFont(StandardFonts.Helvetica)
+            else if (textEl.fontFamily === 'Times-Roman') font = await currentPdfDoc.embedFont(StandardFonts.TimesRoman)
+            else if (textEl.fontFamily === 'Courier') font = await currentPdfDoc.embedFont(StandardFonts.Courier)
+            else font = await currentPdfDoc.embedFont(StandardFonts.Helvetica)
+          } catch { font = await currentPdfDoc.embedFont(StandardFonts.Helvetica) }
+          const c = hexToRgb(textEl.color)
+          const pageHeight = page.getHeight()
+          page.drawText(textEl.content, {
+            x: textEl.x * 1.5, y: pageHeight - (textEl.y * 1.5) - textEl.fontSize,
+            size: textEl.fontSize, font, color: rgb(c.r, c.g, c.b),
           })
         }
+
+        // Flatten signature elements
+        for (const sigEl of signatureElements.value) {
+          const page = pages[sigEl.page - 1]
+          if (!page) continue
+          const pageHeight = page.getHeight()
+          if (sigEl.type === 'draw' || sigEl.type === 'upload') {
+            const img = await currentPdfDoc.embedPng(sigEl.data)
+            page.drawImage(img, {
+              x: sigEl.x * 1.5, y: pageHeight - (sigEl.y * 1.5) - (sigEl.height * 1.5),
+              width: sigEl.width * 1.5, height: sigEl.height * 1.5,
+            })
+          } else if (sigEl.type === 'type') {
+            const font = await currentPdfDoc.embedFont(StandardFonts.HelveticaBold)
+            page.drawText(sigEl.data, {
+              x: sigEl.x * 1.5, y: pageHeight - (sigEl.y * 1.5) - 40, size: 32, font, color: rgb(0, 0, 0),
+            })
+          }
+        }
+
+        // Use compatibility-safe save options. See SAFE_SAVE_OPTS for context.
+        pdfBytes = await currentPdfDoc.save(SAFE_SAVE_OPTS)
+      } else if (isDirty.value && pendingPdfBuffer) {
+        // Watermark / markup were applied earlier. Those operations already
+        // re-saved into pendingPdfBuffer; upload that buffer verbatim.
+        pdfBytes = new Uint8Array(pendingPdfBuffer.slice(0))
+      } else if (pendingPdfBuffer) {
+        // Nothing changed at all → upload the original bytes verbatim. This
+        // is the critical fix for "open + save with no edits corrupts the
+        // file". Avoids the pdf-lib round-trip that broke real-world PDFs.
+        pdfBytes = new Uint8Array(pendingPdfBuffer.slice(0))
+      } else {
+        // Defensive fallback: nothing to upload, treat as a no-op success.
+        closeEditor()
+        return true
       }
 
-      const pdfBytes = await currentPdfDoc.save()
       const blob = new Blob([pdfBytes], { type: 'application/pdf' })
       const formData = new FormData()
       formData.append('file', blob, activeDoc.value.originalName)
@@ -619,13 +695,16 @@ export function useDocumentEditor() {
         method: 'PUT', headers: getAuthHeaders(), body: formData,
       })
 
-      // Auto-download
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `Signed_${activeDoc.value.originalName}`
-      link.click()
-      URL.revokeObjectURL(url)
+      // Auto-download (only when we re-flattened — avoid spamming downloads
+      // on a no-op save).
+      if (needsFlatten || isDirty.value) {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = `Signed_${activeDoc.value.originalName}`
+        link.click()
+        URL.revokeObjectURL(url)
+      }
 
       closeEditor()
       return true
@@ -736,7 +815,7 @@ export function useDocumentEditor() {
     currentPage, totalPages, scale,
     ocrLoading, ocrText, ocrPage,
     // Encrypted PDF state
-    passwordRequired, passwordError, unlocking,
+    passwordRequired, passwordError, unlocking, wasEncrypted, isDirty,
     // Refs
     canvasRefs, thumbnailRefs, setCanvasRef, setThumbnailRef,
     // Elements
