@@ -35,10 +35,33 @@
             <p v-else class="text-caption text-grey">None.</p>
           </div>
           <div class="mb-4">
-            <h3 class="text-subtitle-1 font-weight-bold mb-2">Important dates</h3>
+            <h3 class="text-subtitle-1 font-weight-bold mb-2 d-flex align-center">
+              Important dates
+              <v-spacer />
+              <v-btn
+                v-if="hasAnyEnabledAlert"
+                size="x-small"
+                variant="tonal"
+                color="primary"
+                prepend-icon="mdi-calendar-plus"
+                class="text-none"
+                @click="downloadCalendar"
+              >Add all to calendar (.ics)</v-btn>
+            </h3>
             <ul v-if="(reviewData.review.importantDates || []).length" class="legal-list">
-              <li v-for="(d, i) in reviewData.review.importantDates" :key="i">
-                <strong>{{ d.label }}</strong>: {{ d.date }}{{ d.context ? ` – ${d.context}` : '' }}
+              <li v-for="(d, i) in reviewData.review.importantDates" :key="i" class="d-flex align-center">
+                <span class="flex-grow-1">
+                  <strong>{{ d.label }}</strong>: {{ d.date }}{{ d.context ? ` – ${d.context}` : '' }}
+                </span>
+                <a
+                  :href="googleUrlFor(d)"
+                  target="_blank"
+                  rel="noopener"
+                  class="ml-2 text-caption google-cal-link"
+                  title="Add to Google Calendar"
+                >
+                  <v-icon size="14" class="mr-1">mdi-google</v-icon>Google
+                </a>
               </li>
             </ul>
             <p v-else class="text-caption text-grey">None extracted.</p>
@@ -64,9 +87,27 @@
             <span class="flex-grow-1">{{ item.label }} – {{ item.date }}</span>
             <v-text-field v-model.number="item.daysBefore" type="number" min="1" max="30" density="compact" hide-details style="width: 80px;" suffix="days before" />
           </div>
-          <v-btn color="primary" variant="flat" class="mt-3" :loading="savingAlerts" :disabled="!doc" @click="$emit('save-alerts', dateAlerts)">
-            Set automation alerts
-          </v-btn>
+          <div class="d-flex flex-wrap ga-2 mt-3">
+            <v-btn
+              color="primary"
+              variant="flat"
+              prepend-icon="mdi-email-fast-outline"
+              :loading="savingAlerts"
+              :disabled="!doc || !hasAnyEnabledAlert"
+              @click="$emit('save-alerts', dateAlerts)"
+            >Set email reminders</v-btn>
+            <v-btn
+              color="primary"
+              variant="tonal"
+              prepend-icon="mdi-calendar-plus"
+              :disabled="!hasAnyEnabledAlert"
+              @click="downloadCalendar"
+            >Add to calendar (.ics)</v-btn>
+          </div>
+          <p class="text-caption text-grey mt-2 mb-0">
+            <v-icon size="14" class="mr-1">mdi-information-outline</v-icon>
+            Email reminders go to you and super admins. The .ics file imports into Apple Calendar, Outlook, Google Calendar &amp; more.
+          </p>
         </template>
       </v-card-text>
     </v-card>
@@ -74,7 +115,16 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { computed } from 'vue'
+import {
+  buildGoogleCalendarUrl,
+  buildIcsCalendar,
+  downloadIcs,
+  safeFilename,
+  type CalendarEventInput,
+} from '~/utils/calendar'
+
+const props = defineProps<{
   modelValue: boolean
   doc: any
   reviewData: { review: any; dateAlerts: any[] } | null
@@ -87,6 +137,48 @@ defineEmits<{
   'update:modelValue': [val: boolean]
   'save-alerts': [alerts: Array<{ label: string; date: string; enabled: boolean; daysBefore: number }>]
 }>()
+
+/** Pull "context" from the AI review when available, by matching label+date. */
+function contextFor(label: string, date: string): string | undefined {
+  const list = (props.reviewData?.review?.importantDates as Array<any> | undefined) || []
+  const hit = list.find((d) => d?.label === label && d?.date === date)
+  return hit?.context
+}
+
+const hasAnyEnabledAlert = computed(() =>
+  (props.dateAlerts || []).some((a) => a.enabled && a.date),
+)
+
+function googleUrlFor(d: { label: string; date: string; context?: string }) {
+  // Use a sensible default reminder window matching the dialog's other dates.
+  const matchingAlert = (props.dateAlerts || []).find(
+    (a) => a.label === d.label && a.date === d.date,
+  )
+  const ev: CalendarEventInput = {
+    label: d.label,
+    date: d.date,
+    daysBefore: matchingAlert?.daysBefore ?? 2,
+    context: d.context,
+  }
+  return buildGoogleCalendarUrl(ev, props.doc?.originalName)
+}
+
+function downloadCalendar() {
+  const events: CalendarEventInput[] = (props.dateAlerts || [])
+    .filter((a) => a.enabled && a.date)
+    .map((a) => ({
+      label: a.label,
+      date: a.date,
+      daysBefore: a.daysBefore,
+      context: contextFor(a.label, a.date),
+    }))
+  if (!events.length) return
+  const ics = buildIcsCalendar(events, {
+    documentName: props.doc?.originalName,
+    documentId: props.doc?.id,
+  })
+  downloadIcs(`${safeFilename(props.doc?.originalName || 'document')}-dates`, ics)
+}
 </script>
 
 <style scoped>
@@ -94,5 +186,18 @@ defineEmits<{
 .dialog-title { font-weight: 700; font-size: 1.25rem; border-bottom: 1px solid rgba(0, 0, 0, 0.06); padding: 20px 24px !important; }
 .legal-advise-body { max-height: 70vh; overflow-y: auto; }
 .legal-list { margin: 0; padding-left: 1.25rem; font-size: 0.9rem; }
-.legal-list li { margin-bottom: 0.25rem; }
+.legal-list li { margin-bottom: 0.35rem; }
+.google-cal-link {
+  display: inline-flex;
+  align-items: center;
+  color: #1976d2;
+  text-decoration: none;
+  font-weight: 600;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(25, 118, 210, 0.08);
+  transition: background 0.15s ease;
+}
+.google-cal-link:hover { background: rgba(25, 118, 210, 0.16); }
 </style>

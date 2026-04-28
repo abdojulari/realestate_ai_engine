@@ -394,6 +394,74 @@
       @sent="onVerdocsSent"
     />
     <PdfMarkupDialog v-model="showMarkupDialog" :total-pages="editor.totalPages.value" :current-page="editor.currentPage.value" :canvas-refs="editor.canvasRefs" @apply-markup="onApplyMarkup" />
+    <WatermarkDialog
+      v-model="showWatermarkDialog"
+      :loading="editor.processing.value"
+      :has-existing-watermark="hasAppliedWatermark"
+      @apply="onApplyWatermark"
+      @remove="onRemoveWatermark"
+    />
+
+    <!-- Scanned-PDF prompt: shown when legal-review fails to extract text. -->
+    <v-dialog v-model="showOcrPrompt" max-width="520" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="d-flex align-center">
+          <v-icon icon="mdi-text-box-search-outline" class="mr-2" color="primary" />
+          Scanned or image-only PDF
+        </v-card-title>
+        <v-card-text>
+          <p class="text-body-2 mb-3">
+            We couldn't pull enough text from <strong>{{ ocrPromptDoc?.originalName }}</strong> for legal review. This usually means the file is a scan or contains images of text.
+          </p>
+          <p class="text-body-2 mb-0">
+            Open the editor, run OCR on every page, then re-run legal review automatically?
+          </p>
+        </v-card-text>
+        <v-card-actions class="px-6 pb-4">
+          <v-spacer />
+          <v-btn variant="text" :disabled="autoOcrRunning" @click="showOcrPrompt = false">Not now</v-btn>
+          <v-btn color="primary" variant="flat" prepend-icon="mdi-text-recognition" :loading="autoOcrRunning" @click="runOcrThenReview">
+            Run OCR &amp; retry
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Password prompt: this PDF is encrypted -->
+    <v-dialog :model-value="editor.passwordRequired.value" max-width="460" persistent @update:model-value="(v: boolean) => { if (!v) editor.cancelPasswordPrompt() }">
+      <v-card rounded="xl">
+        <v-card-title class="d-flex align-center">
+          <v-icon icon="mdi-lock-outline" class="mr-2" color="primary" />
+          Password required
+        </v-card-title>
+        <v-card-text>
+          <p class="text-body-2 mb-3">
+            <strong>{{ editor.activeDoc.value?.originalName }}</strong> is password-protected. Enter the password to open it in the editor.
+          </p>
+          <v-text-field
+            ref="passwordFieldRef"
+            v-model="pdfPassword"
+            label="Document password"
+            :type="showPdfPassword ? 'text' : 'password'"
+            :append-inner-icon="showPdfPassword ? 'mdi-eye-off' : 'mdi-eye'"
+            variant="outlined"
+            density="comfortable"
+            autocomplete="off"
+            :error-messages="editor.passwordError.value ? [editor.passwordError.value] : []"
+            :disabled="editor.unlocking.value"
+            @click:append-inner="showPdfPassword = !showPdfPassword"
+            @keyup.enter="submitPdfPassword"
+          />
+        </v-card-text>
+        <v-card-actions class="px-6 pb-4">
+          <v-spacer />
+          <v-btn variant="text" :disabled="editor.unlocking.value" @click="editor.cancelPasswordPrompt()">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" prepend-icon="mdi-lock-open-outline" :loading="editor.unlocking.value" @click="submitPdfPassword">
+            Unlock
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
 
     <!-- Snackbar -->
     <v-snackbar v-model="snackbar" :color="snackbarColor" :timeout="3000">{{ snackbarText }}</v-snackbar>
@@ -404,6 +472,7 @@
 <script setup lang="ts">
 import FeatureGate from '~/components/FeatureGate.vue'
 import SendForSignatureDialog from '~/components/documents/SendForSignatureDialog.vue'
+import WatermarkDialog from '~/components/documents/WatermarkDialog.vue'
 import { FEATURES } from '~/composables/useLicense'
 import { useDocumentEditor } from '~/composables/useDocumentEditor'
 
@@ -484,7 +553,43 @@ const showConverterDialog = ref(false)
 const showLegalAdviseDialog = ref(false)
 const showEmailDialog = ref(false)
 const showMarkupDialog = ref(false)
+const showWatermarkDialog = ref(false)
 const emailDoc = ref<any>(null)
+// Tracks whether the user has applied a watermark in the current editor session
+// (so the dialog can show / hide the "Remove watermark" button).
+const hasAppliedWatermark = ref(false)
+
+// ─── Scanned-PDF auto-OCR retry flow ─────────────────────
+const showOcrPrompt = ref(false)
+const ocrPromptDoc = ref<any>(null)
+const ocrPromptParty = ref<'buyer' | 'seller' | null>(null)
+const autoOcrRunning = ref(false)
+
+// ─── Encrypted-PDF unlock flow ───────────────────────────
+const pdfPassword = ref('')
+const showPdfPassword = ref(false)
+const passwordFieldRef = ref<any>(null)
+
+watch(
+  () => editor.passwordRequired.value,
+  (now) => {
+    if (now) {
+      pdfPassword.value = ''
+      showPdfPassword.value = false
+      // Auto-focus the input on next tick
+      nextTick(() => { try { passwordFieldRef.value?.focus?.() } catch {} })
+    }
+  },
+)
+
+async function submitPdfPassword() {
+  const ok = await editor.unlockPdf(pdfPassword.value)
+  if (ok) {
+    pdfPassword.value = ''
+    showPdfPassword.value = false
+    showSnackbar('Document unlocked')
+  }
+}
 
 // ─── Snackbar ────────────────────────────────────────────
 const snackbar = ref(false)
@@ -539,6 +644,7 @@ async function handleFileUpload(event: Event) {
 }
 
 async function handleOpenEditor(doc: any) {
+  hasAppliedWatermark.value = false
   try { await editor.openEditor(doc) } catch { showSnackbar('Failed to open document', 'error') }
 }
 
@@ -592,8 +698,37 @@ async function onSearch(query: string) {
 
 function onGoToSearchResult(result: any) { editor.goToPageNumber(result.page); showSearchDialog.value = false }
 
-async function handleWatermark() {
-  try { await editor.addWatermark(); showSnackbar('Watermark applied') } catch { showSnackbar('Failed to apply watermark', 'error') }
+function handleWatermark() {
+  // Open the configuration dialog instead of applying a hard-coded watermark.
+  showWatermarkDialog.value = true
+}
+
+async function onApplyWatermark(payload: {
+  text: string
+  opacity: number
+  fontSize: number
+  rotation: number
+  color: { r: number; g: number; b: number }
+}) {
+  try {
+    await editor.addWatermark(payload)
+    hasAppliedWatermark.value = true
+    showWatermarkDialog.value = false
+    showSnackbar(`Watermark "${payload.text}" applied`)
+  } catch {
+    showSnackbar('Failed to apply watermark', 'error')
+  }
+}
+
+async function onRemoveWatermark() {
+  try {
+    await editor.reloadOriginalPdf()
+    hasAppliedWatermark.value = false
+    showWatermarkDialog.value = false
+    showSnackbar('Watermark removed (document reverted to original)')
+  } catch {
+    showSnackbar('Failed to remove watermark', 'error')
+  }
 }
 
 async function handleOCR() {
@@ -630,12 +765,23 @@ async function convertFile(file: File | null) {
 }
 
 // ─── Legal Review ────────────────────────────────────────
-async function runLegalReview(doc: any, extractedText?: string) {
+
+/** Match the server's "scanned PDF / image-only" 400 response so we can offer
+ *  to auto-run OCR and retry transparently. */
+function isOcrNeededError(e: any): boolean {
+  const status = e?.status || e?.statusCode || e?.response?.status
+  const msg: string = e?.data?.statusMessage || e?.statusMessage || e?.message || ''
+  if (status !== 400) return false
+  return /extract enough text|scanned|image-only|run OCR/i.test(msg)
+}
+
+async function runLegalReview(doc: any, extractedText?: string, partyRepresenting?: 'buyer' | 'seller' | null) {
   if (doc.type !== 'pdf') return
   legalReviewLoading.value = true; legalReviewDocId.value = doc.id
   try {
     const body: Record<string, unknown> = {}
     if (extractedText && extractedText.trim().length >= 50) body.extractedText = extractedText.trim()
+    if (partyRepresenting) body.partyRepresenting = partyRepresenting
     const res: any = await $fetch(`/api/admin/documents/${doc.id}/legal-review`, { method: 'POST', headers: editor.getAuthHeaders(), body })
     if (res.success && res.review) {
       legalAdviseDoc.value = doc
@@ -643,8 +789,46 @@ async function runLegalReview(doc: any, extractedText?: string) {
       dateAlertItems.value = (res.review.importantDates || []).map((d: any) => ({ label: d.label || 'Date', date: d.date || '', enabled: true, daysBefore: 2 }))
       showLegalAdviseDialog.value = true; showSnackbar('Legal review complete!')
     }
-  } catch (e: any) { showSnackbar(e.data?.statusMessage || 'Legal review failed', 'error') }
+  } catch (e: any) {
+    if (isOcrNeededError(e)) {
+      // Surface a dedicated dialog rather than a dead-end snackbar — the user
+      // can trigger OCR + retry with one click.
+      ocrPromptDoc.value = doc
+      ocrPromptParty.value = partyRepresenting ?? null
+      showOcrPrompt.value = true
+    } else {
+      showSnackbar(e.data?.statusMessage || 'Legal review failed', 'error')
+    }
+  }
   finally { legalReviewLoading.value = false; legalReviewDocId.value = null }
+}
+
+/**
+ * Open the doc in the editor, OCR every page, then re-call legal review with
+ * the resulting client-side text so the server can skip its server-side PDF
+ * text extraction (which has no OCR ability).
+ */
+async function runOcrThenReview() {
+  const doc = ocrPromptDoc.value
+  if (!doc) return
+  autoOcrRunning.value = true
+  try {
+    if (editor.activeDoc.value?.id !== doc.id) {
+      await editor.openEditor(doc)
+    }
+    await editor.runOCRAllPages()
+    const text = editor.ocrText.value || ''
+    if (!text || text.trim().length < 50) {
+      showSnackbar('OCR did not produce enough text to analyze. The pages may be blank or low quality.', 'error')
+      return
+    }
+    showOcrPrompt.value = false
+    await runLegalReview(doc, text, ocrPromptParty.value)
+  } catch (e: any) {
+    showSnackbar(e?.message || 'OCR failed', 'error')
+  } finally {
+    autoOcrRunning.value = false
+  }
 }
 
 async function openLegalAdvise(doc: any) {
