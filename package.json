@@ -98,6 +98,7 @@
     "vue-echarts": "^6.7.3",
     "vue-router": "^4.5.1",
     "vuetify-nuxt-module": "^0.18.7",
+    "xlsx": "0.18.5",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
