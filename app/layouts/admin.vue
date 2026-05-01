@@ -404,6 +404,7 @@ const allMenuItems = [
   { title: 'Documents', icon: 'mdi-file-cabinet', to: '/admin/documents', requiresFeature: FEATURES.DOCUMENTS, tier: 'silver', delegateFeature: 'documents', groupKey: 'workspace' },
   { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports', requiresFeature: FEATURES.REPORTS, tier: 'silver', delegateFeature: 'reports', groupKey: 'workspace' },
   { title: 'Tools', icon: 'mdi-draw', to: '/admin/tools', requiresFeature: FEATURES.WORKSPACE_TOOLS, tier: 'silver', delegateFeature: 'workspace_tools', groupKey: 'workspace' },
+  { title: 'Transaction Date Tracker', icon: 'mdi-calendar-text-outline', to: '/admin/transaction-date-tracker', requiresFeature: FEATURES.DOCUMENTS_LEGAL_REVIEW, tier: 'silver', delegateFeature: 'documents', groupKey: 'workspace' },
 ]
 
 // Order here drives the order groups appear in the drawer.

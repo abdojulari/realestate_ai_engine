@@ -128,7 +128,7 @@ export function buildIcsCalendar(
   return [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//DeelBot//Legal Review//EN',
+    'PRODID:-//DeelBot//Compliance Review//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     ...eventBlocks,

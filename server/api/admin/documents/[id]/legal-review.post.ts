@@ -215,7 +215,7 @@ async function runGroqLegalReview(
 
   const result = safeParse(raw)
   if (!result) {
-    throw createError({ statusCode: 500, statusMessage: 'Legal review could not parse AI response. Please try again.' })
+    throw createError({ statusCode: 500, statusMessage: 'Compliance review could not parse the AI response. Please try again.' })
   }
 
   return {
@@ -263,7 +263,7 @@ export default defineEventHandler(async (event: H3Event) => {
     if (ext !== 'pdf') {
       throw createError({
         statusCode: 400,
-        statusMessage: 'Legal review is only supported for PDF documents. Please convert to PDF first.',
+        statusMessage: 'Compliance review is only supported for PDF documents. Please convert to PDF first.',
       })
     }
 

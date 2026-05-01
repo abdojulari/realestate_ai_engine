@@ -32,7 +32,7 @@ export default defineEventHandler(async (event: H3Event) => {
   if (!document.legalReview) {
     throw createError({
       statusCode: 400,
-      statusMessage: 'Run Legal Review first before setting date alerts.',
+      statusMessage: 'Run the Compliance Review first before setting date alerts.',
     })
   }
 

@@ -99,13 +99,13 @@
                     <v-icon icon="mdi-gavel" size="28" color="white" />
                   </v-avatar>
                   <div>
-                    <div class="text-subtitle-1 font-weight-bold">Contract &amp; legal intelligence</div>
+                    <div class="text-subtitle-1 font-weight-bold">Contract &amp; compliance intelligence</div>
                     <div class="text-caption text-medium-emphasis">AI review, red flags, and email reminders for critical dates.</div>
                   </div>
                 </div>
                 <v-spacer />
                 <div class="d-flex flex-wrap ga-2">
-                  <v-chip prepend-icon="mdi-robot-outline" variant="tonal" color="primary" size="small">Legal review</v-chip>
+                  <v-chip prepend-icon="mdi-robot-outline" variant="tonal" color="primary" size="small">Compliance review</v-chip>
                   <v-chip prepend-icon="mdi-calendar-clock" variant="tonal" color="primary" size="small">Date alerts</v-chip>
                   <v-chip prepend-icon="mdi-file-document-outline" variant="tonal" color="primary" size="small">Summary</v-chip>
                 </div>
@@ -246,14 +246,14 @@
                       />
                       <template v-if="canUseDocumentsLegalReview && doc.type === 'pdf'">
                         <v-divider class="my-2" />
-                        <v-list-subheader class="text-uppercase">Legal</v-list-subheader>
+                        <v-list-subheader class="text-uppercase">Compliance</v-list-subheader>
                         <v-list-item
                           prepend-icon="mdi-gavel"
-                          title="Run AI legal review"
+                          title="Run AI compliance review"
                           :disabled="legalReviewLoading && legalReviewDocId === doc.id"
                           @click="runLegalReview(doc)"
                         />
-                        <v-list-item prepend-icon="mdi-file-document-outline" title="Legal advise &amp; alerts" @click="openLegalAdvise(doc)" />
+                        <v-list-item prepend-icon="mdi-file-document-outline" title="Compliance review &amp; alerts" @click="openLegalAdvise(doc)" />
                       </template>
                       <v-divider class="my-2" />
                       <v-list-item
@@ -297,13 +297,13 @@
         <div class="flex-grow-1 d-flex" style="overflow: hidden;">
           <!-- Sidebar -->
           <div class="glass-sidebar">
-            <!-- Legal Pane -->
+            <!-- Compliance Pane -->
             <div v-if="canUseDocumentsLegalReview && editor.activeDoc.value?.type === 'pdf'" class="legal-pane">
-              <div class="d-flex align-center gap-2 mb-2"><v-icon icon="mdi-gavel" size="24" color="primary" /><span class="font-weight-bold" style="font-size:.95rem">Contract & Legal</span></div>
-              <p class="text-caption mb-3" style="color:rgba(0,0,0,.7); line-height:1.4">Review terms, get AI advice, and set email reminders for important dates.</p>
-              <v-btn block color="primary" variant="flat" prepend-icon="mdi-gavel" size="small" class="mb-2" @click="runLegalReview(editor.activeDoc.value, editor.ocrText.value)" :loading="legalReviewLoading && legalReviewDocId === editor.activeDoc.value?.id">Legal Review</v-btn>
-              <v-btn block variant="tonal" prepend-icon="mdi-file-document-outline" size="small" class="mb-2" @click="openLegalAdvise(editor.activeDoc.value)">Legal Advise</v-btn>
-              <p class="text-caption text-grey mt-2 mb-0">After review, open Legal Advise to see red flags, summary, and set date reminders.</p>
+              <div class="d-flex align-center gap-2 mb-2"><v-icon icon="mdi-gavel" size="24" color="primary" /><span class="font-weight-bold" style="font-size:.95rem">Contract &amp; Compliance</span></div>
+              <p class="text-caption mb-3" style="color:rgba(0,0,0,.7); line-height:1.4">Get an AI summary of terms and important dates, then set email reminders so deadlines aren't missed.</p>
+              <v-btn block color="primary" variant="flat" prepend-icon="mdi-gavel" size="small" class="mb-2" @click="runLegalReview(editor.activeDoc.value, editor.ocrText.value)" :loading="legalReviewLoading && legalReviewDocId === editor.activeDoc.value?.id">Run Compliance Review</v-btn>
+              <v-btn block variant="tonal" prepend-icon="mdi-file-document-outline" size="small" class="mb-2" @click="openLegalAdvise(editor.activeDoc.value)">Open Compliance Review</v-btn>
+              <p class="text-caption text-grey mt-2 mb-0">Informational summary only — not legal advice. Always confirm critical dates against the source contract.</p>
             </div>
 
             <v-list density="compact" nav class="sidebar-list">
@@ -402,7 +402,7 @@
       @remove="onRemoveWatermark"
     />
 
-    <!-- Scanned-PDF prompt: shown when legal-review fails to extract text. -->
+    <!-- Scanned-PDF prompt: shown when the compliance review can't pull text. -->
     <v-dialog v-model="showOcrPrompt" max-width="520" persistent>
       <v-card rounded="xl">
         <v-card-title class="d-flex align-center">
@@ -411,10 +411,10 @@
         </v-card-title>
         <v-card-text>
           <p class="text-body-2 mb-3">
-            We couldn't pull enough text from <strong>{{ ocrPromptDoc?.originalName }}</strong> for legal review. This usually means the file is a scan or contains images of text.
+            We couldn't pull enough text from <strong>{{ ocrPromptDoc?.originalName }}</strong> for the compliance review. This usually means the file is a scan or contains images of text.
           </p>
           <p class="text-body-2 mb-0">
-            Open the editor, run OCR on every page, then re-run legal review automatically?
+            Open the editor, run OCR on every page, then re-run the compliance review automatically?
           </p>
         </v-card-text>
         <v-card-actions class="px-6 pb-4">
@@ -747,7 +747,7 @@ async function handleOCR() {
 }
 
 async function handleOCRAll() {
-  try { await editor.runOCRAllPages(); showSnackbar(`OCR completed for ${editor.totalPages.value} page(s). Use Legal Review to analyze.`) } catch { showSnackbar('OCR failed', 'error') }
+  try { await editor.runOCRAllPages(); showSnackbar(`OCR completed for ${editor.totalPages.value} page(s). Run the Compliance Review to analyze.`) } catch { showSnackbar('OCR failed', 'error') }
 }
 
 async function handleSave() {
@@ -812,7 +812,7 @@ async function runLegalReview(doc: any, extractedText?: string, partyRepresentin
       legalAdviseDoc.value = doc
       legalReviewData.value = { review: res.review, dateAlerts: res.dateAlerts || [] }
       dateAlertItems.value = (res.review.importantDates || []).map((d: any) => ({ label: d.label || 'Date', date: d.date || '', enabled: true, daysBefore: 2 }))
-      showLegalAdviseDialog.value = true; showSnackbar('Legal review complete!')
+      showLegalAdviseDialog.value = true; showSnackbar('Compliance review complete!')
     }
   } catch (e: any) {
     if (isOcrNeededError(e)) {
@@ -822,7 +822,7 @@ async function runLegalReview(doc: any, extractedText?: string, partyRepresentin
       ocrPromptParty.value = partyRepresenting ?? null
       showOcrPrompt.value = true
     } else {
-      showSnackbar(e.data?.statusMessage || 'Legal review failed', 'error')
+      showSnackbar(e.data?.statusMessage || 'Compliance review failed', 'error')
     }
   }
   finally { legalReviewLoading.value = false; legalReviewDocId.value = null }
