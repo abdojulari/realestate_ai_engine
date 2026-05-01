@@ -471,7 +471,7 @@ interface DocItem {
 
 type DocStatus =
   | { kind: 'idle' }
-  | { kind: 'loading' }
+  | { kind: 'loading'; startedAt: number }
   | { kind: 'reviewed'; dates: number; reviewedAt: string }
   | { kind: 'error'; message: string }
 
@@ -523,6 +523,36 @@ const bulkRunning = ref(false)
 // while another in-flight operation already owns the request channel.
 const hydrating = ref(false)
 const lastHydrateAt = ref(0)
+
+// `now` ticks every 2s ONLY while at least one doc is in the loading state.
+// Keeps the staged-copy progression ("Analyzing…" → "Still working…" →
+// "Almost done…") fresh without burning a timer when nothing is running.
+const now = ref(Date.now())
+let loadingTicker: ReturnType<typeof setInterval> | null = null
+function hasAnyLoading() {
+  return Object.values(docStatus.value).some((s) => s?.kind === 'loading')
+}
+function ensureLoadingTicker() {
+  if (!hasAnyLoading()) {
+    if (loadingTicker) {
+      clearInterval(loadingTicker)
+      loadingTicker = null
+    }
+    return
+  }
+  if (loadingTicker) return
+  now.value = Date.now()
+  loadingTicker = setInterval(() => {
+    now.value = Date.now()
+    // Stop the timer the moment the last loading doc finishes — saves wakeups.
+    if (!hasAnyLoading()) {
+      if (loadingTicker) {
+        clearInterval(loadingTicker)
+        loadingTicker = null
+      }
+    }
+  }, 2000)
+}
 
 // Drag & drop / upload
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -808,8 +838,9 @@ async function processDocument(doc: DocItem): Promise<'ok' | 'ocr' | 'error'> {
   }
 
   runningId.value = doc.id
-  docStatus.value[doc.id] = { kind: 'loading' }
+  docStatus.value[doc.id] = { kind: 'loading', startedAt: Date.now() }
   delete docErrors.value[doc.id]
+  ensureLoadingTicker()
 
   try {
     const res: any = await $fetch(`/api/admin/documents/${doc.id}/legal-review`, {
@@ -851,6 +882,9 @@ async function processDocument(doc: DocItem): Promise<'ok' | 'ocr' | 'error'> {
     return 'error'
   } finally {
     runningId.value = null
+    // Loading state is no longer 'loading' for this doc — let the ticker
+    // shut itself down on its next tick (or sooner if nothing else is loading).
+    ensureLoadingTicker()
   }
 }
 
@@ -1129,6 +1163,19 @@ function monthLabel(yyyymm: string): string {
 }
 
 // ── Tiny inline status chip ───────────────────────────────────────────────
+// Loading copy is staged to give users reassurance during longer reviews
+// without exposing any internals (provider names, retries, etc.):
+//   0–8s    → "Analyzing…"
+//   8–25s   → "Still working…"
+//   25s+    → "Almost done…"
+// The thresholds are intentionally generous so we never undershoot: if we
+// say "Almost done" we want to actually be close, not trigger user impatience.
+function loadingCopy(elapsedMs: number): string {
+  if (elapsedMs >= 25_000) return 'Almost done…'
+  if (elapsedMs >= 8_000) return 'Still working…'
+  return 'Analyzing…'
+}
+
 const StatusChip = defineComponent({
   name: 'StatusChip',
   props: {
@@ -1147,7 +1194,7 @@ const StatusChip = defineComponent({
         s.kind === 'idle'
           ? 'Not analyzed'
           : s.kind === 'loading'
-            ? 'Analyzing…'
+            ? loadingCopy(now.value - s.startedAt)
             : s.kind === 'reviewed'
               ? `${s.dates} date${s.dates === 1 ? '' : 's'}`
               : s.message
@@ -1185,6 +1232,10 @@ onBeforeUnmount(() => {
   }
   if (typeof window !== 'undefined') {
     window.removeEventListener('focus', onWindowFocus)
+  }
+  if (loadingTicker) {
+    clearInterval(loadingTicker)
+    loadingTicker = null
   }
 })
 </script>

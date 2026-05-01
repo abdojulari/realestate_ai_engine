@@ -196,6 +196,11 @@ export default defineNuxtConfig({
     geminiApiKey: process.env.GEMINI_API_KEY,
     groqApiKey: process.env.GROQ_API_KEY || '',
     groqApiUrl: process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1',
+    cerebrasApiKey: process.env.CEREBRAS_API_KEY || '',
+    cerebrasApiUrl: process.env.CEREBRAS_API_URL || 'https://api.cerebras.ai/v1',
+    openrouterApiKey: process.env.OPENROUTER_API_KEY || '',
+    openrouterApiUrl: process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1',
+    openrouterReferer: process.env.OPENROUTER_REFERER || 'https://homebyabdul.com',
     facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
     alertSchedulerSecret: process.env.ALERT_SCHEDULER_SECRET || process.env.CRON_SECRET || 'change-me-in-production',
     // Pillar9/Matrix API Configuration

@@ -4,6 +4,7 @@ import fs from 'fs'
 import { requireAdmin } from '../../../../utils/auth'
 import { requireFeatureForUser, FEATURES } from '../../../../utils/license'
 import { extractTextFromPdf } from '../../../../utils/pdf-text'
+import { callLlm } from '../../../../utils/llm'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -21,53 +22,22 @@ interface LegalReviewResult {
   sellerImpact: string
 }
 
-// --------------- Groq helpers ---------------
+// --------------- Pipeline tuning ---------------
 
-const CHUNK_SIZE = 4000  // chars per chunk — stays well under Groq body limit
-const MODEL = 'llama-3.1-8b-instant'
+// Bigger chunks = fewer LLM round-trips. 8k chars (~2k tokens) is well within
+// every model's context window in our chain (Groq 8b: 128k; Cerebras 120b:
+// 128k; OpenRouter llama 3.3 70b: 128k) and keeps each call fast.
+const CHUNK_SIZE = 8000
 
-function getGroqConfig() {
-  const config = useRuntimeConfig()
-  const groqApiKey = (config.groqApiKey as string) || process.env.GROQ_API_KEY || ''
-  const groqApiUrl = (config.groqApiUrl as string) || process.env.GROQ_API_URL || 'https://api.groq.com/openai/v1'
-  if (!groqApiKey) {
-    throw createError({ statusCode: 500, statusMessage: 'GROQ_API_KEY is not configured.' })
-  }
-  return { groqApiKey, groqApiUrl: String(groqApiUrl).replace(/\/$/, '') }
-}
+// How many extract-phase calls we run in parallel. Stays under Groq's free
+// tier 30 RPM ceiling at the steady state (2 in flight × ~5s/call ≈ 24 RPM)
+// and lets us fall through to Cerebras/OpenRouter on 429 without re-tuning.
+const EXTRACT_CONCURRENCY = 2
 
-/** Single Groq chat completion with retry on 429. */
-async function groqChat(
-  apiKey: string,
-  apiUrl: string,
-  system: string,
-  user: string,
-  retries = 3
-): Promise<string> {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await $fetch<{ choices?: Array<{ message?: { content?: string } }> }>(
-        `${apiUrl}/chat/completions`,
-        {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-          body: { model: MODEL, temperature: 0.2, messages: [{ role: 'system', content: system }, { role: 'user', content: user }] },
-        }
-      )
-      return res.choices?.[0]?.message?.content?.trim() || '{}'
-    } catch (e: any) {
-      const status = e?.status || e?.statusCode || 0
-      if (status === 429 && attempt < retries) {
-        const wait = 2000 * (attempt + 1) // 2s, 4s, 6s backoff
-        console.log(`[legal-review] Groq 429 — waiting ${wait}ms before retry ${attempt + 1}/${retries}`)
-        await new Promise(r => setTimeout(r, wait))
-        continue
-      }
-      throw e
-    }
-  }
-  return '{}'
-}
+// Hard ceiling on the whole pipeline. Most reverse proxies (nginx, CF, ALB)
+// time out somewhere between 60s and 100s, returning an opaque 504. We'd
+// rather respond ourselves with a clear, debuggable 408 below that line.
+const PIPELINE_BUDGET_MS = 80_000
 
 /** Split text into chunks of roughly `size` characters, breaking at sentence boundaries when possible. */
 function chunkText(text: string, size: number): string[] {
@@ -162,61 +132,113 @@ Respond with valid JSON only — no markdown. Use this exact structure:
   "sellerImpact": "What matters most for the seller and potential risks."
 }`
 
-async function runGroqLegalReview(
+/**
+ * Concurrency-limited parallel map. Keeps at most `limit` promises in flight
+ * at once. Preserves input order in the output array.
+ */
+async function pMapLimit<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const idx = cursor++
+      if (idx >= items.length) return
+      results[idx] = await fn(items[idx]!, idx)
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
+async function runComplianceReview(
   documentText: string,
-  partyRepresenting: 'buyer' | 'seller' | null
+  partyRepresenting: 'buyer' | 'seller' | null,
 ): Promise<LegalReviewResult> {
-  const { groqApiKey, groqApiUrl } = getGroqConfig()
+  const startedAt = Date.now()
+  const remainingMs = () => PIPELINE_BUDGET_MS - (Date.now() - startedAt)
+  const checkBudget = (where: string) => {
+    if (remainingMs() <= 0) {
+      // `where` is logged for our debugging, NOT included in the user-visible
+      // statusMessage — the client just needs an actionable, plain-English msg.
+      console.warn(`[compliance-review] Budget exceeded at: ${where}`)
+      throw createError({
+        statusCode: 408,
+        statusMessage:
+          'This contract is unusually large and is taking too long to review. Try splitting it into shorter PDFs and uploading each section separately.',
+      })
+    }
+  }
 
   const partyHint = partyRepresenting
     ? ` The user represents the ${partyRepresenting}.`
     : ''
 
-  // Normalize fragmented AREA form dates before chunking
+  // Normalize fragmented AREA form dates before chunking so the LLM sees
+  // recognisable date strings rather than tab-separated fragments.
   const normalizedText = normalizeDatesInText(documentText)
   const chunks = chunkText(normalizedText, CHUNK_SIZE)
-  console.log(`[legal-review] Document: ${documentText.length} chars → normalized ${normalizedText.length} chars → ${chunks.length} chunk(s)`)
+  console.log(
+    `[compliance-review] Document: ${documentText.length} chars → normalized ${normalizedText.length} chars → ${chunks.length} chunk(s)`,
+  )
 
-  // Phase 1 — extract facts from each chunk (sequential to avoid rate limits)
   const allRedFlags: string[] = []
   const allNotes: string[] = []
   const allDates: Array<{ label: string; date: string; context?: string }> = []
 
-  for (let i = 0; i < chunks.length; i++) {
-    const raw = await groqChat(
-      groqApiKey,
-      groqApiUrl,
-      EXTRACT_SYSTEM,
-      `Section ${i + 1} of ${chunks.length}:\n\n${chunks[i]}`
-    )
-    const parsed = safeParse(raw)
-    if (parsed) {
-      if (Array.isArray(parsed.redFlags)) allRedFlags.push(...parsed.redFlags)
-      if (Array.isArray(parsed.importantNotes)) allNotes.push(...parsed.importantNotes)
-      if (Array.isArray(parsed.importantDates)) allDates.push(...parsed.importantDates)
+  // Phase 1 — extract facts from each chunk in parallel (concurrency-capped).
+  // We tolerate per-chunk parse failures so one bad chunk doesn't sink the
+  // whole review; the final summary call still gets the rest.
+  await pMapLimit(chunks, EXTRACT_CONCURRENCY, async (chunk, i) => {
+    checkBudget(`extract chunk ${i + 1}/${chunks.length}`)
+    try {
+      const raw = await callLlm({
+        phase: 'extract',
+        system: EXTRACT_SYSTEM,
+        user: `Section ${i + 1} of ${chunks.length}:\n\n${chunk}`,
+      })
+      const parsed = safeParse(raw)
+      if (parsed) {
+        if (Array.isArray(parsed.redFlags)) allRedFlags.push(...parsed.redFlags)
+        if (Array.isArray(parsed.importantNotes)) allNotes.push(...parsed.importantNotes)
+        if (Array.isArray(parsed.importantDates)) allDates.push(...parsed.importantDates)
+      }
+    } catch (e: any) {
+      // Don't fail the whole review on a single bad chunk — log it and move on.
+      // Final summary will still produce something useful from the surviving
+      // chunks. Hard auth/config errors (4xx) bubble up via callLlm itself,
+      // which throws non-retryable errors immediately.
+      console.warn(`[compliance-review] Chunk ${i + 1} extract failed:`, e?.statusMessage || e?.message || e)
     }
-    // Longer pause between chunks to respect Groq rate limits
-    if (i < chunks.length - 1) await new Promise(r => setTimeout(r, 2000))
-  }
+  })
 
-  // Phase 2 — final consolidation + summary
+  checkBudget('between phases')
+
+  // Phase 2 — final consolidation + summary. One call, smarter model preferred.
   const factsPayload = JSON.stringify({
     redFlags: allRedFlags,
     importantNotes: allNotes,
     importantDates: allDates,
   })
 
-  const raw = await groqChat(
-    groqApiKey,
-    groqApiUrl,
-    SUMMARIZE_SYSTEM + partyHint,
-    `Here are the extracted facts from the full contract (${chunks.length} sections):\n\n${factsPayload}`
-  )
+  const raw = await callLlm({
+    phase: 'summarize',
+    system: SUMMARIZE_SYSTEM + partyHint,
+    user: `Here are the extracted facts from the full contract (${chunks.length} sections):\n\n${factsPayload}`,
+  })
 
   const result = safeParse(raw)
   if (!result) {
-    throw createError({ statusCode: 500, statusMessage: 'Compliance review could not parse the AI response. Please try again.' })
+    throw createError({
+      statusCode: 500,
+      statusMessage: 'Compliance review could not parse the AI response. Please try again.',
+    })
   }
+
+  console.log(`[compliance-review] Done in ${Date.now() - startedAt}ms`)
 
   return {
     redFlags: Array.isArray(result.redFlags) ? result.redFlags : allRedFlags,
@@ -282,7 +304,7 @@ export default defineEventHandler(async (event: H3Event) => {
     }
   }
 
-  const result = await runGroqLegalReview(text, partyRepresenting)
+  const result = await runComplianceReview(text, partyRepresenting)
 
   // Persist to DB if the DocumentLegalReview table exists (migration may not have run yet)
   let savedReview: any = null
