@@ -232,17 +232,10 @@ export default defineEventHandler(async (event: H3Event) => {
   const user = await requireAdmin(event)
   const fullUser = await prisma.user.findUnique({
     where: { id: user.id },
-    select: { id: true, role: true },
+    select: { id: true, role: true, subscriptionTier: true, adminId: true },
   })
   if (!fullUser) throw createError({ statusCode: 404, statusMessage: 'User not found' })
-  // UserContext for license check; subscriptionTier/adminId may be absent if migration not run
-  const userContext = {
-    id: fullUser.id,
-    role: fullUser.role,
-    adminId: null as number | null,
-    subscriptionTier: null as string | null,
-  }
-  await requireFeatureForUser(FEATURES.DOCUMENTS_LEGAL_REVIEW, userContext, event)
+  await requireFeatureForUser(FEATURES.DOCUMENTS_LEGAL_REVIEW, fullUser, event)
 
   const id = parseInt(event.context.params?.id || '0')
   if (!id) {

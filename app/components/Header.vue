@@ -320,7 +320,8 @@ const clientServiceItems = [
   { title: 'Buy', to: '/buying', icon: 'mdi-home-search' },
   { title: 'Sell', to: '/selling', icon: 'mdi-home-export-outline' },
   { title: 'Home Estimate', to: '/seller/homeestimate', icon: 'mdi-calculator' },
-  { title: 'Buy vs. Rent', to: '/buyers-playground', icon: 'mdi-scale-balance' }
+  { title: 'Buy vs. Rent', to: '/buyers-playground', icon: 'mdi-scale-balance' },
+  { title: 'Today\'s Rates', to: '/rates', icon: 'mdi-percent-outline' }
 ]
 
 const menuItems = [

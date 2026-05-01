@@ -112,8 +112,11 @@ export default defineEventHandler(async (event) => {
     return
   }
 
-  // Gated marketing resources (catalog, metadata, unlock, file — no Bearer auth)
-  if (url.startsWith('/api/public/resources')) {
+  // Anything filed under server/api/public/ is intentionally public-facing
+  // (resources, rates, bookings, listings, …). Folder naming is the contract;
+  // individual endpoints can still gate via captcha / unlock tokens / signed
+  // payloads inside their handlers when needed.
+  if (url.startsWith('/api/public/')) {
     return
   }
 

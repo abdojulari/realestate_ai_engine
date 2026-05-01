@@ -120,6 +120,7 @@ model User {
   tenantMarketingResources  MarketingResource[]  @relation("TenantMarketingResources")
   tenantWorkspaceTools      WorkspaceTool[]      @relation("TenantWorkspaceTools")
   tenantFlashNews           FlashNews[]          @relation("TenantFlashNews")
+  tenantPostedRates         PostedRate[]         @relation("TenantPostedRates")
 
   // ── Bookkeeping relations (tenant-scoped) ──
   tenantBkExpenses        BkExpense[]        @relation("TenantBkExpenses")
@@ -949,34 +950,34 @@ model WorkspaceTool {
 // ═══════════════════════════════════════════════════════════════
 
 model CrmClient {
-  id                    Int              @id @default(autoincrement())
-  adminId               Int?
-  admin                 User?            @relation("TenantCrmClients", fields: [adminId], references: [id])
-  firstName             String
-  lastName              String
-  email                 String?
-  phone                 String?
-  type                  String // buyer, seller, investor, lead
-  status                String           @default("active") // active, inactive, closed
-  source                String? // inquiry, chat, estimate, referral, manual
-  sourceId              Int? // link to original lead record
-  notes                 String?          @db.Text
-  tags                  Json?
-  metadata              Json?
+  id                 Int              @id @default(autoincrement())
+  adminId            Int?
+  admin              User?            @relation("TenantCrmClients", fields: [adminId], references: [id])
+  firstName          String
+  lastName           String
+  email              String?
+  phone              String?
+  type               String // buyer, seller, investor, lead
+  status             String           @default("active") // active, inactive, closed
+  source             String? // inquiry, chat, estimate, referral, manual
+  sourceId           Int? // link to original lead record
+  notes              String?          @db.Text
+  tags               Json?
+  metadata           Json?
   // ── Celebration / anniversary tracking ──
   // Stored as DateTime for portability; only month/day are used for fixed-anniversary matching.
-  dateOfBirth           DateTime?
-  weddingAnniversary    DateTime?
+  dateOfBirth        DateTime?
+  weddingAnniversary DateTime?
   // Successful closing anniversary. Mirrored from the latest closed CrmTransaction.closingDate
   // when set, so we don't have to JOIN on every cron run.
-  closingAnniversary    DateTime?
+  closingAnniversary DateTime?
   // Holiday opt-outs. Keys: "christmas", "new_year", "eid", and any future ones.
   // Stored as String[] (Postgres array) so we can do `has`/`hasSome` queries cheaply.
-  holidayExceptions     String[]         @default([])
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
-  transactions          CrmTransaction[]
-  celebrationLogs       CelebrationLog[]
+  holidayExceptions  String[]         @default([])
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  transactions       CrmTransaction[]
+  celebrationLogs    CelebrationLog[]
 
   @@unique([adminId, email])
   @@index([adminId, type, status])
@@ -1059,21 +1060,21 @@ model CelebrationSettings {
 // Audit trail for celebration messages. Also used to dedupe (avoid sending the same
 // kind to the same client twice in the same calendar day).
 model CelebrationLog {
-  id        Int       @id @default(autoincrement())
-  adminId   Int
-  admin     User      @relation("TenantCelebrationLogs", fields: [adminId], references: [id], onDelete: Cascade)
-  clientId  Int
-  client    CrmClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  id       Int       @id @default(autoincrement())
+  adminId  Int
+  admin    User      @relation("TenantCelebrationLogs", fields: [adminId], references: [id], onDelete: Cascade)
+  clientId Int
+  client   CrmClient @relation(fields: [clientId], references: [id], onDelete: Cascade)
   // birthday | anniversary | closing | christmas | new_year | eid | custom
-  kind      String
-  subject   String
-  body      String    @db.Text
+  kind     String
+  subject  String
+  body     String    @db.Text
   // auto = sent by cron with template; manual = admin clicked Send Wishes
-  mode      String    @default("manual")
+  mode     String    @default("manual")
   // ok | failed | skipped
-  status    String    @default("ok")
-  error     String?
-  sentAt    DateTime  @default(now())
+  status   String    @default("ok")
+  error    String?
+  sentAt   DateTime  @default(now())
 
   @@index([adminId, kind, sentAt])
   @@index([clientId, kind, sentAt])
@@ -1447,4 +1448,40 @@ model FlashNews {
   @@unique([adminId, slug])
   @@index([adminId])
   @@index([adminId, published])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// POSTED RATES – tenant-curated bank rate board for /rates page
+// ═══════════════════════════════════════════════════════════════
+//
+// One row per (bank, product) the tenant wants to publish on their public
+// /rates page. Sits alongside the auto-fetched Bank of Canada market averages
+// (which come live from the Valet API and don't need persistence).
+//
+// `category` lets the public page group rows: 'mortgage' | 'variable' |
+// 'heloc' | 'prime' | 'consumer' | 'business' | 'other'.
+//
+// `term` is free-form text so agents can write whatever the bank publishes
+// (e.g. "5 years fixed", "3-year closed", "Prime - 0.50%", "Open").
+
+model PostedRate {
+  id            Int      @id @default(autoincrement())
+  adminId       Int
+  admin         User     @relation("TenantPostedRates", fields: [adminId], references: [id], onDelete: Cascade)
+  bank          String // "RBC", "TD", "Scotiabank", "BMO", "CIBC", "National Bank", or custom
+  bankLogoUrl   String? // optional override; otherwise the public page falls back to a built-in icon
+  category      String   @default("mortgage")
+  product       String // "5-year fixed", "Variable", "HELOC", "Prime"
+  term          String? // optional sub-label (e.g. "Closed", "Open", "Insured")
+  rate          Float // percentage as a number, e.g. 5.34
+  effectiveDate DateTime @default(now())
+  notes         String?  @db.Text
+  highlight     Boolean  @default(false) // gold-bordered "best deal" flag for the public page
+  isPublished   Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([adminId, isPublished, sortOrder])
+  @@index([adminId, category])
 }
