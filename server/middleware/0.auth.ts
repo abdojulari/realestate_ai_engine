@@ -54,6 +54,10 @@ export default defineEventHandler(async (event) => {
     '/api/chat/lead',
     '/api/news/feed',
     '/api/stats',
+    // Public lead-capture forms — handlers do their own optional auth + tenant
+    // resolution, no Bearer token required for guest submissions.
+    '/api/contact',
+    '/api/estimates',
     // Site settings (public - for template selection)
     '/api/settings/home-template',
     '/api/settings/about-template',

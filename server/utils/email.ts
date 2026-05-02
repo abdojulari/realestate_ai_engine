@@ -8,6 +8,12 @@ interface EmailOptions {
   html: string
   text?: string
   from?: string
+  /**
+   * Reply-To header — useful for relayed inbox emails (e.g. contact forms,
+   * inquiries) where `from` must stay as the verified SMTP sender but you
+   * want the realtor's reply to land in the inquirer's inbox.
+   */
+  replyTo?: string | string[]
   attachments?: Array<{
     filename: string
     path?: string
@@ -70,13 +76,16 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     const config = useRuntimeConfig()
     const transport = getTransporter()
     
-    const mailOptions = {
+    const mailOptions: nodemailer.SendMailOptions = {
       from: options.from || process.env.SMTP_SENDER || config.smtpSender || process.env.SMTP_FROM || 'noreply@homebyabdul.com',
       to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
       subject: options.subject,
       html: options.html,
       text: options.text || stripHtml(options.html),
-      attachments: options.attachments
+      attachments: options.attachments,
+      ...(options.replyTo
+        ? { replyTo: Array.isArray(options.replyTo) ? options.replyTo.join(', ') : options.replyTo }
+        : {}),
     }
 
     await transport.sendMail(mailOptions)

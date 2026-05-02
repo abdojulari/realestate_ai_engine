@@ -130,12 +130,27 @@
                   class="px-10 font-weight-bold shadow-lg text-none"
                   :loading="submitting"
                   :disabled="!isValid"
-                  @click="submit"
+                  type="submit"
                 >
                   Send Inquiry
                 </v-btn>
               </div>
             </v-form>
+
+            <v-snackbar
+              v-model="snackbar.show"
+              :color="snackbar.color"
+              :timeout="snackbar.timeout"
+              location="top right"
+            >
+              <div class="d-flex align-center">
+                <v-icon class="me-2">{{ snackbar.icon }}</v-icon>
+                <span>{{ snackbar.message }}</span>
+              </div>
+              <template #actions>
+                <v-btn variant="text" @click="snackbar.show = false">Close</v-btn>
+              </template>
+            </v-snackbar>
 
             <!-- Editorial Tips Section -->
             <div class="tips-section pt-12 border-t">
@@ -170,13 +185,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { reactive, ref } from 'vue'
 
 const isValid = ref(false)
 const submitting = ref(false)
 const tipsScroll = ref<HTMLElement | null>(null)
 
-const form = ref({ firstName:'', lastName:'', email:'', phone:'', message:'' })
+const form = ref({ firstName: '', lastName: '', email: '', phone: '', message: '' })
+
+const snackbar = reactive({
+  show: false,
+  message: '',
+  color: 'success' as 'success' | 'error',
+  icon: 'mdi-check-circle',
+  timeout: 6000,
+})
 
 const tips = [
   { title: 'The Art of Presentation', text: 'Curate your space to highlight architectural strengths rather than personal history.' },
@@ -196,16 +219,33 @@ const scrollTips = (dir: number) => {
   }
 }
 
+const showSnack = (message: string, kind: 'success' | 'error') => {
+  snackbar.message = message
+  snackbar.color = kind
+  snackbar.icon = kind === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle'
+  snackbar.show = true
+}
+
 const submit = async () => {
+  if (!isValid.value || submitting.value) return
   submitting.value = true
   try {
-    // Mocked fetch
-    console.log('Sending message:', form.value)
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    form.value = { firstName:'', lastName:'', email:'', phone:'', message:'' }
+    await $fetch('/api/contact', {
+      method: 'POST',
+      body: {
+        firstName: form.value.firstName.trim(),
+        lastName: form.value.lastName.trim(),
+        email: form.value.email.trim(),
+        phone: form.value.phone.trim() || undefined,
+        message: form.value.message.trim(),
+      },
+    })
+    form.value = { firstName: '', lastName: '', email: '', phone: '', message: '' }
     isValid.value = false
-  } catch (e) {
-    console.error(e)
+    showSnack('Inquiry sent — we\'ll get back to you within one business day.', 'success')
+  } catch (e: any) {
+    const detail = e?.data?.statusMessage || e?.statusMessage || e?.message || 'Please try again in a moment.'
+    showSnack(`Could not send your inquiry. ${detail}`, 'error')
   } finally {
     submitting.value = false
   }
