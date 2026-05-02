@@ -395,6 +395,7 @@ const allMenuItems = [
   { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null, delegateFeature: 'blog', groupKey: 'content' },
   { title: 'Content', icon: 'mdi-file-document', to: '/admin/content', requiresFeature: null, delegateFeature: 'content', groupKey: 'content' },
   { title: 'Flash News', icon: 'mdi-newspaper-variant', to: '/admin/flash-news', requiresFeature: null, delegateFeature: 'content', groupKey: 'content' },
+  { title: 'Posted Rates', icon: 'mdi-bank-outline', to: '/admin/posted-rates', requiresFeature: null, delegateFeature: 'content', groupKey: 'content' },
   { title: 'Resources', icon: 'mdi-folder-download', to: '/admin/resources', requiresFeature: null, delegateFeature: 'resources', groupKey: 'content' },
 
   // Tools & Reports

@@ -87,6 +87,10 @@ function kebabSegmentToFeature(segment: string): string | null {
     newsletter: 'newsletter',
     'off-market': 'off_market',
     pillar9: 'pillar9_sync',
+    // Posted bank rates ride on the same delegate gate as other public-site
+    // content (blog / flash-news / resources). Mirrors the sidebar wiring
+    // in app/layouts/admin.vue (`delegateFeature: 'content'`).
+    'posted-rates': 'content',
     'price-cuts': 'best_deals',
     properties: 'properties',
     reports: 'reports',
