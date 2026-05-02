@@ -312,11 +312,11 @@ const itemsPerPage = ref(20)
 const showViewDialog = ref(false)
 const selectedTestimonial = ref<Testimonial | null>(null)
 
-const siteUrl = computed(() => useSiteUrl())
-const testimonialFormUrl = computed(() => {
-  const base = siteUrl.value
-  return base ? `${base}/testimonials/submit` : '/testimonials/submit'
-})
+// Capture once at setup — never inside a computed (would crash post-render).
+const siteUrl = useSiteUrl()
+const testimonialFormUrl = computed(() =>
+  siteUrl ? `${siteUrl}/testimonials/submit` : '/testimonials/submit'
+)
 
 const pagination = ref({
   page: 1,

@@ -1154,8 +1154,11 @@ onMounted(async () => {
   }
 })
 
+// Capture origin ONCE at setup. The wrapped composable form (() => useAbsoluteUrl())
+// would re-enter the Nuxt scope when computeds re-evaluate during unhead's
+// post-render head walk and throw "[nuxt] instance unavailable" → SSR 500.
 const seoSiteUrl = useSiteUrl()
-const seoAbsoluteUrl = (path: string | null | undefined) => useAbsoluteUrl(path)
+const seoAbsoluteUrl = (path: string | null | undefined) => absolutizeUrl(seoSiteUrl, path)
 
 const propertyCanonicalUrl = computed(() =>
   seoSiteUrl ? `${seoSiteUrl}/property/${route.params.id}` : ''

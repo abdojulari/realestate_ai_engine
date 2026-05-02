@@ -41,8 +41,10 @@ const { data: homeTenant } = await useAsyncData('home-tenant-settings', async ()
   }
 })
 
+// Capture origin ONCE at setup — calling useSiteUrl/useAbsoluteUrl from inside
+// the computed below would re-enter the Nuxt scope during unhead's post-render
+// head walk and throw "[nuxt] instance unavailable" → SSR 500.
 const homeSiteUrl = useSiteUrl()
-const homeAbsoluteUrl = (p: string | null | undefined) => useAbsoluteUrl(p)
 
 const homeSchemas = computed(() => {
   const t = homeTenant.value
@@ -72,8 +74,8 @@ const homeSchemas = computed(() => {
       '@type': 'LocalBusiness',
       '@id': homeSiteUrl ? `${homeSiteUrl}/#localbusiness` : undefined,
       name: t.businessName || undefined,
-      image: homeAbsoluteUrl(t.logoUrl) || undefined,
-      logo: homeAbsoluteUrl(t.logoUrl) || undefined,
+      image: absolutizeUrl(homeSiteUrl, t.logoUrl) || undefined,
+      logo: absolutizeUrl(homeSiteUrl, t.logoUrl) || undefined,
       url: homeSiteUrl || undefined,
       telephone: t.phone || undefined,
       email: t.email || undefined,
