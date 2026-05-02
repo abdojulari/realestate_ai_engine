@@ -30,11 +30,13 @@ export function useContentAdmin() {
     }
   })
 
+  // Testimonials live in their own dedicated admin (/admin/testimonials) and
+  // are intentionally absent here — keep this CMS focused on Home / Resources
+  // / About blocks only.
   const pageSections = [
     { id: 'home', label: 'Home Page' },
     { id: 'resources', label: 'Resources' },
-    { id: 'about', label: 'About Us' },
-    { id: 'testimonials', label: 'Testimonials' }
+    { id: 'about', label: 'About Us' }
   ]
 
   const contentTypes = [
@@ -45,8 +47,7 @@ export function useContentAdmin() {
     { title: 'Why Choose Us Item', value: 'why-choose-us-item' },
     { title: 'Text', value: 'text' },
     { title: 'HTML', value: 'html' },
-    { title: 'Image', value: 'image' },
-    { title: 'Testimonial', value: 'testimonial' }
+    { title: 'Image', value: 'image' }
   ]
 
   const pageKeyOptions: Record<string, Array<{ title: string, value: string }>> = {
@@ -82,9 +83,6 @@ export function useContentAdmin() {
       { title: 'Meta Title (SEO)', value: 'about.meta.title' },
       { title: 'Meta Description (SEO)', value: 'about.meta.description' },
     ],
-    testimonials: [
-      { title: 'Testimonial Item', value: 'testimonial' }
-    ]
   }
 
   // Tenant-agnostic placeholder content seeded on first CMS visit. Each
@@ -373,15 +371,18 @@ export function useContentAdmin() {
         brandingSection,
         { id: 'home', title: 'Home Page', icon: 'mdi-home', items: 0, hasUnpublished: false },
         resourcesSection,
-        { id: 'about', title: 'About Us', icon: 'mdi-information', items: 0, hasUnpublished: false },
-        { id: 'testimonials', title: 'Testimonials', icon: 'mdi-account-voice', items: 0, hasUnpublished: false }
+        { id: 'about', title: 'About Us', icon: 'mdi-information', items: 0, hasUnpublished: false }
       ]
       const apiSections = (sections as any[])?.length ? (sections as any[]) : defaults
       // Always inject branding + resources up-front — both are managed by their
       // own dedicated panels (not stored in ContentBlock), so the API listing
       // doesn't know about them. Filter them out of `apiSections` first to
       // avoid duplicate sidebar items if the backend ever starts returning them.
-      const apiOthers = apiSections.filter((s: any) => s.id !== 'branding' && s.id !== 'resources')
+      // Also drop any legacy 'testimonials' rows the API might still emit —
+      // testimonials have their own admin page now.
+      const apiOthers = apiSections.filter((s: any) =>
+        s.id !== 'branding' && s.id !== 'resources' && s.id !== 'testimonials'
+      )
       contentSections.value = [
         brandingSection,
         ...apiOthers.filter((s: any) => s.id === 'home'),
@@ -402,8 +403,7 @@ export function useContentAdmin() {
         { id: 'branding', title: 'Site Branding', icon: 'mdi-palette-swatch', items: 0, hasUnpublished: false },
         { id: 'home', title: 'Home Page', icon: 'mdi-home', items: 0, hasUnpublished: false },
         { id: 'resources', title: 'Resources', icon: 'mdi-bookshelf', items: 0, hasUnpublished: false },
-        { id: 'about', title: 'About Us', icon: 'mdi-information', items: 0, hasUnpublished: false },
-        { id: 'testimonials', title: 'Testimonials', icon: 'mdi-account-voice', items: 0, hasUnpublished: false }
+        { id: 'about', title: 'About Us', icon: 'mdi-information', items: 0, hasUnpublished: false }
       ]
       selectedSection.value = 'branding'
     }

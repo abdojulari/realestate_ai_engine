@@ -22,11 +22,13 @@ export default defineEventHandler(async (event) => {
   // Note: 'resources' is a virtual section managed by its own dedicated panel
   // (CmsResourcesPanel) and DOES NOT live in ContentBlock — it's surfaced
   // here so the admin UI sidebar exposes it consistently.
+  // 'testimonials' is intentionally NOT here — testimonials have their own
+  // dedicated admin page (/admin/testimonials) and were removed from this
+  // generic CMS to avoid duplicate management surfaces.
   const defaults: Array<{ id: string, title: string, icon: string }> = [
     { id: 'home', title: 'Home Page', icon: 'mdi-home' },
     { id: 'resources', title: 'Resources', icon: 'mdi-bookshelf' },
-    { id: 'about', title: 'About Us', icon: 'mdi-information' },
-    { id: 'testimonials', title: 'Testimonials', icon: 'mdi-account-voice' }
+    { id: 'about', title: 'About Us', icon: 'mdi-information' }
   ]
   for (const d of defaults) {
     sectionsMap.set(d.id, { id: d.id, title: d.title, icon: d.icon, items: 0, hasUnpublished: false })
@@ -35,6 +37,8 @@ export default defineEventHandler(async (event) => {
   for (const b of blocks) {
     const meta = ((): any => { try { return typeof b.metadata === 'string' ? JSON.parse(b.metadata) : b.metadata || {} } catch { return {} } })()
     const section = meta.section || 'general'
+    // Skip legacy 'testimonials' blocks — managed elsewhere now.
+    if (section === 'testimonials') continue
     const rec = sectionsMap.get(section) || { id: section, title: section.replace(/\b\w/g, (c: string) => c.toUpperCase()).replace('-', ' '), icon: section === 'home' ? 'mdi-home' : section === 'about' ? 'mdi-information' : 'mdi-file-document', items: 0, hasUnpublished: false }
     rec.items += 1
     rec.hasUnpublished = rec.hasUnpublished || !(meta.published ?? true)
