@@ -118,6 +118,7 @@ model User {
   tenantPriceCutSearches    PriceCutSearch[]     @relation("TenantPriceCutSearches")
   tenantLeadForms           LeadForm[]           @relation("TenantLeadForms")
   tenantMarketingResources  MarketingResource[]  @relation("TenantMarketingResources")
+  tenantResources           Resource[]           @relation("TenantResources")
   tenantWorkspaceTools      WorkspaceTool[]      @relation("TenantWorkspaceTools")
   tenantFlashNews           FlashNews[]          @relation("TenantFlashNews")
   tenantPostedRates         PostedRate[]         @relation("TenantPostedRates")
@@ -1423,6 +1424,93 @@ model ResourceDownloadLead {
 
   @@index([resourceId])
   @@index([adminId, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HOMEPAGE RESOURCES – tenant-curated WYSIWYG articles surfaced in
+// the homepage carousel (ResourcesSection.vue) with a /learn/:slug
+// detail page protected by a lead-gen unlock cookie. This is a
+// SEPARATE system from MarketingResource (which is PDF-centric and
+// lives under /resources/r/:slug); the two co-exist on purpose.
+// ═══════════════════════════════════════════════════════════════
+
+model Resource {
+  id            Int      @id @default(autoincrement())
+  adminId       Int
+  admin         User     @relation("TenantResources", fields: [adminId], references: [id], onDelete: Cascade)
+
+  /// URL-safe identifier for /learn/:slug. Unique within a tenant
+  /// so two tenants can both have e.g. "first-time-buyer-guide".
+  slug          String
+
+  title         String
+  /// Optional short tagline shown above the title on cards / detail.
+  subtitle      String?
+  /// Card teaser on the homepage carousel. Plain text; ~280 chars.
+  excerpt       String?  @db.Text
+  /// Full article body — sanitized HTML produced by the TipTap editor.
+  body          String   @db.Text
+
+  /// Optional cover image URL (uploaded via /api/admin/resources-cms/upload-image).
+  coverImage    String?
+
+  /// Attribution shown on detail page: "Source: <sourceName>" linking to sourceUrl.
+  sourceName    String?
+  sourceUrl     String?
+
+  /// Optional list of related external links shown in the detail-page sidebar.
+  /// Stored as JSON array of { label: string, url: string } objects.
+  externalLinks Json?
+
+  /// Free-text grouping label (e.g. "Buyer Guide", "Mortgage", "Legal").
+  category      String?
+
+  /// Featured = eligible for the homepage carousel. The public API
+  /// returns the top 4 featured+published rows ordered by sortOrder,
+  /// so admins can mark more than 4 as featured and rotate by reordering.
+  featured      Boolean  @default(false)
+  /// Lower = first. Drag-to-reorder updates this in bulk.
+  sortOrder     Int      @default(0)
+
+  published     Boolean  @default(false)
+  publishedAt   DateTime?
+
+  /// Counters maintained by the public detail / unlock endpoints.
+  /// Cheap analytics for the admin without spinning up a full events table.
+  viewCount     Int      @default(0)
+  unlockCount   Int      @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  leads         ResourceLead[]
+
+  @@unique([adminId, slug])
+  @@index([adminId, featured, published])
+  @@index([adminId, sortOrder])
+}
+
+model ResourceLead {
+  id         Int       @id @default(autoincrement())
+  resourceId Int
+  resource   Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  adminId    Int
+
+  name       String
+  email      String
+  phone      String?
+
+  ipAddress  String?
+  userAgent  String?   @db.Text
+  /// Where the visitor came from (HTTP Referer header). Useful for
+  /// attributing leads to specific marketing campaigns.
+  referrer   String?   @db.Text
+
+  createdAt  DateTime  @default(now())
+
+  @@index([resourceId])
+  @@index([adminId, createdAt])
+  @@index([email])
 }
 
 // ═══════════════════════════════════════════════════════════════

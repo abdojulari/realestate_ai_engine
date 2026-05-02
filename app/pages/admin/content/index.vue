@@ -14,17 +14,40 @@
 
         <v-col cols="12" md="9">
           <CmsBrandingPanel v-if="selectedSection === 'branding'" />
-          <CmsContentTable
-            v-else
-            :items="filteredContent"
-            :current-section="getCurrentSection"
-            :search="search"
-            @update:search="search = $event"
-            @edit="editContent"
-            @toggle-published="togglePublished"
-            @duplicate="duplicateContent"
-            @delete="deleteContent"
-          />
+          <CmsResourcesPanel v-else-if="selectedSection === 'resources'" />
+          <template v-else>
+            <CmsContentTable
+              :items="filteredContent"
+              :current-section="getCurrentSection"
+              :search="search"
+              @update:search="search = $event"
+              @edit="editContent"
+              @toggle-published="togglePublished"
+              @duplicate="duplicateContent"
+              @delete="deleteContent"
+            />
+            <!-- Discoverability shortcut: the homepage carousel is fed by the
+                 dedicated Resources panel (separate sidebar item). Surface a
+                 hint card in the Home Page section so admins find it from
+                 their natural mental model. -->
+            <v-card
+              v-if="selectedSection === 'home'"
+              class="premium-card mt-4 d-flex align-center pa-4"
+              @click="selectSection('resources')"
+            >
+              <v-avatar color="primary" size="40" class="mr-3">
+                <v-icon color="white">mdi-bookshelf</v-icon>
+              </v-avatar>
+              <div class="flex-grow-1">
+                <div class="font-weight-bold">Manage Homepage Resources →</div>
+                <div class="text-caption text-medium-emphasis">
+                  WYSIWYG articles surfaced in the homepage carousel and at /learn/&lt;slug&gt;.
+                  Capture leads when visitors click "Read More".
+                </div>
+              </div>
+              <v-btn variant="tonal" color="primary" class="text-none">Open Resources</v-btn>
+            </v-card>
+          </template>
         </v-col>
       </v-row>
     </v-container>

@@ -18,9 +18,13 @@ export default defineEventHandler(async (event) => {
   })
   const sectionsMap = new Map<string, { id: string, title: string, icon: string, items: number, hasUnpublished: boolean }>()
 
-  // Always include default sections so the UI is not blank on first run
+  // Always include default sections so the UI is not blank on first run.
+  // Note: 'resources' is a virtual section managed by its own dedicated panel
+  // (CmsResourcesPanel) and DOES NOT live in ContentBlock — it's surfaced
+  // here so the admin UI sidebar exposes it consistently.
   const defaults: Array<{ id: string, title: string, icon: string }> = [
     { id: 'home', title: 'Home Page', icon: 'mdi-home' },
+    { id: 'resources', title: 'Resources', icon: 'mdi-bookshelf' },
     { id: 'about', title: 'About Us', icon: 'mdi-information' },
     { id: 'testimonials', title: 'Testimonials', icon: 'mdi-account-voice' }
   ]

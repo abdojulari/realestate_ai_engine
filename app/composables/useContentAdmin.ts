@@ -32,6 +32,7 @@ export function useContentAdmin() {
 
   const pageSections = [
     { id: 'home', label: 'Home Page' },
+    { id: 'resources', label: 'Resources' },
     { id: 'about', label: 'About Us' },
     { id: 'testimonials', label: 'Testimonials' }
   ]
@@ -171,7 +172,9 @@ export function useContentAdmin() {
 
   async function selectSection(sectionId: string) {
     selectedSection.value = sectionId
-    if (sectionId === 'branding') return
+    // Branding + Resources are managed by their own dedicated panels — they
+    // don't use the generic ContentBlock table at all.
+    if (sectionId === 'branding' || sectionId === 'resources') return
     try {
       const items = await api.get(`/api/admin/content?section=${sectionId}`)
       contentItems.value = items as any[]
@@ -362,14 +365,29 @@ export function useContentAdmin() {
         id: 'branding', title: 'Site Branding', icon: 'mdi-palette-swatch',
         items: 0, hasUnpublished: false
       }
+      const resourcesSection = {
+        id: 'resources', title: 'Resources', icon: 'mdi-bookshelf',
+        items: 0, hasUnpublished: false
+      }
       const defaults = [
         brandingSection,
         { id: 'home', title: 'Home Page', icon: 'mdi-home', items: 0, hasUnpublished: false },
+        resourcesSection,
         { id: 'about', title: 'About Us', icon: 'mdi-information', items: 0, hasUnpublished: false },
         { id: 'testimonials', title: 'Testimonials', icon: 'mdi-account-voice', items: 0, hasUnpublished: false }
       ]
       const apiSections = (sections as any[])?.length ? (sections as any[]) : defaults
-      contentSections.value = [brandingSection, ...apiSections.filter((s: any) => s.id !== 'branding')]
+      // Always inject branding + resources up-front — both are managed by their
+      // own dedicated panels (not stored in ContentBlock), so the API listing
+      // doesn't know about them. Filter them out of `apiSections` first to
+      // avoid duplicate sidebar items if the backend ever starts returning them.
+      const apiOthers = apiSections.filter((s: any) => s.id !== 'branding' && s.id !== 'resources')
+      contentSections.value = [
+        brandingSection,
+        ...apiOthers.filter((s: any) => s.id === 'home'),
+        resourcesSection,
+        ...apiOthers.filter((s: any) => s.id !== 'home'),
+      ]
 
       if (!selectedSection.value && contentSections.value.length) {
         selectedSection.value = contentSections.value[0].id
@@ -383,6 +401,7 @@ export function useContentAdmin() {
       contentSections.value = [
         { id: 'branding', title: 'Site Branding', icon: 'mdi-palette-swatch', items: 0, hasUnpublished: false },
         { id: 'home', title: 'Home Page', icon: 'mdi-home', items: 0, hasUnpublished: false },
+        { id: 'resources', title: 'Resources', icon: 'mdi-bookshelf', items: 0, hasUnpublished: false },
         { id: 'about', title: 'About Us', icon: 'mdi-information', items: 0, hasUnpublished: false },
         { id: 'testimonials', title: 'Testimonials', icon: 'mdi-account-voice', items: 0, hasUnpublished: false }
       ]
