@@ -1,5 +1,10 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="900" persistent scrollable>
+  <v-dialog
+    :model-value="modelValue"
+    @update:model-value="(v) => !v && requestClose()"
+    max-width="900"
+    scrollable
+  >
     <v-card rounded="xl" class="markup-dialog">
       <!-- Header -->
       <v-card-title class="pa-4 d-flex align-center markup-header">
@@ -7,7 +12,7 @@
         <span class="text-h6 font-weight-bold">PDF Markup</span>
         <v-chip size="x-small" variant="tonal" class="ml-2">Page {{ page }}</v-chip>
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" size="small" @click="close" />
+        <v-btn icon="mdi-close" variant="text" size="small" @click="requestClose" />
       </v-card-title>
       <v-divider />
 
@@ -112,12 +117,26 @@
           @update:model-value="loadPagePreview"
         />
         <v-spacer />
-        <v-btn variant="text" @click="close">Cancel</v-btn>
+        <v-btn variant="text" @click="requestClose">Cancel</v-btn>
         <v-btn color="primary" variant="flat" rounded="lg" @click="applyMarkup" :loading="applying" :disabled="strokes.length === 0">
           Apply Markup
         </v-btn>
       </v-card-actions>
     </v-card>
+
+    <v-dialog v-model="showDiscardConfirm" max-width="380" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="pa-5 pb-2 text-h6 font-weight-bold">Discard markup?</v-card-title>
+        <v-card-text class="text-body-2 text-medium-emphasis">
+          You'll lose every stroke you've drawn on this page.
+        </v-card-text>
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="showDiscardConfirm = false">Keep editing</v-btn>
+          <v-btn color="error" variant="flat" @click="discardAndClose">Discard</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-dialog>
 </template>
 
@@ -156,6 +175,7 @@ const strokes = ref<Stroke[]>([])
 let currentStroke: Stroke | null = null
 let isDrawing = false
 let lineStart: { x: number; y: number } | null = null
+const showDiscardConfirm = ref(false)
 
 const presetColors = [
   '#000000', '#D32F2F', '#1976D2', '#388E3C',
@@ -351,7 +371,26 @@ function clearAll() {
   redraw()
 }
 
-function close() {
+/**
+ * Called by Esc / backdrop / X / Cancel — guards strokes against accidental loss.
+ * If nothing has been drawn yet, the dialog closes immediately so we don't nag
+ * the user with a confirmation when there's nothing to lose.
+ */
+function requestClose() {
+  if (strokes.value.length > 0) {
+    showDiscardConfirm.value = true
+  } else {
+    doClose()
+  }
+}
+
+function discardAndClose() {
+  showDiscardConfirm.value = false
+  doClose()
+}
+
+/** Actually closes the dialog and resets canvas state. */
+function doClose() {
   strokes.value = []
   currentStroke = null
   isDrawing = false
@@ -367,7 +406,7 @@ function applyMarkup() {
   try {
     const imageData = draw.toDataURL('image/png')
     emit('apply-markup', { page: page.value, imageData })
-    close()
+    doClose()
   } finally {
     applying.value = false
   }

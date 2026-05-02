@@ -2,10 +2,9 @@
   <v-dialog
     :model-value="modelValue"
     max-width="960"
-    persistent
     scrollable
     class="send-sig-dialog"
-    @update:model-value="$emit('update:modelValue', $event)"
+    @update:model-value="(v) => !v && requestClose()"
   >
     <v-card rounded="xl" class="send-sig-card d-flex flex-column">
       <v-card-title class="d-flex align-start pa-6 pb-4 flex-shrink-0">
@@ -20,7 +19,7 @@
             </div>
           </div>
         </div>
-        <v-btn icon="mdi-close" variant="text" size="small" class="mt-n1 flex-shrink-0" @click="close" />
+        <v-btn icon="mdi-close" variant="text" size="small" class="mt-n1 flex-shrink-0" @click="requestClose" />
       </v-card-title>
 
       <v-divider class="opacity-20" />
@@ -351,7 +350,7 @@
 
       <v-card-actions class="pa-6 pt-0 flex-shrink-0 bg-surface">
         <v-spacer />
-        <v-btn variant="text" @click="close">{{ result ? 'Close' : 'Cancel' }}</v-btn>
+        <v-btn variant="text" @click="requestClose">{{ result ? 'Close' : 'Cancel' }}</v-btn>
         <v-btn
           v-if="!result"
           color="primary"
@@ -367,6 +366,20 @@
     </v-card>
 
     <v-snackbar v-model="copied" color="success" :timeout="2000">Copied</v-snackbar>
+
+    <v-dialog v-model="showDiscardConfirm" max-width="380" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="pa-5 pb-2 text-h6 font-weight-bold">Discard signing setup?</v-card-title>
+        <v-card-text class="text-body-2 text-medium-emphasis">
+          You'll lose the signers, placements, and options you've configured.
+        </v-card-text>
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="showDiscardConfirm = false">Keep editing</v-btn>
+          <v-btn color="error" variant="flat" @click="discardAndClose">Discard</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-dialog>
 </template>
 
@@ -524,6 +537,7 @@ const result = ref<{
   signerLinks?: Array<{ name?: string; email?: string; url?: string }>
 } | null>(null)
 const copied = ref(false)
+const showDiscardConfirm = ref(false)
 const webhookHint = ref('Webhook: configure Verdocs to POST events to your site at /api/webhooks/verdocs to sync status here.')
 
 const placedFields = ref<PlacedField[]>([])
@@ -739,7 +753,38 @@ function removeSigner(i: number) {
     .map((p) => (p.signerIndex > i ? { ...p, signerIndex: p.signerIndex - 1 } : p))
 }
 
-function close() {
+/**
+ * Has the user filled in anything that would be lost on close?
+ * After a successful send (`result` set) we treat the dialog as "results view" —
+ * closing then is just acknowledging, not discarding, so no confirm is needed.
+ * Toggles like includeInitial / includeDateSigned aren't counted: they're
+ * preferences, not work.
+ */
+function hasUnsavedWork(): boolean {
+  if (result.value) return false
+  if (placedFields.value.length > 0) return true
+  if (signers.value.length > 1) return true
+  return signers.value.some(
+    (s) => s.name.trim() !== '' || s.email.trim() !== '' || s.phone.trim() !== ''
+  )
+}
+
+/** Called by Esc / backdrop / X / Cancel — guards against accidental discard. */
+function requestClose() {
+  if (hasUnsavedWork()) {
+    showDiscardConfirm.value = true
+  } else {
+    doClose()
+  }
+}
+
+function discardAndClose() {
+  showDiscardConfirm.value = false
+  doClose()
+}
+
+/** Actually closes — used after submit succeeds and after discard is confirmed. */
+function doClose() {
   if (result.value) emit('sent')
   emit('update:modelValue', false)
 }

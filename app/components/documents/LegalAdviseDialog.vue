@@ -1,5 +1,5 @@
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="720" scrollable persistent>
+  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="720" scrollable>
     <v-card rounded="xl" class="premium-dialog">
       <v-card-title class="d-flex align-center dialog-title">
         <v-icon icon="mdi-gavel" class="mr-2" />
@@ -120,6 +120,12 @@
           </p>
         </template>
       </v-card-text>
+
+      <v-divider />
+      <v-card-actions class="pa-4">
+        <v-spacer />
+        <v-btn variant="text" @click="$emit('update:modelValue', false)">Close</v-btn>
+      </v-card-actions>
     </v-card>
   </v-dialog>
 </template>

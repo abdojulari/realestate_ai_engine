@@ -1,11 +1,15 @@
 <!-- In-editor signatures (draw / type / upload). For remote multi-party signing, use Send for signature (Verdocs) on the documents dashboard. -->
 <template>
-  <v-dialog :model-value="modelValue" @update:model-value="$emit('update:modelValue', $event)" max-width="700" persistent>
+  <v-dialog
+    :model-value="modelValue"
+    @update:model-value="(v) => !v && requestClose()"
+    max-width="700"
+  >
     <v-card rounded="xl" class="premium-dialog">
       <v-card-title class="pa-4 d-flex align-center dialog-title">
         <span class="text-h6">Add Your Signature</span>
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" size="small" @click="close" />
+        <v-btn icon="mdi-close" variant="text" size="small" @click="requestClose" />
       </v-card-title>
 
       <!-- Saved Signatures -->
@@ -73,10 +77,24 @@
 
       <v-card-actions class="pa-6 pt-0">
         <v-spacer />
-        <v-btn variant="text" @click="close">Cancel</v-btn>
+        <v-btn variant="text" @click="requestClose">Cancel</v-btn>
         <v-btn color="primary" variant="flat" rounded="lg" @click="submit" :loading="loading">Add Signature</v-btn>
       </v-card-actions>
     </v-card>
+
+    <v-dialog v-model="showDiscardConfirm" max-width="380" persistent>
+      <v-card rounded="xl" class="premium-dialog">
+        <v-card-title class="pa-5 pb-2 text-h6 font-weight-bold">Discard signature?</v-card-title>
+        <v-card-text class="text-body-2 text-medium-emphasis">
+          You'll lose the signature you've drawn, typed, or uploaded.
+        </v-card-text>
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="showDiscardConfirm = false">Keep editing</v-btn>
+          <v-btn color="error" variant="flat" @click="discardAndClose">Discard</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-dialog>
 </template>
 
@@ -109,6 +127,7 @@ const selectedSavedId = ref<number | null>(null)
 const saveForReuse = ref(false)
 const page = ref(1)
 const loading = ref(false)
+const showDiscardConfirm = ref(false)
 
 watch(() => props.modelValue, (val) => {
   if (val) {
@@ -211,7 +230,38 @@ function handleFileUpload() {
   }
 }
 
-function close() {
+/**
+ * Has the user produced unsaved work since opening the dialog?
+ * Picking a previously-saved signature does NOT count — it's a quick selection,
+ * not lost work. Active drawing / typed text / uploaded image DOES count.
+ * Implemented as a function (not a computed) because signature-pad's emptiness
+ * is a non-reactive imperative API.
+ */
+function hasUnsavedWork(): boolean {
+  if (sigTab.value === 'draw' && signaturePad && !signaturePad.isEmpty()) return true
+  if (sigTab.value === 'type' && sigText.value.trim() !== '') return true
+  if (sigTab.value === 'upload' && uploadPreview.value !== '') return true
+  return false
+}
+
+/** Called by Esc / backdrop / X / Cancel — guards against accidental discard. */
+function requestClose() {
+  if (hasUnsavedWork()) {
+    showDiscardConfirm.value = true
+  } else {
+    doClose()
+  }
+}
+
+function discardAndClose() {
+  showDiscardConfirm.value = false
+  // Wipe the in-progress canvas so reopening starts fresh.
+  try { signaturePad?.clear() } catch { /* noop */ }
+  doClose()
+}
+
+/** Actually closes — used after submit succeeds and after discard is confirmed. */
+function doClose() {
   selectedSavedId.value = null
   saveForReuse.value = false
   sigText.value = ''
@@ -238,7 +288,7 @@ async function submit() {
     if (data) {
       emit('add-signature', { page: page.value, data, type, x: 100, y: 100, width: 200, height: 80 }, saveForReuse.value, name)
     }
-    close()
+    doClose()
   } finally { loading.value = false }
 }
 </script>
