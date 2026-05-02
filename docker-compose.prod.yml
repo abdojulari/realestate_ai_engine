@@ -60,8 +60,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-real_estate}
-      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-https://app.deelbot.ai/api}
-      NUXT_PUBLIC_SITE_URL: ${NUXT_PUBLIC_SITE_URL:-https://app.deelbot.ai}
+      # Both must stay empty in multi-tenant deployments — see suhani.env.example.
+      # Setting either to an absolute URL bakes that single hostname into the
+      # shared client bundle and breaks every other tenant with CORS / wrong
+      # canonical tags. Empty value → Nuxt uses "/api" (relative) and derives
+      # siteUrl per-request from the Host header.
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-}
+      NUXT_PUBLIC_SITE_URL: ${NUXT_PUBLIC_SITE_URL:-}
       APP_BASE_DOMAIN: ${APP_BASE_DOMAIN:-deelbot.ai}
       # Must be set in .env.production (Turnstile + SSR). Repeated here so prod overlay never drops them vs base compose merge.
       NUXT_PUBLIC_SITE_KEY: ${NUXT_PUBLIC_SITE_KEY:-}

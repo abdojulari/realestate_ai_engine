@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, readBody } from 'h3'
 import { requireAdmin } from '../../../../utils/auth'
 import { getTenantFilter, requireTenantAccess } from '../../../../utils/tenant'
+import { getTenantSiteUrlForEvent } from '../../../../utils/tenantSiteUrl'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -219,9 +220,6 @@ export default defineEventHandler(async (event) => {
   }
   
   try {
-    const config = useRuntimeConfig()
-    const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
-
     // Fetch the post with tenant scoping
     const post = await prisma.blogPost.findFirst({
       where: { id: postId, ...tenantFilter },
@@ -239,6 +237,12 @@ export default defineEventHandler(async (event) => {
     
     // Verify tenant access
     requireTenantAccess(user, post.adminId)
+
+    // Resolve canonical URL for THIS tenant — used to make blog cover-image
+    // paths absolute when Hashnode imports them. Prefer the live request host
+    // (admin is on their own subdomain) and fall back to the tenant's
+    // configured customDomain / subdomain.
+    const siteUrl = await getTenantSiteUrlForEvent(event, post.adminId)
     
     // Get publication ID
     const publicationId = await getMyPublication()

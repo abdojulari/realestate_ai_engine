@@ -3,6 +3,8 @@
  * Runs property alerts on schedule
  */
 
+import { getInternalApiBase } from '../utils/tenantSiteUrl'
+
 let alertInterval: NodeJS.Timeout | null = null
 
 export default defineNitroPlugin((nitroApp) => {
@@ -22,7 +24,10 @@ export default defineNitroPlugin((nitroApp) => {
 
 function startAlertScheduler() {
   const config = useRuntimeConfig()
-  const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+  // Self-loopback — the scheduler is just calling its own /api/alerts/run-due
+  // endpoint on the same Node process, no need to round-trip through the
+  // public proxy or pick a tenant URL.
+  const baseUrl = getInternalApiBase()
   const schedulerSecret = config.alertSchedulerSecret
   // Clear any existing interval
   if (alertInterval) {
@@ -34,8 +39,7 @@ function startAlertScheduler() {
     try {
       console.log('⏰ Running scheduled property alert check...')
       
-      // Call the alert processing endpoint
-      const response = await fetch(`${siteUrl}/api/alerts/run-due`, {
+      const response = await fetch(`${baseUrl}/api/alerts/run-due`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -28,15 +28,8 @@ const { data: tenant } = await useAsyncData('layout-tenant-settings', async () =
   }
 })
 
-const config = useRuntimeConfig()
-const siteUrl = ((config.public.siteUrl as string) || '').replace(/\/$/, '')
-
-const absoluteUrl = (path: string | null | undefined) => {
-  if (!path) return ''
-  if (/^https?:\/\//i.test(path)) return path
-  if (!siteUrl) return path
-  return `${siteUrl}${path.startsWith('/') ? '' : '/'}${path}`
-}
+const siteUrl = useSiteUrl()
+const absoluteUrl = (path: string | null | undefined) => useAbsoluteUrl(path)
 
 const organizationSchema = computed(() => {
   const t = tenant.value

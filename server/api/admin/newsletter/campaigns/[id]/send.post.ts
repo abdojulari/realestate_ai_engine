@@ -1,5 +1,5 @@
 import { requireAdmin } from '../../../../../utils/auth'
-import { getTenantFilter } from '../../../../../utils/tenant'
+import { getTenantAdminId, getTenantFilter } from '../../../../../utils/tenant'
 import { sendEmail, sendNewsletterBatch } from '../../../../../utils/email'
 import { PrismaClient } from '@prisma/client'
 
@@ -69,13 +69,17 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'No subscribers match the target audience' })
     }
 
-    const emailResults = await sendNewsletterBatch(subscribers, {
-      id: campaign.id,
-      subject: campaign.subject,
-      content: campaign.content,
-      plainTextContent: campaign.plainTextContent || undefined,
-      attachments: campaign.attachments
-    })
+    const emailResults = await sendNewsletterBatch(
+      subscribers,
+      {
+        id: campaign.id,
+        subject: campaign.subject,
+        content: campaign.content,
+        plainTextContent: campaign.plainTextContent || undefined,
+        attachments: campaign.attachments
+      },
+      { adminId: getTenantAdminId(user) }
+    )
 
     const sentRecords = subscribers.map(subscriber => ({
       newsletterId: campaign.id,

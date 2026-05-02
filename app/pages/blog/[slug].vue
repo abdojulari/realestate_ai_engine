@@ -285,8 +285,7 @@ import { marked } from 'marked'
 
 const route = useRoute()
 const slug = computed(() => route.params.slug as string)
-const config = useRuntimeConfig()
-const siteUrl = (config.public.siteUrl as string || '').replace(/\/$/, '')
+const siteUrl = useSiteUrl()
 
 // SSR-compatible data fetching — runs on server and client
 const { data, status } = await useAsyncData(

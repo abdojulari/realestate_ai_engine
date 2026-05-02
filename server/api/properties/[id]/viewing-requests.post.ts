@@ -3,6 +3,7 @@ import { requireAuth } from '../../../utils/auth'
 import { PrismaClient } from '@prisma/client'
 import { sendEmail } from '../../../utils/email'
 import { generateIcs } from '../../../utils/ics'
+import { getTenantSiteUrlForEvent } from '../../../utils/tenantSiteUrl'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -151,7 +152,7 @@ export default defineEventHandler(async (event) => {
       const clientName = `${viewingRequest.user.firstName || ''} ${viewingRequest.user.lastName || ''}`.trim() || 'A client'
       const propertyTitle = viewingRequest.property.title || viewingRequest.property.address || `Property #${propertyId}`
       const propertyAddress = [viewingRequest.property.address, viewingRequest.property.city, viewingRequest.property.province].filter(Boolean).join(', ')
-      const siteUrl = (process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
+      const siteUrl = await getTenantSiteUrlForEvent(event, adminId)
       const propertyUrl = `${siteUrl}/property/${propertyId}`
       const formattedDate = dateTime.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
       const formattedTime = dateTime.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
@@ -216,7 +217,7 @@ export default defineEventHandler(async (event) => {
     const formattedDate = dateTime.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
     const formattedTime = dateTime.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
     const propertyTitle = viewingRequest.property.title || viewingRequest.property.address || `Property #${propertyId}`
-    const clientSiteUrl = (process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '')
+    const clientSiteUrl = await getTenantSiteUrlForEvent(event, viewingRequest.property.adminId)
     const clientPropertyUrl = `${clientSiteUrl}/property/${propertyId}`
 
     await sendEmail({

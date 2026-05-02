@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getHeader, getQuery } from 'h3'
 import nodemailer from 'nodemailer'
 import { PrismaClient } from '@prisma/client'
+import { getInternalApiBase, getTenantSiteUrl } from '../../utils/tenantSiteUrl'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -35,7 +36,8 @@ export default defineEventHandler(async (event) => {
             email: true,
             firstName: true,
             lastName: true,
-            marketingConsent: true
+            marketingConsent: true,
+            adminId: true,
           }
         }
       }
@@ -112,8 +114,10 @@ export default defineEventHandler(async (event) => {
 
 // Run property search with filters
 async function runPropertySearch(filters: any, city?: string) {
-  const config = useRuntimeConfig()
-  const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+  // Internal server-to-server call — use loopback so we don't bounce through
+  // the public proxy / TLS / tenant routing for what is effectively a local
+  // function call.
+  const baseUrl = getInternalApiBase()
   const queryParams = new URLSearchParams()
   
   // Add filters
@@ -145,8 +149,7 @@ async function runPropertySearch(filters: any, city?: string) {
   // Get all results (no pagination for alerts)
   queryParams.append('limit', '1000')
   
-  // Make API request
-  const response = await fetch(`${siteUrl}/api/properties?${queryParams.toString()}`)
+  const response = await fetch(`${baseUrl}/api/properties?${queryParams.toString()}`)
   const data = await response.json()
   
   return data.properties || []
@@ -154,8 +157,9 @@ async function runPropertySearch(filters: any, city?: string) {
 
 // Send alert email to user
 async function sendAlertEmail(user: any, alert: any, properties: any[]) {
-  const config = useRuntimeConfig()
-  const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
+  // Per-tenant absolute URL so each user's email links to the realtor's site
+  // (custom domain or *.deelbot.ai subdomain) rather than a global default.
+  const siteUrl = await getTenantSiteUrl(user.adminId)
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOSTNAME,
     port: parseInt(process.env.SMTP_PORT || '587'),

@@ -90,8 +90,11 @@ export default defineEventHandler(async (event) => {
 
         console.log(`[Newsletter Automation] Created campaign ${campaign.id} with ${subscribers.length} recipients`)
 
-        // Send emails in batches
-        const sendResults = await sendNewsletterBatch(subscribers as any, campaign as any)
+        const sendResults = await sendNewsletterBatch(
+          subscribers as any,
+          campaign as any,
+          { adminId: automation.adminId }
+        )
 
         // Update campaign status
         await prisma.newsletter.update({

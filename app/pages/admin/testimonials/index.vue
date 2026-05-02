@@ -312,13 +312,9 @@ const itemsPerPage = ref(20)
 const showViewDialog = ref(false)
 const selectedTestimonial = ref<Testimonial | null>(null)
 
-const config = useRuntimeConfig()
-const siteUrl = computed(() => {
-  if (config.public.siteUrl) return config.public.siteUrl
-  return process.client ? window.location.origin : ''
-})
+const siteUrl = computed(() => useSiteUrl())
 const testimonialFormUrl = computed(() => {
-  const base = siteUrl.value ? siteUrl.value.replace(/\/$/, '') : ''
+  const base = siteUrl.value
   return base ? `${base}/testimonials/submit` : '/testimonials/submit'
 })
 

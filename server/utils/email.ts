@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
+import { getTenantSiteUrl } from './tenantSiteUrl'
 
 interface EmailOptions {
   to: string | string[]
@@ -90,18 +91,26 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
  * Send newsletter to multiple recipients
  */
 export async function sendNewsletterBatch(
-  subscribers: Array<{ id: number; email: string; firstName?: string; lastName?: string }>,
+  subscribers: Array<{ id: number; email: string; firstName?: string | null; lastName?: string | null }>,
   campaign: {
     id: number
     subject: string
     content: string
     plainTextContent?: string
     attachments?: any
+  },
+  options?: {
+    /**
+     * The tenant whose newsletter is being sent. Used to build absolute
+     * unsubscribe links that point at the right tenant subdomain / custom
+     * domain. Pass null for cross-tenant or single-tenant sends — the helper
+     * will fall back to NUXT_PUBLIC_SITE_URL / APP_URL.
+     */
+    adminId?: number | null
   }
 ): Promise<{ success: number; failed: number; errors: any[] }> {
   const results = { success: 0, failed: 0, errors: [] as any[] }
-  const config = useRuntimeConfig()
-  const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || '').replace(/\/$/, '')
+  const siteUrl = await getTenantSiteUrl(options?.adminId ?? null)
 
   // Send emails in batches to avoid rate limits
   const batchSize = 50
@@ -117,10 +126,8 @@ export async function sendNewsletterBatch(
             .replace(/\{lastName\}/g, subscriber.lastName || '')
             .replace(/\{email\}/g, subscriber.email)
 
-          // Add unsubscribe link
-          const baseUrl = siteUrl || process.env.APP_URL || ''
-          const unsubscribeLink = baseUrl
-            ? `${baseUrl}/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
+          const unsubscribeLink = siteUrl
+            ? `${siteUrl}/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
             : `/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
           personalizedContent += `<br><br><small><a href="${unsubscribeLink}">Unsubscribe</a></small>`
 

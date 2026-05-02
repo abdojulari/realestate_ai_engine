@@ -1154,16 +1154,8 @@ onMounted(async () => {
   }
 })
 
-// SEO helpers (canonical + absolute URLs for og:image + JSON-LD)
-const seoConfig = useRuntimeConfig()
-const seoSiteUrl = ((seoConfig.public.siteUrl as string) || '').replace(/\/$/, '')
-
-const seoAbsoluteUrl = (path: string | null | undefined) => {
-  if (!path) return ''
-  if (/^https?:\/\//i.test(path)) return path
-  if (!seoSiteUrl) return path
-  return `${seoSiteUrl}${path.startsWith('/') ? '' : '/'}${path}`
-}
+const seoSiteUrl = useSiteUrl()
+const seoAbsoluteUrl = (path: string | null | undefined) => useAbsoluteUrl(path)
 
 const propertyCanonicalUrl = computed(() =>
   seoSiteUrl ? `${seoSiteUrl}/property/${route.params.id}` : ''

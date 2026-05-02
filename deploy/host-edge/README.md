@@ -30,8 +30,13 @@ The script drops `nginx/deelbot-edge.conf` into `/etc/nginx/conf.d/` and creates
 ```env
 USE_HOST_EDGE_PROXY=1
 SUHANI_APP_PORTS=127.0.0.1:3000:3000
-NUXT_PUBLIC_SITE_URL=https://YOUR_SUBDOMAIN.deelbot.ai
-NUXT_PUBLIC_API_BASE=https://YOUR_SUBDOMAIN.deelbot.ai/api
+# Leave both BLANK in multi-tenant (*.deelbot.ai) — the shared Nuxt build is
+# served to every tenant subdomain. NUXT_PUBLIC_API_BASE defaults to "/api"
+# (same-origin); NUXT_PUBLIC_SITE_URL is derived per-request from the Host
+# header. Setting either to an absolute URL pins every tenant to that one
+# host → CORS errors and broken SEO. See deploy/suhani.env.example.
+NUXT_PUBLIC_API_BASE=
+NUXT_PUBLIC_SITE_URL=
 CONTROL_PLANE_URL=http://host.docker.internal:3001
 ```
 

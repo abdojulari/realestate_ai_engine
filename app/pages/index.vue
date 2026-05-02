@@ -41,14 +41,8 @@ const { data: homeTenant } = await useAsyncData('home-tenant-settings', async ()
   }
 })
 
-const homeConfig = useRuntimeConfig()
-const homeSiteUrl = ((homeConfig.public.siteUrl as string) || '').replace(/\/$/, '')
-const homeAbsoluteUrl = (p: string | null | undefined) => {
-  if (!p) return ''
-  if (/^https?:\/\//i.test(p)) return p
-  if (!homeSiteUrl) return p
-  return `${homeSiteUrl}${p.startsWith('/') ? '' : '/'}${p}`
-}
+const homeSiteUrl = useSiteUrl()
+const homeAbsoluteUrl = (p: string | null | undefined) => useAbsoluteUrl(p)
 
 const homeSchemas = computed(() => {
   const t = homeTenant.value

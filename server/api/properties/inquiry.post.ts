@@ -2,6 +2,7 @@ import { defineEventHandler, readBody, createError, getQuery, getHeader } from '
 import nodemailer from 'nodemailer'
 import jwt from 'jsonwebtoken'
 import { resolveTenantFromRequest } from '../../utils/tenant'
+import { getTenantSiteUrlForEvent } from '../../utils/tenantSiteUrl'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -112,7 +113,11 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    // Send email notification
+    // Resolve the absolute URL for THIS tenant before email build (so the
+    // realtor receives links pointing to their own subdomain / custom domain
+    // rather than a global default).
+    const tenantSiteUrl = await getTenantSiteUrlForEvent(event, adminId)
+
     await sendInquiryEmail({
       inquirerName: body.name,
       inquirerEmail: body.email,
@@ -120,7 +125,8 @@ export default defineEventHandler(async (event) => {
       message: body.message,
       property: property,
       propertySnapshot: body.property,
-      config: config
+      config: config,
+      tenantSiteUrl,
     })
 
     return inquiry
@@ -143,7 +149,8 @@ async function sendInquiryEmail({
   message,
   property,
   propertySnapshot,
-  config
+  config,
+  tenantSiteUrl,
 }: {
   inquirerName: string
   inquirerEmail: string
@@ -152,6 +159,7 @@ async function sendInquiryEmail({
   property: any
   propertySnapshot?: any
   config: any
+  tenantSiteUrl: string
 }) {
   try {
     const transporter = nodemailer.createTransport({
@@ -176,8 +184,7 @@ async function sendInquiryEmail({
     const propertyCity = propertyInfo.city || ''
     const propertyPrice = propertyInfo.price ? `$${propertyInfo.price.toLocaleString()}` : 'Price not available'
     const mlsNumber = propertyInfo.mlsNumber || 'N/A'
-    const siteUrl = (config.public?.siteUrl || process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '')
-    const propertyUrl = propertySnapshot?.url || `${siteUrl}/property/${property.id}`
+    const propertyUrl = propertySnapshot?.url || `${tenantSiteUrl}/property/${property.id}`
 
     const emailSubject = `New Property Inquiry: ${propertyTitle}`
     

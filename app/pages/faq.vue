@@ -59,8 +59,7 @@ import { realEstateFaqs } from '~/data/realEstateFaqs'
 const faqs = realEstateFaqs
 
 const { businessName } = useTenantSettings()
-const config = useRuntimeConfig()
-const siteUrl = ((config.public.siteUrl as string) || '').replace(/\/$/, '')
+const siteUrl = useSiteUrl()
 const canonicalUrl = siteUrl ? `${siteUrl}/faq` : undefined
 
 const faqDescription = 'Frequently asked questions about buying, selling, mortgages, closing costs, and real estate listings in Alberta.'
