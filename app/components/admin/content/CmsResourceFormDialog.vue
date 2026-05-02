@@ -3,8 +3,7 @@
     :model-value="modelValue"
     max-width="900"
     scrollable
-    persistent
-    @update:model-value="$emit('update:modelValue', $event)"
+    @update:model-value="(v) => !v && requestClose()"
   >
     <v-card class="rf-dialog" rounded="xl">
       <v-card-title class="d-flex align-center px-6 py-4">
@@ -13,7 +12,7 @@
           {{ editing ? 'Edit Resource' : 'New Resource' }}
         </span>
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" @click="$emit('cancel')" />
+        <v-btn icon="mdi-close" variant="text" @click="requestClose" />
       </v-card-title>
 
       <v-divider />
@@ -120,7 +119,7 @@
           What visitors read after they unlock the resource. HTML is sanitized server-side
           before storage — scripts and unsafe tags are stripped automatically.
         </p>
-        <ListingTemplatesRichTextDescriptionEditor v-model="form.body" />
+        <RichTextDescriptionEditor v-model="form.body" />
 
         <v-divider class="my-5" />
 
@@ -241,7 +240,7 @@
 
       <v-card-actions class="px-6 py-3">
         <v-spacer />
-        <v-btn variant="text" class="text-none" :disabled="saving" @click="$emit('cancel')">
+        <v-btn variant="text" class="text-none" :disabled="saving" @click="requestClose">
           Cancel
         </v-btn>
         <v-btn
@@ -257,6 +256,20 @@
         </v-btn>
       </v-card-actions>
     </v-card>
+
+    <v-dialog v-model="showDiscardConfirm" max-width="380" persistent>
+      <v-card rounded="xl">
+        <v-card-title class="pa-5 pb-2 text-h6 font-weight-bold">Discard changes?</v-card-title>
+        <v-card-text class="text-body-2 text-medium-emphasis">
+          You'll lose the edits you've made to this resource.
+        </v-card-text>
+        <v-card-actions class="pa-4 pt-0">
+          <v-spacer />
+          <v-btn variant="text" @click="showDiscardConfirm = false">Keep editing</v-btn>
+          <v-btn color="error" variant="flat" @click="discardAndClose">Discard</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-dialog>
 </template>
 
@@ -264,6 +277,11 @@
 import { computed, ref, watch } from 'vue'
 // @ts-ignore — auto-imported by Nuxt
 import { api } from '~/utils/api'
+// Explicit import: the project uses `pathPrefix: false` so the directory name
+// is NOT part of the auto-resolved tag. Importing directly avoids any future
+// "tag silently became an unknown HTML element" regression like the one this
+// editor had when it was referenced as <ListingTemplatesRichTextDescriptionEditor>.
+import RichTextDescriptionEditor from '~/components/listing-templates/RichTextDescriptionEditor.vue'
 
 interface ExternalLink {
   label: string
@@ -317,6 +335,33 @@ function blankForm(): ResourceForm {
 const form = ref<ResourceForm>(blankForm())
 const coverFile = ref<File | File[] | null>(null)
 const uploadingCover = ref(false)
+const showDiscardConfirm = ref(false)
+
+/**
+ * Snapshot of the form taken when the dialog opens. Used by the discard
+ * guard to decide whether close-attempts (Esc / backdrop / X / Cancel)
+ * should prompt or close immediately. Stored as a JSON string so we get
+ * cheap structural equality without dragging in lodash.
+ */
+const initialSnapshot = ref('')
+
+function snapshot(f: ResourceForm): string {
+  return JSON.stringify({
+    title: (f.title || '').trim(),
+    subtitle: (f.subtitle || '').trim(),
+    excerpt: (f.excerpt || '').trim(),
+    body: f.body || '',
+    coverImage: f.coverImage || '',
+    sourceName: (f.sourceName || '').trim(),
+    sourceUrl: (f.sourceUrl || '').trim(),
+    category: (f.category || '').trim(),
+    featured: !!f.featured,
+    published: !!f.published,
+    externalLinks: (f.externalLinks || [])
+      .map((l) => ({ label: (l?.label || '').trim(), url: (l?.url || '').trim() }))
+      .filter((l) => l.url || l.label),
+  })
+}
 
 // When the dialog is opened (or `initial` swaps to a different row), hydrate
 // the local form. Doing this in a watch lets the parent reuse the same dialog
@@ -339,9 +384,36 @@ watch(
     } else {
       form.value = blankForm()
     }
+    // Re-baseline the snapshot every time we (re)hydrate. The parent fetches
+    // the full row in the background after openEdit() and patches `initial`
+    // again — that second patch will re-run this watcher and capture the
+    // body field too, so the discard prompt doesn't fire spuriously.
+    initialSnapshot.value = snapshot(form.value)
   },
   { immediate: true },
 )
+
+function hasUnsavedWork(): boolean {
+  return snapshot(form.value) !== initialSnapshot.value
+}
+
+/** Called by Esc / backdrop / X / Cancel — guards against accidental discard. */
+function requestClose() {
+  // Don't allow closing while a save is in flight; the save's success/failure
+  // path owns the next dialog state. Without this, Esc during a slow save
+  // could orphan the request.
+  if (props.saving) return
+  if (hasUnsavedWork()) {
+    showDiscardConfirm.value = true
+  } else {
+    emit('cancel')
+  }
+}
+
+function discardAndClose() {
+  showDiscardConfirm.value = false
+  emit('cancel')
+}
 
 const titleError = computed(() => {
   if (!form.value.title?.trim()) return ''
