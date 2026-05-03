@@ -645,7 +645,7 @@
         <v-col cols="12" md="4">
           <div class="sticky-sidebar">
             <!-- Contact Form -->
-            <v-card class="sidebar-card mb-5" flat>
+            <v-card id="property-inquiry" class="sidebar-card mb-5" flat>
               <v-card-text class="pa-7">
                 <div class="card-section-header">
                   <div class="card-section-icon"><v-icon size="20">mdi-email-fast-outline</v-icon></div>
@@ -704,17 +704,28 @@
                       </div>
                       <div v-if="property.listingAgentData.designations?.length" class="agent-designation">{{ property.listingAgentData.designations.join(', ') }}</div>
                       <div v-if="property.listingAgentData.license" class="agent-license">License: {{ property.listingAgentData.license }}</div>
+                      <!--
+                        Phone numbers from CREA's MLS feed are intentionally
+                        masked. Showing the listing agent's direct line lets
+                        visitors call them instead of inquiring through this
+                        site, which leaks the lead to a competing brokerage.
+                        Email is left intact for now — flagged as a similar
+                        leak that we may want to mask too.
+                      -->
+                      <div class="agent-courtesy-note">
+                        Listing courtesy of <span v-if="property.listingOfficeData?.name">{{ property.listingOfficeData.name }}</span><span v-else>their brokerage</span>. Use the <a href="#property-inquiry" class="courtesy-link" @click.prevent="scrollToInquiry">inquiry form</a> to reach us.
+                      </div>
                       <div class="agent-contact-list">
-                        <a v-if="property.listingAgentData.directPhone" :href="`tel:${property.listingAgentData.directPhone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone</v-icon>{{ property.listingAgentData.directPhone }} <span class="link-note">(Direct)</span></a>
-                        <a v-if="property.listingAgentData.mobilePhone && property.listingAgentData.mobilePhone !== property.listingAgentData.directPhone" :href="`tel:${property.listingAgentData.mobilePhone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-cellphone</v-icon>{{ property.listingAgentData.mobilePhone }} <span class="link-note">(Mobile)</span></a>
-                        <a v-if="property.listingAgentData.officePhone && property.listingAgentData.officePhone !== property.listingAgentData.directPhone && property.listingAgentData.officePhone !== property.listingAgentData.mobilePhone" :href="`tel:${property.listingAgentData.officePhone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>{{ property.listingAgentData.officePhone }} <span class="link-note">(Office)</span></a>
+                        <a v-if="property.listingAgentData.directPhone" href="#property-inquiry" class="agent-link agent-link--masked" :aria-label="`Use the inquiry form to contact ${property.listingAgentData.fullName || 'the listing agent'}`" @click.prevent="scrollToInquiry"><v-icon size="14" class="mr-1">mdi-phone</v-icon>XXX-XXX-XXXX <span class="link-note">(Direct)</span></a>
+                        <a v-if="property.listingAgentData.mobilePhone && property.listingAgentData.mobilePhone !== property.listingAgentData.directPhone" href="#property-inquiry" class="agent-link agent-link--masked" :aria-label="`Use the inquiry form to contact ${property.listingAgentData.fullName || 'the listing agent'}`" @click.prevent="scrollToInquiry"><v-icon size="14" class="mr-1">mdi-cellphone</v-icon>XXX-XXX-XXXX <span class="link-note">(Mobile)</span></a>
+                        <a v-if="property.listingAgentData.officePhone && property.listingAgentData.officePhone !== property.listingAgentData.directPhone && property.listingAgentData.officePhone !== property.listingAgentData.mobilePhone" href="#property-inquiry" class="agent-link agent-link--masked" :aria-label="`Use the inquiry form to contact ${property.listingAgentData.fullName || 'the listing agent'}`" @click.prevent="scrollToInquiry"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>XXX-XXX-XXXX <span class="link-note">(Office)</span></a>
                         <a v-if="property.listingAgentData.email" :href="`mailto:${property.listingAgentData.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ property.listingAgentData.email }}</a>
                       </div>
                     </div>
                   </div>
                   <div v-if="property.listingOfficeData" class="office-block">
                     <div class="office-name">{{ property.listingOfficeData.name }}</div>
-                    <a v-if="property.listingOfficeData.phone" :href="`tel:${property.listingOfficeData.phone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>{{ property.listingOfficeData.phone }}</a>
+                    <a v-if="property.listingOfficeData.phone" href="#property-inquiry" class="agent-link agent-link--masked" aria-label="Use the inquiry form to contact the listing office" @click.prevent="scrollToInquiry"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>XXX-XXX-XXXX</a>
                     <a v-if="property.listingOfficeData.email" :href="`mailto:${property.listingOfficeData.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ property.listingOfficeData.email }}</a>
                     <div v-if="property.listingOfficeData.address" class="office-addr"><v-icon size="14" class="mr-1">mdi-map-marker-outline</v-icon>{{ property.listingOfficeData.address }}<span v-if="property.listingOfficeData.city">, {{ property.listingOfficeData.city }}</span><span v-if="property.listingOfficeData.province">, {{ property.listingOfficeData.province }}</span><span v-if="property.listingOfficeData.postalCode">, {{ property.listingOfficeData.postalCode }}</span></div>
                     <a v-if="property.listingOfficeData.website" :href="property.listingOfficeData.website" target="_blank" class="agent-link"><v-icon size="14" class="mr-1">mdi-web</v-icon>{{ property.listingOfficeData.website }}</a>
@@ -731,8 +742,11 @@
                     <div class="flex-grow-1">
                       <div class="agent-name">{{ property.agent?.name || `${property.agent?.firstName || ''} ${property.agent?.lastName || ''}`.trim() || property.listingAgent }}</div>
                       <div v-if="property.agent?.agency" class="agent-designation">{{ property.agent.agency }}</div>
+                      <div class="agent-courtesy-note">
+                        Listing courtesy of <span v-if="property.agent?.agency || property.listingOffice">{{ property.agent?.agency || property.listingOffice }}</span><span v-else>their brokerage</span>. Use the <a href="#property-inquiry" class="courtesy-link" @click.prevent="scrollToInquiry">inquiry form</a> to reach us.
+                      </div>
                       <div class="agent-contact-list">
-                        <a v-if="property.agent?.phone" :href="`tel:${property.agent.phone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone</v-icon>{{ property.agent.phone }}</a>
+                        <a v-if="property.agent?.phone" href="#property-inquiry" class="agent-link agent-link--masked" aria-label="Use the inquiry form to contact this agent" @click.prevent="scrollToInquiry"><v-icon size="14" class="mr-1">mdi-phone</v-icon>XXX-XXX-XXXX</a>
                         <a v-if="property.agent?.email" :href="`mailto:${property.agent.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ property.agent.email }}</a>
                       </div>
                     </div>
@@ -753,7 +767,7 @@
                   <div class="co-agents-title">Co-Listing Brokerages</div>
                   <div v-for="coOffice in property.coListingOfficesData" :key="coOffice.officeKey" class="office-block" style="margin-bottom: 12px;">
                     <div class="office-name">{{ coOffice.name }}</div>
-                    <a v-if="coOffice.phone" :href="`tel:${coOffice.phone}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>{{ coOffice.phone }}</a>
+                    <a v-if="coOffice.phone" href="#property-inquiry" class="agent-link agent-link--masked" aria-label="Use the inquiry form to contact the co-listing office" @click.prevent="scrollToInquiry"><v-icon size="14" class="mr-1">mdi-phone-classic</v-icon>XXX-XXX-XXXX</a>
                     <a v-if="coOffice.email" :href="`mailto:${coOffice.email}`" class="agent-link"><v-icon size="14" class="mr-1">mdi-email-outline</v-icon>{{ coOffice.email }}</a>
                     <div v-if="coOffice.address" class="office-addr"><v-icon size="14" class="mr-1">mdi-map-marker-outline</v-icon>{{ coOffice.address }}<span v-if="coOffice.city">, {{ coOffice.city }}</span><span v-if="coOffice.province">, {{ coOffice.province }}</span></div>
                     <a v-if="coOffice.website" :href="coOffice.website" target="_blank" class="agent-link"><v-icon size="14" class="mr-1">mdi-web</v-icon>{{ coOffice.website }}</a>
@@ -772,8 +786,8 @@
                       <div class="agent-name" style="font-size: 0.9rem;">{{ coAgent.fullName || (coAgent.firstName && coAgent.lastName ? `${coAgent.firstName} ${coAgent.lastName}` : coAgent.firstName || coAgent.lastName || 'Co-Agent') }}</div>
                       <div v-if="coAgent.designations?.length" class="agent-designation">{{ coAgent.designations.join(', ') }}</div>
                       <div class="agent-contact-list" style="margin-top: 4px;">
-                        <a v-if="coAgent.directPhone" :href="`tel:${coAgent.directPhone}`" class="agent-link small"><v-icon size="12" class="mr-1">mdi-phone</v-icon>{{ coAgent.directPhone }}</a>
-                        <a v-if="coAgent.mobilePhone && coAgent.mobilePhone !== coAgent.directPhone" :href="`tel:${coAgent.mobilePhone}`" class="agent-link small"><v-icon size="12" class="mr-1">mdi-cellphone</v-icon>{{ coAgent.mobilePhone }}</a>
+                        <a v-if="coAgent.directPhone" href="#property-inquiry" class="agent-link agent-link--masked small" :aria-label="`Use the inquiry form to contact ${coAgent.fullName || 'the co-listing agent'}`" @click.prevent="scrollToInquiry"><v-icon size="12" class="mr-1">mdi-phone</v-icon>XXX-XXX-XXXX</a>
+                        <a v-if="coAgent.mobilePhone && coAgent.mobilePhone !== coAgent.directPhone" href="#property-inquiry" class="agent-link agent-link--masked small" :aria-label="`Use the inquiry form to contact ${coAgent.fullName || 'the co-listing agent'}`" @click.prevent="scrollToInquiry"><v-icon size="12" class="mr-1">mdi-cellphone</v-icon>XXX-XXX-XXXX</a>
                         <a v-if="coAgent.email" :href="`mailto:${coAgent.email}`" class="agent-link small"><v-icon size="12" class="mr-1">mdi-email-outline</v-icon>{{ coAgent.email }}</a>
                       </div>
                     </div>
@@ -1608,6 +1622,28 @@ const scheduleViewing = () => {
   showViewingDialog.value = true
 }
 
+// Masked agent phone numbers act as CTAs that bring the user back to the
+// inquiry form instead of dialing a fake number. We deliberately defer the
+// focus so the smooth scroll has time to start before the browser's
+// scroll-to-focused-element heuristic kicks in and fights us for control.
+const scrollToInquiry = () => {
+  if (typeof document === 'undefined') return
+  const target = document.getElementById('property-inquiry')
+  if (!target) return
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  setTimeout(() => {
+    const el = document.getElementById('property-contact-message')
+    if (el instanceof HTMLTextAreaElement || el instanceof HTMLInputElement) {
+      el.focus({ preventScroll: true })
+      return
+    }
+    // Defensive fallback in case a future Vuetify version moves the id
+    // from the textarea onto a wrapper element.
+    const inner = el?.querySelector?.('textarea, input')
+    if (inner instanceof HTMLElement) inner.focus({ preventScroll: true })
+  }, 320)
+}
+
 const submitViewingRequest = async () => {
   viewingLoading.value = true
   try {
@@ -2197,6 +2233,54 @@ const toggleSave = async () => {
 .agent-link.small { font-size: 0.75rem; }
 .agent-link .v-icon { color: #94a3b8; }
 .link-note { color: #94a3b8; font-size: 0.72rem; margin-left: 4px; }
+/*
+  Masked phone rows are intentionally non-interactive: cursor stays as the
+  default arrow, no user-select so the placeholder can't be copied as if it
+  were a real number, and hover doesn't shift to link-blue (which would
+  imply a clickable affordance that no longer exists).
+*/
+/* Masked phone numbers are clickable CTAs that scroll to the inquiry
+   form rather than dialing a placeholder number. We keep the digits
+   unselectable so nobody copies "XXX-XXX-XXXX" as text. */
+.agent-link--masked {
+  color: #94a3b8;
+  cursor: pointer;
+  user-select: none;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+.agent-link--masked .link-note { color: inherit; }
+.agent-link--masked:hover,
+.agent-link--masked:focus-visible {
+  color: #2563eb;
+  text-decoration: underline;
+}
+.agent-link--masked:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.35);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+.agent-courtesy-note {
+  font-size: 0.72rem;
+  color: #64748b;
+  font-style: italic;
+  background: #f8fafc;
+  border-left: 3px solid #cbd5e1;
+  padding: 6px 10px;
+  margin: 6px 0 10px;
+  border-radius: 0 6px 6px 0;
+  line-height: 1.4;
+}
+.agent-courtesy-note .courtesy-link {
+  color: #2563eb;
+  font-style: normal;
+  font-weight: 600;
+  text-decoration: none;
+}
+.agent-courtesy-note .courtesy-link:hover,
+.agent-courtesy-note .courtesy-link:focus-visible {
+  text-decoration: underline;
+}
 
 .office-block {
   margin-top: 20px; padding-top: 20px;
