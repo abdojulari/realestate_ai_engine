@@ -391,10 +391,13 @@ const canSubmit = computed(() => {
   )
 })
 
+const meta = useMetaPixel()
+
 async function onUnlock() {
   if (!canSubmit.value || submitting.value) return
   submitting.value = true
   formError.value = ''
+  const metaEventId = meta.newEventId()
   try {
     const res = await $fetch<{ success: boolean; body: string }>(
       `/api/public/learn/${slug.value}/unlock`,
@@ -405,12 +408,20 @@ async function onUnlock() {
           email: form.value.email.trim().toLowerCase(),
           phone: form.value.phone?.trim() || undefined,
           consent: form.value.consent,
+          _metaEventId: metaEventId,
         },
       },
     )
     if (res?.success) {
       inlineBody.value = res.body || ''
       unlockedClient.value = true
+      meta.trackLead(
+        {
+          content_name: resource.value?.title || 'Learn unlock',
+          content_category: 'learn_unlock',
+        },
+        { eventId: metaEventId }
+      )
       // Refresh in the background so the cookie + view counter stay in sync,
       // but don't block the user reading.
       refresh().catch(() => {})

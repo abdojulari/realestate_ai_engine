@@ -9,6 +9,9 @@ import {
 import { PrismaClient } from '@prisma/client'
 import { sendEmail } from '../../../utils/email'
 import { hashIp, getSiteBaseUrl, type InterestKind } from '../../../utils/instaConnect'
+import { sendMetaEvent, newMetaEventId } from '../../../utils/metaPixel'
+import { recordServerEvent } from '../../../utils/eventsRecorder'
+import { EVENT_NAMES } from '../../../utils/eventConstants'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -23,6 +26,8 @@ interface CaptureBody {
   message?: string
   interest?: InterestKind | string
   consent?: boolean
+  /** Optional Meta Pixel dedup id from the browser. */
+  _metaEventId?: string
 }
 
 const VALID_INTERESTS = new Set<InterestKind>(['buying', 'selling', 'renting', 'connecting'])
@@ -148,11 +153,48 @@ export default defineEventHandler(async (event) => {
     console.error('[instaConnect.capture] email send failed', e)
   }
 
+  // Meta CAPI Lead — InstaConnect QR captures are some of the highest-
+  // intent leads (the prospect already scanned a physical card).
+  const metaEventId = body._metaEventId || newMetaEventId()
+  void sendMetaEvent({
+    adminId: tenantAdminId,
+    eventName: 'Lead',
+    eventId: metaEventId,
+    event,
+    userData: {
+      email,
+      phone,
+      firstName,
+      lastName,
+    },
+    customData: {
+      contentName: 'InstaConnect',
+      contentCategory: 'instaconnect',
+      contentIds: [capture.id],
+      ...(interest ? { status: interest } : {}),
+    },
+  })
+
+  void recordServerEvent(event, {
+    adminId: tenantAdminId,
+    name: EVENT_NAMES.LEAD_CREATED,
+    email: email,
+    objectType: 'instaconnect',
+    objectId: capture.id,
+    properties: {
+      formName: 'instaconnect',
+      firstName,
+      lastName,
+      interest: interest || null,
+    },
+  })
+
   return {
     success: true,
     captureId: capture.id,
     vcardUrl: `/api/insta-connect/${encodeURIComponent(slug)}/vcard`,
     message: `Thanks, ${firstName}! ${agent.firstName || 'The agent'} will be in touch shortly.`,
+    _metaEventId: metaEventId,
   }
 })
 

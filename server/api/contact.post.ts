@@ -3,6 +3,9 @@ import { resolveTenantFromRequest } from '../utils/tenant'
 import { upsertCrmClientFromPlatformContact } from '../utils/crmClientSync'
 import { sendEmail, isValidEmail } from '../utils/email'
 import { getTenantSiteUrlForEvent } from '../utils/tenantSiteUrl'
+import { sendMetaEvent, newMetaEventId } from '../utils/metaPixel'
+import { recordServerEvent } from '../utils/eventsRecorder'
+import { EVENT_NAMES } from '../utils/eventConstants'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -27,6 +30,8 @@ export default defineEventHandler(async (event) => {
     email: string
     phone?: string
     message: string
+    /** Optional Meta Pixel dedup id from the browser. See inquiry.post.ts. */
+    _metaEventId?: string
   }>(event)
 
   if (!body || !body.firstName || !body.lastName || !body.email || !body.message) {
@@ -136,5 +141,39 @@ export default defineEventHandler(async (event) => {
     replyTo: body.email,
   })
 
-  return { ok: true, leadId: lead?.id ?? null, emailed: sent }
+  // Meta CAPI: server-side Lead. Browser pixel fires the matching event
+  // with the same id for dedup (see contact.vue submit handler).
+  const metaEventId = body._metaEventId || newMetaEventId()
+  void sendMetaEvent({
+    adminId,
+    eventName: 'Lead',
+    eventId: metaEventId,
+    event,
+    userData: {
+      email: body.email,
+      phone: body.phone,
+      firstName: body.firstName,
+      lastName: body.lastName,
+    },
+    customData: {
+      contentName: 'Contact form',
+      contentCategory: 'contact_form',
+    },
+  })
+
+  void recordServerEvent(event, {
+    adminId,
+    name: EVENT_NAMES.LEAD_CREATED,
+    email: body.email,
+    objectType: 'contact',
+    objectId: lead?.id ?? null,
+    properties: {
+      formName: 'contact',
+      message: body.message,
+      firstName: body.firstName,
+      lastName: body.lastName,
+    },
+  })
+
+  return { ok: true, leadId: lead?.id ?? null, emailed: sent, _metaEventId: metaEventId }
 })

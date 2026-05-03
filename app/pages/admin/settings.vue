@@ -319,6 +319,82 @@
             </v-card-actions>
           </v-card>
 
+          <!-- Marketing & Tracking — Meta (Facebook) Pixel + CAPI -->
+          <v-card v-if="activeSection === 'marketing'" class="premium-card mb-6">
+            <div class="p-8 border-b border-slate-100 d-flex align-center">
+              <v-icon color="primary" class="mr-3">mdi-bullseye-arrow</v-icon>
+              <h2 class="text-h6 font-weight-bold">Marketing &amp; Tracking</h2>
+            </div>
+            <v-card-text class="p-8">
+              <v-alert type="info" variant="tonal" density="compact" class="mb-6">
+                Connect your own Meta Pixel so PageView, Lead, Subscribe, and
+                ViewContent events fire under <strong>your</strong> Ad Account
+                (not the platform default). Lead/Subscribe events are also sent
+                server-to-server via the Conversions API for accurate attribution.
+                Find both values in
+                <a href="https://business.facebook.com/events_manager" target="_blank" rel="noopener" class="font-weight-bold text-primary">Meta Events Manager</a>
+                under <em>Settings → Conversions API</em>.
+              </v-alert>
+
+              <v-row>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="marketingSettings.metaPixelId"
+                    label="Meta Pixel ID"
+                    placeholder="e.g. 1304047971150913"
+                    variant="outlined"
+                    rounded="lg"
+                    density="compact"
+                    class="premium-input"
+                    prepend-inner-icon="mdi-facebook"
+                    hint="The 15-16 digit numeric ID. Leave blank to use the platform default."
+                    persistent-hint
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="marketingSettings.metaPixelAccessToken"
+                    label="Conversions API Access Token"
+                    placeholder="EAAS… (long token)"
+                    variant="outlined"
+                    rounded="lg"
+                    density="compact"
+                    class="premium-input"
+                    :type="showMetaCapiToken ? 'text' : 'password'"
+                    :append-inner-icon="showMetaCapiToken ? 'mdi-eye-off' : 'mdi-eye'"
+                    @click:append-inner="showMetaCapiToken = !showMetaCapiToken"
+                    prepend-inner-icon="mdi-key-variant"
+                    hint="Server-only. Never sent to the browser. Required for server-side Lead events."
+                    persistent-hint
+                  />
+                </v-col>
+              </v-row>
+
+              <v-alert
+                v-if="marketingSettings.metaPixelId && !marketingSettings.metaPixelAccessToken"
+                type="warning"
+                variant="tonal"
+                density="compact"
+                class="mt-4"
+              >
+                Pixel ID set, but no CAPI token — browser PageViews will fire,
+                but server-side Lead/Subscribe events won't be sent. Add the
+                token to deduplicate and survive ad-blockers.
+              </v-alert>
+            </v-card-text>
+            <v-card-actions class="px-8 pb-8">
+              <v-spacer />
+              <v-btn
+                color="primary"
+                :loading="marketingSaving"
+                @click="saveMarketingSettings"
+                class="action-btn-primary px-8"
+              >
+                Save Pixel Settings
+              </v-btn>
+            </v-card-actions>
+          </v-card>
+
           <!-- Email Settings -->
           <v-card v-if="activeSection === 'email'" class="premium-card mb-6">
             <div class="p-8 border-b border-slate-100 d-flex align-center">
@@ -876,10 +952,20 @@ const isTemplateFormValid = ref(false)
 
 const settingSections = [
   { id: 'general', title: 'General', icon: 'mdi-cog' },
+  { id: 'marketing', title: 'Marketing & Tracking', icon: 'mdi-bullseye-arrow' },
   { id: 'email', title: 'Email', icon: 'mdi-email' },
   { id: 'api', title: 'API Integration', icon: 'mdi-api' },
   { id: 'security', title: 'Security', icon: 'mdi-shield' }
 ]
+
+// Per-tenant Meta (Facebook) Pixel config. Loaded from
+// /api/admin/tenant-settings on mount alongside googleReviewUrl.
+const marketingSettings = ref({
+  metaPixelId: '',
+  metaPixelAccessToken: '',
+})
+const marketingSaving = ref(false)
+const showMetaCapiToken = ref(false)
 
 const generalSettings = ref({
   siteName: '',
@@ -910,14 +996,8 @@ const apiSettings = ref([
     apiSecret: '',
     enabled: true,
     verifying: false
-  },
-  {
-    name: 'Stripe',
-    apiKey: '',
-    apiSecret: '',
-    enabled: true,
-    verifying: false
   }
+  // Stripe billing is handled by saas-control-plane, not by suhani.
 ])
 
 const securitySettings = ref({
@@ -1040,6 +1120,33 @@ const saveGeneralSettings = async () => {
     showToast('Failed to save general settings', 'error')
   } finally {
     saving.value = false
+  }
+}
+
+const saveMarketingSettings = async () => {
+  marketingSaving.value = true
+  try {
+    const response = await fetch('/api/admin/tenant-settings', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({
+        // Empty string → null so a tenant can clear their pixel and fall
+        // back to the platform default by simply blanking the field.
+        metaPixelId: marketingSettings.value.metaPixelId.trim() || null,
+        metaPixelAccessToken:
+          marketingSettings.value.metaPixelAccessToken.trim() || null,
+      }),
+    })
+    if (!response.ok) throw new Error('Failed to save marketing settings')
+    showToast('Meta Pixel settings saved')
+  } catch (error) {
+    console.error('Error saving marketing settings:', error)
+    showToast('Failed to save Meta Pixel settings', 'error')
+  } finally {
+    marketingSaving.value = false
   }
 }
 
@@ -1475,12 +1582,16 @@ const loadAllSettings = async () => {
       generalSettings.value = { ...generalSettings.value, ...data }
     }
 
-    // Load googleReviewUrl from tenant settings
+    // Load googleReviewUrl + Meta Pixel config from tenant settings.
+    // Single GET → two unrelated UI sections (General + Marketing) so we
+    // don't burn a second round-trip just to read a few extra columns.
     try {
       const tenantRes = await fetch('/api/admin/tenant-settings', { headers })
       if (tenantRes.ok) {
         const tenantData = await tenantRes.json()
         generalSettings.value.googleReviewUrl = tenantData.googleReviewUrl || ''
+        marketingSettings.value.metaPixelId = tenantData.metaPixelId || ''
+        marketingSettings.value.metaPixelAccessToken = tenantData.metaPixelAccessToken || ''
       }
     } catch (e) { /* ignore */ }
 

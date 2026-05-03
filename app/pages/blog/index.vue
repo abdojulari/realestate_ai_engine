@@ -365,14 +365,20 @@ const handlePageChange = (page: number) => {
 }
 
 // Subscribe newsletter
+const meta = useMetaPixel()
 const subscribeNewsletter = async () => {
   if (!newsletterEmail.value) return
-  
+
+  const metaEventId = meta.newEventId()
   try {
     await $fetch('/api/newsletter/subscribe', {
       method: 'POST',
-      body: { email: newsletterEmail.value }
+      body: { email: newsletterEmail.value, _metaEventId: metaEventId }
     })
+    meta.trackSubscribe(
+      { content_name: 'Newsletter', content_category: 'newsletter' },
+      { eventId: metaEventId }
+    )
     newsletterEmail.value = ''
     // Show success message
   } catch (error) {

@@ -1161,6 +1161,29 @@ onMounted(async () => {
     }
     // Prefill contact message with rich property context
     contactForm.value.message = `Hi, I am interested in ${property.value.title} (${property.value.address}, ${property.value.city}). MLS: ${property.value.mlsNumber || 'N/A'}. Price: $${formatPrice(property.value.price)}. Please contact me.`
+    // Meta Pixel: ViewContent fires once per property detail view. This is
+    // the standard Meta event for catalog browsing — required if the realtor
+    // ever wires up Meta dynamic ads / Advantage+ catalog campaigns later.
+    meta.trackViewContent({
+      content_name: property.value.title || `Property #${property.value.id}`,
+      content_category: 'property',
+      content_ids: [String(property.value.id)],
+      content_type: 'product',
+      currency: 'CAD',
+      value: typeof property.value.price === 'number' ? property.value.price : undefined,
+    })
+    // First-party listing_view event. Powers lead scoring + automation.
+    void track('listing_view', {
+      objectType: 'property',
+      objectId: property.value.id,
+      properties: {
+        propertyTitle: property.value.title || null,
+        city: property.value.city || null,
+        province: property.value.province || null,
+        price: typeof property.value.price === 'number' ? property.value.price : null,
+        propertyType: property.value.propertyType || null,
+      },
+    })
     // Load POIs and Schools when property is available
     await Promise.all([loadPois(), loadSchools()])
   } catch (e) {
@@ -1588,8 +1611,14 @@ const shareProperty = () => {
   }
 }
 
+const meta = useMetaPixel()
+const { track } = useTrack()
+
 const handleSubmit = async () => {
   loading.value = true
+  // Same dedup id is sent to the API (CAPI uses it) and fired by the
+  // browser pixel — Meta dedupes on (event_name, event_id).
+  const metaEventId = meta.newEventId()
   try {
     const snapshot = {
       id: property.value.id,
@@ -1607,8 +1636,19 @@ const handleSubmit = async () => {
       email: contactForm.value.email,
       phone: contactForm.value.phone,
       message: contactForm.value.message,
-      property: snapshot
+      property: snapshot,
+      _metaEventId: metaEventId,
     } as any)
+    meta.trackLead(
+      {
+        content_name: property.value.title || `Property #${property.value.id}`,
+        content_category: 'property_inquiry',
+        content_ids: [String(property.value.id)],
+        currency: 'CAD',
+        value: typeof property.value.price === 'number' ? property.value.price : undefined,
+      },
+      { eventId: metaEventId }
+    )
     notify("Message sent. We'll be in touch shortly.", 'success')
   } catch (error) {
     console.error('Submit error:', error)
@@ -1628,6 +1668,13 @@ const scheduleViewing = () => {
 // scroll-to-focused-element heuristic kicks in and fights us for control.
 const scrollToInquiry = () => {
   if (typeof document === 'undefined') return
+  // High-intent signal — masked phone CTA tap or "use the inquiry form" link.
+  // Powers automation rules like "send hot-lead alert when CTA clicked twice".
+  void track('cta_clicked', {
+    objectType: 'property',
+    objectId: property.value.id,
+    properties: { ctaName: 'masked_phone_to_inquiry' },
+  })
   const target = document.getElementById('property-inquiry')
   if (!target) return
   target.scrollIntoView({ behavior: 'smooth', block: 'start' })

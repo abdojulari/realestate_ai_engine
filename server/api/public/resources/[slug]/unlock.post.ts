@@ -4,6 +4,9 @@ import {
   cookieNameForResourceSlug,
   signResourceAccessToken,
 } from '../../../../utils/marketingResourceStorage'
+import { sendMetaEvent, newMetaEventId } from '../../../../utils/metaPixel'
+import { recordServerEvent } from '../../../../utils/eventsRecorder'
+import { EVENT_NAMES } from '../../../../utils/eventConstants'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -69,8 +72,39 @@ export default defineEventHandler(async (event) => {
     path: '/',
   })
 
+  // Meta CAPI Lead — PDF gates are explicit lead magnets.
+  const metaEventId = body?._metaEventId || newMetaEventId()
+  void sendMetaEvent({
+    adminId: resource.adminId,
+    eventName: 'Lead',
+    eventId: metaEventId,
+    event,
+    userData: { email, phone, firstName, lastName },
+    customData: {
+      contentName: resource.title,
+      contentCategory: 'resource_download',
+      contentIds: [resource.id],
+    },
+  })
+
+  void recordServerEvent(event, {
+    adminId: resource.adminId,
+    name: EVENT_NAMES.RESOURCE_UNLOCK,
+    email,
+    objectType: 'resource',
+    objectId: resource.id,
+    properties: {
+      resourceTitle: resource.title,
+      resourceSlug: slug,
+      formName: 'resource_download',
+      firstName,
+      lastName,
+    },
+  })
+
   return {
     success: true,
     thankYouMessage: resource.thankYouMessage || 'Thank you! Your resource is ready below.',
+    _metaEventId: metaEventId,
   }
 })

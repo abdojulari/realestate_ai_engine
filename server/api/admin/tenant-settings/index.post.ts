@@ -2,6 +2,7 @@ import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { mapTenantMediaFields } from '../../../utils/tenantMediaUrls'
 import { getAdminIdForCreate } from '../../../utils/tenant'
+import { invalidateMetaPixelCache } from '../../../utils/metaPixel'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -89,6 +90,8 @@ export default defineEventHandler(async (event) => {
       'developerName',
       'developerUrl',
       'awardsCount',
+      'metaPixelId',
+      'metaPixelAccessToken',
       'subdomain',
       'customDomain',
     ]
@@ -119,6 +122,12 @@ export default defineEventHandler(async (event) => {
         ...data,
       },
     })
+
+    // Drop the cached pixel/token tuple so a freshly-saved id takes effect
+    // on the very next CAPI call instead of after a process restart.
+    if ('metaPixelId' in data || 'metaPixelAccessToken' in data) {
+      invalidateMetaPixelCache(targetAdminId)
+    }
 
     return {
       success: true,

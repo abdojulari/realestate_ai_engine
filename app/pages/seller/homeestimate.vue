@@ -462,8 +462,11 @@ const sellingTimeframes = [
   { title: 'Just Curious', value: 'exploring' }
 ]
 
+const meta = useMetaPixel()
+
 const submitEstimate = async () => {
   submitting.value = true
+  const metaEventId = meta.newEventId()
   try {
     await $fetch('/api/estimates', {
       method: 'POST',
@@ -491,9 +494,14 @@ const submitEstimate = async () => {
           phone: forms.contact.phone,
           timeframe: forms.contact.timeframe,
           contactPreference: false
-        }
+        },
+        _metaEventId: metaEventId,
       }
     })
+    meta.trackLead(
+      { content_name: 'Home value estimate', content_category: 'home_estimate' },
+      { eventId: metaEventId }
+    )
     showSuccessDialog.value = true
   } catch (error) {
     console.error('Estimate submission failed:', error)

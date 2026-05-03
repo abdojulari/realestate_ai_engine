@@ -4,6 +4,9 @@ import { rateLimit, rateLimitConfigs } from '../utils/rateLimiter'
 import { queueEmail } from '../utils/emailQueue'
 import { resolveTenantFromRequest } from '../utils/tenant'
 import { upsertCrmClientFromPlatformContact } from '../utils/crmClientSync'
+import { sendMetaEvent, newMetaEventId } from '../utils/metaPixel'
+import { recordServerEvent } from '../utils/eventsRecorder'
+import { EVENT_NAMES } from '../utils/eventConstants'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -54,6 +57,8 @@ export default defineEventHandler(async (event) => {
         timeframe: string
         contactPreference: boolean
       }
+      /** Optional Meta Pixel dedup id from the browser. */
+      _metaEventId?: string
     }>(event)
 
     // Validate required fields
@@ -189,7 +194,44 @@ export default defineEventHandler(async (event) => {
     const requestId = event.context.requestId
     queueEstimateEmails(estimate, requestId)
 
-    return estimate
+    // Meta CAPI: home-value-estimate request is a high-quality Lead.
+    const metaEventId = body._metaEventId || newMetaEventId()
+    void sendMetaEvent({
+      adminId,
+      eventName: 'Lead',
+      eventId: metaEventId,
+      event,
+      userData: {
+        email: estimate.email,
+        phone: estimate.phone,
+        firstName: estimate.firstName,
+        lastName: estimate.lastName,
+        postalCode: estimate.postalCode || undefined,
+      },
+      customData: {
+        contentName: 'Home value estimate',
+        contentCategory: 'home_estimate',
+        contentIds: [estimate.id],
+      },
+    })
+
+    void recordServerEvent(event, {
+      adminId,
+      name: EVENT_NAMES.ESTIMATE_REQUESTED,
+      email: estimate.email,
+      objectType: 'estimate',
+      objectId: estimate.id,
+      properties: {
+        formName: 'home_estimate',
+        address: estimate.address,
+        propertyType: estimate.propertyType,
+        timeframe: estimate.timeframe,
+        beds: estimate.beds,
+        baths: estimate.baths,
+      },
+    })
+
+    return { ...estimate, _metaEventId: metaEventId }
   } catch (error: any) {
     console.error('Error creating home estimate:', error)
     if (error.statusCode) {

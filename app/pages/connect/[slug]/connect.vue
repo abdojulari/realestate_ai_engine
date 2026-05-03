@@ -263,14 +263,21 @@ async function loadCard() {
   }
 }
 
+const meta = useMetaPixel()
+
 async function submit() {
   if (!formValid.value) return
   submitting.value = true
+  const metaEventId = meta.newEventId()
   try {
     const res: any = await $fetch(`/api/insta-connect/${slug.value}/capture`, {
       method: 'POST',
-      body: { ...form },
+      body: { ...form, _metaEventId: metaEventId },
     })
+    meta.trackLead(
+      { content_name: 'InstaConnect', content_category: 'instaconnect' },
+      { eventId: metaEventId }
+    )
     thanksMessage.value =
       res?.message || `Thanks — ${data.value?.profile.firstName} will be in touch shortly.`
     submitted.value = true

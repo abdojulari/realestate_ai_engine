@@ -189,12 +189,16 @@ async function checkAccess() {
   }
 }
 
+// Aliased to avoid shadowing the existing `meta` ref used by useHead below.
+const metaPixel = useMetaPixel()
+
 async function submitGate() {
   if (formRef.value) {
     const { valid } = await formRef.value.validate()
     if (!valid) return
   }
   submitting.value = true
+  const metaEventId = metaPixel.newEventId()
   try {
     await $fetch(`/api/public/resources/${slug.value}/unlock`, {
       method: 'POST',
@@ -203,9 +207,17 @@ async function submitGate() {
         lastName: gate.value.lastName.trim(),
         email: gate.value.email.trim(),
         phone: gate.value.phone.trim(),
+        _metaEventId: metaEventId,
       },
       credentials: 'include',
     })
+    metaPixel.trackLead(
+      {
+        content_name: meta.value?.title || 'Resource download',
+        content_category: 'resource_download',
+      },
+      { eventId: metaEventId }
+    )
     unlocked.value = true
   } catch (e: any) {
     console.error(e)

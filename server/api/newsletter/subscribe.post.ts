@@ -1,5 +1,8 @@
 import { resolveTenantFromRequest } from '../../utils/tenant'
 import { upsertCrmClientFromPlatformContact } from '../../utils/crmClientSync'
+import { sendMetaEvent, newMetaEventId } from '../../utils/metaPixel'
+import { recordServerEvent } from '../../utils/eventsRecorder'
+import { EVENT_NAMES } from '../../utils/eventConstants'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -11,7 +14,7 @@ globalForPrisma.prisma = prisma
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event)
-    const { email, firstName, lastName, source = 'website' } = body
+    const { email, firstName, lastName, source = 'website', _metaEventId } = body || {}
 
     if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
       return {
@@ -22,6 +25,7 @@ export default defineEventHandler(async (event) => {
 
     // Resolve tenant
     const adminId = await resolveTenantFromRequest(event)
+    const metaEventId: string = _metaEventId || newMetaEventId()
 
     // Get IP and user agent for tracking
     const headers = getHeaders(event)
@@ -60,15 +64,33 @@ export default defineEventHandler(async (event) => {
           })
         }
 
+        void sendMetaEvent({
+          adminId,
+          eventName: 'Subscribe',
+          eventId: metaEventId,
+          event,
+          userData: {
+            email: updated.email,
+            firstName: updated.firstName,
+            lastName: updated.lastName,
+          },
+          customData: {
+            contentName: 'Newsletter',
+            contentCategory: 'newsletter',
+          },
+        })
+
         return {
           success: true,
-          message: 'Welcome back! You have been resubscribed to our newsletter.'
+          message: 'Welcome back! You have been resubscribed to our newsletter.',
+          _metaEventId: metaEventId,
         }
       }
 
       return {
         success: true,
-        message: 'You are already subscribed to our newsletter.'
+        message: 'You are already subscribed to our newsletter.',
+        _metaEventId: metaEventId,
       }
     }
 
@@ -97,9 +119,40 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    void sendMetaEvent({
+      adminId,
+      eventName: 'Subscribe',
+      eventId: metaEventId,
+      event,
+      userData: {
+        email: created.email,
+        firstName: created.firstName,
+        lastName: created.lastName,
+      },
+      customData: {
+        contentName: 'Newsletter',
+        contentCategory: 'newsletter',
+      },
+    })
+
+    void recordServerEvent(event, {
+      adminId,
+      name: EVENT_NAMES.NEWSLETTER_SUBSCRIBED,
+      email: created.email,
+      objectType: 'newsletter',
+      objectId: created.id,
+      properties: {
+        formName: 'newsletter',
+        source,
+        firstName: created.firstName,
+        lastName: created.lastName,
+      },
+    })
+
     return {
       success: true,
-      message: 'Thank you for subscribing! You will receive our curated property collections and market insights.'
+      message: 'Thank you for subscribing! You will receive our curated property collections and market insights.',
+      _metaEventId: metaEventId,
     }
   } catch (error) {
     console.error('Newsletter subscription error:', error)

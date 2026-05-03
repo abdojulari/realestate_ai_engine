@@ -23,6 +23,9 @@ import {
   cookieNameForLearnSlug,
   signLearnAccessToken,
 } from '../../../../utils/resourceCms'
+import { sendMetaEvent, newMetaEventId } from '../../../../utils/metaPixel'
+import { recordServerEvent } from '../../../../utils/eventsRecorder'
+import { EVENT_NAMES } from '../../../../utils/eventConstants'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -106,11 +109,44 @@ export default defineEventHandler(async (event) => {
     path: '/',
   })
 
-  // Return the full body in the response so the page can show the article
-  // immediately without a second fetch (and survive the cookie not being
-  // visible to client-side JS).
+  // Meta CAPI Lead — gated articles convert; surface the article title so
+  // realtors can see which content is pulling in leads.
+  const metaEventId = body?._metaEventId || newMetaEventId()
+  const [firstName, ...rest] = name.split(/\s+/)
+  void sendMetaEvent({
+    adminId,
+    eventName: 'Lead',
+    eventId: metaEventId,
+    event,
+    userData: {
+      email,
+      phone,
+      firstName: firstName || undefined,
+      lastName: rest.length ? rest.join(' ') : undefined,
+    },
+    customData: {
+      contentName: resource.title,
+      contentCategory: 'learn_unlock',
+      contentIds: [resource.id],
+    },
+  })
+
+  void recordServerEvent(event, {
+    adminId,
+    name: EVENT_NAMES.RESOURCE_UNLOCK,
+    email,
+    objectType: 'learn',
+    objectId: resource.id,
+    properties: {
+      resourceTitle: resource.title,
+      resourceSlug: slug,
+      formName: 'learn_unlock',
+    },
+  })
+
   return {
     success: true,
     body: resource.body,
+    _metaEventId: metaEventId,
   }
 })

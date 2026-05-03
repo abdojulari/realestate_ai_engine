@@ -37,6 +37,12 @@ export interface TenantSettingsData {
   developerName: string | null
   developerUrl: string | null
   googleReviewUrl: string | null
+  /**
+   * Meta (Facebook) Pixel ID — public, used by `app/layouts/default.vue`
+   * to inject the pixel snippet per-tenant. The matching CAPI access token
+   * is server-only and never appears in this payload.
+   */
+  metaPixelId: string | null
   adminEmail: string | null
   adminFirstName: string | null
   adminLastName: string | null

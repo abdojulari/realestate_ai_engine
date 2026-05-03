@@ -173,11 +173,14 @@ const subscribeLoading = ref(false)
 const message = ref('')
 const messageType = ref<'success' | 'error'>('success')
 
+const meta = useMetaPixel()
+
 const handleSubscribe = async () => {
   if (!email.value || !firstName.value.trim() || !lastName.value.trim() || subscribeLoading.value) return
 
   subscribeLoading.value = true
   message.value = ''
+  const metaEventId = meta.newEventId()
 
   try {
     const response = await $fetch('/api/newsletter/subscribe', {
@@ -186,11 +189,16 @@ const handleSubscribe = async () => {
         email: email.value,
         firstName: firstName.value.trim(),
         lastName: lastName.value.trim(),
-        source: 'website'
+        source: 'website',
+        _metaEventId: metaEventId,
       }
     }) as any
 
     if (response.success) {
+      meta.trackSubscribe(
+        { content_name: 'Newsletter', content_category: 'newsletter' },
+        { eventId: metaEventId }
+      )
       messageType.value = 'success'
       message.value = response.message
       firstName.value = ''

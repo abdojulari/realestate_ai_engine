@@ -169,6 +169,8 @@ async function loadForm() {
   }
 }
 
+const meta = useMetaPixel()
+
 async function submitForm() {
   if (formRef.value) {
     const { valid } = await formRef.value.validate()
@@ -177,8 +179,19 @@ async function submitForm() {
 
   submitting.value = true
   submitError.value = false
+  const metaEventId = meta.newEventId()
   try {
-    await $fetch(`/api/lead-form/${slug}`, { method: 'POST', body: submission.value })
+    await $fetch(`/api/lead-form/${slug}`, {
+      method: 'POST',
+      body: { ...submission.value, _metaEventId: metaEventId },
+    })
+    meta.trackLead(
+      {
+        content_name: form.value?.title || 'Lead form',
+        content_category: 'lead_form',
+      },
+      { eventId: metaEventId }
+    )
     submitted.value = true
   } catch (e: any) {
     console.error('Submit failed:', e)

@@ -53,8 +53,14 @@ export default defineEventHandler(async (event) => {
         developerName: true,
         developerUrl: true,
         awardsCount: true,
+        // Public marketing — pixel ID is fine to expose (it ships in the
+        // browser bundle anyway). NEVER select metaPixelAccessToken here;
+        // that token is server-only and would be a security incident if
+        // it leaked into a public response.
+        metaPixelId: true,
         admin: { select: { firstName: true, lastName: true, email: true } },
-        // Intentionally excluded: subdomain, customDomain, adminId
+        // Intentionally excluded: subdomain, customDomain, adminId,
+        //                         metaPixelAccessToken
       },
     })
 
@@ -82,6 +88,7 @@ export default defineEventHandler(async (event) => {
         developerName: null,
         developerUrl: null,
         awardsCount: null,
+        metaPixelId: null,
       }
     }
 

@@ -119,6 +119,90 @@
         </v-col>
       </v-row>
 
+      <!-- Hot Leads — driven by leadScore on CrmClient (events worker) -->
+      <v-row class="mb-10">
+        <v-col cols="12">
+          <v-card class="hot-leads-card" elevation="0">
+            <v-card-title class="pa-6 d-flex align-center">
+              <v-icon color="error" class="mr-3">mdi-fire</v-icon>
+              <div>
+                <span class="display-serif text-h5">Hot Leads</span>
+                <div class="text-caption text-medium-emphasis">
+                  <span v-if="hotLeads.length">{{ hotLeads.length }} ranked by behaviour score</span>
+                  <span v-else>Submit a form / view a listing to start scoring contacts.</span>
+                </div>
+              </div>
+              <v-spacer />
+              <v-btn
+                variant="tonal"
+                size="small"
+                prepend-icon="mdi-refresh"
+                :loading="hotLeadsLoading"
+                @click="loadHotLeads"
+              >Refresh</v-btn>
+            </v-card-title>
+            <v-divider class="opacity-10" />
+            <v-card-text class="pa-0">
+              <div v-if="hotLeads.length === 0 && !hotLeadsLoading" class="text-center pa-8">
+                <v-icon size="40" color="grey-lighten-1" class="mb-2">mdi-thermometer-low</v-icon>
+                <div class="text-body-2 text-medium-emphasis">No scored leads yet.</div>
+                <div class="text-caption text-medium-emphasis">
+                  Lead scores update automatically as visitors view listings, submit forms, or open emails.
+                </div>
+              </div>
+              <v-table v-else density="comfortable" class="hot-leads-table">
+                <thead>
+                  <tr>
+                    <th>Score</th>
+                    <th>Lead</th>
+                    <th>Intent</th>
+                    <th>Stage</th>
+                    <th>Last touch</th>
+                    <th class="text-right">Open</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="lead in hotLeads" :key="lead.id">
+                    <td>
+                      <v-chip
+                        size="small"
+                        :color="leadScoreColor(lead.leadScore)"
+                        variant="flat"
+                        class="font-weight-bold"
+                      >{{ lead.leadScore }}</v-chip>
+                    </td>
+                    <td>
+                      <div class="font-weight-medium">{{ lead.firstName }} {{ lead.lastName }}</div>
+                      <div class="text-caption text-medium-emphasis">{{ lead.email || lead.phone || '—' }}</div>
+                    </td>
+                    <td>
+                      <v-chip v-if="lead.intent" size="x-small" :color="intentColor(lead.intent)" variant="tonal">
+                        {{ lead.intent }}
+                      </v-chip>
+                      <span v-else class="text-medium-emphasis">—</span>
+                    </td>
+                    <td>
+                      <span class="text-caption text-uppercase letter-spacing-1">{{ lead.lifecycleStage || 'visitor' }}</span>
+                    </td>
+                    <td>
+                      <span class="text-caption">{{ formatRelative(lead.lastTouchAt) }}</span>
+                    </td>
+                    <td class="text-right">
+                      <v-btn
+                        size="small"
+                        variant="text"
+                        :to="`/admin/crm/clients`"
+                        prepend-icon="mdi-arrow-right"
+                      >Open</v-btn>
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+            </v-card-text>
+          </v-card>
+        </v-col>
+      </v-row>
+
       <!-- Celebrations -->
       <v-row class="mb-10">
         <v-col cols="12">
@@ -579,8 +663,73 @@ async function loadDashboard() {
   }
 }
 
+interface HotLead {
+  id: number
+  firstName: string
+  lastName: string
+  email: string | null
+  phone: string | null
+  type: string
+  source: string | null
+  leadScore: number
+  intent: string | null
+  lifecycleStage: string | null
+  lastTouchAt: string | null
+  recentEvents?: Array<{ name: string; createdAt: string }>
+}
+
+const hotLeads = ref<HotLead[]>([])
+const hotLeadsLoading = ref(false)
+
+async function loadHotLeads() {
+  hotLeadsLoading.value = true
+  try {
+    const res = await $fetch<{ clients: HotLead[] }>(
+      '/api/admin/crm/hot-leads',
+      { headers: getAuthHeaders(), params: { limit: 10 } }
+    )
+    hotLeads.value = res?.clients || []
+  } catch (e) {
+    console.error('Error loading hot leads:', e)
+  } finally {
+    hotLeadsLoading.value = false
+  }
+}
+
+function leadScoreColor(score: number): string {
+  if (score >= 70) return 'error'
+  if (score >= 40) return 'warning'
+  if (score >= 15) return 'info'
+  return 'grey'
+}
+
+function intentColor(intent: string | null): string {
+  switch (intent) {
+    case 'buyer': return 'primary'
+    case 'seller': return 'success'
+    case 'investor': return 'warning'
+    case 'renter': return 'info'
+    default: return 'grey'
+  }
+}
+
+function formatRelative(iso: string | null): string {
+  if (!iso) return 'never'
+  const diff = Date.now() - new Date(iso).getTime()
+  const seconds = Math.floor(diff / 1000)
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  if (days < 30) return `${days}d ago`
+  const months = Math.floor(days / 30)
+  return `${months}mo ago`
+}
+
 onMounted(async () => {
-  await Promise.all([loadDashboard(), loadCelebrations(), loadAdminName()])
+  await Promise.all([loadDashboard(), loadCelebrations(), loadAdminName(), loadHotLeads()])
 })
 
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
@@ -626,6 +775,19 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
 .transaction-mini-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.1) !important; }
 
 .list-item-hover:hover { background: #f9f9f9; }
+
+/* ── Hot Leads widget ── */
+.hot-leads-card {
+  border-radius: 20px !important;
+  border: 1px solid rgba(0,0,0,0.05) !important;
+  background: linear-gradient(135deg, #fff7f0 0%, #ffffff 60%) !important;
+}
+.hot-leads-table th {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.72rem !important;
+  color: rgba(0,0,0,0.6);
+}
 
 /* ── Celebrations widget ── */
 .celebrations-card {

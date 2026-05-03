@@ -182,6 +182,13 @@ export default defineNuxtConfig({
       geoapifyApiKey: process.env.GEOAPIFY_API_KEY || process.env.VITE_GEOAPIFY || '',
       /** Google Analytics Measurement ID (e.g. G-XXXXXXXXXX). Set NUXT_PUBLIC_GTAG_ID in env. */
       gtagId: '',
+      /**
+       * Default Meta (Facebook) Pixel ID. Acts as a *fallback* when a
+       * tenant has not configured their own metaPixelId in TenantSettings.
+       * Per-tenant override takes precedence at the layout level. Set via
+       * NUXT_PUBLIC_META_PIXEL_ID. Empty → no pixel injected for that tenant.
+       */
+      metaPixelId: '',
     },
     // Private — not exposed to client. Set `NUXT_TURNSTILE_SECRET_KEY` in env (Docker compose maps legacy file keys into this).
     turnstileSecretKey: '',
@@ -202,6 +209,13 @@ export default defineNuxtConfig({
     openrouterApiUrl: process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1',
     openrouterReferer: process.env.OPENROUTER_REFERER || 'https://homebyabdul.com',
     facebookAppSecret: process.env.FACEBOOK_APP_SECRET,
+    /**
+     * Default Meta Conversions API access token — used when a tenant has
+     * not configured their own `metaPixelAccessToken` in TenantSettings.
+     * Server-only (never exposed to the browser). Pair with the matching
+     * default `NUXT_PUBLIC_META_PIXEL_ID`.
+     */
+    metaCapiAccessToken: process.env.META_CAPI_ACCESS_TOKEN || '',
     alertSchedulerSecret: process.env.ALERT_SCHEDULER_SECRET || process.env.CRON_SECRET || 'change-me-in-production',
     // Pillar9/Matrix API Configuration
     pillar9ClientId: process.env.PILLAR9_CLIENT_ID || '',

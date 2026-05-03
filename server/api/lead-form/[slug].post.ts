@@ -1,6 +1,9 @@
 import { readBody, createError } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { upsertCrmClientFromPlatformContact } from '../../utils/crmClientSync'
+import { sendMetaEvent, newMetaEventId } from '../../utils/metaPixel'
+import { recordServerEvent } from '../../utils/eventsRecorder'
+import { EVENT_NAMES } from '../../utils/eventConstants'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -47,8 +50,45 @@ export default defineEventHandler(async (event) => {
     data: { submissions: { increment: 1 } },
   })
 
+  // Meta CAPI Lead — surface the form title so realtors can segment in
+  // Events Manager (e.g. "Buying funnel" vs "Seller funnel" forms).
+  const metaEventId = body._metaEventId || newMetaEventId()
+  const [firstName, ...rest] = (lead.name || '').trim().split(/\s+/)
+  void sendMetaEvent({
+    adminId: form.adminId,
+    eventName: 'Lead',
+    eventId: metaEventId,
+    event,
+    userData: {
+      email: lead.email,
+      phone: lead.phone,
+      firstName: firstName || undefined,
+      lastName: rest.length ? rest.join(' ') : undefined,
+    },
+    customData: {
+      contentName: form.title,
+      contentCategory: 'lead_form',
+      contentIds: [form.id],
+    },
+  })
+
+  void recordServerEvent(event, {
+    adminId: form.adminId,
+    name: EVENT_NAMES.FORM_SUBMITTED,
+    email: lead.email,
+    objectType: 'lead_form',
+    objectId: form.id,
+    properties: {
+      formName: form.title,
+      formSlug: slug,
+      message: lead.message,
+      name: lead.name,
+    },
+  })
+
   return {
     success: true,
     message: form.thankYouMessage || 'Thank you! We will be in touch shortly.',
+    _metaEventId: metaEventId,
   }
 })

@@ -3,6 +3,9 @@ import nodemailer from 'nodemailer'
 import jwt from 'jsonwebtoken'
 import { resolveTenantFromRequest } from '../../utils/tenant'
 import { getTenantSiteUrlForEvent } from '../../utils/tenantSiteUrl'
+import { sendMetaEvent, newMetaEventId } from '../../utils/metaPixel'
+import { recordServerEvent } from '../../utils/eventsRecorder'
+import { EVENT_NAMES } from '../../utils/eventConstants'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -21,6 +24,13 @@ export default defineEventHandler(async (event) => {
       phone?: string
       message: string
       property?: any // Property snapshot for email context
+      /**
+       * Optional dedup id from the browser pixel. If the client also fires
+       * `fbq('track', 'Lead', ..., { eventID })` with this same value Meta
+       * will dedupe the browser + CAPI events into one. Generated server-
+       * side if absent so the CAPI event still has a stable id.
+       */
+      _metaEventId?: string
     }>(event)
     
     const config = useRuntimeConfig()
@@ -129,7 +139,53 @@ export default defineEventHandler(async (event) => {
       tenantSiteUrl,
     })
 
-    return inquiry
+    // Meta CAPI: server-side Lead event (deduped with browser pixel via
+    // shared event_id). Fire-and-forget — failure here must not break the
+    // user's inquiry submission.
+    const metaEventId = body._metaEventId || newMetaEventId()
+    const [firstName, ...rest] = (body.name || '').trim().split(/\s+/)
+    void sendMetaEvent({
+      adminId,
+      eventName: 'Lead',
+      eventId: metaEventId,
+      event,
+      userData: {
+        email: body.email,
+        phone: body.phone,
+        firstName: firstName || undefined,
+        lastName: rest.length > 0 ? rest.join(' ') : undefined,
+        city: property.city || undefined,
+        province: property.province || undefined,
+        postalCode: property.postalCode || undefined,
+      },
+      customData: {
+        currency: 'CAD',
+        value: typeof property.price === 'number' ? property.price : undefined,
+        contentName: property.title || `Property #${property.id}`,
+        contentCategory: 'property_inquiry',
+        contentIds: [property.id],
+      },
+    })
+
+    // First-party event log: drives lead scoring + automation rules.
+    // Fire-and-forget — analytics must not block the user response.
+    void recordServerEvent(event, {
+      adminId,
+      name: EVENT_NAMES.INQUIRY_SENT,
+      email: body.email,
+      objectType: 'property',
+      objectId: property.id,
+      properties: {
+        propertyTitle: property.title || null,
+        city: property.city || null,
+        province: property.province || null,
+        price: typeof property.price === 'number' ? property.price : null,
+        message: body.message,
+        formName: 'property_inquiry',
+      },
+    })
+
+    return { ...inquiry, _metaEventId: metaEventId }
   } catch (error: any) {
     console.error('Error creating property inquiry:', error)
     if (error.statusCode) {

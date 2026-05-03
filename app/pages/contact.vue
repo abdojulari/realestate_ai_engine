@@ -226,9 +226,14 @@ const showSnack = (message: string, kind: 'success' | 'error') => {
   snackbar.show = true
 }
 
+const meta = useMetaPixel()
+
 const submit = async () => {
   if (!isValid.value || submitting.value) return
   submitting.value = true
+  // Generate the dedup id BEFORE the request so server-side CAPI and the
+  // browser pixel can both reference the same business event.
+  const metaEventId = meta.newEventId()
   try {
     await $fetch('/api/contact', {
       method: 'POST',
@@ -238,8 +243,13 @@ const submit = async () => {
         email: form.value.email.trim(),
         phone: form.value.phone.trim() || undefined,
         message: form.value.message.trim(),
+        _metaEventId: metaEventId,
       },
     })
+    meta.trackLead(
+      { content_name: 'Contact form', content_category: 'contact_form' },
+      { eventId: metaEventId }
+    )
     form.value = { firstName: '', lastName: '', email: '', phone: '', message: '' }
     isValid.value = false
     showSnack('Inquiry sent — we\'ll get back to you within one business day.', 'success')

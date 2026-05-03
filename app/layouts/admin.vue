@@ -388,6 +388,7 @@ const allMenuItems = [
   { title: 'Properties', icon: 'mdi-home-group', to: '/admin/properties', requiresFeature: null, delegateFeature: 'properties', groupKey: 'properties' },
 
   // Marketing & Communications
+  { title: 'Automation Rules', icon: 'mdi-robot', to: '/admin/automation-rules', requiresFeature: null, delegateFeature: 'crm', groupKey: 'marketing' },
   { title: 'Facebook', icon: 'mdi-facebook', to: '/admin/facebook', requiresFeature: null, delegateFeature: 'facebook', groupKey: 'marketing' },
   { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter', requiresFeature: FEATURES.NEWSLETTER, tier: 'basic', delegateFeature: 'newsletter', groupKey: 'marketing' },
 

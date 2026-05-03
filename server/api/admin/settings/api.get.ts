@@ -24,17 +24,12 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    // Convert to array format expected by frontend
+    // Convert to array format expected by frontend.
+    // Stripe billing lives in saas-control-plane; suhani only renders
+    // tenant-facing API integrations here.
     const apiSettings = [
       {
         name: 'Google Maps',
-        apiKey: '',
-        apiSecret: '',
-        enabled: true,
-        verifying: false
-      },
-      {
-        name: 'Stripe',
         apiKey: '',
         apiSecret: '',
         enabled: true,
@@ -68,13 +63,6 @@ export default defineEventHandler(async (event) => {
     return [
       {
         name: 'Google Maps',
-        apiKey: '',
-        apiSecret: '',
-        enabled: true,
-        verifying: false
-      },
-      {
-        name: 'Stripe',
         apiKey: '',
         apiSecret: '',
         enabled: true,

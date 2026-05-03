@@ -105,9 +105,7 @@ services:
       VERDOCS_CLIENT_SECRET: ${VERDOCS_CLIENT_SECRET:-}
       VERDOCS_API_BASE: ${VERDOCS_API_BASE:-https://api.verdocs.com}
       VERDOCS_API_URL: ${VERDOCS_API_URL:-https://api.verdocs.com/oauth/token}
-      # Stripe
-      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
-      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY:-}
+      # Stripe billing is owned by saas-control-plane — not used here.
       # License
       LICENSE_TIER: ${LICENSE_TIER:-platinum}
       CONTROL_PLANE_URL: ${CONTROL_PLANE_URL:-}
@@ -117,6 +115,11 @@ services:
       HASHNODE_API_URL: ${HASHNODE_API_URL:-https://gql.hashnode.com}
       # Google Analytics
       NUXT_PUBLIC_GTAG_ID: ${NUXT_PUBLIC_GTAG_ID:-G-8ZEBQRGHTQ}
+      # Meta (Facebook) Pixel — platform-wide default; per-tenant override
+      # in TenantSettings.metaPixelId takes precedence at request time.
+      NUXT_PUBLIC_META_PIXEL_ID: ${NUXT_PUBLIC_META_PIXEL_ID:-1304047971150913}
+      # Meta Conversions API token (server-only). Pair with the pixel above.
+      META_CAPI_ACCESS_TOKEN: ${META_CAPI_ACCESS_TOKEN:-}
       # Geocoding
       OPENCAGE_API_KEY: ${OPENCAGE_API_KEY:-}
       GEOAPIFY_API_KEY: ${GEOAPIFY_API_KEY:-${VITE_GEOAPIFY:-}}

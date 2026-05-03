@@ -123,6 +123,13 @@ model User {
   tenantFlashNews           FlashNews[]          @relation("TenantFlashNews")
   tenantPostedRates         PostedRate[]         @relation("TenantPostedRates")
 
+  // ── Event-driven platform (tenant-scoped) ──
+  tenantVisitors        Visitor[]          @relation("TenantVisitors")
+  tenantSessions        Session[]          @relation("TenantSessions")
+  tenantEventLogs       EventLog[]         @relation("TenantEventLogs")
+  tenantAutomationRules AutomationRule[]   @relation("TenantAutomationRules")
+  tenantAutomationRuns  AutomationRunLog[] @relation("TenantAutomationRuns")
+
   // ── Bookkeeping relations (tenant-scoped) ──
   tenantBkExpenses        BkExpense[]        @relation("TenantBkExpenses")
   tenantBkRevenues        BkRevenue[]        @relation("TenantBkRevenues")
@@ -178,6 +185,15 @@ model TenantSettings {
   // Domain mapping (multi-tenant routing)
   subdomain    String? @unique // acme → acme.realestatehub.ca
   customDomain String? @unique // acmesrealty.com
+
+  // ── Marketing & tracking (per-tenant) ──
+  // Meta (Facebook) Pixel ID — surfaced to the public site so the browser
+  // pixel + noscript fallback fire under the realtor's own ad account.
+  metaPixelId          String?
+  // Meta Conversions API access token — server-only secret, NEVER exposed to
+  // the public /api/tenant-settings endpoint. Used by server/utils/metaPixel.ts
+  // to send Lead/Subscribe/etc. events to graph.facebook.com.
+  metaPixelAccessToken String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -975,6 +991,19 @@ model CrmClient {
   // Holiday opt-outs. Keys: "christmas", "new_year", "eid", and any future ones.
   // Stored as String[] (Postgres array) so we can do `has`/`hasSome` queries cheaply.
   holidayExceptions  String[]         @default([])
+  // ── Behaviour-derived intelligence (recomputed by the events worker) ──
+  // 0..100. Higher = hotter. Default rule: form submits, listing views, return
+  // visits, time-on-site all add points; decays over 30 days of inactivity.
+  leadScore          Int              @default(0)
+  // Coarse buying intent inferred from the last few events / form messages.
+  // Values: "buyer" | "seller" | "renter" | "investor" | "researcher" | "other".
+  intent             String?
+  // Funnel position. Default "visitor" -> "lead" -> "engaged" -> "qualified" -> "client".
+  lifecycleStage     String?          @default("visitor")
+  // Last and first time the events pipeline saw activity from this contact.
+  // Cheap to update on every event; powers the CRM "Hot Leads" dashboard ordering.
+  firstTouchAt       DateTime?
+  lastTouchAt        DateTime?
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   transactions       CrmTransaction[]
@@ -982,6 +1011,8 @@ model CrmClient {
 
   @@unique([adminId, email])
   @@index([adminId, type, status])
+  @@index([adminId, leadScore])
+  @@index([adminId, lastTouchAt])
 }
 
 model CrmTransaction {
@@ -1435,55 +1466,55 @@ model ResourceDownloadLead {
 // ═══════════════════════════════════════════════════════════════
 
 model Resource {
-  id            Int      @id @default(autoincrement())
-  adminId       Int
-  admin         User     @relation("TenantResources", fields: [adminId], references: [id], onDelete: Cascade)
+  id      Int  @id @default(autoincrement())
+  adminId Int
+  admin   User @relation("TenantResources", fields: [adminId], references: [id], onDelete: Cascade)
 
   /// URL-safe identifier for /learn/:slug. Unique within a tenant
   /// so two tenants can both have e.g. "first-time-buyer-guide".
-  slug          String
+  slug String
 
-  title         String
+  title    String
   /// Optional short tagline shown above the title on cards / detail.
-  subtitle      String?
+  subtitle String?
   /// Card teaser on the homepage carousel. Plain text; ~280 chars.
-  excerpt       String?  @db.Text
+  excerpt  String? @db.Text
   /// Full article body — sanitized HTML produced by the TipTap editor.
-  body          String   @db.Text
+  body     String  @db.Text
 
   /// Optional cover image URL (uploaded via /api/admin/resources-cms/upload-image).
-  coverImage    String?
+  coverImage String?
 
   /// Attribution shown on detail page: "Source: <sourceName>" linking to sourceUrl.
-  sourceName    String?
-  sourceUrl     String?
+  sourceName String?
+  sourceUrl  String?
 
   /// Optional list of related external links shown in the detail-page sidebar.
   /// Stored as JSON array of { label: string, url: string } objects.
   externalLinks Json?
 
   /// Free-text grouping label (e.g. "Buyer Guide", "Mortgage", "Legal").
-  category      String?
+  category String?
 
   /// Featured = eligible for the homepage carousel. The public API
   /// returns the top 4 featured+published rows ordered by sortOrder,
   /// so admins can mark more than 4 as featured and rotate by reordering.
-  featured      Boolean  @default(false)
+  featured  Boolean @default(false)
   /// Lower = first. Drag-to-reorder updates this in bulk.
-  sortOrder     Int      @default(0)
+  sortOrder Int     @default(0)
 
-  published     Boolean  @default(false)
-  publishedAt   DateTime?
+  published   Boolean   @default(false)
+  publishedAt DateTime?
 
   /// Counters maintained by the public detail / unlock endpoints.
   /// Cheap analytics for the admin without spinning up a full events table.
-  viewCount     Int      @default(0)
-  unlockCount   Int      @default(0)
+  viewCount   Int @default(0)
+  unlockCount Int @default(0)
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  leads         ResourceLead[]
+  leads ResourceLead[]
 
   @@unique([adminId, slug])
   @@index([adminId, featured, published])
@@ -1491,22 +1522,22 @@ model Resource {
 }
 
 model ResourceLead {
-  id         Int       @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   resourceId Int
-  resource   Resource  @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
   adminId    Int
 
-  name       String
-  email      String
-  phone      String?
+  name  String
+  email String
+  phone String?
 
-  ipAddress  String?
-  userAgent  String?   @db.Text
+  ipAddress String?
+  userAgent String? @db.Text
   /// Where the visitor came from (HTTP Referer header). Useful for
   /// attributing leads to specific marketing campaigns.
-  referrer   String?   @db.Text
+  referrer  String? @db.Text
 
-  createdAt  DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   @@index([resourceId])
   @@index([adminId, createdAt])
@@ -1572,4 +1603,174 @@ model PostedRate {
 
   @@index([adminId, isPublished, sortOrder])
   @@index([adminId, category])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// EVENT-DRIVEN PLATFORM
+// ═══════════════════════════════════════════════════════════════
+//
+// Three lightweight, append-mostly tables power lead intelligence,
+// behaviour-triggered automation and on-page personalisation:
+//
+//   Visitor   – one row per anonymous browser (cookie: `vid`).
+//               Identified later by linking `crmClientId` once they
+//               submit any form with an email we recognise.
+//
+//   Session   – one row per "visit" (cookie `sid`, 30 min idle window).
+//               Stores entry referrer, UTM, device hints. UTMs are
+//               first-touch on the visitor + last-touch per session.
+//
+//   EventLog  – every meaningful interaction. Cheap, appended by the
+//               `/api/events` endpoint and by trusted server-side
+//               handlers (form submits, document opens, etc.). The
+//               events worker (Bull queue: `events`) consumes these
+//               to recompute leadScore/intent on CrmClient and to
+//               fire automation rules.
+
+model Visitor {
+  id          Int        @id @default(autoincrement())
+  // Public cookie value used to dedupe browsers across sessions.
+  // Generated client-side as a UUID; we never trust it for auth.
+  vid         String     @unique
+  adminId     Int?
+  admin       User?      @relation("TenantVisitors", fields: [adminId], references: [id], onDelete: SetNull)
+  // Once a visitor identifies themselves on a form we link them here.
+  // Prefer this over fragile email matching when scoring.
+  crmClientId Int?
+  // First-touch attribution (never overwritten after first non-direct hit).
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+  referrer    String?    @db.Text
+  landingPath String?
+  userAgent   String?    @db.Text
+  ipAddress   String?
+  country     String?
+  region      String?
+  city        String?
+  firstSeenAt DateTime   @default(now())
+  lastSeenAt  DateTime   @default(now())
+  sessions    Session[]
+  events      EventLog[]
+
+  @@index([adminId, lastSeenAt])
+  @@index([crmClientId])
+}
+
+model Session {
+  id          Int        @id @default(autoincrement())
+  // Cookie value, generated browser-side per visit (rotates after 30 min idle).
+  sid         String     @unique
+  visitorId   Int
+  visitor     Visitor    @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+  adminId     Int?
+  admin       User?      @relation("TenantSessions", fields: [adminId], references: [id], onDelete: SetNull)
+  // Last-touch attribution for this specific visit (visitor table holds first-touch).
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  referrer    String?    @db.Text
+  landingPath String?
+  startedAt   DateTime   @default(now())
+  endedAt     DateTime?
+  eventCount  Int        @default(0)
+  events      EventLog[]
+
+  @@index([adminId, startedAt])
+  @@index([visitorId, startedAt])
+}
+
+model EventLog {
+  id         BigInt   @id @default(autoincrement())
+  // Tenant the event belongs to. Resolved from the request domain when
+  // the event arrives; SetNull on tenant delete keeps the analytics row
+  // around for platform-wide forensics.
+  adminId    Int?
+  admin      User?    @relation("TenantEventLogs", fields: [adminId], references: [id], onDelete: SetNull)
+  visitorId  Int?
+  visitor    Visitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  sessionId  Int?
+  session    Session? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  // Event identifier, lowercase snake_case. See `EVENT_NAMES` in
+  // `server/utils/eventConstants.ts` for the canonical set.
+  name       String
+  // Optional foreign key to the resource the event is about
+  // (a property id, resource id, blog id, etc.). Free-form on purpose;
+  // each event interpreter knows which entity its `objectId` points to.
+  objectType String?
+  objectId   Int?
+  // Free-form structured payload. Keep it small; the worker only reads
+  // a handful of well-known keys (path, value, score_delta…).
+  properties Json?
+  // When present, the worker can attribute this event to an existing CRM
+  // contact even before identification (e.g. server-side form submit).
+  email      String?
+  path       String?
+  referrer   String?  @db.Text
+  ipAddress  String?
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  @@index([adminId, createdAt])
+  @@index([adminId, name, createdAt])
+  @@index([visitorId, createdAt])
+  @@index([sessionId])
+  @@index([email])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AUTOMATION RULES – behaviour-triggered actions per tenant
+// ═══════════════════════════════════════════════════════════════
+//
+// Trigger shape (Json):
+//   { "type": "event",  "event": "form_submitted", "filters": {...} }
+//   { "type": "score",  "operator": ">=", "value": 70 }
+//   { "type": "intent", "value": "seller" }
+//
+// Action shape (Json):
+//   { "type": "email",        "to": "agent" | "lead", "templateId": 12 }
+//   { "type": "notify_admin", "channel": "in_app" }
+//   { "type": "meta_capi",    "event": "Lead" }
+//   { "type": "crm_tag",      "tag": "hot" }
+//   { "type": "lifecycle",    "stage": "qualified" }
+
+model AutomationRule {
+  id              Int                @id @default(autoincrement())
+  adminId         Int
+  admin           User               @relation("TenantAutomationRules", fields: [adminId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?            @db.Text
+  enabled         Boolean            @default(true)
+  trigger         Json
+  action          Json
+  // How often this rule may fire for the same (visitor, ruleId) pair.
+  // Null = unlimited; otherwise the engine refuses to fire again within N seconds.
+  cooldownSeconds Int?
+  fireCount       Int                @default(0)
+  lastFiredAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  runs            AutomationRunLog[]
+
+  @@index([adminId, enabled])
+}
+
+// Append-only log used by the engine for cooldowns and admin debugging.
+model AutomationRunLog {
+  id        Int            @id @default(autoincrement())
+  ruleId    Int
+  rule      AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  adminId   Int?
+  admin     User?          @relation("TenantAutomationRuns", fields: [adminId], references: [id], onDelete: SetNull)
+  visitorId Int?
+  email     String?
+  status    String // "success" | "skipped_cooldown" | "error"
+  message   String?        @db.Text
+  createdAt DateTime       @default(now())
+
+  @@index([ruleId, createdAt])
+  @@index([adminId, createdAt])
+  @@index([visitorId, ruleId, createdAt])
 }

@@ -66,6 +66,8 @@ export default defineEventHandler(async (event) => {
         developerName: null,
         developerUrl: null,
         awardsCount: null,
+        metaPixelId: null,
+        metaPixelAccessToken: null,
         subdomain: null,
         customDomain: null,
         createdAt: null,
