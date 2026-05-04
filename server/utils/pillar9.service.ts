@@ -271,25 +271,31 @@ class Pillar9Service {
     }
 
     // Matrix OData $select: every field that transformToLocalProperty reads.
-    // Unknown names are rejected by the API — only add fields that actually exist in the Matrix schema.
-    // Fields verified against the Matrix OData schema (Basic Auth).
-    // Removed after testing: ClosePrice, CloseDate, LivingArea, BuildingAreaUnits,
-    // Stories, LotSizeArea, LotSizeUnits, TaxAnnualAmount, TaxYear, ParcelNumber,
-    // ZoningDescription, ListDate, ListAgentKey, SecurityFeatures, View.
+    // Unknown names are rejected by the API — Matrix rejects the WHOLE query
+    // when any $select field is unknown, taking down every city. Only add
+    // fields proven against this tenant via scripts/test-pillar9-direct.mjs.
+    //
+    // Re-added 2026-05 after the test script's --probe-only run confirmed
+    // they're in this tenant's schema:
+    //   ClosePrice, CloseDate, ListAgentFullName, CoListAgentFullName, StandardStatus
+    // Still excluded (some get rejected when added together):
+    //   OriginalListPrice, PreviousListPrice, PriceChangeTimestamp,
+    //   MajorChangeTimestamp, MajorChangeType. CREA's holistic sync covers
+    //   OriginalListPrice for the same Alberta listings; if you re-enable
+    //   any of these here, test each one individually against /odata/$metadata
+    //   before shipping (one bad field nukes every city's sync).
+    // Other fields previously dropped that we've NOT re-tested yet:
+    //   LivingArea, BuildingAreaUnits, Stories, LotSizeArea, LotSizeUnits,
+    //   TaxAnnualAmount, TaxYear, ParcelNumber, ZoningDescription, ListDate,
+    //   ListAgentKey, SecurityFeatures, View.
     const defaultSelect = [
       // Core identifiers
       'ListingId', 'ListingKeyNumeric', 'MlsStatus',
-      // Pricing.
-      // NOTE: We tried adding RESO standard OriginalListPrice / PreviousListPrice
-      // / PriceChangeTimestamp / MajorChangeTimestamp / MajorChangeType here so
-      // the Best Deals page could detect pre-ingest reductions, but at least
-      // one of them is rejected by Matrix — and Matrix rejects the WHOLE query
-      // when any $select field is unknown, taking down every city. CREA's
-      // holistic sync already populates OriginalListPrice for the same Alberta
-      // listings, so dropping them here is safe. If you want to re-enable
-      // them, test each field individually against the Matrix metadata
-      // (`/odata/$metadata`) before adding it back.
-      'ListPrice',
+      // Pricing — ListPrice is the active price, ClosePrice is the sold-for
+      // amount (only populated when MlsStatus='S'). transformToLocalProperty
+      // already prefers ClosePrice over ListPrice for sold rows, so missing
+      // it just downgrades sold-row accuracy to "list price at close".
+      'ListPrice', 'ClosePrice',
       // Rooms & size
       'BedroomsTotal', 'BathroomsTotalInteger',
       'LivingAreaSF',
@@ -309,8 +315,10 @@ class Pillar9Service {
       'Zoning',
       // Description
       'PublicRemarks',
-      // Dates & meta
+      // Dates & meta — CloseDate is the sold-on date (only on MlsStatus='S').
+      // Without it, Off-Market sold rows show no transaction date.
       'DaysOnMarket', 'ModificationTimestamp', 'PhotosCount', 'PhotosChangeTimestamp',
+      'CloseDate',
       // Agent
       'ListAgentFullName', 'ListAgentEmail', 'ListAgentDirectPhone',
       'ListOfficeName',

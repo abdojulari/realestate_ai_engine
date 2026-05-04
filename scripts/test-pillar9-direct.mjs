@@ -1,25 +1,32 @@
 #!/usr/bin/env node
 /**
- * Direct Pillar9/Matrix sold-status extractor.
+ * Direct Pillar9/Matrix sold-status extractor + status-vocabulary probe.
  *
  * Why this exists:
- *   The regular Pillar9 sync was reporting `0 sold` even though Matrix has
- *   thousands of recently-closed listings. Rather than altering the sync
- *   pipeline blindly, this script talks straight to the API and:
- *     1. Probes the MlsStatus enum to find the value(s) Matrix actually
- *        accepts for sold listings (RESO says "Closed", Pillar9 docs hint
- *        at "S", boards sometimes use "Sold" — depends on the install).
- *     2. Once a working code is found, iterates every Alberta city code,
- *        paginating with $top=200 + $skip, and falls back to price-range
- *        slicing for cities that return "More than X results" errors.
- *     3. Writes the full list of sold properties to a timestamped JSON
- *        file plus a small CSV summary so you can visually confirm the
- *        sync is undercounting before changing any production code.
+ *   Originally written when the regular Pillar9 sync was reporting `0 sold`
+ *   and we suspected the per-tenant MlsStatus enum was different from the
+ *   docs. The script talks straight to the Matrix Web API and:
+ *     1. Detects which optional $select fields this tenant actually
+ *        supports (StandardStatus, ClosePrice, CloseDate, etc.). Matrix
+ *        rejects the entire query if any $select column is unknown, so
+ *        we have to probe one at a time.
+ *     2. Probes the full MlsStatus enum (A,P,S,W,X,T,I) against three
+ *        major Alberta cities to verify which values return real rows.
+ *     3. Iterates every Alberta city code paginating with $top=200 +
+ *        $skip, falling back to price-range slicing for cities that hit
+ *        the "More than N results" cap.
+ *     4. Writes the full sold listing dump to a timestamped JSON file
+ *        plus a CSV summary so we can spot-check the count before/after
+ *        a sync.
+ *
+ * Status of this tenant (`abrls.matrixwebapi.com`) as of 2026-05:
+ *   A,P,S,W,X,T → return real rows (use them as MlsStatus filter values)
+ *   I           → accepted but 0 rows tenant-wide (skip in production sync)
  *
  * Usage:
  *   node --env-file=.env scripts/test-pillar9-direct.mjs
  *   node --env-file=.env scripts/test-pillar9-direct.mjs --cities=0046,0047
- *   node --env-file=.env scripts/test-pillar9-direct.mjs --status=Closed
+ *   node --env-file=.env scripts/test-pillar9-direct.mjs --status=S
  *   node --env-file=.env scripts/test-pillar9-direct.mjs --probe-only
  *   node --env-file=.env scripts/test-pillar9-direct.mjs --list-statuses
  *

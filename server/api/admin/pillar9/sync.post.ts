@@ -152,9 +152,16 @@ async function runSyncInBackground(params: any) {
     return
   }
 
-  const statusesToSync: string[] = syncAllStatuses
-    ? [...pillar9Service.getMlsStatuses()]
-    : ['A', ...(syncSold ? ['S'] : []), ...(syncPending ? ['P'] : []), ...syncStatuses]
+  // De-dupe and normalize: the script may pass syncStatuses=['A','P','S','W','X','T']
+  // alongside syncSold/syncPending=true, which would otherwise produce duplicate
+  // 'A'/'S'/'P' entries and waste one round-trip per duplicate per city.
+  const statusesToSync: string[] = Array.from(new Set(
+    (syncAllStatuses
+      ? [...pillar9Service.getMlsStatuses()]
+      : ['A', ...(syncSold ? ['S'] : []), ...(syncPending ? ['P'] : []), ...syncStatuses])
+      .map((s: string) => String(s || '').toUpperCase())
+      .filter((s: string) => s.length > 0)
+  ))
 
   const citiesToSync = cityCodes.length > 0 ? cityCodes : pillar9Service.getAlbertaCityCodes()
 
@@ -348,8 +355,30 @@ async function runSyncInBackground(params: any) {
                   ? 'for_sale'
                   : null
 
-                const statusUpdateNeeded = ['sold', 'terminated', 'withdrawn', 'expired'].includes(p9Status)
-                  && existingCrea.status !== p9Status
+                // Cross-source status sync: CREA's feed is active-only and
+                // never tells us when a listing went pending/sold/expired.
+                // Pillar9 carries the full RESO status lifecycle, so use it
+                // as the authority for transitions on the matching CREA row.
+                //
+                // Promotion rules (chosen to never silently un-terminal a
+                // listing — sold/expired/withdrawn/terminated are sticky):
+                //   - p9 'sold'/'expired'/'withdrawn'/'terminated' → always
+                //     overwrite when CREA still shows something else (these
+                //     are observable enums on this tenant; see test script).
+                //   - p9 'pending' → only when CREA is still 'for_sale'
+                //     (pending is a downgrade from any terminal status).
+                //   - p9 'for_sale' → only when CREA is currently 'pending'
+                //     (back-on-market reversal — never un-sold/un-expired).
+                let creaStatusUpdate: string | null = null
+                const TERMINAL_P9_STATUSES = ['sold', 'terminated', 'withdrawn', 'expired']
+                if (TERMINAL_P9_STATUSES.includes(p9Status)) {
+                  if (existingCrea.status !== p9Status) creaStatusUpdate = p9Status
+                } else if (p9Status === 'pending') {
+                  if (existingCrea.status === 'for_sale') creaStatusUpdate = 'pending'
+                } else if (p9Status === 'for_sale') {
+                  if (existingCrea.status === 'pending') creaStatusUpdate = 'for_sale'
+                }
+                const statusUpdateNeeded = creaStatusUpdate !== null
 
                 // Opportunistically backfill MLS-native price fields on the
                 // CREA-owned row when they're missing or stale. We never
@@ -387,13 +416,28 @@ async function runSyncInBackground(params: any) {
                     features: mergedFeatures,
                   }
 
+                  // Reversal wins over generic sync because it carries the
+                  // pseudo-sold audit story (we incorrectly inferred sold,
+                  // now correcting). In practice the two paths can't fire
+                  // at the same time anyway — different preconditions.
                   if (reversalStatus) {
                     updateData.status = reversalStatus
-                  }
-
-                  if (statusUpdateNeeded) {
-                    updateData.status = p9Status
-                    if (p9Status === 'sold' && transformedProperty.features) {
+                  } else if (statusUpdateNeeded && creaStatusUpdate) {
+                    updateData.status = creaStatusUpdate
+                    // Stamp `statusChangeTimestamp` for any transition so
+                    // the off-market UI / analytics can show "marked sold
+                    // 2 hours ago" for terminal statuses.
+                    mergedFeatures = {
+                      ...mergedFeatures,
+                      statusChangeTimestamp: new Date().toISOString(),
+                    }
+                    updateData.features = mergedFeatures
+                    // Sold-specific: pull the real ClosePrice / CloseDate
+                    // from Pillar9 onto the CREA row so the off-market sold
+                    // card shows the actual sale price, not the last list
+                    // price. Requires ClosePrice/CloseDate to be in the
+                    // Pillar9 $select (added 2026-05).
+                    if (creaStatusUpdate === 'sold' && transformedProperty.features) {
                       const p9Features = typeof transformedProperty.features === 'string'
                         ? JSON.parse(transformedProperty.features as string)
                         : transformedProperty.features
@@ -401,7 +445,6 @@ async function runSyncInBackground(params: any) {
                         ...mergedFeatures,
                         closeDate: (p9Features as any)?.closeDate || null,
                         closePrice: (p9Features as any)?.closePrice || null,
-                        statusChangeTimestamp: new Date().toISOString(),
                       }
                       updateData.features = mergedFeatures
                       if ((p9Features as any)?.closePrice) updateData.price = (p9Features as any).closePrice
@@ -410,7 +453,7 @@ async function runSyncInBackground(params: any) {
 
                   await prisma.property.update({ where: { id: existingCrea.id }, data: updateData })
 
-                  if (statusUpdateNeeded && p9Status === 'sold') {
+                  if (statusUpdateNeeded && creaStatusUpdate === 'sold') {
                     await (prisma as any).propertyPriceHistory.create({
                       data: { propertyId: existingCrea.id, price: existingCrea.price, event: 'sold', source: 'pillar9' }
                     }).catch(() => {})

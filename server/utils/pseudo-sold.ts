@@ -1,39 +1,45 @@
 /**
  * Pseudo-sold inference for Pillar9 listings.
  *
- * Why this exists
- * ───────────────
- * Pillar9's `S` (sold) feed is gated on a per-tenant permission this
- * deployment doesn't currently have. As verified by
- * `scripts/test-pillar9-direct.mjs --list-statuses` against
- * `abrls.matrixwebapi.com`:
+ * Why this still exists (now a fallback, not the primary signal)
+ * ───────────────────────────────────────────────────────────────
+ * As of 2026-05, `scripts/test-pillar9-direct.mjs --probe-only` against
+ * `abrls.matrixwebapi.com` confirms the full RESO MlsStatus enum is now
+ * observable on this tenant:
  *
- *   - `A` and `P` contain real data (>=200 rows in Calgary alone).
- *   - `S`, `W`, `X`, `T`, `I` are accepted by the enum but return 0 rows.
+ *   - `A`, `P`, `S`, `W`, `X`, `T` all return real data.
+ *   - `I` is accepted by the enum but returns 0 rows tenant-wide.
  *
- * That means the only observable transitions for a `pending` listing are:
- *   - back to `A` (deal fell through), or
- *   - to `S` (real sold) — only once Pillar9 enables it.
+ * That means real `S` (sold), `W` (withdrawn), `X` (expired), and `T`
+ * (terminated) signals now come straight from the feed and are written
+ * directly via the normal upsert + Pillar9→CREA cross-update path.
+ * Inference is no longer load-bearing for any of those transitions.
  *
- * Anything else (Withdrawn / Expired / Terminated) is invisible on this
- * tenant, so we can't distinguish "withdrawn by seller" from "actually
- * sold". We accept that false-positive class as the cost of having any
- * sold-side signal at all.
+ * What this module still catches
+ * ──────────────────────────────
+ * Listings that disappear from every observable status entirely — i.e.
+ * the row was Pending in a previous run, and on this run Pillar9 didn't
+ * return it under A, P, S, W, X, *or* T. That can happen when the listing
+ * is dropped from the feed before being assigned a terminal status, or
+ * when the broker re-listed it under a new MLS#. We still treat that as
+ * a probable sold (more likely than dropped-and-forgotten), with the
+ * `pseudo_sold` audit marker so analytics can keep it separate from
+ * confirmed sales.
  *
  * Inference rule (per sync run, no time-based grace)
  * ──────────────────────────────────────────────────
  * A row currently `status='pending'` with a `lastSeenStatuses.P` marker,
- * in a city we synced this run, NOT returned under `MlsStatus eq 'A'`
- * this run AND NOT returned under `MlsStatus eq 'S'` this run
+ * in a city we synced this run, NOT returned under any of A/P/S/W/X/T
+ * during this run
  *   → infer sold.
  *
- * Listings that came back under `A` are reverted at upsert time (they
- * never become candidates here). When Pillar9 enables `S`, real sold
- * signals overwrite any in-flight inference via `applyPseudoSoldTransition`.
+ * Listings that came back under `A`, `S`, or any terminal status are
+ * handled by the normal upsert path (real S → real sold, A/P → restore
+ * for_sale, etc.) and never reach this candidate set.
  *
  * Storage (no schema migration)
  * ─────────────────────────────
- *   `Property.features.lastSeenStatuses = { A: ISO, P: ISO, S: ISO }`
+ *   `Property.features.lastSeenStatuses = { A: ISO, P: ISO, S: ISO, W: ISO, X: ISO, T: ISO }`
  *   `Property.features.soldInference   = { method, confidence, ... }`
  *   `PropertyPriceHistory.event        = 'pseudo_sold' | 'pseudo_sold_reversed'`
  *
@@ -52,10 +58,13 @@ export const REAL_SOLD_EVENT = 'sold'
 // sales from confirmed ones.
 export const INFERENCE_METHOD = 'pending_disappeared'
 
-// We only need to look at A and S to rule a candidate out. P is
-// implicit (the listing was previously P and is being re-checked). W/X/T
-// are empty on this tenant so excluding them adds nothing.
-const SIBLING_RULE_OUT_STATUSES = ['A', 'S'] as const
+// Any observable status that re-surfaces the listing rules out a sold
+// guess. Pending stays in this set even though the candidate WAS pending —
+// "still pending after this run" means the listing is alive and we should
+// not infer anything. With the full RESO enum now observable on this
+// tenant (S/W/X/T are real signals as of 2026-05), inference only fires
+// when the listing has truly vanished from every observable status.
+const SIBLING_RULE_OUT_STATUSES = ['A', 'P', 'S', 'W', 'X', 'T'] as const
 
 export type Confidence = 'low' | 'medium' | 'high'
 

@@ -12,29 +12,46 @@ try { await import('dotenv/config') } catch {}
  * Calls the Pillar9 sync API to fetch 40,000+ properties by city and status.
  * Use with cron or manually. Requires PILLAR9_SYNC_SECRET or CRON_SECRET.
  *
+ * Default status set: A, P, S, W, X, T
+ *   Probed against `abrls.matrixwebapi.com` 2026-05 with
+ *   `scripts/test-pillar9-direct.mjs --probe-only` — every status in this
+ *   list returns real rows, and the sync handler will deduplicate them
+ *   server-side. `I` (Incomplete) returns 0 tenant-wide so it's omitted
+ *   to avoid 210 wasted requests per run (one per Alberta city).
+ *
  * Usage:
  *   node scripts/pillar9-sync.mjs [options]
  *
  * Options:
- *   --verify          Only fetch and display sync status (no sync)
- *   --no-media        Skip fetching images from Media API (faster)
- *   --no-dedupe       Do not skip properties already in CREA
- *   --cities=CODES     Comma-separated city codes (e.g. 0046,0047 for Calgary,Edmonton). Default: all Alberta
- *   --delay=MS        Delay between API batches in ms (default: 500)
- *   --secret=KEY      Sync secret (default: from PILLAR9_SYNC_SECRET or CRON_SECRET)
- *   --help            Show this help
+ *   --verify             Only fetch and display sync status (no sync)
+ *   --no-media           Skip fetching images from Media API (faster)
+ *   --no-dedupe          Do not skip properties already in CREA
+ *   --cities=CODES       Comma-separated city codes (e.g. 0046,0047 for Calgary,Edmonton). Default: all Alberta
+ *   --statuses=CODES     Comma-separated MlsStatus codes to sync (default: A,P,S,W,X,T)
+ *   --all-statuses       Sync every supported status incl. I (verbose, slower)
+ *   --delay=MS           Delay between API batches in ms (default: 500)
+ *   --secret=KEY         Sync secret (default: from PILLAR9_SYNC_SECRET or CRON_SECRET)
+ *   --help               Show this help
  *
  * Examples:
- *   node scripts/pillar9-sync.mjs                    # Full sync (all cities, all statuses, with media)
- *   node scripts/pillar9-sync.mjs --verify           # Show current status only
- *   node scripts/pillar9-sync.mjs --cities=0046,0047  # Sync only Calgary and Edmonton
- *   node scripts/pillar9-sync.mjs --no-media         # Faster sync without image fetch
+ *   node scripts/pillar9-sync.mjs                       # Full sync, all Alberta, A/P/S/W/X/T, with media
+ *   node scripts/pillar9-sync.mjs --verify              # Show current status only
+ *   node scripts/pillar9-sync.mjs --cities=0046,0047    # Calgary + Airdrie only
+ *   node scripts/pillar9-sync.mjs --statuses=S          # Sold-only refresh
+ *   node scripts/pillar9-sync.mjs --no-media            # Faster sync without image fetch
  *
  * API base (first match wins; same idea as holistic-sync.mjs):
  *   PILLAR9_SYNC_API_BASE, HOLISTIC_SYNC_API_BASE, NUXT_PUBLIC_API_BASE, NUXT_PUBLIC_SITE_URL, APP_URL
  * Trailing / and /api are stripped. With Node 20+: node --env-file=.env.production scripts/pillar9-sync.mjs
  * dotenv loads .env only; it does not override vars already set (e.g. by --env-file).
  */
+
+// Statuses observed live on this Pillar9 tenant (verified by
+// test-pillar9-direct.mjs --probe-only). Skip 'I' by default — it's a
+// valid enum but returns 0 rows tenant-wide, so syncing it adds 1 wasted
+// request per city for no value.
+const DEFAULT_SYNC_STATUSES = ['A', 'P', 'S', 'W', 'X', 'T']
+const ALL_SUPPORTED_STATUSES = ['A', 'P', 'S', 'W', 'X', 'T', 'I']
 
 function resolveApiBase() {
   const candidates = [
@@ -85,12 +102,32 @@ function parseArgs() {
     secret = secretArg.substring(secretArg.indexOf('=') + 1)
   }
 
+  const allStatuses = args.includes('--all-statuses')
+  let statuses = allStatuses ? [...ALL_SUPPORTED_STATUSES] : [...DEFAULT_SYNC_STATUSES]
+  const statusesArg = args.find(a => a.startsWith('--statuses='))
+  if (statusesArg) {
+    const requested = statusesArg.substring(statusesArg.indexOf('=') + 1)
+      .split(',')
+      .map(s => s.trim().toUpperCase())
+      .filter(Boolean)
+    // Silently drop unknowns rather than failing — the server's enum check
+    // would reject them with a confusing 400 mid-run.
+    const unknown = requested.filter(s => !ALL_SUPPORTED_STATUSES.includes(s))
+    if (unknown.length > 0) {
+      console.warn(`⚠  Ignoring unknown status code(s): ${unknown.join(', ')}`)
+    }
+    const valid = requested.filter(s => ALL_SUPPORTED_STATUSES.includes(s))
+    if (valid.length > 0) statuses = valid
+  }
+
   return {
     verify: args.includes('--verify') || args.includes('-v'),
     help: args.includes('--help') || args.includes('-h'),
     noMedia: args.includes('--no-media'),
     noDedupe: args.includes('--no-dedupe'),
     cities,
+    statuses,
+    allStatuses,
     delay,
     secret: secret || process.env.PILLAR9_SYNC_SECRET || process.env.CRON_SECRET
   }
@@ -112,6 +149,9 @@ Options:
   --no-media             Do not fetch images from Media API (faster, fewer requests)
   --no-dedupe            Do not skip properties that exist in CREA
   --cities=CODES         Comma-separated city codes (e.g. 0046,0047). Default: all Alberta cities
+  --statuses=CODES       Comma-separated MlsStatus codes. Default: A,P,S,W,X,T
+                         (Active, Pending, Sold, Withdrawn, Expired, Terminated)
+  --all-statuses         Sync every supported status incl. I (Incomplete, usually 0 rows)
   --delay=MS             Delay between API batches in ms (default: 500)
   --secret=KEY           Sync secret (default: PILLAR9_SYNC_SECRET or CRON_SECRET env)
   --help, -h             Show this help
@@ -121,7 +161,7 @@ Environment:
   PILLAR9_SYNC_SECRET or CRON_SECRET  Required for running sync (not needed for --verify)
 
 Examples:
-  # Full sync (all cities, all statuses, with media)
+  # Full sync (all cities, A/P/S/W/X/T, with media)
   node scripts/pillar9-sync.mjs
 
   # Show current status only
@@ -129,6 +169,9 @@ Examples:
 
   # Sync only Calgary and Edmonton
   node scripts/pillar9-sync.mjs --cities=0046,0047
+
+  # Sold-only refresh across all cities
+  node scripts/pillar9-sync.mjs --statuses=S
 
   # Faster sync without image fetch
   node scripts/pillar9-sync.mjs --no-media
@@ -192,17 +235,21 @@ function httpRequest(url, options) {
 }
 
 async function runSync(options) {
-  const { cities, delay, noMedia, noDedupe, secret } = options
+  const { cities, statuses, allStatuses, delay, noMedia, noDedupe, secret } = options
 
   if (!secret || secret.length === 0) {
     console.error('Error: Sync secret required. Set PILLAR9_SYNC_SECRET or CRON_SECRET, or use --secret=KEY')
     process.exit(1)
   }
 
+  // The handler dedupes the resulting status list, so it's safe to pass
+  // syncStatuses without flipping syncSold/syncPending — those legacy
+  // toggles only existed to avoid the old default of A-only.
   const body = {
-    syncAllStatuses: false,
-    syncSold: true,
-    syncPending: true,
+    syncAllStatuses: allStatuses,
+    syncStatuses: allStatuses ? [] : statuses,
+    syncSold: false,
+    syncPending: false,
     deduplicateWithCrea: !noDedupe,
     includeMedia: !noMedia,
     delayBetweenBatchesMs: delay
@@ -326,6 +373,10 @@ async function main() {
     console.log('Cities: all Alberta')
   }
   if (!options.verify) {
+    const statusLabel = options.allStatuses
+      ? `${ALL_SUPPORTED_STATUSES.join(',')} (all-statuses)`
+      : options.statuses.join(',')
+    console.log(`Statuses: ${statusLabel}`)
     console.log(`Media: ${options.noMedia ? 'no' : 'yes'}`)
     console.log(`Dedupe with CREA: ${options.noDedupe ? 'no' : 'yes'}`)
   }
