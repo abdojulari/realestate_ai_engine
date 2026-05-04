@@ -1,5 +1,5 @@
 import { requireAdmin } from '../../../utils/auth'
-import { getTenantFilter } from '../../../utils/tenant'
+import { getTenantFilter, getPublicSharedMlsWhere } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -13,11 +13,14 @@ const OFF_MARKET_STATUSES = ['terminated', 'withdrawn', 'expired', 'sold']
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
 
-  if (user.role !== 'super_admin') {
-    throw createError({ statusCode: 403, message: 'Super admin access required' })
-  }
-
+  // CREA + Pillar9 inventory is shared platform-wide (see SHARED_MLS_SOURCES in
+  // server/utils/tenant.ts). Strict adminId scoping would hide the entire MLS
+  // feed from every tenant whose adminId doesn't happen to match the row's
+  // owner — which is what was breaking off-market listings on most tenants.
+  // Use getPublicSharedMlsWhere so all tenants see CREA + Pillar9, and only
+  // their own `manual` rows.
   const tenantFilter = getTenantFilter(user)
+  const sharedWhere = getPublicSharedMlsWhere(tenantFilter)
   const query = getQuery(event) as any
 
   const page = Math.max(1, parseInt(query.page || '1'))
@@ -28,24 +31,28 @@ export default defineEventHandler(async (event) => {
     ? query.status
     : undefined
 
-  const where: any = {
-    ...tenantFilter,
-    status: statusFilter ? statusFilter : { in: OFF_MARKET_STATUSES },
-  }
+  const andConditions: any[] = [
+    sharedWhere,
+    { status: statusFilter ? statusFilter : { in: OFF_MARKET_STATUSES } },
+  ]
 
   if (query.city) {
-    where.city = { contains: query.city, mode: 'insensitive' }
+    andConditions.push({ city: { contains: query.city, mode: 'insensitive' } })
   }
   if (query.search) {
-    where.OR = [
-      { address: { contains: query.search, mode: 'insensitive' } },
-      { title: { contains: query.search, mode: 'insensitive' } },
-      { mlsNumber: { contains: query.search, mode: 'insensitive' } },
-    ]
+    andConditions.push({
+      OR: [
+        { address: { contains: query.search, mode: 'insensitive' } },
+        { title: { contains: query.search, mode: 'insensitive' } },
+        { mlsNumber: { contains: query.search, mode: 'insensitive' } },
+      ],
+    })
   }
   if (query.source) {
-    where.source = query.source
+    andConditions.push({ source: query.source })
   }
+
+  const where: any = { AND: andConditions }
 
   const sortField = query.sortBy || 'updatedAt'
   const sortDir = query.sortDir === 'asc' ? 'asc' : 'desc'
@@ -82,7 +89,7 @@ export default defineEventHandler(async (event) => {
     prisma.property.count({ where }),
     prisma.property.groupBy({
       by: ['status'],
-      where: { ...tenantFilter, status: { in: OFF_MARKET_STATUSES } },
+      where: { AND: [sharedWhere, { status: { in: OFF_MARKET_STATUSES } }] },
       _count: true,
     }),
   ])

@@ -1,5 +1,5 @@
 import { requireAdmin } from '../../../utils/auth'
-import { getTenantFilter } from '../../../utils/tenant'
+import { getTenantFilter, getPublicSharedMlsWhere } from '../../../utils/tenant'
 import { pillar9Service } from '../../../utils/pillar9.service'
 import { PrismaClient } from '@prisma/client'
 
@@ -16,29 +16,31 @@ globalForPrisma.prisma = prisma
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
-    const tenantFilter = getTenantFilter(user)
 
-    const where: any = {
-      ...tenantFilter,
-      status: { in: ['for_sale', 'pending'] },
-    }
+    // Match the catalog scoping used by /api/admin/price-cuts: shared MLS
+    // (CREA + Pillar9) for all tenants, plus this tenant's manual rows.
+    // Without this the dropdowns only listed cities where the current tenant
+    // happened to own a manual row, which on most tenants is no rows at all.
+    const tenantFilter = getTenantFilter(user)
+    const sharedWhere = getPublicSharedMlsWhere(tenantFilter)
+    const baseAnd: any[] = [sharedWhere, { status: { in: ['for_sale', 'pending'] } }]
 
     // Fetch distinct values in parallel
     const [citiesRaw, communitiesRaw, typesRaw] = await Promise.all([
       prisma.property.findMany({
-        where: { ...where, city: { not: '' } },
+        where: { AND: [...baseAnd, { city: { not: '' } }] },
         select: { city: true },
         distinct: ['city'],
         orderBy: { city: 'asc' },
       }),
       prisma.property.findMany({
-        where: { ...where, cityRegion: { not: null } },
+        where: { AND: [...baseAnd, { cityRegion: { not: null } }] },
         select: { cityRegion: true },
         distinct: ['cityRegion'],
         orderBy: { cityRegion: 'asc' },
       }),
       prisma.property.findMany({
-        where: { ...where, type: { not: '' } },
+        where: { AND: [...baseAnd, { type: { not: '' } }] },
         select: { type: true },
         distinct: ['type'],
         orderBy: { type: 'asc' },

@@ -757,7 +757,7 @@
     </v-dialog>
 
     <!-- Change Password Dialog -->
-    <v-dialog v-model="showPasswordDialog" max-width="480">
+    <v-dialog v-model="showPasswordDialog" max-width="480" @update:model-value="onPasswordDialogToggle">
       <v-card class="premium-card">
         <div class="p-6 border-b border-slate-100 d-flex align-center">
           <div class="icon-orb">
@@ -767,7 +767,7 @@
             <div class="eyebrow" style="margin-bottom: 2px;">Security</div>
             <h2 class="text-h6 mb-0">Change password</h2>
           </div>
-          <v-btn icon="mdi-close" variant="text" size="small" @click="showPasswordDialog = false" />
+          <v-btn icon="mdi-close" variant="text" size="small" @click="closePasswordDialog" />
         </div>
         <v-card-text class="pa-6">
           <v-form v-model="isPasswordFormValid">
@@ -808,10 +808,10 @@
         </v-card-text>
         <v-card-actions class="px-6 pb-6 pt-0">
           <v-spacer />
-          <v-btn variant="text" @click="showPasswordDialog = false">Cancel</v-btn>
+          <v-btn variant="text" @click="closePasswordDialog">Cancel</v-btn>
           <v-btn
             :loading="changingPassword"
-            :disabled="!isPasswordFormValid"
+            :disabled="!isPasswordFormValid || !passwordsMatch"
             class="action-btn-primary ml-2"
             @click="changePassword"
           >
@@ -939,6 +939,29 @@ const passwordForm = reactive({
   newPassword: '',
   confirmPassword: ''
 })
+
+const resetPasswordForm = () => {
+  passwordForm.currentPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+}
+
+// Vuetify only re-runs a field's :rules when that field's own v-model changes,
+// so the Confirm Password field would otherwise stay marked "valid" if the
+// user went back and edited New Password after typing the confirmation.
+// Watching newPassword and clearing confirmPassword forces a re-validation
+// pass on the confirm field the next time the user touches it, and the
+// passwordsMatch computed below also gates the submit button.
+watch(() => passwordForm.newPassword, () => {
+  if (passwordForm.confirmPassword) {
+    passwordForm.confirmPassword = ''
+  }
+})
+
+const passwordsMatch = computed(() =>
+  passwordForm.newPassword.length > 0 &&
+  passwordForm.newPassword === passwordForm.confirmPassword
+)
 
 type PermRow = { read: boolean; write: boolean; edit: boolean; delete: boolean }
 
@@ -1376,6 +1399,31 @@ const savePreferences = async () => {
   }
 }
 
+const closePasswordDialog = () => {
+  showPasswordDialog.value = false
+  resetPasswordForm()
+}
+
+const onPasswordDialogToggle = (open: boolean | null) => {
+  // Vuetify emits update:modelValue when the user clicks outside or hits Esc.
+  // Mirror Cancel/X behaviour so password fields never linger in memory.
+  if (!open) resetPasswordForm()
+}
+
+const extractServerMessage = (e: any): string | null => {
+  const candidates = [
+    e?.data?.statusMessage,
+    e?.data?.message,
+    e?.statusMessage,
+    e?.response?._data?.statusMessage,
+    e?.response?._data?.message,
+  ]
+  for (const c of candidates) {
+    if (typeof c === 'string' && c.trim().length > 0) return c.trim()
+  }
+  return null
+}
+
 const changePassword = async () => {
   changingPassword.value = true
   try {
@@ -1384,13 +1432,12 @@ const changePassword = async () => {
       newPassword: passwordForm.newPassword
     })
     showPasswordDialog.value = false
-    passwordForm.currentPassword = ''
-    passwordForm.newPassword = ''
-    passwordForm.confirmPassword = ''
+    resetPasswordForm()
     showToast('Password changed successfully')
   } catch (e) {
     console.error('Failed to change password:', e)
-    showToast('Failed to change password', 'error')
+    const msg = extractServerMessage(e) || 'Failed to change password'
+    showToast(msg, 'error')
   } finally {
     changingPassword.value = false
   }

@@ -66,18 +66,25 @@ export default defineEventHandler(async (event) => {
       }
     })
 
-    // Log activity
-    await prisma.activityLog.create({
-      data: {
-        userId,
-        action: 'password_change',
-        entity: 'user',
-        entityId: userId,
-        description: 'Changed password',
-        ipAddress: getRequestIP(event),
-        userAgent: getRequestHeader(event, 'user-agent')
-      }
-    })
+    // Log activity — fire-and-forget. The password is already committed above
+    // and a logging hiccup (transient DB blip, oversized user-agent, pool
+    // exhaustion) must NEVER turn a successful change into a 500 the user
+    // sees as "Failed to change password".
+    try {
+      await prisma.activityLog.create({
+        data: {
+          userId,
+          action: 'password_change',
+          entity: 'user',
+          entityId: userId,
+          description: 'Changed password',
+          ipAddress: getRequestIP(event),
+          userAgent: getRequestHeader(event, 'user-agent')
+        }
+      })
+    } catch (logErr) {
+      console.error('Failed to write password_change activity log (non-fatal):', logErr)
+    }
 
     // Send email notification about password change
     try {

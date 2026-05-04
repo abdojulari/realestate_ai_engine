@@ -67,7 +67,10 @@ export default defineEventHandler(async (event) => {
         developerUrl: null,
         awardsCount: null,
         metaPixelId: null,
+        // Never echo the CAPI access token to the browser; expose presence
+        // only so the admin UI can show a "saved" indicator.
         metaPixelAccessToken: null,
+        hasMetaPixelAccessToken: false,
         subdomain: null,
         customDomain: null,
         createdAt: null,
@@ -75,7 +78,15 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    return mapTenantMediaFields(settings)
+    // Strip the CAPI access token before responding. The Meta Conversions
+    // API token is a write-only secret: it must never reach `window`, the
+    // network panel, browser extensions, or screen-shares. Replace the raw
+    // value with a boolean flag the UI uses to render a "saved" placeholder.
+    const mapped = mapTenantMediaFields(settings) as Record<string, any>
+    const hasMetaPixelAccessToken = !!mapped.metaPixelAccessToken
+    mapped.metaPixelAccessToken = null
+    mapped.hasMetaPixelAccessToken = hasMetaPixelAccessToken
+    return mapped
   } catch (error: any) {
     if (error.statusCode) throw error
     console.error('Failed to load tenant settings:', error)

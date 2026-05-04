@@ -38,12 +38,39 @@ export default defineEventHandler(async (event) => {
       }
     }
 
+    // SMTP password is a write-only secret. The GET endpoint never returns
+    // the saved password to the browser, so a normal save round-trip arrives
+    // here with smtp.password === '' (or missing). Treat that as "leave
+    // current password alone" — only overwrite the column when the admin
+    // actually re-typed a non-empty password. Explicit `null` still clears.
+    let smtpToPersist: any = smtp
+    if (smtp && typeof smtp === 'object') {
+      const incomingPwd = (smtp as any).password
+      const isEmptyPwd =
+        incomingPwd === undefined ||
+        (typeof incomingPwd === 'string' && incomingPwd.length === 0)
+
+      if (isEmptyPwd) {
+        const existing = await prisma.setting.findFirst({
+          where: { key: 'email.smtp', adminId },
+        })
+        let existingPwd = ''
+        if (existing) {
+          try {
+            const parsed = JSON.parse(existing.value)
+            existingPwd = parsed?.password || ''
+          } catch { /* ignore */ }
+        }
+        smtpToPersist = { ...smtp, password: existingPwd }
+      }
+    }
+
     // Store all email settings
     await Promise.all([
       upsertSetting('email.provider', provider),
       upsertSetting('email.fromEmail', fromEmail),
       upsertSetting('email.fromName', fromName),
-      upsertSetting('email.smtp', smtp)
+      upsertSetting('email.smtp', smtpToPersist)
     ])
 
     console.log('✅ Email settings updated successfully')

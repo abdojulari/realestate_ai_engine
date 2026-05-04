@@ -1,5 +1,5 @@
 import { requireAdmin } from '../../../utils/auth'
-import { getTenantFilter } from '../../../utils/tenant'
+import { getTenantFilter, getPublicSharedMlsWhere } from '../../../utils/tenant'
 import { requireFeatureForUser, FEATURES } from '../../../utils/license'
 import { pillar9Service } from '../../../utils/pillar9.service'
 import { PrismaClient } from '@prisma/client'
@@ -17,7 +17,13 @@ export default defineEventHandler(async (event) => {
     // Enforce Gold / Platinum tier
     await requireFeatureForUser(FEATURES.BEST_DEALS, user, event)
 
+    // CREA + Pillar9 inventory is shared platform-wide (see SHARED_MLS_SOURCES
+    // in server/utils/tenant.ts). Strict adminId scoping would hide every MLS
+    // row from tenants whose adminId doesn't match the syncing user, which is
+    // why most tenants were seeing zero deals. Use getPublicSharedMlsWhere so
+    // every tenant sees the shared MLS feed plus their own manual rows.
     const tenantFilter = getTenantFilter(user)
+    const sharedWhere = getPublicSharedMlsWhere(tenantFilter)
     const query = getQuery(event)
 
     // City is REQUIRED
@@ -51,7 +57,7 @@ export default defineEventHandler(async (event) => {
     // `price < baseline` check is applied below in code so we can pick whichever
     // baseline is present per row.
     const andConditions: any[] = [
-      { ...tenantFilter },
+      sharedWhere,
       { status: { in: ['for_sale', 'pending'] } },
       {
         OR: [

@@ -355,7 +355,7 @@
                   <v-text-field
                     v-model="marketingSettings.metaPixelAccessToken"
                     label="Conversions API Access Token"
-                    placeholder="EAAS… (long token)"
+                    :placeholder="hasSavedMetaPixelAccessToken ? '•••••••• (saved \u2014 leave blank to keep current)' : 'EAAS\u2026 (long token)'"
                     variant="outlined"
                     rounded="lg"
                     density="compact"
@@ -493,6 +493,8 @@
                                 variant="outlined"
                                 rounded="lg"
                                 class="premium-input"
+                                :placeholder="hasSavedSmtpPassword ? '•••••••• (saved — leave blank to keep current)' : ''"
+                                :persistent-placeholder="hasSavedSmtpPassword"
                               />
                             </v-col>
 
@@ -578,97 +580,6 @@
                 :loading="saving"
                 :disabled="!isEmailFormValid"
                 @click="saveEmailSettings"
-                class="action-btn-primary px-8"
-              >
-                Save Changes
-              </v-btn>
-            </v-card-actions>
-          </v-card>
-
-          <!-- API Settings -->
-          <v-card v-if="activeSection === 'api'" class="premium-card mb-6">
-            <div class="p-8 border-b border-slate-100 d-flex align-center">
-              <v-icon color="primary" class="mr-3">mdi-api</v-icon>
-              <h2 class="text-h6 font-weight-bold">API Integration</h2>
-            </div>
-            <v-card-text class="p-8">
-              <v-form v-model="isApiFormValid" @submit.prevent="saveApiSettings">
-                <v-row>
-                  <v-col cols="12">
-                    <v-expansion-panels class="premium-expansion">
-                      <v-expansion-panel
-                        v-for="api in apiSettings"
-                        :key="api.name"
-                        class="premium-panel"
-                      >
-                        <v-expansion-panel-title class="font-weight-bold">
-                          <v-icon start>mdi-key</v-icon>
-                          {{ api.name }}
-                        </v-expansion-panel-title>
-                        <v-expansion-panel-text class="pt-4">
-                          <v-row>
-                            <v-col cols="12">
-                              <v-text-field density="compact"
-                                v-model="api.apiKey"
-                                :label="api.name + ' API Key'"
-                                type="password"
-                                autocomplete="new-password"
-                                variant="outlined"
-                                rounded="lg"
-                                class="premium-input"
-                              />
-                            </v-col>
-
-                            <v-col cols="12">
-                              <v-text-field density="compact"
-                                v-model="api.apiSecret"
-                                :label="api.name + ' API Secret'"
-                                type="password"
-                                autocomplete="new-password"
-                                variant="outlined"
-                                rounded="lg"
-                                class="premium-input"
-                              />
-                            </v-col>
-
-                            <v-col cols="12">
-                              <v-switch
-                                v-model="api.enabled"
-                                :label="'Enable ' + api.name"
-                                color="primary"
-                                class="premium-switch"
-                                hide-details
-                              />
-                            </v-col>
-
-                            <v-col cols="12" class="mt-4">
-                              <v-btn
-                                color="info"
-                                prepend-icon="mdi-check-circle"
-                                @click="verifyApiCredentials(api)"
-                                :loading="api.verifying"
-                                variant="tonal"
-                                rounded="lg"
-                                class="px-6"
-                              >
-                                Verify Credentials
-                              </v-btn>
-                            </v-col>
-                          </v-row>
-                        </v-expansion-panel-text>
-                      </v-expansion-panel>
-                    </v-expansion-panels>
-                  </v-col>
-                </v-row>
-              </v-form>
-            </v-card-text>
-            <v-card-actions class="px-8 pb-8">
-              <v-spacer />
-              <v-btn
-                color="primary"
-                :loading="saving"
-                :disabled="!isApiFormValid"
-                @click="saveApiSettings"
                 class="action-btn-primary px-8"
               >
                 Save Changes
@@ -774,6 +685,7 @@
       v-model="showTemplateDialog"
       max-width="800"
       scrollable
+      @update:model-value="onTemplateDialogToggle"
     >
       <v-card v-if="selectedTemplate" class="premium-card">
         <div class="p-8 bg-slate-900 text-white">
@@ -797,6 +709,7 @@
 
               <v-col cols="12">
                 <v-textarea density="compact"
+                  ref="templateContentRef"
                   v-model="templateForm.content"
                   label="Template Content"
                   :rules="[v => !!v || 'Content is required']"
@@ -840,7 +753,7 @@
           <v-btn
             variant="text"
             class="px-6"
-            @click="showTemplateDialog = false"
+            @click="closeTemplateDialog"
           >
             Cancel
           </v-btn>
@@ -918,6 +831,28 @@ const showToast = (msg: string, color: 'success' | 'error' = 'success') => {
   snackShow.value = true
 }
 
+// Pull a useful human message out of a non-OK fetch Response so toasts
+// stop saying "Failed to save X" when the server clearly returned a more
+// specific reason (auth expired, validation failure, etc).
+const extractServerMessageFromResponse = async (
+  response: Response,
+  fallback: string,
+): Promise<string> => {
+  try {
+    const ct = response.headers.get('content-type') || ''
+    if (ct.includes('application/json')) {
+      const body: any = await response.clone().json()
+      const candidate =
+        body?.statusMessage || body?.message || body?.error || body?.data?.message
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim()
+    } else {
+      const text = await response.clone().text()
+      if (text && text.length < 240) return text
+    }
+  } catch { /* fall through */ }
+  return `${fallback} (HTTP ${response.status})`
+}
+
 const syncing = ref(false)
 const syncStatus = ref('ready') // 'ready', 'running', 'error'
 const syncProgress = ref(0)
@@ -946,7 +881,6 @@ const showPreviewDialog = ref(false)
 const selectedTemplate = ref<any>(null)
 const isGeneralFormValid = ref(false)
 const isEmailFormValid = ref(false)
-const isApiFormValid = ref(false)
 const isSecurityFormValid = ref(false)
 const isTemplateFormValid = ref(false)
 
@@ -954,18 +888,25 @@ const settingSections = [
   { id: 'general', title: 'General', icon: 'mdi-cog' },
   { id: 'marketing', title: 'Marketing & Tracking', icon: 'mdi-bullseye-arrow' },
   { id: 'email', title: 'Email', icon: 'mdi-email' },
-  { id: 'api', title: 'API Integration', icon: 'mdi-api' },
   { id: 'security', title: 'Security', icon: 'mdi-shield' }
 ]
 
 // Per-tenant Meta (Facebook) Pixel config. Loaded from
 // /api/admin/tenant-settings on mount alongside googleReviewUrl.
+//
+// metaPixelAccessToken is treated as a write-only secret on the client:
+// the GET endpoint returns hasMetaPixelAccessToken (boolean) instead of
+// the raw value, and the field stays empty unless the admin types a new
+// one. Saving without typing leaves the existing token intact server-side.
 const marketingSettings = ref({
   metaPixelId: '',
   metaPixelAccessToken: '',
 })
+const hasSavedMetaPixelAccessToken = ref(false)
 const marketingSaving = ref(false)
 const showMetaCapiToken = ref(false)
+// Same write-only treatment for the SMTP password.
+const hasSavedSmtpPassword = ref(false)
 
 const generalSettings = ref({
   siteName: '',
@@ -989,16 +930,10 @@ const emailSettings = ref({
   }
 })
 
-const apiSettings = ref([
-  {
-    name: 'Google Maps',
-    apiKey: '',
-    apiSecret: '',
-    enabled: true,
-    verifying: false
-  }
-  // Stripe billing is handled by saas-control-plane, not by suhani.
-])
+// API Integration section was removed; Google Maps key isn't used by this
+// app and Stripe billing lives in saas-control-plane. Future per-tenant
+// integrations should get their own purpose-built section, not a generic
+// key/secret blob.
 
 const securitySettings = ref({
   sessionTimeout: '30',
@@ -1012,6 +947,27 @@ const templateForm = ref({
   subject: '',
   content: ''
 })
+
+// Template ref for the content textarea so insertVariable can target the
+// correct element instead of `document.querySelector('textarea')`, which
+// would happily grab the first textarea on the entire page (e.g. the
+// IP-whitelist field in the Security section).
+const templateContentRef = ref<any>(null)
+
+const resetTemplateForm = () => {
+  templateForm.value = { subject: '', content: '' }
+}
+
+const closeTemplateDialog = () => {
+  showTemplateDialog.value = false
+  resetTemplateForm()
+}
+
+const onTemplateDialogToggle = (open: boolean | null) => {
+  // Mirror Cancel behaviour for Esc / outside-click so the form never
+  // shows stale content the next time the admin opens another template.
+  if (!open) resetTemplateForm()
+}
 
 const emailProviders = [
   'SMTP',
@@ -1067,24 +1023,23 @@ const emailRules = [
   (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
 ]
 
-const phoneRules = [
-  (v: string) => !v || /^\+?[\d\s-]{10,}$/.test(v) || 'Please enter a valid phone number'
-]
-
 const nextSyncTime = computed(() => {
   if (!autoSyncEnabled.value) return 'Disabled'
   const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const timeValue = autoSyncTime.value || '00:00'
-  const timeParts = timeValue.split(':')
-  const hour = parseInt(timeParts[0] || '0')
-  const syncTime = new Date(today.getTime() + hour * 60 * 60 * 1000)
-  
+  const [hourStr, minStr] = timeValue.split(':')
+  const hour = parseInt(hourStr || '0', 10)
+  const minute = parseInt(minStr || '0', 10)
+
+  // Use setHours so DST transitions stay correct. Adding raw milliseconds
+  // would silently drift by an hour on spring-forward / fall-back days.
+  const syncTime = new Date(now)
+  syncTime.setHours(hour, minute, 0, 0)
+
   if (syncTime <= now) {
-    // Next sync is tomorrow
     syncTime.setDate(syncTime.getDate() + 1)
   }
-  
+
   return syncTime.toLocaleString()
 })
 
@@ -1100,12 +1055,13 @@ const saveGeneralSettings = async () => {
       },
       body: JSON.stringify(rest)
     })
-    
+
     if (!response.ok) {
-      throw new Error('Failed to save general settings')
+      const msg = await extractServerMessageFromResponse(response, 'Failed to save general settings')
+      throw new Error(msg)
     }
 
-    await fetch('/api/admin/tenant-settings', {
+    const tenantRes = await fetch('/api/admin/tenant-settings', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1113,11 +1069,15 @@ const saveGeneralSettings = async () => {
       },
       body: JSON.stringify({ googleReviewUrl: googleReviewUrl || null })
     })
-    
+    if (!tenantRes.ok) {
+      const msg = await extractServerMessageFromResponse(tenantRes, 'Failed to save general settings')
+      throw new Error(msg)
+    }
+
     showToast('General settings saved successfully')
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving general settings:', error)
-    showToast('Failed to save general settings', 'error')
+    showToast(error?.message || 'Failed to save general settings', 'error')
   } finally {
     saving.value = false
   }
@@ -1126,25 +1086,41 @@ const saveGeneralSettings = async () => {
 const saveMarketingSettings = async () => {
   marketingSaving.value = true
   try {
+    // Pixel ID: empty → null so a tenant can clear their pixel and fall
+    // back to the platform default by blanking the field.
+    //
+    // CAPI access token: write-only. Only include the field when the admin
+    // actually re-typed a value. The server preserves the existing token
+    // when the field is omitted from the body — so a normal "edit pixel id"
+    // save never touches the saved token.
+    const payload: Record<string, unknown> = {
+      metaPixelId: marketingSettings.value.metaPixelId.trim() || null,
+    }
+    const typedToken = marketingSettings.value.metaPixelAccessToken.trim()
+    if (typedToken) payload.metaPixelAccessToken = typedToken
+
     const response = await fetch('/api/admin/tenant-settings', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders(),
       },
-      body: JSON.stringify({
-        // Empty string → null so a tenant can clear their pixel and fall
-        // back to the platform default by simply blanking the field.
-        metaPixelId: marketingSettings.value.metaPixelId.trim() || null,
-        metaPixelAccessToken:
-          marketingSettings.value.metaPixelAccessToken.trim() || null,
-      }),
+      body: JSON.stringify(payload),
     })
-    if (!response.ok) throw new Error('Failed to save marketing settings')
+    if (!response.ok) {
+      const msg = await extractServerMessageFromResponse(response, 'Failed to save Meta Pixel settings')
+      throw new Error(msg)
+    }
+    // If the admin successfully saved a brand-new token, flip the "has saved
+    // token" flag so the placeholder updates without a page reload.
+    if (typedToken) {
+      hasSavedMetaPixelAccessToken.value = true
+      marketingSettings.value.metaPixelAccessToken = ''
+    }
     showToast('Meta Pixel settings saved')
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving marketing settings:', error)
-    showToast('Failed to save Meta Pixel settings', 'error')
+    showToast(error?.message || 'Failed to save Meta Pixel settings', 'error')
   } finally {
     marketingSaving.value = false
   }
@@ -1153,48 +1129,48 @@ const saveMarketingSettings = async () => {
 const saveEmailSettings = async () => {
   saving.value = true
   try {
+    // SMTP password: write-only. Sending '' (the on-load default) means
+    // "leave the existing password alone" — the server preserves it. We
+    // strip it from the payload entirely so the intent is unambiguous.
+    const typedPwd = emailSettings.value.smtp.password
+    const smtpToSend: Record<string, unknown> = {
+      host: emailSettings.value.smtp.host,
+      port: emailSettings.value.smtp.port,
+      username: emailSettings.value.smtp.username,
+      secure: emailSettings.value.smtp.secure,
+    }
+    if (typeof typedPwd === 'string' && typedPwd.length > 0) {
+      smtpToSend.password = typedPwd
+    }
+
     const response = await fetch('/api/admin/settings/email', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       },
-      body: JSON.stringify(emailSettings.value)
+      body: JSON.stringify({
+        provider: emailSettings.value.provider,
+        fromEmail: emailSettings.value.fromEmail,
+        fromName: emailSettings.value.fromName,
+        smtp: smtpToSend,
+      })
     })
-    
-    if (!response.ok) {
-      throw new Error('Failed to save email settings')
-    }
-    
-    showToast('Email settings saved successfully')
-  } catch (error) {
-    console.error('Error saving email settings:', error)
-    showToast('Failed to save email settings', 'error')
-  } finally {
-    saving.value = false
-  }
-}
 
-const saveApiSettings = async () => {
-  saving.value = true
-  try {
-    const response = await fetch('/api/admin/settings/api', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders()
-      },
-      body: JSON.stringify(apiSettings.value)
-    })
-    
     if (!response.ok) {
-      throw new Error('Failed to save API settings')
+      const msg = await extractServerMessageFromResponse(response, 'Failed to save email settings')
+      throw new Error(msg)
     }
-    
-    showToast('API settings saved successfully')
-  } catch (error) {
-    console.error('Error saving API settings:', error)
-    showToast('Failed to save API settings', 'error')
+
+    if (typeof typedPwd === 'string' && typedPwd.length > 0) {
+      hasSavedSmtpPassword.value = true
+      emailSettings.value.smtp.password = ''
+    }
+
+    showToast('Email settings saved successfully')
+  } catch (error: any) {
+    console.error('Error saving email settings:', error)
+    showToast(error?.message || 'Failed to save email settings', 'error')
   } finally {
     saving.value = false
   }
@@ -1211,15 +1187,16 @@ const saveSecuritySettings = async () => {
       },
       body: JSON.stringify(securitySettings.value)
     })
-    
+
     if (!response.ok) {
-      throw new Error('Failed to save security settings')
+      const msg = await extractServerMessageFromResponse(response, 'Failed to save security settings')
+      throw new Error(msg)
     }
-    
+
     showToast('Security settings saved successfully')
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving security settings:', error)
-    showToast('Failed to save security settings', 'error')
+    showToast(error?.message || 'Failed to save security settings', 'error')
   } finally {
     saving.value = false
   }
@@ -1252,25 +1229,6 @@ const testEmailSettings = async () => {
   }
 }
 
-const verifyApiCredentials = async (api: any) => {
-  api.verifying = true
-  try {
-    // Replace with actual API call
-    await fetch(`/api/admin/settings/api/${api.name}/verify`, {
-      method: 'POST',
-      body: JSON.stringify({
-        apiKey: api.apiKey,
-        apiSecret: api.apiSecret
-      })
-    })
-    // Show success message
-  } catch (error) {
-    console.error('Error verifying API credentials:', error)
-  } finally {
-    api.verifying = false
-  }
-}
-
 const editTemplate = (template: any) => {
   selectedTemplate.value = template
   templateForm.value = {
@@ -1286,15 +1244,17 @@ const previewTemplate = (template: any) => {
 }
 
 const insertVariable = (variable: string) => {
-  const textarea = document.querySelector('textarea')
-  if (textarea) {
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    templateForm.value.content = 
-      templateForm.value.content.substring(0, start) +
-      variable +
-      templateForm.value.content.substring(end)
-  }
+  // Vuetify's v-textarea wraps a real <textarea>; reach through its
+  // exposed component instance to find it. Falls back gracefully when
+  // the dialog isn't fully rendered yet.
+  const textarea: HTMLTextAreaElement | null =
+    templateContentRef.value?.$el?.querySelector?.('textarea') ?? null
+
+  const current = templateForm.value.content || ''
+  const start = textarea?.selectionStart ?? current.length
+  const end = textarea?.selectionEnd ?? current.length
+  templateForm.value.content =
+    current.substring(0, start) + variable + current.substring(end)
 }
 
 const saveTemplate = async () => {
@@ -1306,28 +1266,29 @@ const saveTemplate = async () => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`
+        ...getAuthHeaders(),
       },
       body: JSON.stringify(templateForm.value)
     })
-    
+
     if (!response.ok) {
-      throw new Error('Failed to save template')
+      const msg = await extractServerMessageFromResponse(response, 'Failed to save template')
+      throw new Error(msg)
     }
-    
+
     const result = await response.json()
-    
+
     // Update the template in the list
     const templateIndex = emailTemplates.value.findIndex(t => t.id === selectedTemplate.value.id)
-    if (templateIndex !== -1) {
+    if (templateIndex !== -1 && result?.template) {
       emailTemplates.value[templateIndex] = result.template
     }
-    
-    showTemplateDialog.value = false
+
+    closeTemplateDialog()
     showToast('Template saved successfully')
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error saving template:', error)
-    showToast('Failed to save template', 'error')
+    showToast(error?.message || 'Failed to save template', 'error')
   } finally {
     saving.value = false
   }
@@ -1373,46 +1334,61 @@ const startManualSync = async () => {
       },
       body: JSON.stringify(syncPayload)
     })
-    
+
     if (!response.ok) {
-      throw new Error(`Sync failed: ${response.statusText}`)
+      const msg = await extractServerMessageFromResponse(response, 'Sync failed')
+      throw new Error(msg)
     }
-    
-    const result = await response.json()
-    
-    // Show immediate feedback
+
+    await response.json().catch(() => null)
+
     console.log('Background sync started successfully')
-    
+
     // Set up real-time polling to check for progress and completion
     pollForSyncStatus()
-    
+
   } catch (error: any) {
     console.error('Sync failed:', error)
     syncStatus.value = 'error'
     syncing.value = false
-    alert(`Sync failed: ${error.message}`)
+    showToast(error?.message || 'Sync failed', 'error')
   }
 }
 
 const updateAutoSyncSetting = async () => {
+  // Snapshot the values BEFORE the network call so we can revert the v-switch
+  // if the server rejects. Prevents the silent UI/server drift where the
+  // toggle visually stays on but the DB still says off.
+  const previous = {
+    enabled: autoSyncEnabled.value,
+    time: autoSyncTime.value,
+  }
+
   try {
-    const settings = {
-      autoSyncEnabled: autoSyncEnabled.value,
-      autoSyncTime: autoSyncTime.value
-    }
-    
-    await fetch('/api/admin/settings/crea-sync', {
+    const response = await fetch('/api/admin/settings/crea-sync', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...getAuthHeaders()
       },
-      body: JSON.stringify(settings)
+      body: JSON.stringify({
+        autoSyncEnabled: autoSyncEnabled.value,
+        autoSyncTime: autoSyncTime.value,
+      })
     })
-    
-    console.log('Auto-sync settings updated:', settings)
-  } catch (error) {
+
+    if (!response.ok) {
+      const msg = await extractServerMessageFromResponse(response, 'Failed to update auto-sync settings')
+      throw new Error(msg)
+    }
+
+    showToast('Auto-sync settings saved')
+  } catch (error: any) {
     console.error('Failed to update auto-sync settings:', error)
+    // Revert UI to last-known-good so the switch matches the server.
+    autoSyncEnabled.value = previous.enabled
+    autoSyncTime.value = previous.time
+    showToast(error?.message || 'Failed to update auto-sync settings', 'error')
   }
 }
 
@@ -1489,72 +1465,95 @@ const formatDateTime = (date: Date | string) => {
   return new Date(date).toLocaleString()
 }
 
+// Track the active poller so we can:
+//   1. Refuse to spawn a second one (mount + manual sync racing)
+//   2. Tear down on route change so we don't keep hammering /sync-status
+//      from a page the user already left.
+//   3. Stop on auth failure instead of burning 300 401s in 15 minutes.
+const pollIntervalId = ref<ReturnType<typeof setInterval> | null>(null)
+const pollTimeoutId = ref<ReturnType<typeof setTimeout> | null>(null)
+
+const stopSyncPolling = () => {
+  if (pollIntervalId.value) {
+    clearInterval(pollIntervalId.value)
+    pollIntervalId.value = null
+  }
+  if (pollTimeoutId.value) {
+    clearTimeout(pollTimeoutId.value)
+    pollTimeoutId.value = null
+  }
+}
+
 const pollForSyncStatus = () => {
-  // Poll for sync status every 3 seconds for real-time updates
-  const pollInterval = setInterval(async () => {
+  if (pollIntervalId.value) return // already polling
+
+  pollIntervalId.value = setInterval(async () => {
     try {
       const response = await fetch('/api/admin/crea/sync-status', {
         headers: getAuthHeaders()
       })
-      
+
+      // Token expired / kicked out — don't keep retrying.
+      if (response.status === 401 || response.status === 403) {
+        stopSyncPolling()
+        syncing.value = false
+        syncStatus.value = 'ready'
+        return
+      }
+
       if (!response.ok) {
         throw new Error('Failed to fetch sync status')
       }
-      
+
       const statusData = await response.json()
-      
-      // Update progress
+
       if (statusData.syncProgress) {
         syncProgress.value = statusData.syncProgress.progress || 0
         syncProgressText.value = statusData.syncProgress.text || ''
       }
-      
-      // Update sync results if available
+
       if (statusData.lastSyncResult) {
         lastSyncResult.value = statusData.lastSyncResult
       }
-      
-      // Check if sync is completed or failed
+
       if (statusData.syncStatus === 'completed') {
-        clearInterval(pollInterval)
+        stopSyncPolling()
         syncing.value = false
         syncStatus.value = 'ready'
         syncProgress.value = 100
         syncProgressText.value = 'Sync completed successfully!'
-        
-        // Refresh stats and show completion message
+
         await loadStats()
-        
+
         setTimeout(() => {
           syncProgress.value = 0
           syncProgressText.value = ''
         }, 5000)
-        
+
       } else if (statusData.syncStatus === 'error') {
-        clearInterval(pollInterval)
+        stopSyncPolling()
         syncing.value = false
         syncStatus.value = 'error'
         syncProgressText.value = 'Sync failed!'
-        
+
         setTimeout(() => {
           syncProgress.value = 0
           syncProgressText.value = ''
           syncStatus.value = 'ready'
         }, 5000)
-        
+
       } else if (statusData.syncStatus === 'running') {
-        // Continue polling
         syncStatus.value = 'running'
       }
-      
+
     } catch (error) {
       console.error('Error polling sync status:', error)
     }
   }, 3000)
-  
-  // Stop polling after 15 minutes max
-  setTimeout(() => {
-    clearInterval(pollInterval)
+
+  // Hard cap: 15 minutes
+  pollTimeoutId.value = setTimeout(() => {
+    stopSyncPolling()
     if (syncing.value) {
       syncing.value = false
       syncStatus.value = 'ready'
@@ -1564,55 +1563,80 @@ const pollForSyncStatus = () => {
   }, 900000)
 }
 
+onUnmounted(() => {
+  stopSyncPolling()
+})
+
 const loadAllSettings = async () => {
   try {
-    // Load all settings in parallel
+    // Load all settings in parallel. Tenant settings come from a separate
+    // endpoint and feed both General (googleReviewUrl) and Marketing (Meta
+    // Pixel), so we batch it with the rest instead of running it serially.
     const headers = getAuthHeaders()
-    const [generalRes, emailRes, apiRes, securityRes, templatesRes] = await Promise.all([
+    const [generalRes, emailRes, securityRes, templatesRes, tenantRes] = await Promise.all([
       fetch('/api/admin/settings/general', { headers }),
       fetch('/api/admin/settings/email', { headers }),
-      fetch('/api/admin/settings/api', { headers }),
       fetch('/api/admin/settings/security', { headers }),
-      fetch('/api/admin/settings/email/templates', { headers })
+      fetch('/api/admin/settings/email/templates', { headers }),
+      fetch('/api/admin/tenant-settings', { headers }),
     ])
 
-    // Update settings with loaded data
     if (generalRes.ok) {
       const data = await generalRes.json()
       generalSettings.value = { ...generalSettings.value, ...data }
     }
 
-    // Load googleReviewUrl + Meta Pixel config from tenant settings.
-    // Single GET → two unrelated UI sections (General + Marketing) so we
-    // don't burn a second round-trip just to read a few extra columns.
-    try {
-      const tenantRes = await fetch('/api/admin/tenant-settings', { headers })
-      if (tenantRes.ok) {
-        const tenantData = await tenantRes.json()
-        generalSettings.value.googleReviewUrl = tenantData.googleReviewUrl || ''
-        marketingSettings.value.metaPixelId = tenantData.metaPixelId || ''
-        marketingSettings.value.metaPixelAccessToken = tenantData.metaPixelAccessToken || ''
-      }
-    } catch (e) { /* ignore */ }
+    if (tenantRes.ok) {
+      const tenantData = await tenantRes.json()
+      generalSettings.value.googleReviewUrl = tenantData.googleReviewUrl || ''
+      marketingSettings.value.metaPixelId = tenantData.metaPixelId || ''
+      // The CAPI access token is never sent down to the browser. The server
+      // returns hasMetaPixelAccessToken so we can show a "saved" placeholder
+      // in the input. The actual value stays empty client-side and is only
+      // POSTed back when the admin types a new one.
+      marketingSettings.value.metaPixelAccessToken = ''
+      hasSavedMetaPixelAccessToken.value = !!tenantData.hasMetaPixelAccessToken
+    }
 
     if (emailRes.ok) {
       const data = await emailRes.json()
-      emailSettings.value = data
-    }
-
-    if (apiRes.ok) {
-      const data = await apiRes.json()
-      apiSettings.value = data
+      // Deep-merge so a missing/partial response (e.g. server returned no
+      // smtp object during a transient error) cannot blow away the nested
+      // shape and crash the rendered SMTP form.
+      emailSettings.value = {
+        provider: data?.provider ?? '',
+        fromEmail: data?.fromEmail ?? '',
+        fromName: data?.fromName ?? '',
+        smtp: {
+          host: data?.smtp?.host ?? '',
+          port: data?.smtp?.port ?? '',
+          username: data?.smtp?.username ?? '',
+          // SMTP password follows the same hygiene rule as the CAPI token:
+          // never echoed back to the browser. Field stays empty; we show a
+          // "saved" placeholder when one already exists server-side.
+          password: '',
+          secure: typeof data?.smtp?.secure === 'boolean' ? data.smtp.secure : true,
+        },
+      }
+      hasSavedSmtpPassword.value = !!data?.smtp?.hasPassword
     }
 
     if (securityRes.ok) {
       const data = await securityRes.json()
-      securitySettings.value = data
+      securitySettings.value = {
+        sessionTimeout: data?.sessionTimeout ?? '30',
+        passwordPolicy: data?.passwordPolicy ?? 'medium',
+        twoFactorAuth: !!data?.twoFactorAuth,
+        ipWhitelisting: !!data?.ipWhitelisting,
+        whitelistedIps: data?.whitelistedIps ?? '',
+      }
     }
 
     if (templatesRes.ok) {
       const data = await templatesRes.json()
-      emailTemplates.value.splice(0, emailTemplates.value.length, ...data)
+      if (Array.isArray(data)) {
+        emailTemplates.value.splice(0, emailTemplates.value.length, ...data)
+      }
     }
 
     console.log('✅ All settings loaded successfully')

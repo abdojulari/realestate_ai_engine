@@ -36,17 +36,25 @@ export default defineEventHandler(async (event) => {
       return acc
     }, {} as Record<string, any>)
 
+    // Strip the SMTP password before returning. Like the Meta CAPI token,
+    // the SMTP relay password is a write-only secret — admins should never
+    // see it echoed in the form, devtools, or screen-shares. The boolean
+    // hasPassword lets the UI render a "saved" indicator instead.
+    const smtpRaw = settingsMap.smtp || {}
+    const smtp = {
+      host: smtpRaw.host || '',
+      port: smtpRaw.port || '',
+      username: smtpRaw.username || '',
+      password: '',
+      secure: typeof smtpRaw.secure === 'boolean' ? smtpRaw.secure : true,
+      hasPassword: !!(smtpRaw.password && String(smtpRaw.password).length > 0),
+    }
+
     return {
       provider: settingsMap.provider || '',
       fromEmail: settingsMap.fromEmail || '',
       fromName: settingsMap.fromName || '',
-      smtp: settingsMap.smtp || {
-        host: '',
-        port: '',
-        username: '',
-        password: '',
-        secure: true
-      }
+      smtp,
     }
   } catch (error: any) {
     console.error('❌ Failed to load email settings:', error)
@@ -59,7 +67,8 @@ export default defineEventHandler(async (event) => {
         port: '',
         username: '',
         password: '',
-        secure: true
+        secure: true,
+        hasPassword: false,
       }
     }
   }

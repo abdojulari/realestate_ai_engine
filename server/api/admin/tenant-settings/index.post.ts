@@ -107,6 +107,17 @@ export default defineEventHandler(async (event) => {
             const n = Number(raw)
             data[field] = Number.isFinite(n) && n >= 0 ? Math.floor(n) : null
           }
+        } else if (field === 'metaPixelAccessToken') {
+          // Write-only secret. Preserve the existing value when the client
+          // sends '' (admin saved without retyping). Allow explicit `null`
+          // to clear it. Save any non-empty string verbatim.
+          const raw = body[field]
+          if (raw === null) {
+            data[field] = null
+          } else if (typeof raw === 'string' && raw.trim().length > 0) {
+            data[field] = raw.trim()
+          }
+          // else: skip — don't touch the column
         } else {
           data[field] = body[field]
         }
