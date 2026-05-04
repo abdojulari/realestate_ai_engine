@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery, createError } from 'h3'
 import { creaService } from '../../utils/crea.service'
+import { getCanonicalCityName } from '../../utils/city-dictionary'
 
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
           listingKey: propertyData.property.ListingKey,
           listingId: propertyData.property.ListingId,
           address: propertyData.property.UnparsedAddress,
-          city: propertyData.property.City,
+          city: getCanonicalCityName(propertyData.property.City),
           price: propertyData.property.ListPrice,
           propertyType: propertyData.property.PropertySubType,
           
@@ -76,7 +77,7 @@ export default defineEventHandler(async (event) => {
           email: propertyData.listingOffice.OfficeEmail,
           address1: propertyData.listingOffice.OfficeAddress1,
           address2: propertyData.listingOffice.OfficeAddress2,
-          city: propertyData.listingOffice.OfficeCity,
+          city: getCanonicalCityName(propertyData.listingOffice.OfficeCity),
           province: propertyData.listingOffice.OfficeStateOrProvince,
           postalCode: propertyData.listingOffice.OfficePostalCode,
           country: propertyData.listingOffice.OfficeCountry,
@@ -108,7 +109,7 @@ export default defineEventHandler(async (event) => {
           email: office.OfficeEmail,
           address1: office.OfficeAddress1,
           address2: office.OfficeAddress2,
-          city: office.OfficeCity,
+          city: getCanonicalCityName(office.OfficeCity),
           province: office.OfficeStateOrProvince,
           postalCode: office.OfficePostalCode,
           country: office.OfficeCountry,

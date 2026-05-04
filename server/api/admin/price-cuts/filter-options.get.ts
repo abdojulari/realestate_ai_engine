@@ -1,6 +1,6 @@
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter, getPublicSharedMlsWhere } from '../../../utils/tenant'
-import { pillar9Service } from '../../../utils/pillar9.service'
+import { canonicalizeCityList } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -47,11 +47,12 @@ export default defineEventHandler(async (event) => {
       }),
     ])
 
-    const cities = [...new Set(
-      citiesRaw.map(r => r.city).filter(Boolean)
-        .map(c => pillar9Service.getCityName(c))
-        .filter(c => !/^\d+$/.test(c))
-    )].sort()
+    // canonicalizeCityList:
+    //  - resolves Pillar9 codes (e.g. '0100') to display names ('Edmonton')
+    //  - dedupes "Calgary" + "Calgary (NW)" + '0046' + '0047' into one entry
+    //  - drops still-unmapped numeric codes (no human label to show)
+    //  - returns alphabetically sorted, deduped names
+    const cities = canonicalizeCityList(citiesRaw.map(r => r.city))
     const communities = communitiesRaw.map(r => r.cityRegion).filter(Boolean) as string[]
     const propertyTypes = typesRaw.map(r => r.type).filter(Boolean)
 

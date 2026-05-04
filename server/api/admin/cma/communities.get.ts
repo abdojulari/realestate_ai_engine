@@ -1,6 +1,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { requireFeature, FEATURES } from '../../../utils/license'
+import { buildCityWhereClause } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -23,7 +24,13 @@ export default defineEventHandler(async (event) => {
     where.province = province
   }
   if (city) {
-    where.city = { contains: city, mode: 'insensitive' }
+    // Pull communities from every row that resolves to the same canonical
+    // city (handles "Calgary" + "Calgary (NW)" + Pillar9 codes 0046/0047
+    // returning one combined community list).
+    const cityConditions = buildCityWhereClause(city)
+    if (cityConditions.length > 0) {
+      where.AND = [...(where.AND || []), { OR: cityConditions }]
+    }
   }
 
   const raw = await prisma.property.findMany({

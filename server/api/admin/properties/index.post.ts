@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { getAdminIdForCreate } from '../../../utils/tenant'
+import { getCanonicalCityName } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -34,7 +35,10 @@ export default defineEventHandler(async (event) => {
       type: body.type.toLowerCase(),
       status: (body.status || 'for_sale').toLowerCase().replace(' ', '_'),
       address: body.address,
-      city: body.city,
+      // Canonicalise so admin-typed "edmonton" / "St Albert" / "0046"
+      // collapses to the same string MLS rows use ("Edmonton" / "St. Albert"
+      // / "Calgary"). Keeps city dropdowns and ?city= filters consistent.
+      city: getCanonicalCityName(body.city),
       province: body.province || 'AB',
       postalCode: body.postalCode || '',
       latitude: body.latitude ? parseFloat(body.latitude) : null,

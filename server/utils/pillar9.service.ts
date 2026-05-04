@@ -1,4 +1,9 @@
 import type { Property } from '~/types'
+import {
+  getAllPillar9CityCodes,
+  getCanonicalCityName,
+  getCodesForCity,
+} from './city-dictionary'
 
 interface Pillar9Property {
   ListingId: string
@@ -114,88 +119,10 @@ interface Pillar9ApiResponse {
   '@odata.nextLink'?: string
 }
 
-/**
- * Mapping of Pillar9 / Matrix city codes → human-readable Alberta city names.
- * This covers the major cities plus surrounding municipalities.
- * Codes not found here will fall through to the raw code string.
- */
-const PILLAR9_CITY_CODE_MAP: Record<string, string> = {
-  '0046': 'Calgary',
-  '0047': 'Calgary (NW)',
-  '0100': 'Edmonton',
-  '0102': 'St. Albert',
-  '0114': 'Red Deer',
-  '0134': 'Lethbridge',
-  '0141': 'Medicine Hat',
-  '0264': 'Airdrie',
-  '0265': 'Cochrane',
-  '0380': 'Okotoks',
-  '0150': 'Spruce Grove',
-  '0152': 'Stony Plain',
-  '0154': 'Leduc',
-  '0156': 'Fort Saskatchewan',
-  '0159': 'Sherwood Park',
-  '0161': 'Beaumont',
-  '0165': 'Morinville',
-  '0167': 'Devon',
-  '0170': 'Camrose',
-  '0172': 'Wetaskiwin',
-  '0201': 'Grande Prairie',
-  '0203': 'Fort McMurray',
-  '0205': 'Lloydminster',
-  '0125': 'Sylvan Lake',
-  '0145': 'Brooks',
-  '0168': 'Drayton Valley',
-  '0182': 'Lacombe',
-  '0184': 'Ponoka',
-  '0187': 'Innisfail',
-  '0190': 'Olds',
-  '0192': 'Didsbury',
-  '0195': 'Carstairs',
-  '0197': 'Crossfield',
-  '0199': 'Irricana',
-  '0200': 'Chestermere',
-  '0202': 'Strathmore',
-  '0204': 'High River',
-  '0206': 'Nanton',
-  '0208': 'Claresholm',
-  '0210': 'Vulcan',
-  '0212': 'Taber',
-  '0214': 'Coaldale',
-  '0216': 'Raymond',
-  '0218': 'Cardston',
-  '0220': 'Pincher Creek',
-  '0222': 'Crowsnest Pass',
-  '0224': 'Canmore',
-  '0226': 'Banff',
-  '0228': 'Jasper',
-  '0230': 'Hinton',
-  '0232': 'Edson',
-  '0234': 'Whitecourt',
-  '0236': 'Slave Lake',
-  '0238': 'Athabasca',
-  '0240': 'Westlock',
-  '0242': 'Barrhead',
-  '0244': 'Peace River',
-  '0246': 'Fairview',
-  '0248': 'High Level',
-  '0250': 'Bonnyville',
-  '0252': 'Cold Lake',
-  '0254': 'Vegreville',
-  '0256': 'Vermilion',
-  '0258': 'Wainwright',
-  '0300': 'Stettler',
-  '0302': 'Hanna',
-  '0304': 'Drumheller',
-  '0306': 'Three Hills',
-  '0308': 'Trochu',
-  '0310': 'Sundre',
-  '0312': 'Rocky Mountain House',
-  '0314': 'Rimbey',
-  '0316': 'Bentley',
-  '0318': 'Blackfalds',
-  '0320': 'Penhold',
-}
+// City code ⇄ name mappings live in `server/utils/city-dictionary.ts` so
+// CREA, Pillar9, and the admin query layer share a single source of truth.
+// `getCityName` / `getCodesForCityName` / `getAlbertaCityCodes` below stay
+// on this class as thin delegates to preserve the existing public API.
 
 class Pillar9Service {
   private apiHost = 'abrls.matrixwebapi.com'
@@ -684,50 +611,34 @@ class Pillar9Service {
   }
 
   /**
-   * Map a Pillar9 city code to a human-readable city name.
-   * Falls through to the raw code when no mapping exists.
+   * Map a Pillar9 city code (or already-resolved name / alias) to its
+   * canonical display name. Falls through to the raw input when unknown.
+   *
+   * Backed by `city-dictionary.getCanonicalCityName`.
    */
   getCityName(code: string): string {
-    return PILLAR9_CITY_CODE_MAP[code] ?? code
+    return getCanonicalCityName(code)
   }
 
   /**
-   * Reverse lookup: given a city name, return all codes that map to it.
+   * Reverse lookup: given a city name (or alias, or sibling code),
+   * return every Pillar9 code that resolves to the same canonical city.
+   *
+   * Backed by `city-dictionary.getCodesForCity`. Calgary correctly returns
+   * `['0046','0047']` here so a CREA "Calgary" lookup hits both Pillar9
+   * sub-buckets.
    */
   getCodesForCityName(name: string): string[] {
-    const lower = name.toLowerCase()
-    return Object.entries(PILLAR9_CITY_CODE_MAP)
-      .filter(([, cityName]) => cityName.toLowerCase() === lower)
-      .map(([code]) => code)
+    return getCodesForCity(name)
   }
 
   /**
-   * Alberta city codes (Matrix API) for batch sync - avoids "too many results"
+   * Alberta city codes (Matrix API) for batch sync — avoids "too many
+   * results". Backed by `city-dictionary.getAllPillar9CityCodes` so the
+   * canonical list lives next to its name mappings.
    */
   getAlbertaCityCodes(): string[] {
-    return [
-      '0046', '0047', '0100', '0102', '0114', '0134', '0141', '0264', '0265', '0380',
-      '0150', '0152', '0154', '0156', '0159', '0161', '0165', '0167', '0170', '0172',
-      '0201', '0203', '0205', '0125', '0145', '0168', '0182', '0184', '0187', '0190',
-      '0192', '0195', '0197', '0199', '0200', '0202', '0204', '0206', '0208', '0210',
-      '0212', '0214', '0216', '0218', '0220', '0222', '0224', '0226', '0228', '0230',
-      '0232', '0234', '0236', '0238', '0240', '0242', '0244', '0246', '0248', '0250',
-      '0252', '0254', '0256', '0258', '0300', '0302', '0304', '0306', '0308', '0310',
-      '0312', '0314', '0316', '0318', '0320', '0322', '0324', '0326', '0328', '0330',
-      '0332', '0334', '0336', '0338', '0340', '0342', '0344', '0346', '0348', '0350',
-      '0352', '0354', '0356', '0358', '0360', '0362', '0364', '0366', '0368', '0370',
-      '0372', '0374', '0376', '0378', '0381', '0383', '0385', '0387', '0389', '0391',
-      '0393', '0395', '0397', '0399', '0401', '0403', '0405', '0407', '0409', '0411',
-      '0413', '0415', '0417', '0419', '0421', '0423', '0425', '0427', '0429', '0431',
-      '0433', '0435', '0437', '0439', '0441', '0443', '0445', '0447', '0449', '0451',
-      '0453', '0455', '0457', '0459', '0461', '0463', '0465', '0467', '0469', '0471',
-      '0473', '0475', '0477', '0479', '0481', '0483', '0485', '0487', '0489', '0491',
-      '0493', '0495', '0497', '0499', '0501', '0503', '0505', '0507', '0509', '0511',
-      '0513', '0515', '0517', '0519', '0521', '0523', '0525', '0527', '0529', '0531',
-      '0533', '0535', '0537', '0539', '0541', '0543', '0545', '0547', '0549', '0551',
-      '0553', '0555', '0557', '0559', '0561', '0563', '0565', '0567', '0569', '0571',
-      '0573', '0575', '0577', '0579', '0581', '0583', '0585', '0587', '0589', '0591'
-    ]
+    return getAllPillar9CityCodes('AB')
   }
 
   /**

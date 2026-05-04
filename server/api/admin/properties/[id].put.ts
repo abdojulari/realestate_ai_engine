@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter, requireTenantAccess } from '../../../utils/tenant'
+import { getCanonicalCityName } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -34,7 +35,9 @@ export default defineEventHandler(async (event) => {
   if (body.type !== undefined) data.type = body.type.toLowerCase()
   if (body.status !== undefined) data.status = body.status.toLowerCase().replace(' ', '_')
   if (body.address !== undefined) data.address = body.address
-  if (body.city !== undefined) data.city = body.city
+  // Canonicalise admin input through the city dictionary so updates can't
+  // re-introduce "edmonton" / "St Albert" drift onto MLS rows.
+  if (body.city !== undefined) data.city = getCanonicalCityName(body.city)
   if (body.province !== undefined) data.province = body.province
   if (body.postalCode !== undefined) data.postalCode = body.postalCode
   if (body.latitude !== undefined) data.latitude = body.latitude ? parseFloat(body.latitude) : null

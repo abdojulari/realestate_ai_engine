@@ -1,5 +1,5 @@
 import { requireAdmin } from '../../../utils/auth'
-import { pillar9Service } from '../../../utils/pillar9.service'
+import { getCanonicalCityName } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
       continue
     }
 
-    const cityName = pillar9Service.getCityName(prop.city)
+    const cityName = getCanonicalCityName(prop.city)
     if (cityName === prop.city) {
       // No mapping found – leave as-is
       skipped++

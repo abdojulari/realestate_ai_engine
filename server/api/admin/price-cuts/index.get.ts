@@ -1,7 +1,7 @@
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter, getPublicSharedMlsWhere } from '../../../utils/tenant'
 import { requireFeatureForUser, FEATURES } from '../../../utils/license'
-import { pillar9Service } from '../../../utils/pillar9.service'
+import { buildCityWhereClause } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -44,11 +44,16 @@ export default defineEventHandler(async (event) => {
     // ───── Build the query ─────
     // City is always applied (AND).
     // Community and propertyType are OR – if either matches, the property qualifies.
-    // Match both the human-readable name and any Pillar9 city codes that map to it
-    const matchingCodes = pillar9Service.getCodesForCityName(city)
-    const cityConditions: any[] = [{ city: { contains: city, mode: 'insensitive' } }]
-    if (matchingCodes.length > 0) {
-      cityConditions.push({ city: { in: matchingCodes } })
+    // Use the bidirectional city dictionary so a single ?city=Edmonton
+    // hits CREA-style rows ("Edmonton"), Pillar9-only rows still tagged
+    // with the raw code ("0100"), and any aliases ("St Albert" ↔
+    // "St. Albert", "Calgary (NW)" → "Calgary"+codes 0046/0047).
+    const cityConditions = buildCityWhereClause(city)
+    if (cityConditions.length === 0) {
+      // buildCityWhereClause only returns [] for empty input; the
+      // top-of-handler guard already rejected that, so this is purely
+      // defensive — keep the query well-formed in either case.
+      cityConditions.push({ city: { contains: city, mode: 'insensitive' } })
     }
 
     // A row qualifies as a deal candidate if we have ANY usable baseline

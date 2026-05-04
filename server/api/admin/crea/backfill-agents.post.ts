@@ -1,6 +1,7 @@
 import { defineEventHandler, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { creaService } from '../../../utils/crea.service'
+import { getCanonicalCityName } from '../../../utils/city-dictionary'
 import { PrismaClient, Prisma } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -104,7 +105,7 @@ export default defineEventHandler(async (event) => {
             phone: office.OfficePhone,
             email: office.OfficeEmail,
             address: [office.OfficeAddress1, office.OfficeAddress2].filter(Boolean).join(', '),
-            city: office.OfficeCity,
+            city: getCanonicalCityName(office.OfficeCity),
             province: office.OfficeStateOrProvince,
             postalCode: office.OfficePostalCode,
             website: office.OfficeUrl

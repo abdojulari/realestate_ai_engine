@@ -1,5 +1,6 @@
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter, getPublicSharedMlsWhere } from '../../../utils/tenant'
+import { buildCityWhereClause } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -37,7 +38,13 @@ export default defineEventHandler(async (event) => {
   ]
 
   if (query.city) {
-    andConditions.push({ city: { contains: query.city, mode: 'insensitive' } })
+    // Use the bidirectional city dictionary so the filter matches CREA
+    // names, Pillar9 codes still tagged with the raw value, and aliases
+    // (e.g. "St Albert" ↔ "St. Albert") in one shot.
+    const cityConditions = buildCityWhereClause(String(query.city))
+    if (cityConditions.length > 0) {
+      andConditions.push({ OR: cityConditions })
+    }
   }
   if (query.search) {
     andConditions.push({

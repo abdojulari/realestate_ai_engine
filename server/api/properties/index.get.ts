@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { getPublicTenantFilter, getPublicSharedMlsWhere, isSharedMlsSource } from '../../utils/tenant'
+import { buildCityWhereClause } from '../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -130,15 +131,27 @@ export default defineEventHandler(async (event) => {
     }
   }
   if (status) where.status = { equals: status as string, mode: 'insensitive' }
-  if (city) where.city = { contains: city as string, mode: 'insensitive' }
+  if (city) {
+    // Bidirectional dictionary handles "Edmonton", "edmonton", "St Albert"
+    // ↔ "St. Albert", "Calgary" pulling in both Pillar9 codes 0046/0047,
+    // and falls back to substring search for cities not yet in the dict.
+    const cityConditions = buildCityWhereClause(city as string)
+    if (cityConditions.length > 0) {
+      where.AND.push({ OR: cityConditions })
+    }
+  }
   if (province) where.province = { contains: province as string, mode: 'insensitive' }
 
-  // Location filter (search in city, address, or postal code)
+  // Location filter (search in city, address, or postal code).
+  // City strand goes through the dictionary so a typo like "Calgary (NW)"
+  // still pulls Calgary listings.
   if (location && !city) {
+    const locStr = location as string
+    const cityCityConds = buildCityWhereClause(locStr)
     where.OR = [
-      { city: { contains: location as string, mode: 'insensitive' } },
-      { address: { contains: location as string, mode: 'insensitive' } },
-      { postalCode: { contains: location as string, mode: 'insensitive' } }
+      ...cityCityConds,
+      { address: { contains: locStr, mode: 'insensitive' } },
+      { postalCode: { contains: locStr, mode: 'insensitive' } }
     ]
   }
 

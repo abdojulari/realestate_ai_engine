@@ -1,4 +1,5 @@
 import type { Property } from '~/types'
+import { getCanonicalCityName } from './city-dictionary'
 
 interface CreaTokenResponse {
   access_token: string
@@ -1001,7 +1002,12 @@ class CreaService {
       type,
       status,
       address: creaProp.UnparsedAddress,
-      city: creaProp.City,
+      // Route through the bidirectional city dictionary so all CREA rows
+      // store the canonical display name. Eliminates "St Albert" vs
+      // "St. Albert" / casing drift, and means downstream Calgary +
+      // Pillar9 dedup (mlsNumber-based) doesn't have to worry about
+      // siblings tagged differently than the Pillar9 row.
+      city: getCanonicalCityName(creaProp.City),
       province: creaProp.StateOrProvince,
       postalCode: creaProp.PostalCode || '',
       latitude: creaProp.Latitude,
@@ -1080,7 +1086,7 @@ class CreaService {
           agentData.listingOffice.OfficeAddress1,
           agentData.listingOffice.OfficeAddress2
         ].filter(Boolean).join(', '),
-        city: agentData.listingOffice.OfficeCity,
+        city: getCanonicalCityName(agentData.listingOffice.OfficeCity),
         province: agentData.listingOffice.OfficeStateOrProvince,
         postalCode: agentData.listingOffice.OfficePostalCode,
         country: agentData.listingOffice.OfficeCountry,
@@ -1109,7 +1115,7 @@ class CreaService {
         phone: office.OfficePhone,
         email: office.OfficeEmail,
         address: [office.OfficeAddress1, office.OfficeAddress2].filter(Boolean).join(', '),
-        city: office.OfficeCity,
+        city: getCanonicalCityName(office.OfficeCity),
         province: office.OfficeStateOrProvince,
         postalCode: office.OfficePostalCode,
         country: office.OfficeCountry,

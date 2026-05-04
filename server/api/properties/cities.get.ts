@@ -1,5 +1,6 @@
 import { defineEventHandler, createError } from 'h3'
 import { getPublicTenantFilter, getPublicSharedMlsWhere } from '../../utils/tenant'
+import { buildCityWhereClause, getCanonicalCityName, isCityCode } from '../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -35,77 +36,81 @@ export default defineEventHandler(async (event) => {
       AND: [getPublicSharedMlsWhere(tenantFilter), { status: 'for_sale' as const }],
     }
 
-    // Get property counts grouped by city
-    const cityCounts = await prisma.property.groupBy({
+    // Get property counts grouped by raw `Property.city` value. Then we
+    // canonicalise + sum the counts so "Calgary", "Calgary (NW)", and
+    // any unmapped Pillar9 codes that resolve to "Calgary" collapse into
+    // a single dropdown entry rather than appearing 3+ times.
+    const rawCityCounts = await prisma.property.groupBy({
       by: ['city'],
-      _count: {
-        id: true
-      },
+      _count: { id: true },
       where: propertyWhereBase,
-      orderBy: {
-        _count: {
-          id: 'desc'
-        }
-      }
     })
 
-    // Get additional city statistics
-    const cityStats = await Promise.all(
-      cityCounts.map(async (cityGroup) => {
-        const cityName = cityGroup.city
-        const count = cityGroup._count.id
+    type Bucket = { count: number; rawValues: Set<string> }
+    const bucketByCanonical = new Map<string, Bucket>()
+    for (const row of rawCityCounts) {
+      if (!row.city) continue
+      const canonical = getCanonicalCityName(row.city)
+      // Drop unknown raw numeric codes — no human label to render.
+      if (!canonical || isCityCode(canonical)) continue
+      const existing = bucketByCanonical.get(canonical)
+      if (existing) {
+        existing.count += row._count.id
+        existing.rawValues.add(row.city)
+      } else {
+        bucketByCanonical.set(canonical, {
+          count: row._count.id,
+          rawValues: new Set([row.city]),
+        })
+      }
+    }
 
-        // Get average price and property types for this city
+    // Stable order: most-listings-first, matches the legacy desc orderBy.
+    const cityBuckets = [...bucketByCanonical.entries()]
+      .sort(([, a], [, b]) => b.count - a.count)
+
+    // Get additional city statistics. For each canonical city we run the
+    // nested aggregates against ALL its raw spellings/codes via
+    // buildCityWhereClause, so the avg/min/max/types/sources reflect the
+    // full inventory rather than just one of the spellings.
+    const cityStats = await Promise.all(
+      cityBuckets.map(async ([cityName, bucket]) => {
+        const cityConditions = buildCityWhereClause(cityName)
+        const cityWhere = cityConditions.length > 0
+          ? { OR: cityConditions }
+          // Defensive — buildCityWhereClause always returns at least a
+          // contains-fallback for non-empty input, so this branch is
+          // unreachable in practice. Kept so the type narrowing is clean.
+          : { city: cityName }
+
+        const baseAnd = [
+          getPublicSharedMlsWhere(tenantFilter),
+          cityWhere,
+          { status: 'for_sale' as const },
+        ]
+
         const stats = await prisma.property.aggregate({
-          where: {
-            AND: [
-              getPublicSharedMlsWhere(tenantFilter),
-              { city: cityName, status: 'for_sale' as const },
-            ],
-          },
-          _avg: {
-            price: true,
-            sqft: true
-          },
-          _min: {
-            price: true
-          },
-          _max: {
-            price: true
-          }
+          where: { AND: baseAnd },
+          _avg: { price: true, sqft: true },
+          _min: { price: true },
+          _max: { price: true },
         })
 
-        // Get property type breakdown
         const typeBreakdown = await prisma.property.groupBy({
           by: ['type'],
-          _count: {
-            id: true
-          },
-          where: {
-            AND: [
-              getPublicSharedMlsWhere(tenantFilter),
-              { city: cityName, status: 'for_sale' as const },
-            ],
-          },
+          _count: { id: true },
+          where: { AND: baseAnd },
         })
 
-        // Get source breakdown (CREA vs Manual)
         const sourceBreakdown = await prisma.property.groupBy({
           by: ['source'],
-          _count: {
-            id: true
-          },
-          where: {
-            AND: [
-              getPublicSharedMlsWhere(tenantFilter),
-              { city: cityName, status: 'for_sale' as const },
-            ],
-          },
+          _count: { id: true },
+          where: { AND: baseAnd },
         })
 
         return {
           name: cityName,
-          count,
+          count: bucket.count,
           province: 'Alberta', // All properties are in Alberta
           coordinates: CITY_COORDINATES[cityName] || null,
           stats: {

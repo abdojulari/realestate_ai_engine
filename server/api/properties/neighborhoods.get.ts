@@ -1,5 +1,6 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { getPublicTenantFilter, getPublicSharedMlsWhere } from '../../utils/tenant'
+import { lookupCity } from '../../utils/city-dictionary'
 import { PrismaClient, Prisma } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -24,6 +25,28 @@ export default defineEventHandler(async (event) => {
   const tenantFilter = await getPublicTenantFilter(event)
   const sharedMlsWhere = getPublicSharedMlsWhere(tenantFilter)
 
+  // Build the city-match clause through the bidirectional dictionary so
+  // the raw SQL covers every spelling variant + any Pillar9 codes that
+  // map to the same canonical city. Falls back to the legacy ILIKE when
+  // the input isn't in the dictionary so admins can still query
+  // unmapped cities.
+  const entry = lookupCity(city)
+  const cityClause = entry
+    ? Prisma.sql`(
+        ${Prisma.join(
+          [
+            ...[entry.name, ...(entry.aliases ?? [])].map(
+              n => Prisma.sql`city ILIKE ${n}`,
+            ),
+            ...(entry.codes.length > 0
+              ? [Prisma.sql`city = ANY(${entry.codes})`]
+              : []),
+          ],
+          ' OR ',
+        )}
+      )`
+    : Prisma.sql`city ILIKE ${city}`
+
   // Use raw SQL to extract subdivisionName from the JSONB features column
   // This is much more efficient than loading all properties into memory
   const searchCondition = search
@@ -44,7 +67,7 @@ export default defineEventHandler(async (event) => {
       AVG(latitude) AS avg_lat,
       AVG(longitude) AS avg_lng
     FROM "public"."Property"
-    WHERE city ILIKE ${city}
+    WHERE ${cityClause}
       AND status = 'for_sale'
       AND features IS NOT NULL
       AND features->>'subdivisionName' IS NOT NULL

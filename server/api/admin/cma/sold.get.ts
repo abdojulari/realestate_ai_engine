@@ -1,6 +1,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { creaService } from '../../../utils/crea.service'
+import { buildCityWhereClause } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -62,7 +63,14 @@ export default defineEventHandler(async (event) => {
     }
     where.AND = [...(where.AND || []), { OR: provinceFilters }]
   }
-  if (city) where.city = { contains: city, mode: 'insensitive' }
+  if (city) {
+    // Code/name/alias-aware matcher so CMA Sold comps don't miss
+    // Pillar9-coded rows or alias spellings.
+    const cityConditions = buildCityWhereClause(city)
+    if (cityConditions.length > 0) {
+      where.AND = [...(where.AND || []), { OR: cityConditions }]
+    }
+  }
   if (community) where.cityRegion = { contains: community, mode: 'insensitive' }
 
   const dateFilter = parseDateRange(range, startDate, endDate)

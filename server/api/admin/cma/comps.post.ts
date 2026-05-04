@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { requireFeature, FEATURES } from '../../../utils/license'
+import { buildCityWhereClause } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -346,7 +347,15 @@ export default defineEventHandler(async (event) => {
 
   const baseWhere: any = { status: 'sold' }
   if (filters.province || subject.province) baseWhere.province = filters.province || subject.province
-  if (filters.city || subject.city) baseWhere.city = { contains: (filters.city || subject.city) as string, mode: 'insensitive' }
+  // Code/name/alias-aware city matcher so CMA doesn't miss Pillar9-coded
+  // sold rows or alias spellings in the comp pool.
+  const cityInput = (filters.city || subject.city) as string | undefined
+  if (cityInput) {
+    const cityConditions = buildCityWhereClause(cityInput)
+    if (cityConditions.length > 0) {
+      baseWhere.AND = [...(baseWhere.AND || []), { OR: cityConditions }]
+    }
+  }
 
   // The true sold date can live in several places (closeDate, statusChange-
   // Timestamp, pendingTimestamp, modificationTimestamp) — see resolveSoldDate

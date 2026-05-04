@@ -1,5 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAuth } from '../../../utils/auth'
+import { getCanonicalCityName } from '../../../utils/city-dictionary'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -42,13 +43,19 @@ export default defineEventHandler(async (event) => {
     // Get client IP for consent tracking (fallback method)
     const clientIP = event.node.req.headers['x-forwarded-for'] || event.node.req.connection?.remoteAddress || 'unknown'
     
+    // Canonicalise the city so the saved alert + scheduler search both
+    // hit canonical Property.city values (matches CREA writes + Pillar9
+    // resolved names without the dictionary having to re-translate on
+    // every cron tick).
+    const canonicalCity = city ? getCanonicalCityName(city) : null
+
     // Create the property alert
     const alert = await prisma.propertyAlert.create({
       data: {
         userId: user.id,
         naturalQuery,
         parsedFilters,
-        city,
+        city: canonicalCity,
         frequency,
         isActive: true,
         nextRun,

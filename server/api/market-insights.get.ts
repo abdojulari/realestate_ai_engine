@@ -9,6 +9,7 @@
 
 import { defineEventHandler, getQuery } from 'h3'
 import { getPublicTenantFilter, getPublicSharedMlsWhere } from '../utils/tenant'
+import { buildCityWhereClause, getCanonicalCityName } from '../utils/city-dictionary'
 import { requireFeature, FEATURES } from '../utils/license'
 import { calculateAnalytics } from '../ml/analytics'
 import type { RawPropertyData } from '../ml/dataPrep'
@@ -177,7 +178,10 @@ export default defineEventHandler(async (event) => {
   await requireFeature(FEATURES.AI_INSIGHTS, event)
 
   const query = getQuery(event)
-  const city = (query.city as string) || ''
+  // Canonicalise so cache + DB filter share the same key regardless of
+  // whether the caller typed a code, alias, or canonical name.
+  const cityRaw = (query.city as string) || ''
+  const city = cityRaw ? getCanonicalCityName(cityRaw) : ''
   const tenantFilter = await getPublicTenantFilter(event)
   const cacheKey = `${city.toLowerCase() || '__all__'}|${tenantFilter.adminId ?? 'pub'}`
 
@@ -191,7 +195,12 @@ export default defineEventHandler(async (event) => {
       AND: [getPublicSharedMlsWhere(tenantFilter)],
     }
     if (city) {
-      where.AND.push({ city: { equals: city, mode: 'insensitive' } })
+      // Code/name/alias-aware matcher so insights cover the full city
+      // even when some rows still hold raw Pillar9 codes ('0100').
+      const cityConditions = buildCityWhereClause(city)
+      if (cityConditions.length > 0) {
+        where.AND.push({ OR: cityConditions })
+      }
     }
 
     const properties = await prisma.property.findMany({
