@@ -402,6 +402,20 @@
               <h2 class="text-h6 font-weight-bold">Email Settings</h2>
             </div>
             <v-card-text class="p-8">
+              <v-alert
+                type="warning"
+                variant="tonal"
+                density="comfortable"
+                class="mb-6"
+                prominent
+                border="start"
+                icon="mdi-alert-octagon-outline"
+              >
+                <div class="font-weight-bold mb-1">Advanced — only configure this if you know how to set up SMTP.</div>
+                <div class="text-body-2">
+                  Leave this section blank and your emails will be sent through our platform mail server (recommended). Filling these in connects your own SMTP relay (Gmail, Mailgun, SendGrid, etc.) so outbound mail is sent from your own address. <strong>You must fill in host, port, username AND password</strong> — partial configs are ignored and we'll fall back to platform mail. A wrong password will silently break your tenant's email until you fix it. If you're not sure what any of this means, don't touch it.
+                </div>
+              </v-alert>
               <v-form v-model="isEmailFormValid" @submit.prevent="saveEmailSettings">
                 <v-row>
                   <v-col cols="12" md="6">
@@ -887,6 +901,11 @@ const isTemplateFormValid = ref(false)
 const settingSections = [
   { id: 'general', title: 'General', icon: 'mdi-cog' },
   { id: 'marketing', title: 'Marketing & Tracking', icon: 'mdi-bullseye-arrow' },
+  // Email section is wired into sendEmail()'s adminId path: when a
+  // tenant fully configures host/port/username/password, outbound mail
+  // for that tenant authenticates against their SMTP relay. Partial
+  // configs are ignored (tenant falls back to platform SMTP) so an
+  // admin can't half-fill the form and break their own mail.
   { id: 'email', title: 'Email', icon: 'mdi-email' },
   { id: 'security', title: 'Security', icon: 'mdi-shield' }
 ]

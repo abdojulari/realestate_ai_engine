@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
-import { getTenantSender, getTenantSiteUrl } from './tenantSiteUrl'
+import { getTenantSender, getTenantSiteUrl, getTenantSmtpConfig } from './tenantSiteUrl'
+import type { TenantSmtpConfig } from './tenantSiteUrl'
 
 interface EmailOptions {
   to: string | string[]
@@ -34,8 +35,14 @@ interface EmailOptions {
   }>
 }
 
-let transporter: Transporter | null = null
-let transporterKey = ''
+/**
+ * Transporter cache. Keyed by `host:port:user` so we can hold one
+ * platform transport plus N per-tenant transports without leaking. NB:
+ * tenant transports are reused across requests and across tenants if
+ * they happen to share SMTP credentials (unusual). nodemailer's own
+ * connection pool then reuses the underlying TCP connection.
+ */
+const transporterCache = new Map<string, Transporter>()
 
 /**
  * SMTP settings: prefer process.env (Docker / server) over runtimeConfig, because
@@ -58,26 +65,48 @@ function smtpPass(config: ReturnType<typeof useRuntimeConfig>) {
 }
 
 /**
- * Get or create email transporter (recreate if SMTP env changed).
+ * Get-or-create a transporter. When `tenantSmtp` is provided the
+ * transport authenticates against the tenant's own SMTP relay
+ * (per-tenant override). Otherwise falls back to the platform
+ * SMTP_USERNAME / SMTP_PASSWORD env vars.
+ *
+ * Both paths cache by `host:port:user` so we don't open a new
+ * connection on every send.
  */
-function getTransporter(): Transporter {
-  const config = useRuntimeConfig()
-  const host = smtpHost(config)
-  const port = smtpPort(config)
-  const user = smtpUser(config)
-  const pass = smtpPass(config)
-  const key = `${host}:${port}:${user}:${pass}`
-  if (transporter && transporterKey === key) {
-    return transporter
+function getTransporter(tenantSmtp?: TenantSmtpConfig | null): Transporter {
+  let host: string
+  let port: number
+  let user: string
+  let pass: string
+  let secure: boolean
+
+  if (tenantSmtp) {
+    host = tenantSmtp.host
+    port = tenantSmtp.port
+    user = tenantSmtp.username
+    pass = tenantSmtp.password
+    secure = tenantSmtp.secure
+  } else {
+    const config = useRuntimeConfig()
+    host = smtpHost(config)
+    port = smtpPort(config)
+    user = smtpUser(config)
+    pass = smtpPass(config)
+    secure = process.env.SMTP_SECURE === 'true'
   }
-  transporterKey = key
-  transporter = nodemailer.createTransport({
+
+  const key = `${host}:${port}:${user}:${pass}:${secure}`
+  const existing = transporterCache.get(key)
+  if (existing) return existing
+
+  const created = nodemailer.createTransport({
     host,
     port,
-    secure: process.env.SMTP_SECURE === 'true',
+    secure,
     auth: user || pass ? { user, pass } : undefined,
   })
-  return transporter
+  transporterCache.set(key, created)
+  return created
 }
 
 /**
@@ -86,7 +115,19 @@ function getTransporter(): Transporter {
 export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
     const config = useRuntimeConfig()
-    const transport = getTransporter()
+
+    // Resolve per-tenant SMTP relay (returns null unless the tenant
+    // explicitly configured all four required fields). The transporter
+    // is then keyed against those creds; otherwise platform SMTP is used.
+    let tenantSmtp: TenantSmtpConfig | null = null
+    if (options.adminId != null) {
+      try {
+        tenantSmtp = await getTenantSmtpConfig(options.adminId)
+      } catch (err) {
+        console.warn('[email] tenant SMTP lookup failed, using platform SMTP:', err)
+      }
+    }
+    const transport = getTransporter(tenantSmtp)
 
     // Resolve per-tenant sender identity when caller passed adminId AND
     // didn't override `from`/`replyTo`. We never overwrite explicit

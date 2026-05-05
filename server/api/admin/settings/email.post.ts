@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter, getAdminIdForCreate } from '../../../utils/tenant'
+import { clearTenantEmailCache } from '../../../utils/tenantSiteUrl'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -72,6 +73,12 @@ export default defineEventHandler(async (event) => {
       upsertSetting('email.fromName', fromName),
       upsertSetting('email.smtp', smtpToPersist)
     ])
+
+    // Drop the cached sender + SMTP config for this tenant so the next
+    // outbound email picks up the new settings immediately. Without
+    // this the 5-min TTL inside getTenantSender / getTenantSmtpConfig
+    // would mask the change.
+    clearTenantEmailCache(adminId)
 
     console.log('✅ Email settings updated successfully')
 

@@ -34,6 +34,7 @@ globalForPrisma.prisma = prisma
 
 const TENANT_URL_TTL_MS = 5 * 60_000
 const TENANT_SENDER_TTL_MS = 5 * 60_000
+const TENANT_SMTP_TTL_MS = 5 * 60_000
 
 interface CachedUrl {
   url: string | null
@@ -45,8 +46,36 @@ interface CachedSender {
   expiresAt: number
 }
 
+interface CachedSmtp {
+  smtp: TenantSmtpConfig | null
+  expiresAt: number
+}
+
 const cache = new Map<number, CachedUrl>()
 const senderCache = new Map<number, CachedSender>()
+const smtpCache = new Map<number, CachedSmtp>()
+
+/**
+ * Per-tenant SMTP relay config. When present (i.e. an admin filled in
+ * Email Settings → SMTP fields completely), outbound mail for THAT
+ * tenant uses these credentials and host instead of the platform-level
+ * SMTP_USERNAME / SMTP_PASSWORD env vars. Saved by
+ * /api/admin/settings/email.post.ts under key `email.smtp` in the
+ * `Setting` table, scoped to that tenant's adminId.
+ *
+ * All four fields (host, username, password, port) must be present
+ * AND non-empty for this to be considered "configured" — partial
+ * configs are treated as null so we don't end up authenticating with
+ * platform creds against a tenant SMTP host (which would silently fail
+ * or send mis-branded mail).
+ */
+export interface TenantSmtpConfig {
+  host: string
+  port: number
+  username: string
+  password: string
+  secure: boolean
+}
 
 /**
  * Per-tenant outbound email identity.
@@ -193,6 +222,7 @@ export function getInternalApiBase(): string {
 export function _clearTenantSiteUrlCache(): void {
   cache.clear()
   senderCache.clear()
+  smtpCache.clear()
 }
 
 /**
@@ -228,14 +258,24 @@ function defaultSender(): TenantSender {
  * Resolution (per call):
  *   1. If `adminId` is null/undefined → global default (no display name,
  *      envelope = SMTP_USERNAME).
- *   2. TenantSettings.businessName + TenantSettings.email — the tenant's
- *      explicit branded identity.
- *   3. Admin User row — businessName falls back to "FirstName LastName",
+ *   2. Per-tenant Email Settings (Setting table, written by
+ *      /api/admin/settings/email):
+ *        - displayName ← `email.fromName`
+ *        - envelope    ← `email.fromEmail` (ONLY if per-tenant SMTP is
+ *          ALSO configured — see `getTenantSmtpConfig` — otherwise
+ *          using a tenant fromEmail with the platform SMTP relay would
+ *          get rejected/rewritten by Gmail. Safer to fall through to
+ *          the platform SMTP_SENDER envelope.)
+ *        - replyTo     ← `email.fromEmail`
+ *   3. TenantSettings.businessName + TenantSettings.email — the
+ *      tenant's branded identity (no SMTP override needed).
+ *   4. Admin User row — businessName falls back to "FirstName LastName",
  *      replyTo falls back to admin's account email.
- *   4. Default if no row found (orphaned adminId).
+ *   5. Default if no row found (orphaned adminId).
  *
  * The result is cached for TENANT_SENDER_TTL_MS to keep this off the
- * email hot path.
+ * email hot path. Cache is invalidated by `clearTenantEmailCache(adminId)`
+ * which the email-settings save endpoint must call.
  */
 export async function getTenantSender(adminId: number | null | undefined): Promise<TenantSender> {
   if (!adminId) return defaultSender()
@@ -247,7 +287,7 @@ export async function getTenantSender(adminId: number | null | undefined): Promi
 
   let sender: TenantSender = defaultSender()
   try {
-    const [settings, admin] = await Promise.all([
+    const [settings, admin, emailSettingsRows, tenantSmtp] = await Promise.all([
       prisma.tenantSettings.findUnique({
         where: { adminId },
         select: { businessName: true, email: true },
@@ -256,14 +296,33 @@ export async function getTenantSender(adminId: number | null | undefined): Promi
         where: { id: adminId },
         select: { firstName: true, lastName: true, email: true },
       }),
+      prisma.setting.findMany({
+        where: {
+          adminId,
+          key: { in: ['email.fromName', 'email.fromEmail'] },
+        },
+        select: { key: true, value: true },
+      }),
+      getTenantSmtpConfig(adminId),
     ])
+
+    const emailFromName = emailSettingsRows.find(r => r.key === 'email.fromName')?.value?.trim() || ''
+    const emailFromAddr = emailSettingsRows.find(r => r.key === 'email.fromEmail')?.value?.trim() || ''
 
     const businessName = settings?.businessName?.trim() || ''
     const adminFullName = [admin?.firstName, admin?.lastName].filter(Boolean).join(' ').trim()
-    const displayName = businessName || adminFullName
+    const displayName = emailFromName || businessName || adminFullName
 
-    const replyTo = (settings?.email?.trim() || admin?.email?.trim() || null)
-    const envelope = envSmtpUsername()
+    const replyTo = emailFromAddr || settings?.email?.trim() || admin?.email?.trim() || null
+
+    // SAFETY: only override the envelope address when the tenant has
+    // ALSO configured per-tenant SMTP. Otherwise the platform SMTP
+    // relay (Gmail authenticated as SMTP_USERNAME) won't be allowed to
+    // send "From: <tenant address>" and Gmail will silently rewrite or
+    // reject. Falling through to envSmtpUsername() keeps the verified
+    // SMTP_SENDER (e.g. noreply@deelbot.ai) as the envelope, which
+    // always works.
+    const envelope = (tenantSmtp && emailFromAddr) ? emailFromAddr : envSmtpUsername()
     const quoted = quoteDisplayName(displayName)
     const formatted = quoted ? `${quoted} <${envelope}>` : envelope
 
@@ -274,4 +333,71 @@ export async function getTenantSender(adminId: number | null | undefined): Promi
 
   senderCache.set(adminId, { sender, expiresAt: Date.now() + TENANT_SENDER_TTL_MS })
   return sender
+}
+
+/**
+ * Resolve per-tenant SMTP relay credentials from the Setting table
+ * (key = `email.smtp`). Returns null when:
+ *   - adminId is null/undefined (cross-tenant or platform-direct send), OR
+ *   - no `email.smtp` row exists for this tenant, OR
+ *   - the row is partial (any of host/port/username/password missing).
+ *
+ * The "all-or-nothing" gate is intentional: a tenant that filled in
+ * only host but no password would silently fall back to platform SMTP,
+ * which is exactly the behavior we want — rather than failing every
+ * outbound mail with auth errors.
+ *
+ * Cached for TENANT_SMTP_TTL_MS. Invalidated via clearTenantEmailCache.
+ */
+export async function getTenantSmtpConfig(adminId: number | null | undefined): Promise<TenantSmtpConfig | null> {
+  if (!adminId) return null
+
+  const cached = smtpCache.get(adminId)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.smtp
+  }
+
+  let smtp: TenantSmtpConfig | null = null
+  try {
+    const row = await prisma.setting.findFirst({
+      where: { adminId, key: 'email.smtp' },
+      select: { value: true },
+    })
+    if (row?.value) {
+      try {
+        const parsed = JSON.parse(row.value)
+        const host = String(parsed?.host || '').trim()
+        const username = String(parsed?.username || '').trim()
+        const password = String(parsed?.password || '')
+        const port = parseInt(String(parsed?.port || ''), 10)
+        if (host && username && password && port > 0) {
+          smtp = {
+            host,
+            port,
+            username,
+            password,
+            secure: !!parsed?.secure,
+          }
+        }
+      } catch {
+        // Malformed JSON in Setting.value — treat as not configured.
+      }
+    }
+  } catch (err) {
+    console.error('[tenantSmtp] lookup failed for adminId', adminId, err)
+  }
+
+  smtpCache.set(adminId, { smtp, expiresAt: Date.now() + TENANT_SMTP_TTL_MS })
+  return smtp
+}
+
+/**
+ * Invalidate the sender + SMTP caches for a single tenant. Call from
+ * the email-settings save endpoint so a freshly-saved config is picked
+ * up by the next outbound mail without waiting for the 5-min TTL.
+ */
+export function clearTenantEmailCache(adminId: number | null | undefined): void {
+  if (!adminId) return
+  senderCache.delete(adminId)
+  smtpCache.delete(adminId)
 }

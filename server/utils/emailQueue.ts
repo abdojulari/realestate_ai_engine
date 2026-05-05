@@ -1,7 +1,44 @@
 import Bull from 'bull'
 import nodemailer from 'nodemailer'
 import { getRedisClient } from './redis'
-import { getTenantSender } from './tenantSiteUrl'
+import { getTenantSender, getTenantSmtpConfig } from './tenantSiteUrl'
+import type { TenantSmtpConfig } from './tenantSiteUrl'
+
+/**
+ * Build a nodemailer transport for a specific job. Uses the tenant's
+ * SMTP relay if they fully configured one in Email Settings; otherwise
+ * the platform SMTP_USERNAME/SMTP_PASSWORD env vars. Mirrors the
+ * resolution done by `email.ts → getTransporter`.
+ */
+function buildTransport(tenantSmtp: TenantSmtpConfig | null) {
+  if (tenantSmtp) {
+    return nodemailer.createTransport({
+      host: tenantSmtp.host,
+      port: tenantSmtp.port,
+      secure: tenantSmtp.secure,
+      auth: { user: tenantSmtp.username, pass: tenantSmtp.password },
+    })
+  }
+  return nodemailer.createTransport({
+    host: process.env.SMTP_HOSTNAME || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: process.env.SMTP_SECURE === 'true',
+    auth: {
+      user: process.env.SMTP_USERNAME,
+      pass: process.env.SMTP_PASSWORD,
+    },
+  })
+}
+
+async function resolveTenantSmtp(adminId?: number | null): Promise<TenantSmtpConfig | null> {
+  if (adminId == null) return null
+  try {
+    return await getTenantSmtpConfig(adminId)
+  } catch (err) {
+    console.warn('[emailQueue] tenant SMTP lookup failed, using platform SMTP:', err)
+    return null
+  }
+}
 
 interface EmailJob {
   to: string
@@ -84,15 +121,8 @@ export function getEmailQueue(): Bull.Queue<EmailJob> | null {
         console.log(`${logPrefix} Processing email job: ${subject} to ${to}`)
 
         try {
-          const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOSTNAME || 'smtp.gmail.com',
-            port: Number(process.env.SMTP_PORT || 587),
-            secure: false,
-            auth: {
-              user: process.env.SMTP_USERNAME,
-              pass: process.env.SMTP_PASSWORD
-            }
-          })
+          const tenantSmtp = await resolveTenantSmtp(job.data.adminId)
+          const transporter = buildTransport(tenantSmtp)
 
           const { from, replyTo } = await resolveQueueSender(job.data)
 
@@ -171,15 +201,8 @@ export async function queueEmail(emailData: EmailJob): Promise<boolean> {
 
 async function sendEmailDirectly(emailData: EmailJob): Promise<boolean> {
   try {
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOSTNAME || 'smtp.gmail.com',
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USERNAME,
-        pass: process.env.SMTP_PASSWORD
-      }
-    })
+    const tenantSmtp = await resolveTenantSmtp(emailData.adminId)
+    const transporter = buildTransport(tenantSmtp)
 
     const { from, replyTo } = await resolveQueueSender(emailData)
 
