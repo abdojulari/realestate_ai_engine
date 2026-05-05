@@ -112,6 +112,16 @@ export default defineEventHandler(async (event) => {
             console.warn(`Property ${creaProp.ListingKey} has 0 images - Media in API: ${creaProp.Media?.length || 0}`)
           }
 
+          // Baseline for the Best Deals page. transformToLocalProperty already
+          // copies CREA's RESO `OriginalListPrice` into propertyData when the
+          // feed exposes it (Pillar9 / Calgary board does, the Edmonton REALTORS
+          // board often does not — see crea.service.ts:1057). When OLP is
+          // missing, firstEntryPrice is the only signal the deals query has, so
+          // we set it on every create AND lazily on update for legacy rows that
+          // were synced through here BEFORE this patch landed (~6.7k Edmonton
+          // CREA rows had NULL on both columns and never appeared as deals).
+          const newPrice = propertyData.price || 0
+
           if (existingProperty) {
             // Update existing property
             await prisma.property.update({
@@ -122,7 +132,8 @@ export default defineEventHandler(async (event) => {
                 lastSyncAt: new Date(),
                 // Preserve local data
                 views: existingProperty.views,
-                createdAt: existingProperty.createdAt
+                createdAt: existingProperty.createdAt,
+                firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price
               }
             })
             syncStats.updated++
@@ -133,7 +144,8 @@ export default defineEventHandler(async (event) => {
               data: {
                 ...propertyData,
                 ...(creaAdminId != null ? { adminId: creaAdminId } : {}),
-                lastSyncAt: new Date()
+                lastSyncAt: new Date(),
+                firstEntryPrice: newPrice
               }
             })
             syncStats.created++

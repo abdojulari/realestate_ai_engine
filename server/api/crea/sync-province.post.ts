@@ -153,6 +153,13 @@ export default defineEventHandler(async (event) => {
             console.warn(`Property ${creaProp.ListingKey} has 0 images - Media in API: ${creaProp.Media?.length || 0}`)
           }
 
+          // Baseline for the Best Deals page. See sync-alberta.post.ts for the
+          // full rationale — short version: when CREA's OriginalListPrice isn't
+          // exposed (Edmonton REALTORS board), firstEntryPrice is our only
+          // baseline signal and must be set on every create + lazily seeded on
+          // update so legacy NULL rows pick up a baseline from the next sync.
+          const newPrice = propertyData.price || 0
+
           if (existingProperty) {
             // Don't let CREA overwrite statuses set by Pillar9 (sold, terminated, etc.)
             const pillar9AuthoritativeStatuses = ['sold', 'terminated', 'withdrawn']
@@ -167,6 +174,7 @@ export default defineEventHandler(async (event) => {
                 lastSyncAt: new Date(),
                 views: existingProperty.views,
                 createdAt: existingProperty.createdAt,
+                firstEntryPrice: existingProperty.firstEntryPrice ?? existingProperty.price,
                 ...(preserveStatus ? { status: existingProperty.status } : {})
               }
             })
@@ -178,7 +186,8 @@ export default defineEventHandler(async (event) => {
               data: {
                 ...propertyData,
                 ...(creaAdminId != null ? { adminId: creaAdminId } : {}),
-                lastSyncAt: new Date()
+                lastSyncAt: new Date(),
+                firstEntryPrice: newPrice
               }
             })
             syncStats.created++

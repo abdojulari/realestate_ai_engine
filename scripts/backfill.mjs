@@ -21,6 +21,14 @@
  *   original-list-price  One-time DB fixup for the deals page: clears bogus
  *                        firstEntryPrice values and seeds originalListPrice
  *                        from firstEntryPrice when useful.
+ *   seed-baselines       One-time DB fixup for the deals page: gives every
+ *                        active CREA/Pillar9 row a `firstEntryPrice` baseline
+ *                        when both that and `originalListPrice` are null,
+ *                        so the next price drop is visible on Best Deals.
+ *                        Required after the legacy CREA sync paths were
+ *                        teaching every Edmonton row to land with a NULL
+ *                        baseline. New syncs already populate it; this
+ *                        repairs the legacy backlog.
  *   tenant-admin-ids     One-time tenant scoping fixup: sets adminId on
  *                        tenant-scoped models to the first super_admin/admin
  *                        and creates TenantSettings if missing.
@@ -28,6 +36,7 @@
  * Examples:
  *   node scripts/backfill.mjs crea-media --batch=50 --max-batches=1
  *   DRY_RUN=1 node scripts/backfill.mjs original-list-price
+ *   DRY_RUN=1 node scripts/backfill.mjs seed-baselines
  *   node scripts/backfill.mjs tenant-admin-ids
  *   node scripts/backfill.mjs --help
  */
@@ -46,6 +55,11 @@ const SUBCOMMANDS = {
     summary: 'One-time DB fixup for the deals page (firstEntryPrice / originalListPrice).',
     run: runOriginalListPrice,
     help: helpOriginalListPrice,
+  },
+  'seed-baselines': {
+    summary: 'Seed firstEntryPrice = price on legacy CREA/Pillar9 rows that have no baseline at all.',
+    run: runSeedBaselines,
+    help: helpSeedBaselines,
   },
   'tenant-admin-ids': {
     summary: 'One-time tenant scoping fixup for legacy adminId-null rows.',
@@ -351,6 +365,132 @@ async function runOriginalListPrice() {
       DRY_RUN
         ? '\n✅ DRY RUN complete. Re-run without DRY_RUN=1 to apply.'
         : '\n✅ Backfill complete. Run a normal CREA + Pillar9 sync to pull real MLS originalListPrice values.',
+    )
+  } finally {
+    await prisma.$disconnect()
+  }
+}
+
+// ─── Subcommand: seed-baselines ────────────────────────────────────────────
+
+function helpSeedBaselines() {
+  console.log(`
+backfill seed-baselines — give legacy CREA/Pillar9 rows a Best-Deals baseline
+
+Usage:
+  node scripts/backfill.mjs seed-baselines [options]
+  DRY_RUN=1 node scripts/backfill.mjs seed-baselines
+
+Why this exists
+  /api/admin/price-cuts requires a row to have EITHER \`originalListPrice\`
+  OR \`firstEntryPrice\` populated for it to even be considered as a deal.
+
+  Three legacy CREA sync endpoints (server/api/crea/sync-{alberta,province,
+  with-agents}.post.ts) shipped without writing \`firstEntryPrice\` on
+  create or update. CREA's DDF feed only exposes RESO \`OriginalListPrice\`
+  on certain MLS boards (Pillar9 / Calgary yes; Edmonton REALTORS no), so
+  those rows ended up with NULL on BOTH columns and were silently filtered
+  out of the Best Deals page even when their price dropped.
+
+  The endpoints have since been patched to populate \`firstEntryPrice\` on
+  every write, but already-ingested rows stay NULL until the next time
+  they're upserted. This script seeds them in bulk so the deals page
+  starts working immediately.
+
+What it does
+  For every Property where:
+    source ∈ ('crea','pillar9')
+    status ∈ ('for_sale','pending')
+    originalListPrice IS NULL
+    firstEntryPrice   IS NULL
+    price > 0
+  set \`firstEntryPrice = price\`.
+
+  This sets the baseline to the CURRENT price, which means any future
+  drop is detectable. We deliberately do NOT inflate the baseline beyond
+  what the data supports — pre-ingest reductions stay invisible until
+  CREA exposes OriginalListPrice for that board.
+
+Idempotent — re-running is a no-op.
+
+Options:
+  --help, -h       Show this help
+`)
+}
+
+async function runSeedBaselines() {
+  const { PrismaClient } = await import('@prisma/client')
+  const prisma = new PrismaClient()
+  const DRY_RUN = process.env.DRY_RUN === '1' || process.env.DRY_RUN === 'true'
+
+  try {
+    console.log(DRY_RUN ? '🔎 DRY RUN — no writes will be performed.\n' : '🛠  Live run — writes WILL be applied.\n')
+
+    const before = await prisma.$queryRaw`
+      SELECT
+        source,
+        COUNT(*)::int AS active,
+        COUNT(*) FILTER (WHERE "originalListPrice" IS NULL AND "firstEntryPrice" IS NULL AND price > 0)::int AS no_baseline,
+        COUNT(*) FILTER (WHERE "firstEntryPrice" IS NOT NULL)::int AS with_fep,
+        COUNT(*) FILTER (WHERE "originalListPrice" IS NOT NULL)::int AS with_olp
+      FROM "Property"
+      WHERE source IN ('crea','pillar9')
+        AND status IN ('for_sale','pending')
+      GROUP BY source
+      ORDER BY source
+    `
+    console.log('Before:')
+    console.table(before)
+
+    if (DRY_RUN) {
+      const sample = await prisma.property.findMany({
+        where: {
+          source: { in: ['crea', 'pillar9'] },
+          status: { in: ['for_sale', 'pending'] },
+          originalListPrice: null,
+          firstEntryPrice: null,
+          price: { gt: 0 },
+        },
+        select: { id: true, source: true, city: true, price: true, status: true },
+        orderBy: { id: 'asc' },
+        take: 5,
+      })
+      console.log('\nSample (first 5 rows that would be updated):')
+      console.table(sample)
+      console.log('\n✅ DRY RUN complete. Re-run without DRY_RUN=1 to apply.')
+      return
+    }
+
+    const result = await prisma.$executeRaw`
+      UPDATE "Property"
+      SET "firstEntryPrice" = price
+      WHERE source IN ('crea','pillar9')
+        AND status IN ('for_sale','pending')
+        AND "originalListPrice" IS NULL
+        AND "firstEntryPrice" IS NULL
+        AND price > 0
+    `
+    console.log(`\n✔ seeded firstEntryPrice on ${result} rows`)
+
+    const after = await prisma.$queryRaw`
+      SELECT
+        source,
+        COUNT(*)::int AS active,
+        COUNT(*) FILTER (WHERE "originalListPrice" IS NULL AND "firstEntryPrice" IS NULL AND price > 0)::int AS no_baseline,
+        COUNT(*) FILTER (WHERE "firstEntryPrice" IS NOT NULL)::int AS with_fep,
+        COUNT(*) FILTER (WHERE "originalListPrice" IS NOT NULL)::int AS with_olp
+      FROM "Property"
+      WHERE source IN ('crea','pillar9')
+        AND status IN ('for_sale','pending')
+      GROUP BY source
+      ORDER BY source
+    `
+    console.log('\nAfter:')
+    console.table(after)
+
+    console.log(
+      '\n✅ Seed complete. Best Deals will surface any future price reduction on these rows. ' +
+      'Pre-ingest drops remain invisible on boards where CREA does not publish OriginalListPrice.',
     )
   } finally {
     await prisma.$disconnect()
