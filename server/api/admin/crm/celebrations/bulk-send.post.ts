@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
       const subject = renderTemplate(subjectTemplate, vars)
       const html = generateEmailTemplate(renderTemplate(bodyTemplate, vars), { title: subject })
       try {
-        const ok = await sendEmail({ to: c.email, subject, html })
+        const ok = await sendEmail({ to: c.email, subject, html, adminId })
         if (ok) {
           sent++
           logRows.push({ adminId, clientId: c.id, kind, subject, body: renderTemplate(bodyTemplate, vars), mode, status: 'ok' })

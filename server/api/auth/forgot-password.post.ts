@@ -107,7 +107,7 @@ export default defineEventHandler(async (event) => {
 
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, firstName: true, password: true },
+      select: { id: true, email: true, firstName: true, password: true, adminId: true },
     })
 
     // Skip silently for unknown / OAuth-only accounts (no password to reset).
@@ -135,6 +135,7 @@ export default defineEventHandler(async (event) => {
       subject: 'Reset your DeelBot password',
       html,
       text,
+      adminId: user.adminId ?? null,
     })
 
     if (!sent) {

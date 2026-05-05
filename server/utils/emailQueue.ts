@@ -1,6 +1,7 @@
 import Bull from 'bull'
 import nodemailer from 'nodemailer'
 import { getRedisClient } from './redis'
+import { getTenantSender } from './tenantSiteUrl'
 
 interface EmailJob {
   to: string
@@ -8,7 +9,35 @@ interface EmailJob {
   text: string
   html?: string
   from?: string
+  /**
+   * Per-tenant identity. When provided AND `from` isn't explicit, the
+   * worker derives:
+   *   - From: "<TenantBusinessName>" <SMTP_USERNAME> (display-name only)
+   *   - Reply-To: <tenant admin email>
+   * See server/utils/tenantSiteUrl.ts → getTenantSender for resolution.
+   */
+  adminId?: number | null
   requestId?: string
+}
+
+async function resolveQueueSender(
+  job: EmailJob,
+): Promise<{ from: string; replyTo: string | null }> {
+  if (job.from) {
+    return { from: job.from, replyTo: null }
+  }
+  if (job.adminId != null) {
+    try {
+      const sender = await getTenantSender(job.adminId)
+      return { from: sender.formatted, replyTo: sender.replyTo }
+    } catch (err) {
+      console.warn('[emailQueue] tenant sender lookup failed, falling back to global SMTP:', err)
+    }
+  }
+  return {
+    from: process.env.SMTP_SENDER || process.env.SMTP_USERNAME || '',
+    replyTo: null,
+  }
 }
 
 let emailQueue: Bull.Queue<EmailJob> | null = null
@@ -49,8 +78,8 @@ export function getEmailQueue(): Bull.Queue<EmailJob> | null {
 
       // Process email jobs
       emailQueue.process(5, async (job) => { // Process up to 5 emails concurrently
-        const { to, subject, text, html, from, requestId } = job.data
-        
+        const { to, subject, text, html, requestId } = job.data
+
         const logPrefix = requestId ? `[${requestId}]` : '[EMAIL]'
         console.log(`${logPrefix} Processing email job: ${subject} to ${to}`)
 
@@ -65,12 +94,15 @@ export function getEmailQueue(): Bull.Queue<EmailJob> | null {
             }
           })
 
-          const mailOptions = {
-            from: from || process.env.SMTP_SENDER || process.env.SMTP_USERNAME,
+          const { from, replyTo } = await resolveQueueSender(job.data)
+
+          const mailOptions: nodemailer.SendMailOptions = {
+            from,
             to,
             subject,
             text,
-            ...(html && { html })
+            ...(html && { html }),
+            ...(replyTo ? { replyTo } : {}),
           }
 
           const result = await transporter.sendMail(mailOptions)
@@ -149,12 +181,15 @@ async function sendEmailDirectly(emailData: EmailJob): Promise<boolean> {
       }
     })
 
-    const mailOptions = {
-      from: emailData.from || process.env.SMTP_SENDER || process.env.SMTP_USERNAME,
+    const { from, replyTo } = await resolveQueueSender(emailData)
+
+    const mailOptions: nodemailer.SendMailOptions = {
+      from,
       to: emailData.to,
       subject: emailData.subject,
       text: emailData.text,
-      ...(emailData.html && { html: emailData.html })
+      ...(emailData.html && { html: emailData.html }),
+      ...(replyTo ? { replyTo } : {}),
     }
 
     await transporter.sendMail(mailOptions)

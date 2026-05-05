@@ -82,7 +82,7 @@ export async function executeAutomationAction(ctx: ActionContext): Promise<strin
       const subject = interpolate(action.subject || `New activity from {{email}}`, tplVars)
       const text = interpolate(action.body || `Event: {{eventName}}\nLead: {{email}}\nPath: {{path}}`, tplVars)
       const html = action.html ? interpolate(action.html, tplVars) : undefined
-      await queueEmail({ to: recipient, subject, text, html })
+      await queueEmail({ to: recipient, subject, text, html, adminId })
       return `email queued -> ${recipient}`
     }
 
@@ -95,6 +95,7 @@ export async function executeAutomationAction(ctx: ActionContext): Promise<strin
         to,
         subject: `🔔 ${tenant.tenantName || 'Realtor'} alert`,
         text: message,
+        adminId,
       })
       return `notify_admin queued -> ${to}`
     }

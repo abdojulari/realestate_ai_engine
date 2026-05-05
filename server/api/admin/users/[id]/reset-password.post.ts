@@ -86,7 +86,8 @@ export default defineEventHandler(async (event) => {
             <p style="color: #E65100; font-weight: bold;">Please log in and change your password immediately.</p>
             <p style="color: #666; font-size: 14px;">If you did not request this, please contact support.</p>
           </div>
-        `
+        `,
+        adminId: targetUser.adminId ?? null,
       })
     } catch (emailErr) {
       console.error('Failed to send password reset email:', emailErr)

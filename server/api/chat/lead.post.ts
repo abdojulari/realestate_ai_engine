@@ -1,7 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
-import nodemailer from 'nodemailer'
 import { resolveTenantFromRequest } from '../../utils/tenant'
 import { upsertCrmClientFromPlatformContact } from '../../utils/crmClientSync'
+import { sendEmail } from '../../utils/email'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -69,7 +69,8 @@ export default defineEventHandler(async (event) => {
       email: lead.email,
       phone: lead.phone,
       message: lead.message,
-      conversationLog: body.conversationLog
+      conversationLog: body.conversationLog,
+      adminId: adminId,
     })
   } catch (emailError) {
     console.error('Failed to send lead notification email:', emailError)
@@ -93,19 +94,23 @@ async function sendLeadNotification(lead: {
   phone: string | null
   message: string | null
   conversationLog?: Array<{ role: string; content: string }>
+  adminId: number | null
 }) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOSTNAME || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USERNAME,
-      pass: process.env.SMTP_PASSWORD
+  // Resolve recipient: route to the actual tenant admin (per the
+  // subdomain the visitor was on), not a global AGENT_EMAIL/SMTP_USER.
+  // Falls back to env when no tenant is resolved (cross-tenant chat).
+  let to = process.env.AGENT_EMAIL || process.env.SMTP_USERNAME || ''
+  if (lead.adminId) {
+    try {
+      const tenantAdmin = await prisma.user.findUnique({
+        where: { id: lead.adminId },
+        select: { email: true },
+      })
+      if (tenantAdmin?.email) to = tenantAdmin.email
+    } catch (err) {
+      console.warn('[chat/lead] tenant admin lookup failed, using global AGENT_EMAIL:', err)
     }
-  })
-
-  const from = process.env.SMTP_SENDER || process.env.SMTP_USERNAME
-  const to = process.env.AGENT_EMAIL || process.env.SMTP_USERNAME
+  }
 
   // Format conversation log if present
   let conversationHtml = ''
@@ -168,10 +173,11 @@ async function sendLeadNotification(lead: {
     </div>
   `
 
-  await transporter.sendMail({
-    from,
+  await sendEmail({
     to,
     subject: `New Chat Lead: ${lead.name}`,
-    html
+    html,
+    adminId: lead.adminId,
+    replyTo: lead.email,
   })
 }

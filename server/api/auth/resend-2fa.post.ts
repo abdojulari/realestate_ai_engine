@@ -27,7 +27,8 @@ export default defineEventHandler(async (event) => {
         email: true,
         firstName: true,
         lastName: true,
-        twoFactorEnabled: true
+        twoFactorEnabled: true,
+        adminId: true,
       }
     })
 
@@ -163,7 +164,8 @@ This code will expire in 5 minutes.
 For security reasons, please do not share this code with anyone.
 
 If you didn't request this code, please secure your account immediately.
-        `.trim()
+        `.trim(),
+        adminId: user.adminId ?? null,
       })
       
       console.log(`✅ Resent 2FA code to ${user.email}`)

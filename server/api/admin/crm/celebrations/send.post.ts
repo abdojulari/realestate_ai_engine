@@ -62,7 +62,7 @@ export default defineEventHandler(async (event) => {
     let status: 'ok' | 'failed' = 'ok'
     let error: string | null = null
     try {
-      const ok = await sendEmail({ to: client.email, subject, html })
+      const ok = await sendEmail({ to: client.email, subject, html, adminId })
       if (!ok) { status = 'failed'; error = 'sendEmail returned false' }
     } catch (e: any) {
       status = 'failed'; error = e?.message || 'Unknown send error'

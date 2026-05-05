@@ -4,8 +4,11 @@ import { requireFeature, FEATURES } from '../../../utils/license'
 import { sendEmail } from '../../../utils/email'
 
 export default defineEventHandler(async (event) => {
-  await requireAdmin(event)
-  
+  const adminUser = await requireAdmin(event)
+  const adminId = adminUser.role === 'super_admin' || adminUser.role === 'admin'
+    ? adminUser.id
+    : adminUser.adminId ?? null
+
   // Check license for CMA report feature
   await requireFeature(FEATURES.CMA_REPORT, event)
 
@@ -29,7 +32,8 @@ export default defineEventHandler(async (event) => {
     const sent = await sendEmail({
       to: clientEmail,
       subject: emailSubject,
-      html: reportHtml
+      html: reportHtml,
+      adminId,
     })
     
     if (!sent) {

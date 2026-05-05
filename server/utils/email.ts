@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
-import { getTenantSiteUrl } from './tenantSiteUrl'
+import { getTenantSender, getTenantSiteUrl } from './tenantSiteUrl'
 
 interface EmailOptions {
   to: string | string[]
@@ -14,6 +14,18 @@ interface EmailOptions {
    * want the realtor's reply to land in the inquirer's inbox.
    */
   replyTo?: string | string[]
+  /**
+   * Per-tenant identity. When provided AND `from`/`replyTo` aren't
+   * explicitly set, we'll derive:
+   *   - `From: "<TenantBusinessName>" <SMTP_USERNAME>` (display-name only;
+   *     envelope stays on the authenticated SMTP user so Gmail/Workspace
+   *     don't reject or rewrite the header).
+   *   - `Reply-To: <tenant admin email>` so replies land in the right inbox.
+   *
+   * Pass `null` (or omit) for platform-wide / cross-tenant emails (e.g.
+   * super-admin notifications) — those use the global SMTP_SENDER.
+   */
+  adminId?: number | null
   attachments?: Array<{
     filename: string
     path?: string
@@ -75,16 +87,32 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
   try {
     const config = useRuntimeConfig()
     const transport = getTransporter()
-    
+
+    // Resolve per-tenant sender identity when caller passed adminId AND
+    // didn't override `from`/`replyTo`. We never overwrite explicit
+    // values — callers like contact.post.ts (where replyTo is the
+    // visitor's email) must keep working.
+    let resolvedFrom = options.from
+    let resolvedReplyTo: string | string[] | undefined = options.replyTo
+    if (options.adminId != null) {
+      try {
+        const sender = await getTenantSender(options.adminId)
+        if (!resolvedFrom) resolvedFrom = sender.formatted
+        if (!resolvedReplyTo && sender.replyTo) resolvedReplyTo = sender.replyTo
+      } catch (err) {
+        console.warn('[email] tenant sender lookup failed, using global SMTP defaults:', err)
+      }
+    }
+
     const mailOptions: nodemailer.SendMailOptions = {
-      from: options.from || process.env.SMTP_SENDER || config.smtpSender || process.env.SMTP_FROM || 'noreply@homebyabdul.com',
+      from: resolvedFrom || process.env.SMTP_SENDER || config.smtpSender || process.env.SMTP_FROM || 'noreply@homebyabdul.com',
       to: Array.isArray(options.to) ? options.to.join(', ') : options.to,
       subject: options.subject,
       html: options.html,
       text: options.text || stripHtml(options.html),
       attachments: options.attachments,
-      ...(options.replyTo
-        ? { replyTo: Array.isArray(options.replyTo) ? options.replyTo.join(', ') : options.replyTo }
+      ...(resolvedReplyTo
+        ? { replyTo: Array.isArray(resolvedReplyTo) ? resolvedReplyTo.join(', ') : resolvedReplyTo }
         : {}),
     }
 
@@ -145,7 +173,12 @@ export async function sendNewsletterBatch(
             subject: campaign.subject,
             html: personalizedContent,
             text: campaign.plainTextContent,
-            attachments: campaign.attachments ? JSON.parse(JSON.stringify(campaign.attachments)) : undefined
+            attachments: campaign.attachments ? JSON.parse(JSON.stringify(campaign.attachments)) : undefined,
+            // Forward tenant identity so per-subscriber sends inherit the
+            // tenant's branded From + Reply-To. Without this, a
+            // newsletter blast from "tonahomes.deelbot.ai" would still
+            // show the global SMTP_SENDER as From.
+            adminId: options?.adminId ?? null,
           })
 
           if (sent) {

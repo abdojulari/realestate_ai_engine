@@ -2,7 +2,7 @@ import { defineEventHandler, readBody, createError, getQuery, getHeader } from '
 import nodemailer from 'nodemailer'
 import jwt from 'jsonwebtoken'
 import { resolveTenantFromRequest } from '../../utils/tenant'
-import { getTenantSiteUrlForEvent } from '../../utils/tenantSiteUrl'
+import { getTenantSender, getTenantSiteUrlForEvent } from '../../utils/tenantSiteUrl'
 import { sendMetaEvent, newMetaEventId } from '../../utils/metaPixel'
 import { recordServerEvent } from '../../utils/eventsRecorder'
 import { EVENT_NAMES } from '../../utils/eventConstants'
@@ -137,6 +137,7 @@ export default defineEventHandler(async (event) => {
       propertySnapshot: body.property,
       config: config,
       tenantSiteUrl,
+      adminId,
     })
 
     // Meta CAPI: server-side Lead event (deduped with browser pixel via
@@ -207,6 +208,7 @@ async function sendInquiryEmail({
   propertySnapshot,
   config,
   tenantSiteUrl,
+  adminId,
 }: {
   inquirerName: string
   inquirerEmail: string
@@ -216,6 +218,7 @@ async function sendInquiryEmail({
   propertySnapshot?: any
   config: any
   tenantSiteUrl: string
+  adminId: number | null
 }) {
   try {
     const transporter = nodemailer.createTransport({
@@ -228,10 +231,27 @@ async function sendInquiryEmail({
       }
     })
 
-    const from = config.smtpSender || config.smtpUsername
-    
-    // Determine recipient email - use configured agent emails
-    const recipientEmail = config.agentEmail || 'real4ojulari@gmail.com'
+    // Resolve recipient: route to the actual tenant admin (per the
+    // subdomain the visitor was on), not a global AGENT_EMAIL hardcode.
+    // Falls back to env when no tenant resolves.
+    let recipientEmail = config.agentEmail || 'real4ojulari@gmail.com'
+    if (adminId) {
+      try {
+        const tenantAdmin = await prisma.user.findUnique({
+          where: { id: adminId },
+          select: { email: true },
+        })
+        if (tenantAdmin?.email) recipientEmail = tenantAdmin.email
+      } catch (err) {
+        console.warn('[inquiry] tenant admin lookup failed, using config.agentEmail:', err)
+      }
+    }
+
+    // Resolve branded From + Reply-To. Visitor's email goes in Reply-To
+    // (so admin can reply directly); From shows the tenant's business
+    // name with the SMTP-authenticated address as the envelope.
+    const tenantSender = await getTenantSender(adminId)
+    const from = tenantSender.formatted
     
     // Use property snapshot if available, otherwise use property from DB
     const propertyInfo = propertySnapshot || property

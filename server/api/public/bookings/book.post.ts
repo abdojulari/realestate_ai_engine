@@ -152,6 +152,7 @@ export default defineEventHandler(async (event) => {
 
           await sendEmail({
             to: admin.email,
+            adminId: tenantAdminId ?? null,
             subject: `New Booking – ${clientName} – ${formattedDate}`,
             html: `
               <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

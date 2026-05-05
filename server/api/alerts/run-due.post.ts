@@ -1,7 +1,7 @@
 import { createError, defineEventHandler, getHeader, getQuery } from 'h3'
-import nodemailer from 'nodemailer'
 import { PrismaClient } from '@prisma/client'
 import { getInternalApiBase, getTenantSiteUrl } from '../../utils/tenantSiteUrl'
+import { sendEmail } from '../../utils/email'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -160,15 +160,6 @@ async function sendAlertEmail(user: any, alert: any, properties: any[]) {
   // Per-tenant absolute URL so each user's email links to the realtor's site
   // (custom domain or *.deelbot.ai subdomain) rather than a global default.
   const siteUrl = await getTenantSiteUrl(user.adminId)
-  const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOSTNAME,
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false,
-    auth: {
-      user: process.env.SMTP_USERNAME,
-      pass: process.env.SMTP_PASSWORD
-    }
-  })
 
   const propertyListHtml = properties.slice(0, 10).map(property => {
     const propertyUrl = `${siteUrl}/property/${property.id}`
@@ -224,14 +215,15 @@ async function sendAlertEmail(user: any, alert: any, properties: any[]) {
     </html>
   `
 
-  const mailOptions = {
-    from: process.env.SMTP_SENDER || process.env.SMTP_USERNAME,
+  // adminId routes the From display name + Reply-To to the tenant the
+  // buyer signed up under, so emails come from "Tona Homes" not from a
+  // platform-level address the recipient doesn't recognise.
+  await sendEmail({
     to: user.email,
     subject: `New Properties: ${alert.naturalQuery}`,
-    html: emailHtml
-  }
-
-  await transporter.sendMail(mailOptions)
+    html: emailHtml,
+    adminId: user.adminId ?? null,
+  })
 }
 
 function calculateNextRun(frequency: string): Date {

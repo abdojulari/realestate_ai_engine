@@ -1,5 +1,6 @@
 import { sendEmail, generateEmailTemplate } from '../../utils/email'
 import { PrismaClient } from '@prisma/client'
+import { resolveTenantFromRequest } from '../../utils/tenant'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -34,6 +35,12 @@ export default defineEventHandler(async (event) => {
   const ipAddress = getHeader(event, 'x-forwarded-for')
     || getHeader(event, 'x-real-ip')
     || 'unknown'
+
+  // Privacy requests are cross-tenant by design (PIPEDA officer is the
+  // platform owner) but the buyer-facing confirmation should still come
+  // from the tenant they were on, not a global address. Officer
+  // notification stays platform-global.
+  const requesterTenantAdminId = await resolveTenantFromRequest(event).catch(() => null)
 
   const privacyRequest = await prisma.privacyRequest.create({
     data: {
@@ -70,6 +77,7 @@ export default defineEventHandler(async (event) => {
       to: email,
       subject: `Privacy Request Received — Reference PR-${String(privacyRequest.id).padStart(5, '0')}`,
       html: confirmationHtml,
+      adminId: requesterTenantAdminId,
     })
   } catch (err) {
     console.error('Failed to send confirmation email:', err)

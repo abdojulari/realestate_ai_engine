@@ -33,13 +33,50 @@ const prisma = globalForPrisma.prisma ?? new PrismaClient()
 globalForPrisma.prisma = prisma
 
 const TENANT_URL_TTL_MS = 5 * 60_000
+const TENANT_SENDER_TTL_MS = 5 * 60_000
 
 interface CachedUrl {
   url: string | null
   expiresAt: number
 }
 
+interface CachedSender {
+  sender: TenantSender
+  expiresAt: number
+}
+
 const cache = new Map<number, CachedUrl>()
+const senderCache = new Map<number, CachedSender>()
+
+/**
+ * Per-tenant outbound email identity.
+ *
+ *  - `displayName`: human-readable sender name (e.g. "Tona Homes") that
+ *    end-recipients see in their inbox. Falls back to admin's full name
+ *    when TenantSettings.businessName is unset.
+ *  - `replyTo`: the address replies should land in — the tenant admin's
+ *    own inbox (TenantSettings.email if set, else User.email of the admin).
+ *  - `formatted`: ready-to-use RFC-5322 string. Combine with the
+ *    SMTP-authenticated address as the envelope sender so we never get
+ *    rejected/rewritten by relays that enforce sender alignment (Gmail,
+ *    Workspace, SES non-verified).
+ *
+ * Why we don't put `replyTo` directly into `From`:
+ *   Most authenticated relays (Gmail SMTP especially) will REJECT or
+ *   silently REWRITE a `From:` whose address differs from the
+ *   authenticated user, unless the address is explicitly registered as a
+ *   "Send As" alias. Using the tenant identity as DISPLAY NAME only —
+ *   while keeping the envelope on SMTP_USERNAME — gives recipients a
+ *   branded "From: Tona Homes <noreply@deelbot.ai>" without any SMTP
+ *   server-side changes. Replies still route to the right tenant via
+ *   `Reply-To`.
+ */
+export interface TenantSender {
+  displayName: string
+  replyTo: string | null
+  envelopeAddress: string
+  formatted: string
+}
 
 function trimSlash(s: string): string {
   return s.replace(/\/$/, '')
@@ -155,4 +192,86 @@ export function getInternalApiBase(): string {
  */
 export function _clearTenantSiteUrlCache(): void {
   cache.clear()
+  senderCache.clear()
+}
+
+/**
+ * Escape RFC-5322 display name. Quotes the name and backslash-escapes
+ * any embedded quotes/backslashes so e.g. `"Tona's Homes"` doesn't break
+ * the header. Returns the display fragment without the address part.
+ */
+function quoteDisplayName(name: string): string {
+  if (!name) return ''
+  const cleaned = name.trim()
+  if (!cleaned) return ''
+  const escaped = cleaned.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  return `"${escaped}"`
+}
+
+function envSmtpUsername(): string {
+  return process.env.SMTP_SENDER || process.env.SMTP_USERNAME || process.env.SMTP_FROM || 'noreply@homebyabdul.com'
+}
+
+function defaultSender(): TenantSender {
+  const envelope = envSmtpUsername()
+  return {
+    displayName: '',
+    replyTo: null,
+    envelopeAddress: envelope,
+    formatted: envelope,
+  }
+}
+
+/**
+ * Resolve the per-tenant sender identity for outbound email.
+ *
+ * Resolution (per call):
+ *   1. If `adminId` is null/undefined → global default (no display name,
+ *      envelope = SMTP_USERNAME).
+ *   2. TenantSettings.businessName + TenantSettings.email — the tenant's
+ *      explicit branded identity.
+ *   3. Admin User row — businessName falls back to "FirstName LastName",
+ *      replyTo falls back to admin's account email.
+ *   4. Default if no row found (orphaned adminId).
+ *
+ * The result is cached for TENANT_SENDER_TTL_MS to keep this off the
+ * email hot path.
+ */
+export async function getTenantSender(adminId: number | null | undefined): Promise<TenantSender> {
+  if (!adminId) return defaultSender()
+
+  const cached = senderCache.get(adminId)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.sender
+  }
+
+  let sender: TenantSender = defaultSender()
+  try {
+    const [settings, admin] = await Promise.all([
+      prisma.tenantSettings.findUnique({
+        where: { adminId },
+        select: { businessName: true, email: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: adminId },
+        select: { firstName: true, lastName: true, email: true },
+      }),
+    ])
+
+    const businessName = settings?.businessName?.trim() || ''
+    const adminFullName = [admin?.firstName, admin?.lastName].filter(Boolean).join(' ').trim()
+    const displayName = businessName || adminFullName
+
+    const replyTo = (settings?.email?.trim() || admin?.email?.trim() || null)
+    const envelope = envSmtpUsername()
+    const quoted = quoteDisplayName(displayName)
+    const formatted = quoted ? `${quoted} <${envelope}>` : envelope
+
+    sender = { displayName, replyTo, envelopeAddress: envelope, formatted }
+  } catch (err) {
+    console.error('[tenantSender] lookup failed for adminId', adminId, err)
+  }
+
+  senderCache.set(adminId, { sender, expiresAt: Date.now() + TENANT_SENDER_TTL_MS })
+  return sender
 }

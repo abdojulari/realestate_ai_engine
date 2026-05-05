@@ -39,7 +39,8 @@ export default defineEventHandler(async (event) => {
         to: testEmail,
         subject: `[TEST] ${campaign.subject}`,
         html: campaign.content,
-        text: campaign.plainTextContent || undefined
+        text: campaign.plainTextContent || undefined,
+        adminId: getTenantAdminId(user),
       })
       return { success: true, message: `Test email sent to ${testEmail}`, testMode: true }
     }

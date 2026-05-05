@@ -145,6 +145,7 @@ export default defineEventHandler(async (event) => {
     if (recipient) {
       await sendEmail({
         to: recipient,
+        adminId: tenantAdminId,
         subject: `New InstaConnect contact: ${firstName} ${lastName}`,
         html,
       })

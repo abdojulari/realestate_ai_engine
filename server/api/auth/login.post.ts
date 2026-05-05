@@ -244,7 +244,8 @@ This code will expire in 5 minutes.
 For security reasons, please do not share this code with anyone.
 
 If you didn't request this code, please ignore this email and ensure your account is secure.
-            `.trim()
+            `.trim(),
+            adminId: user.adminId ?? null,
           })
 
         if (!sent) {

@@ -24,6 +24,9 @@ globalForPrisma.prisma = prisma
  */
 export default defineEventHandler(async (event: H3Event) => {
   const user = await requireAdmin(event)
+  const adminId = user.role === 'super_admin' || user.role === 'admin'
+    ? user.id
+    : user.adminId ?? null
 
   const id = parseInt(event.context.params?.id || '0')
   if (!id) {
@@ -86,6 +89,7 @@ export default defineEventHandler(async (event: H3Event) => {
       to: recipientEmail,
       subject,
       html: htmlContent,
+      adminId,
       attachments: [
         {
           filename: document.originalName,

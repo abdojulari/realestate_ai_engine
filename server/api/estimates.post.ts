@@ -246,6 +246,23 @@ export default defineEventHandler(async (event) => {
 
 async function queueEstimateEmails(estimate: any, requestId?: string) {
   try {
+    // Resolve recipient: route admin notification to the actual tenant
+    // admin (per the tenant the lead was captured on), not the global
+    // SMTP user. Falls back to env if there's no adminId on the estimate
+    // (cross-tenant or platform-direct lead).
+    let adminRecipient = process.env.SMTP_USERNAME || ''
+    if (estimate.adminId) {
+      try {
+        const tenantAdmin = await prisma.user.findUnique({
+          where: { id: estimate.adminId },
+          select: { email: true },
+        })
+        if (tenantAdmin?.email) adminRecipient = tenantAdmin.email
+      } catch (err) {
+        console.warn('[estimates] tenant admin email lookup failed, using global SMTP_USERNAME:', err)
+      }
+    }
+
     // Queue notification to admin
     const adminEmailBody = `
 New Home Estimate Request #${estimate.id}
@@ -279,10 +296,11 @@ Please log into the admin dashboard to respond to this request.
     `
 
     await queueEmail({
-      to: process.env.SMTP_USERNAME || '', // Admin email
+      to: adminRecipient,
       subject: `New Home Estimate Request - ${estimate.firstName} ${estimate.lastName}`,
       text: adminEmailBody,
-      requestId
+      requestId,
+      adminId: estimate.adminId ?? null,
     })
 
     // Queue confirmation to user
@@ -311,7 +329,8 @@ The Real Estate Team
       to: estimate.email,
       subject: 'Your Home Estimate Request - Confirmation',
       text: userEmailBody,
-      requestId
+      requestId,
+      adminId: estimate.adminId ?? null,
     })
 
     const logPrefix = requestId ? `[${requestId}]` : '[EMAIL]'

@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     include: {
       document: {
         include: {
-          user: { select: { id: true, email: true, firstName: true, lastName: true } },
+          user: { select: { id: true, email: true, firstName: true, lastName: true, adminId: true } },
         },
       },
     },
@@ -85,7 +85,12 @@ export default defineEventHandler(async (event) => {
       <p>This reminder was sent to the document owner and super admins.</p>
     `
 
-    const ok = await sendEmail({ to: recipients, subject, html })
+    // Reminder is co-recipient: document owner + super admins. We thread
+    // the owner's tenant adminId so the From displays the tenant the
+    // owner signed up under (e.g. "Tona Homes" for tonahomes.deelbot.ai).
+    // Cross-tenant super admin recipients still see that branded sender,
+    // which matches the document being managed under that tenant.
+    const ok = await sendEmail({ to: recipients, subject, html, adminId: doc?.user?.adminId ?? null })
     if (ok) {
       await prisma.documentDateAlert.update({
         where: { id: alert.id },

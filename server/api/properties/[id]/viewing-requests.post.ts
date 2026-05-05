@@ -173,6 +173,7 @@ export default defineEventHandler(async (event) => {
 
       await sendEmail({
         to: admin.email,
+        adminId: viewingRequest.property.adminId ?? null,
         subject: `New Showing Request – ${propertyTitle} – ${formattedDate}`,
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -222,6 +223,7 @@ export default defineEventHandler(async (event) => {
 
     await sendEmail({
       to: viewingRequest.user.email,
+      adminId: viewingRequest.property.adminId ?? null,
       subject: `Viewing Confirmed – ${propertyTitle}`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

@@ -82,7 +82,7 @@ export default defineEventHandler(async (event) => {
         const renderedBody = renderTemplate(eff.body, vars)
         const html = generateEmailTemplate(renderedBody, { title: subject })
         try {
-          const ok = await sendEmail({ to: c.email!, subject, html })
+          const ok = await sendEmail({ to: c.email!, subject, html, adminId })
           if (ok) {
             tenantSent++
             logRows.push({ adminId, clientId: c.id, kind, subject, body: renderedBody, mode: 'auto', status: 'ok' })
