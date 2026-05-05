@@ -47,6 +47,11 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml ./
 # Source shim (Nitro usually inlines it; kept for tooling / future requires)
 COPY --from=builder /app/server/shims ./server/shims
+# Operational scripts (backfills, one-time DB fixups, admin tools). Not part
+# of the served Nitro bundle, but invoked via `docker compose exec app node
+# scripts/<name>.mjs ...` during deploys and incident response. Without this
+# any backfill run from inside the prod container fails with MODULE_NOT_FOUND.
+COPY --from=builder /app/scripts ./scripts
 
 # Install dependencies (includes Prisma CLI for generate step)
 RUN pnpm install --frozen-lockfile
