@@ -90,6 +90,11 @@ services:
       - APP_BASE_DOMAIN=deelbot.ai
       - NUXT_PUBLIC_FACEBOOK_APP_ID=${FACEBOOK_APP_ID}
       - NUXT_FACEBOOK_APP_SECRET=${FACEBOOK_APP_SECRET}
+      # Multi-tenant OAuth canonical callback. Defaults wire every
+      # *.deelbot.ai subdomain through one Google Cloud Console redirect
+      # URI; override via host env to point at a different canonical host.
+      - OAUTH_CANONICAL_HOST=${OAUTH_CANONICAL_HOST:-https://deelbot.ai}
+      - OAUTH_ALLOWED_HOST_SUFFIX=${OAUTH_ALLOWED_HOST_SUFFIX:-deelbot.ai}
     volumes:
       # App writes under public/uploads (avatars, logos, …). Previously /app/uploads broke paths vs DB URLs.
       - suhani_uploads:/app/public/uploads

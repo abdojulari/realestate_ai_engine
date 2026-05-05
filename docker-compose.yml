@@ -86,6 +86,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:-}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Multi-tenant OAuth canonical callback. Empty by default for local
+      # dev (per-host flow works with localhost); set both in deelbot.ai
+      # production so all *.deelbot.ai subdomains share one redirect URI.
+      OAUTH_CANONICAL_HOST: ${OAUTH_CANONICAL_HOST:-}
+      OAUTH_ALLOWED_HOST_SUFFIX: ${OAUTH_ALLOWED_HOST_SUFFIX:-}
       FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
       FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
       NUXT_PUBLIC_FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}

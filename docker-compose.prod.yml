@@ -131,6 +131,14 @@ services:
       # Google
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # Multi-tenant OAuth canonical callback. With these set, every
+      # tenant subdomain (`tonahomes.deelbot.ai`, `aohomes.deelbot.ai`,
+      # …) routes Google login through `<canonical>/api/auth/google/callback`,
+      # so you only register ONE redirect URI in Google Cloud Console
+      # instead of one per tenant. Defaults below match the deelbot.ai
+      # SaaS deployment; override per environment as needed.
+      OAUTH_CANONICAL_HOST: ${OAUTH_CANONICAL_HOST:-https://deelbot.ai}
+      OAUTH_ALLOWED_HOST_SUFFIX: ${OAUTH_ALLOWED_HOST_SUFFIX:-deelbot.ai}
 
   nginx:
     image: nginx:alpine
