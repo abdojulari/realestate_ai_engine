@@ -259,6 +259,13 @@ async function runSyncInBackground(params: any) {
     const all: Awaited<ReturnType<typeof pillar9Service.getProperties>> = []
     let skip = 0
     let hasMore = true
+    // Recursion guard: PRICE_RANGE_BRACKETS starts at (0,200000), which is
+    // the same shape as the inner call. Without this flag we'd recurse
+    // forever on cities like Calgary that genuinely have >5k pending
+    // listings under $200K — the inner (0,200000) call also returns
+    // "More than N", which would fire the splitting branch again with
+    // the SAME first bracket, infinitely. Hard-cap to one split level.
+    const isAlreadySplit = minPrice != null || maxPrice != null
 
     while (hasMore) {
       const result = await fetchBatchWithRetry(cityCode, status, skip, minPrice, maxPrice)
@@ -268,10 +275,28 @@ async function runSyncInBackground(params: any) {
       }
 
       if (result.tooMany) {
-        console.log(`📊 Pillar9: city ${cityCode} status ${status} too large — splitting by price range`)
-        syncProgress.phase = `splitting city ${cityCode}`
+        if (isAlreadySplit) {
+          // We're already inside a price bracket and Pillar9 STILL says
+          // there's too many results. Recursing would re-issue the same
+          // bracket and loop forever. Surface as a recoverable error,
+          // skip this slice, and let the caller move on to the next
+          // bracket so the rest of the city/status still gets synced.
+          const sliceLabel = `[$${minPrice ?? 0}-$${maxPrice ?? 'max'}]`
+          const errMsg = `Pillar9: city ${cityCode} status ${status} bracket ${sliceLabel} still over results cap after splitting — skipping (likely needs a finer split axis than ListPrice)`
+          console.warn(`⚠ ${errMsg}`)
+          syncProgress.stats.errors++
+          syncProgress.stats.errorDetails.push(errMsg)
+          return { properties: all, invalidCity: false }
+        }
+
+        console.log(`📊 Pillar9: city ${cityCode} status ${status} too large — splitting into ${PRICE_RANGE_BRACKETS.length} price brackets`)
         const subResults: Awaited<ReturnType<typeof pillar9Service.getProperties>> = []
-        for (const bracket of PRICE_RANGE_BRACKETS) {
+        for (let i = 0; i < PRICE_RANGE_BRACKETS.length; i++) {
+          const bracket = PRICE_RANGE_BRACKETS[i]!
+          // Phase string surfaces the actual bracket position so the
+          // poller can see real progress instead of a frozen "splitting"
+          // label for the whole 9-bracket sweep.
+          syncProgress.phase = `splitting city ${cityCode} status ${status} bracket ${i + 1}/${PRICE_RANGE_BRACKETS.length}`
           const sub = await fetchAllForCityStatus(cityCode, status, bracket.min, bracket.max)
           if (sub.invalidCity) return { properties: [], invalidCity: true }
           subResults.push(...sub.properties)
@@ -619,13 +644,38 @@ async function runSyncInBackground(params: any) {
       data: { status: 'expired' }
     })
 
-    const sysAdmin = await prisma.user.findFirst({ where: { role: 'super_admin' }, select: { id: true } })
-    const sysAdminId = sysAdmin?.id ?? null
-    await (prisma.setting as any).upsert({
-      where: { adminId_key: { adminId: sysAdminId!, key: 'pillar9_last_sync' } },
-      update: { value: new Date().toISOString() },
-      create: { adminId: sysAdminId, key: 'pillar9_last_sync', value: new Date().toISOString() }
-    })
+    // Stamp "last successful sync" timestamp. This is a platform-wide
+    // setting (Pillar9 is shared MLS, not tenant-scoped), so adminId may
+    // legitimately be null when no super_admin user exists yet. Prisma's
+    // compound `adminId_key` upsert requires a non-null adminId in `where`
+    // (Postgres treats NULLs as distinct in unique indexes), so we have to
+    // fall back to find-then-update/create when there's no admin to anchor
+    // the row to. Wrapped in try/catch so a metadata failure can't undo
+    // the actual data sync that just completed.
+    try {
+      const sysAdmin = await prisma.user.findFirst({ where: { role: 'super_admin' }, select: { id: true } })
+      const sysAdminId = sysAdmin?.id ?? null
+      const nowIso = new Date().toISOString()
+      if (sysAdminId == null) {
+        const existing = await (prisma.setting as any).findFirst({
+          where: { adminId: null, key: 'pillar9_last_sync' },
+          select: { id: true },
+        })
+        if (existing) {
+          await (prisma.setting as any).update({ where: { id: existing.id }, data: { value: nowIso } })
+        } else {
+          await (prisma.setting as any).create({ data: { adminId: null, key: 'pillar9_last_sync', value: nowIso } })
+        }
+      } else {
+        await (prisma.setting as any).upsert({
+          where: { adminId_key: { adminId: sysAdminId, key: 'pillar9_last_sync' } },
+          update: { value: nowIso },
+          create: { adminId: sysAdminId, key: 'pillar9_last_sync', value: nowIso },
+        })
+      }
+    } catch (err) {
+      console.warn('Pillar9 sync: failed to stamp pillar9_last_sync setting (data sync still succeeded):', (err as Error)?.message)
+    }
 
     syncProgress.result = {
       success: true,
