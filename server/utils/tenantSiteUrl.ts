@@ -19,7 +19,11 @@
  *   3. `tenantSettings.subdomain` + APP_BASE_DOMAIN → "https://acme.deelbot.ai"
  *   4. process.env.NUXT_PUBLIC_SITE_URL  (single-tenant fallback)
  *   5. process.env.APP_URL / SITE_URL    (legacy)
- *   6. "http://localhost:3000"           (dev last-resort)
+ *   6. `https://${APP_BASE_DOMAIN}`      (apex SaaS host — branded fallback;
+ *                                         logs a one-shot warning in prod
+ *                                         because hitting this means orphan
+ *                                         tenant routing data)
+ *   7. "http://localhost:3000"           (dev last-resort, prod logs ERROR)
  *
  * The DB lookup is cached for TENANT_URL_TTL_MS (default 5 min) per adminId.
  */
@@ -111,13 +115,53 @@ function trimSlash(s: string): string {
   return s.replace(/\/$/, '')
 }
 
+/**
+ * Last-resort site URL when no per-tenant data is available.
+ *
+ * Prior bug (2026-05): this used to terminate at `http://localhost:3000`,
+ * which meant any cron-driven email path (alerts/run-due, scheduled
+ * notifications) baked localhost links into recipients' inboxes whenever
+ * `user.adminId` failed to resolve to a TenantSettings row with a
+ * subdomain or customDomain. End users tapped those on their phones and
+ * saw "ERR_FAILED — http://localhost:3000/property/<id>".
+ *
+ * The chain now ends at `https://${APP_BASE_DOMAIN}` (the platform's
+ * canonical SaaS host, e.g. https://deelbot.ai) instead of localhost,
+ * so the worst case is "wrong tenant, but reachable, brand-correct
+ * apex" rather than "broken link". Localhost only kicks in when neither
+ * env var is set AND we're not in production — i.e. real local dev.
+ *
+ * In production, hitting this fallback at all means a user/property
+ * row is missing tenant routing data — we log a single loud warning so
+ * the orphan can be tracked down and fixed in the DB instead of being
+ * masked forever by the apex fallback.
+ */
+let warnedAboutFallback = false
 function envFallback(): string {
-  return trimSlash(
-    process.env.NUXT_PUBLIC_SITE_URL ||
-      process.env.APP_URL ||
-      process.env.SITE_URL ||
-      'http://localhost:3000'
-  )
+  const explicit = process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL
+  if (explicit) return trimSlash(explicit)
+
+  const baseDomain = (process.env.APP_BASE_DOMAIN || '').trim().toLowerCase()
+  if (baseDomain) {
+    if (process.env.NODE_ENV === 'production' && !warnedAboutFallback) {
+      console.warn(
+        `[tenantSiteUrl] envFallback hit in production — no per-tenant URL resolved. ` +
+        `Using https://${baseDomain} as last-resort. Check that all User.adminId rows ` +
+        `point to TenantSettings with subdomain or customDomain set.`
+      )
+      warnedAboutFallback = true
+    }
+    return `https://${baseDomain}`
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    console.error(
+      '[tenantSiteUrl] envFallback hit in production with NO env vars set ' +
+      '(NUXT_PUBLIC_SITE_URL, APP_URL, SITE_URL, APP_BASE_DOMAIN all empty). ' +
+      'Outbound emails will contain http://localhost:3000 links. Fix this immediately.'
+    )
+  }
+  return 'http://localhost:3000'
 }
 
 /**

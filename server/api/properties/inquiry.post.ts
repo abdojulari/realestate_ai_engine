@@ -260,7 +260,16 @@ async function sendInquiryEmail({
     const propertyCity = propertyInfo.city || ''
     const propertyPrice = propertyInfo.price ? `$${propertyInfo.price.toLocaleString()}` : 'Price not available'
     const mlsNumber = propertyInfo.mlsNumber || 'N/A'
-    const propertyUrl = propertySnapshot?.url || `${tenantSiteUrl}/property/${property.id}`
+    // Always derive the link from the resolved tenant URL — never from
+    // `propertySnapshot.url`. The snapshot is mirrored from the request
+    // body, which is whatever origin the visitor's browser was on. A
+    // dev session at http://localhost:3000 submitting an inquiry would
+    // otherwise put a localhost link into the realtor's inbox; a tenant
+    // visiting `acme.deelbot.ai` would burn that one tenant's host
+    // into mail going to a realtor on a different tenant. Trusting
+    // tenantSiteUrl (Host header → tenantSettings → apex fallback)
+    // keeps the canonical URL correct in all paths.
+    const propertyUrl = `${tenantSiteUrl}/property/${property.id}`
 
     const emailSubject = `New Property Inquiry: ${propertyTitle}`
     
