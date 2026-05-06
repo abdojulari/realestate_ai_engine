@@ -157,9 +157,25 @@ async function runPropertySearch(filters: any, city?: string) {
 
 // Send alert email to user
 async function sendAlertEmail(user: any, alert: any, properties: any[]) {
-  // Per-tenant absolute URL so each user's email links to the realtor's site
-  // (custom domain or *.deelbot.ai subdomain) rather than a global default.
+  // Per-tenant absolute URL so each user's email links to the realtor's
+  // site (customDomain or {subdomain}.{APP_BASE_DOMAIN}). NEVER falls
+  // back to the platform apex (deelbot.ai) — that's the SaaS marketing
+  // shell, not a tenant; /property/<id> 404s there.
+  //
+  // If we can't resolve a real tenant URL (orphaned User.adminId, or
+  // TenantSettings without subdomain/customDomain), SKIP this user
+  // entirely. Sending an email full of broken links is worse than
+  // sending nothing — the orphan log written by getTenantSiteUrl gives
+  // us the data we need to fix the bad row.
   const siteUrl = await getTenantSiteUrl(user.adminId)
+  if (!siteUrl) {
+    console.warn(
+      `[alerts] Skipping alert email to ${user.email} — no tenant URL ` +
+      `resolvable for adminId=${user.adminId ?? 'null'}. ` +
+      `See [tenantSiteUrl] orphan log above for the underlying cause.`
+    )
+    return
+  }
 
   const propertyListHtml = properties.slice(0, 10).map(property => {
     const propertyUrl = `${siteUrl}/property/${property.id}`

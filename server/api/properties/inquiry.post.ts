@@ -217,7 +217,7 @@ async function sendInquiryEmail({
   property: any
   propertySnapshot?: any
   config: any
-  tenantSiteUrl: string
+  tenantSiteUrl: string | null
   adminId: number | null
 }) {
   try {
@@ -264,11 +264,18 @@ async function sendInquiryEmail({
     // `propertySnapshot.url`. The snapshot is mirrored from the request
     // body, which is whatever origin the visitor's browser was on. A
     // dev session at http://localhost:3000 submitting an inquiry would
-    // otherwise put a localhost link into the realtor's inbox; a tenant
-    // visiting `acme.deelbot.ai` would burn that one tenant's host
-    // into mail going to a realtor on a different tenant. Trusting
-    // tenantSiteUrl (Host header → tenantSettings → apex fallback)
-    // keeps the canonical URL correct in all paths.
+    // otherwise put a localhost link into the realtor's inbox.
+    //
+    // tenantSiteUrl can be null only if the request had no Host header
+    // (unreachable on a real HTTP path) AND tenant DB lookup failed —
+    // skip the email rather than send "null/property/123" garbage.
+    if (!tenantSiteUrl) {
+      console.error(
+        `[inquiry] Skipping email — could not resolve tenant URL ` +
+        `(adminId=${adminId ?? 'null'}). Inquiry was still saved.`
+      )
+      return
+    }
     const propertyUrl = `${tenantSiteUrl}/property/${property.id}`
 
     const emailSubject = `New Property Inquiry: ${propertyTitle}`

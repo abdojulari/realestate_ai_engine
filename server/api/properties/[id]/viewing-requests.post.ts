@@ -153,6 +153,18 @@ export default defineEventHandler(async (event) => {
       const propertyTitle = viewingRequest.property.title || viewingRequest.property.address || `Property #${propertyId}`
       const propertyAddress = [viewingRequest.property.address, viewingRequest.property.city, viewingRequest.property.province].filter(Boolean).join(', ')
       const siteUrl = await getTenantSiteUrlForEvent(event, adminId)
+      // siteUrl is null only if no Host header AND no resolvable tenant
+      // — skip realtor email rather than send a broken `null/property/...`
+      // link. Viewing request was already persisted above so data isn't
+      // lost; we just don't send the realtor notification this time.
+      // Throw so the wrapping try/catch logs + moves on to the client
+      // confirmation email below (which has the same fall-through).
+      if (!siteUrl) {
+        throw new Error(
+          `tenant URL unresolvable for adminId=${adminId ?? 'null'} — ` +
+          `realtor email skipped, see [tenantSiteUrl] orphan log`
+        )
+      }
       const propertyUrl = `${siteUrl}/property/${propertyId}`
       const formattedDate = dateTime.toLocaleDateString('en-CA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
       const formattedTime = dateTime.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
@@ -219,6 +231,14 @@ export default defineEventHandler(async (event) => {
     const formattedTime = dateTime.toLocaleTimeString('en-CA', { hour: '2-digit', minute: '2-digit' })
     const propertyTitle = viewingRequest.property.title || viewingRequest.property.address || `Property #${propertyId}`
     const clientSiteUrl = await getTenantSiteUrlForEvent(event, viewingRequest.property.adminId)
+    if (!clientSiteUrl) {
+      // Same reasoning as the realtor email above — throw into the
+      // wrapping catch so we log + skip rather than email a broken link.
+      throw new Error(
+        `tenant URL unresolvable for adminId=${viewingRequest.property.adminId ?? 'null'} — ` +
+        `client confirmation email skipped, see [tenantSiteUrl] orphan log`
+      )
+    }
     const clientPropertyUrl = `${clientSiteUrl}/property/${propertyId}`
 
     await sendEmail({

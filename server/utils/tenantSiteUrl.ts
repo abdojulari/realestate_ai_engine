@@ -14,18 +14,26 @@
  * Resolution (per call)
  *   1. The current request's `Host` header (when available) — fastest, no DB.
  *      Used by request handlers like /api/properties/inquiry where the
- *      visitor IS on the tenant's site.
+ *      visitor IS on the tenant's site. Always returns a usable URL when
+ *      an event is present, since every HTTP request carries Host.
  *   2. `tenantSettings.customDomain` (e.g. "acmesrealty.com") → "https://…"
  *   3. `tenantSettings.subdomain` + APP_BASE_DOMAIN → "https://acme.deelbot.ai"
- *   4. process.env.NUXT_PUBLIC_SITE_URL  (single-tenant fallback)
- *   5. process.env.APP_URL / SITE_URL    (legacy)
- *   6. `https://${APP_BASE_DOMAIN}`      (apex SaaS host — branded fallback;
- *                                         logs a one-shot warning in prod
- *                                         because hitting this means orphan
- *                                         tenant routing data)
- *   7. "http://localhost:3000"           (dev last-resort, prod logs ERROR)
+ *   4. NULL.
  *
- * The DB lookup is cached for TENANT_URL_TTL_MS (default 5 min) per adminId.
+ * No env / apex fallback by design. The platform host (deelbot.ai) is the
+ * SaaS marketing/control-plane site — it does NOT serve /property/<id>
+ * pages. Falling back to it produces 404s ("This site can't be reached")
+ * for users who tap email links on their phones, and looks broken
+ * regardless. A baked `process.env.NUXT_PUBLIC_SITE_URL=localhost:3000`
+ * (the prior bug) was even worse.
+ *
+ * A null return is the correct signal that no real tenant URL is
+ * available. CRON-driven email senders MUST treat null as "skip this
+ * recipient, log an error" rather than blindly templating it into HTML.
+ * Request-scoped callers always pass an `event` so step 1 succeeds.
+ *
+ * The DB lookup (and null result) is cached for TENANT_URL_TTL_MS to
+ * avoid re-querying for known-orphaned adminIds.
  */
 
 import type { H3Event } from 'h3'
@@ -116,52 +124,20 @@ function trimSlash(s: string): string {
 }
 
 /**
- * Last-resort site URL when no per-tenant data is available.
- *
- * Prior bug (2026-05): this used to terminate at `http://localhost:3000`,
- * which meant any cron-driven email path (alerts/run-due, scheduled
- * notifications) baked localhost links into recipients' inboxes whenever
- * `user.adminId` failed to resolve to a TenantSettings row with a
- * subdomain or customDomain. End users tapped those on their phones and
- * saw "ERR_FAILED — http://localhost:3000/property/<id>".
- *
- * The chain now ends at `https://${APP_BASE_DOMAIN}` (the platform's
- * canonical SaaS host, e.g. https://deelbot.ai) instead of localhost,
- * so the worst case is "wrong tenant, but reachable, brand-correct
- * apex" rather than "broken link". Localhost only kicks in when neither
- * env var is set AND we're not in production — i.e. real local dev.
- *
- * In production, hitting this fallback at all means a user/property
- * row is missing tenant routing data — we log a single loud warning so
- * the orphan can be tracked down and fixed in the DB instead of being
- * masked forever by the apex fallback.
+ * One-shot tracking of orphaned adminIds we've already warned about,
+ * so we don't spam logs for the same broken row on every alert run.
+ * Cleared whenever the URL cache entry expires (5 min TTL by default).
  */
-let warnedAboutFallback = false
-function envFallback(): string {
-  const explicit = process.env.NUXT_PUBLIC_SITE_URL || process.env.APP_URL || process.env.SITE_URL
-  if (explicit) return trimSlash(explicit)
+const warnedOrphans = new Set<number>()
 
-  const baseDomain = (process.env.APP_BASE_DOMAIN || '').trim().toLowerCase()
-  if (baseDomain) {
-    if (process.env.NODE_ENV === 'production' && !warnedAboutFallback) {
-      console.warn(
-        `[tenantSiteUrl] envFallback hit in production — no per-tenant URL resolved. ` +
-        `Using https://${baseDomain} as last-resort. Check that all User.adminId rows ` +
-        `point to TenantSettings with subdomain or customDomain set.`
-      )
-      warnedAboutFallback = true
-    }
-    return `https://${baseDomain}`
-  }
-
-  if (process.env.NODE_ENV === 'production') {
-    console.error(
-      '[tenantSiteUrl] envFallback hit in production with NO env vars set ' +
-      '(NUXT_PUBLIC_SITE_URL, APP_URL, SITE_URL, APP_BASE_DOMAIN all empty). ' +
-      'Outbound emails will contain http://localhost:3000 links. Fix this immediately.'
-    )
-  }
-  return 'http://localhost:3000'
+function logOrphan(adminId: number, reason: string): void {
+  if (warnedOrphans.has(adminId)) return
+  warnedOrphans.add(adminId)
+  console.error(
+    `[tenantSiteUrl] adminId=${adminId} has no resolvable tenant URL: ${reason}. ` +
+    `Outbound emails for this tenant's users will be SKIPPED. ` +
+    `Fix by setting TenantSettings.subdomain or .customDomain for this admin.`
+  )
 }
 
 /**
@@ -199,18 +175,26 @@ export function getRequestSiteUrl(event: H3Event | null | undefined): string {
 
 /**
  * Look up the canonical absolute URL for a tenant by their admin id.
- * Cached. Returns "" if no TenantSettings row exists and no env fallback
- * makes sense.
+ *
+ * Returns null when no usable URL can be derived (no adminId, missing
+ * TenantSettings row, or that row has neither customDomain nor subdomain).
+ * Callers MUST handle null — for cron-driven email senders this means
+ * skipping the recipient and logging an orphan warning. There is no
+ * platform-apex fallback because the SaaS host (deelbot.ai) is not a
+ * tenant site and produces 404s for /property/<id> paths.
+ *
+ * The result (including null) is cached for TENANT_URL_TTL_MS.
  */
-export async function getTenantSiteUrl(adminId: number | null | undefined): Promise<string> {
-  if (!adminId) return envFallback()
+export async function getTenantSiteUrl(adminId: number | null | undefined): Promise<string | null> {
+  if (!adminId) return null
 
   const cached = cache.get(adminId)
   if (cached && cached.expiresAt > Date.now()) {
-    return cached.url || envFallback()
+    return cached.url
   }
 
   let url: string | null = null
+  let reason = 'no TenantSettings row found'
   try {
     const settings = await prisma.tenantSettings.findUnique({
       where: { adminId },
@@ -222,27 +206,40 @@ export async function getTenantSiteUrl(adminId: number | null | undefined): Prom
         url = trimSlash(urlFromHost(settings.customDomain))
       } else if (settings.subdomain && baseDomain) {
         url = trimSlash(urlFromHost(`${settings.subdomain}.${baseDomain}`))
+      } else if (settings.subdomain && !baseDomain) {
+        reason = `subdomain="${settings.subdomain}" present but APP_BASE_DOMAIN env is unset`
+      } else {
+        reason = 'TenantSettings has neither customDomain nor subdomain'
       }
     }
   } catch (err) {
-    console.error('[tenantSiteUrl] lookup failed for adminId', adminId, err)
+    console.error('[tenantSiteUrl] DB lookup failed for adminId', adminId, err)
+    reason = `DB lookup failed (${err instanceof Error ? err.message : 'unknown'})`
   }
 
   cache.set(adminId, { url, expiresAt: Date.now() + TENANT_URL_TTL_MS })
-  return url || envFallback()
+  if (url) {
+    // Recovery path: TenantSettings was fixed since the last warn.
+    // Drop the orphan flag so we'll warn again if it breaks later.
+    warnedOrphans.delete(adminId)
+  } else {
+    logOrphan(adminId, reason)
+  }
+  return url
 }
 
 /**
- * Best-of-both helper: prefer the live request `Host` if we have an event
- * (cheap + always correct for the tenant the visitor is on), fall back to
- * the per-tenant DB lookup, then env. Use this in request handlers that
- * already have an `event` AND know the `adminId` (e.g. inquiry / viewing
- * request emails to the realtor).
+ * Best-of-both helper: prefer the live request `Host` (always correct for
+ * the tenant the visitor is on, no DB hit needed), fall back to the
+ * per-tenant DB lookup. Returns null only when BOTH fail — i.e. no event
+ * AND no resolvable tenant URL. In practice request handlers always pass
+ * an event, so this is non-null for any normal HTTP request path; cron
+ * callers that pass null event must handle null in their callsite.
  */
 export async function getTenantSiteUrlForEvent(
   event: H3Event | null | undefined,
   adminId: number | null | undefined,
-): Promise<string> {
+): Promise<string | null> {
   const fromEvent = getRequestSiteUrl(event)
   if (fromEvent) return fromEvent
   return getTenantSiteUrl(adminId)
@@ -267,6 +264,7 @@ export function _clearTenantSiteUrlCache(): void {
   cache.clear()
   senderCache.clear()
   smtpCache.clear()
+  warnedOrphans.clear()
 }
 
 /**

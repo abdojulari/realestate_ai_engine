@@ -257,10 +257,17 @@ export default defineEventHandler(async (event) => {
     // Prepare content (convert HTML to Markdown if needed)
     const contentMarkdown = post.content
 
+    // siteUrl can be null when neither Host header nor TenantSettings
+    // resolve (orphaned admin). For a relative cover image, we can't
+    // build an absolute URL Hashnode can fetch — drop it instead of
+    // emitting a "null/path/to/cover.png" string. Already-absolute
+    // covers (http(s)://) are unaffected.
     const coverImageCandidate = post.coverImage
       ? (post.coverImage.startsWith('http')
           ? post.coverImage
-          : `${siteUrl}${post.coverImage.startsWith('/') ? '' : '/'}${post.coverImage}`)
+          : siteUrl
+            ? `${siteUrl}${post.coverImage.startsWith('/') ? '' : '/'}${post.coverImage}`
+            : undefined)
       : undefined
     const coverImageUrl = (() => {
       if (!coverImageCandidate) return undefined
