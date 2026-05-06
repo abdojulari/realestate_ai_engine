@@ -1,7 +1,13 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { getPublicTenantFilter, getPublicSharedMlsWhere, isSharedMlsSource } from '../../utils/tenant'
 import { buildCityWhereClause } from '../../utils/city-dictionary'
-import { PrismaClient } from '@prisma/client'
+import {
+  NEIGHBORHOOD_AREA_UNSPECIFIED_LABEL,
+  sqlCityMatchesProperty,
+  sqlNeighborhoodAreaIsBlank,
+  sqlPublicSharedMlsSources,
+} from '../../utils/propertyNeighborhoodArea'
+import { PrismaClient, Prisma } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -228,13 +234,39 @@ export default defineEventHandler(async (event) => {
   if (subdivision) {
     if (!where.AND) where.AND = []
     const sub = String(subdivision).trim()
-    where.AND.push({
-      OR: [
-        { features: { path: ['subdivisionName'], equals: sub } },
-        { features: { path: ['cityRegion'], equals: sub } },
-        { cityRegion: { equals: sub, mode: 'insensitive' } },
-      ],
-    })
+    if (sub === NEIGHBORHOOD_AREA_UNSPECIFIED_LABEL) {
+      // Blank resolved MLS area — Prisma JSON filters can't express COALESCE(...)= '';
+      // intersect with raw id list scoped like the neighborhoods aggregate (city + tenant + residential + optional status).
+      if (!city) {
+        where.AND.push({ id: { in: [] } })
+      } else {
+        const parts: Prisma.Sql[] = [
+          sqlCityMatchesProperty('p', city as string),
+          sqlPublicSharedMlsSources('p', tenantFilter.adminId),
+          sqlNeighborhoodAreaIsBlank('p'),
+          Prisma.sql`p.type IN (${Prisma.join(residentialTypes.map(t => Prisma.sql`${t}`))})`,
+        ]
+        if (status) {
+          parts.push(
+            Prisma.sql`LOWER(TRIM(p.status)) = LOWER(TRIM(${String(status)}))`,
+          )
+        }
+        const blankAreaRows = await prisma.$queryRaw<Array<{ id: number }>>`
+          SELECT p.id FROM "Property" p
+          WHERE ${Prisma.join(parts, ' AND ')}
+        `
+        const ids = blankAreaRows.map(r => r.id)
+        where.AND.push({ id: { in: ids.length > 0 ? ids : [] } })
+      }
+    } else {
+      where.AND.push({
+        OR: [
+          { features: { path: ['subdivisionName'], equals: sub } },
+          { features: { path: ['cityRegion'], equals: sub } },
+          { cityRegion: { equals: sub, mode: 'insensitive' } },
+        ],
+      })
+    }
   }
   
   // Neighborhood filtering
