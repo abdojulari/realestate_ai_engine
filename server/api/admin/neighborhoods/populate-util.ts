@@ -1,8 +1,8 @@
 import type { PrismaClient } from '@prisma/client'
 
 /**
- * Extracts unique SubdivisionName values from property features JSON,
- * creates Neighborhood records, and links properties via PropertyNeighborhood.
+ * Uses the same resolution order as GET /api/properties/neighborhoods:
+ * subdivisionName → features.cityRegion → Property.cityRegion.
  */
 export async function populateNeighborhoods(prisma: PrismaClient) {
   const properties = await prisma.property.findMany({
@@ -17,6 +17,7 @@ export async function populateNeighborhoods(prisma: PrismaClient) {
       longitude: true,
       price: true,
       features: true,
+      cityRegion: true,
     }
   })
 
@@ -39,17 +40,21 @@ export async function populateNeighborhoods(prisma: PrismaClient) {
   }>()
 
   for (const prop of properties) {
-    const features = prop.features as any
-    const subdivisionName = features?.subdivisionName
-    if (!subdivisionName || typeof subdivisionName !== 'string' || !subdivisionName.trim()) continue
+    const features = prop.features as Record<string, unknown> | null
+    const areaName =
+      (typeof features?.subdivisionName === 'string' && features.subdivisionName.trim()) ||
+      (typeof features?.cityRegion === 'string' && features.cityRegion.trim()) ||
+      (typeof prop.cityRegion === 'string' && prop.cityRegion.trim()) ||
+      ''
+    if (!areaName) continue
     if (!prop.city) continue
 
     stats.propertiesWithSubdivision++
-    const key = `${subdivisionName.trim()}|${prop.city}|${prop.province || 'Alberta'}`
+    const key = `${areaName}|${prop.city}|${prop.province || 'Alberta'}`
 
     if (!neighborhoodMap.has(key)) {
       neighborhoodMap.set(key, {
-        name: subdivisionName.trim(),
+        name: areaName,
         city: prop.city,
         province: prop.province || 'Alberta',
         properties: []

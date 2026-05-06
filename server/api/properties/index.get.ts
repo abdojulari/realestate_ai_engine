@@ -221,14 +221,19 @@ export default defineEventHandler(async (event) => {
     where.unitNumber = { contains: unitNumber as string, mode: 'insensitive' }
   }
   
-  // Subdivision/neighborhood name filter (searches features.subdivisionName via JSON path)
+  // Subdivision / community filter — must mirror /api/properties/neighborhoods
+  // resolution order (subdivisionName → features.cityRegion → column cityRegion).
+  // The dropdown label can be a CityRegion when SubdivisionName is empty (common
+  // on CREA); filtering only JSON subdivisionName returned zero matches before.
   if (subdivision) {
     if (!where.AND) where.AND = []
+    const sub = String(subdivision).trim()
     where.AND.push({
-      features: {
-        path: ['subdivisionName'],
-        equals: subdivision as string,
-      }
+      OR: [
+        { features: { path: ['subdivisionName'], equals: sub } },
+        { features: { path: ['cityRegion'], equals: sub } },
+        { cityRegion: { equals: sub, mode: 'insensitive' } },
+      ],
     })
   }
   

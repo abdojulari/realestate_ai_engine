@@ -111,6 +111,8 @@ interface Pillar9Property {
 
   // 2026 schema update (only fields confirmed available in Matrix API)
   SubdivisionName?: string | null
+  /** RESO community / city region — CREA equivalent is CityRegion. */
+  CityRegion?: string | null
 }
 
 interface Pillar9ApiResponse {
@@ -331,6 +333,8 @@ class Pillar9Service {
       'PoolFeatures', 'WaterfrontFeatures',
       // 2026 schema additions (only fields confirmed available in Matrix API)
       'SubdivisionName',
+      // Community / area label — aligns with CREA CityRegion for neighborhood dropdowns
+      'CityRegion',
     ]
     const select = filters.select?.length ? filters.select : defaultSelect
     queryParts.push(`$select=${encodeURIComponent(select.join(','))}`)
@@ -531,6 +535,8 @@ class Pillar9Service {
       closeDate: p9Prop.CloseDate,
       closePrice: p9Prop.ClosePrice,
       subdivisionName: p9Prop.SubdivisionName ?? null,
+      /** Mirrors CREA `features.cityRegion` from RESO CityRegion */
+      cityRegion: p9Prop.CityRegion ?? null,
     }
 
     const price = status === 'sold' && p9Prop.ClosePrice 
@@ -578,9 +584,8 @@ class Pillar9Service {
       taxYear: p9Prop.TaxYear || null,
       parcelNumber: p9Prop.ParcelNumber || null,
       
-      // Fields CREA provides but Pillar9 doesn't — set explicitly to avoid undefined
-      propertyCondition: null,
-      cityRegion: null,
+      // RESO CityRegion — same semantic as CREA CityRegion (community / area)
+      cityRegion: p9Prop.CityRegion ?? null,
       waterBodyName: null,
 
       daysOnMarket: p9Prop.DaysOnMarket ?? (p9Prop.ListDate

@@ -9,9 +9,18 @@ globalForPrisma.prisma = prisma
 
 /**
  * GET /api/properties/neighborhoods?city=Edmonton
- * Extracts unique SubdivisionName values from property features JSON,
- * filtered by city, with property counts. This gives real-time accurate
- * neighborhoods based on actual property data.
+ *
+ * Builds the dropdown from the same fallback chain MLS consumers expect:
+ *   1. RESO SubdivisionName → `features.subdivisionName` (granular subdivision)
+ *   2. RESO CityRegion / community → `features.cityRegion` (CREA writes CityRegion here)
+ *   3. Top-level `Property.cityRegion` (CREA column mirror — often populated when
+ *      subdivision is blank, e.g. Edmonton condos)
+ *
+ * Previously we only grouped on `features.subdivisionName`, so thousands of CREA
+ * rows with CityRegion but empty SubdivisionName disappeared from the dropdown
+ * (~30 subdivisions vs 7000+ listings). Pillar9 carries SubdivisionName on the
+ * wire and should populate `features.subdivisionName`; we also map Matrix
+ * CityRegion when the API exposes it (see pillar9.service.ts $select).
  */
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
@@ -47,21 +56,32 @@ export default defineEventHandler(async (event) => {
       )`
     : Prisma.sql`city ILIKE ${city}`
 
-  // Use raw SQL to extract subdivisionName from the JSONB features column
-  // This is much more efficient than loading all properties into memory
+  // Single resolved "area" label per row — matches how CREA/Pillar9 expose community.
+  const neighborhoodExpr = Prisma.sql`
+    COALESCE(
+      NULLIF(TRIM(features->>'subdivisionName'), ''),
+      NULLIF(TRIM(features->>'cityRegion'), ''),
+      NULLIF(TRIM("cityRegion"), '')
+    )
+  `
+
   const searchCondition = search
-    ? Prisma.sql`AND subdivision_name ILIKE ${'%' + search + '%'}`
+    ? Prisma.sql`AND COALESCE(
+      NULLIF(TRIM(features->>'subdivisionName'), ''),
+      NULLIF(TRIM(features->>'cityRegion'), ''),
+      NULLIF(TRIM("cityRegion"), '')
+    ) ILIKE ${'%' + search + '%'}`
     : Prisma.sql``
 
   const results = await prisma.$queryRaw<Array<{
-    subdivision_name: string
+    neighborhood_name: string
     property_count: bigint
     avg_price: number | null
     avg_lat: number | null
     avg_lng: number | null
   }>>`
     SELECT 
-      features->>'subdivisionName' AS subdivision_name,
+      ${neighborhoodExpr} AS neighborhood_name,
       COUNT(*)::bigint AS property_count,
       AVG(price) AS avg_price,
       AVG(latitude) AS avg_lat,
@@ -69,19 +89,25 @@ export default defineEventHandler(async (event) => {
     FROM "public"."Property"
     WHERE ${cityClause}
       AND status = 'for_sale'
-      AND features IS NOT NULL
-      AND features->>'subdivisionName' IS NOT NULL
-      AND features->>'subdivisionName' != ''
+      AND COALESCE(
+        NULLIF(TRIM(features->>'subdivisionName'), ''),
+        NULLIF(TRIM(features->>'cityRegion'), ''),
+        NULLIF(TRIM("cityRegion"), '')
+      ) IS NOT NULL
+      AND LENGTH(TRIM(COALESCE(
+        NULLIF(TRIM(features->>'subdivisionName'), ''),
+        NULLIF(TRIM(features->>'cityRegion'), ''),
+        NULLIF(TRIM("cityRegion"), '')
+      ))) > 0
       ${searchCondition}
-    GROUP BY features->>'subdivisionName'
-    HAVING COUNT(*) >= 1
+    GROUP BY 1
     ORDER BY COUNT(*) DESC
     LIMIT 200
   `
 
   const neighborhoods = results.map((r, index) => ({
     id: index + 1,
-    name: r.subdivision_name,
+    name: r.neighborhood_name,
     city,
     propertyCount: Number(r.property_count),
     averagePrice: r.avg_price ? Math.round(r.avg_price) : null,
