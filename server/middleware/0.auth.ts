@@ -68,6 +68,12 @@ export default defineEventHandler(async (event) => {
     '/api/alerts/run-due',
     // License endpoint (internal use, no auth required)
     '/api/license',
+    // Health endpoint — must stay anonymous so uptime monitors,
+    // load balancers, Docker healthchecks, and post-deploy smoke
+    // tests can probe it without a JWT. Body intentionally exposes
+    // only non-sensitive diagnostics (status, uptime, dep checks);
+    // do NOT add user-/tenant-scoped data here.
+    '/api/health',
     // Tenant settings (public - for branding, social links, contact info)
     '/api/tenant-settings',
     // User provisioning from SaaS control plane (uses API key auth)
