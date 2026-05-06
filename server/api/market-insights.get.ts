@@ -13,6 +13,7 @@ import { buildCityWhereClause, getCanonicalCityName } from '../utils/city-dictio
 import { requireFeature, FEATURES } from '../utils/license'
 import { calculateAnalytics } from '../ml/analytics'
 import type { RawPropertyData } from '../ml/dataPrep'
+import { resolvePropertySoldTimestamp } from '../ml/dataPrep'
 import type { MarketOverview, TrendAnalysis } from '../ml/analytics'
 import { PrismaClient } from '@prisma/client'
 
@@ -219,6 +220,11 @@ export default defineEventHandler(async (event) => {
         updatedAt: true,
         originalEntryTimestamp: true,
         daysOnMarket: true,
+        // Needed so resolvePropertySoldTimestamp can read Pillar9 CloseDate
+        // (and CREA rows that inherited it via dedupe). Without this,
+        // sold-last-30 and all derived KPIs effectively key off `updatedAt`
+        // only — wrong whenever sync cadence != calendar sales cadence.
+        features: true,
       },
       orderBy: { createdAt: 'asc' },
     })
@@ -231,6 +237,11 @@ export default defineEventHandler(async (event) => {
     const rawData: RawPropertyData[] = properties.map((p) => {
       const listingDate = p.originalEntryTimestamp || p.createdAt
       const dom = p.daysOnMarket ?? Math.floor((now.getTime() - listingDate.getTime()) / (1000 * 60 * 60 * 24))
+      const soldTimestamp = resolvePropertySoldTimestamp({
+        status: p.status,
+        features: p.features,
+        updatedAt: p.updatedAt,
+      })
       return {
         id: p.id,
         price: p.price || 0,
@@ -243,6 +254,7 @@ export default defineEventHandler(async (event) => {
         province: p.province || undefined,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
+        soldDate: soldTimestamp,
         daysOnMarket: dom > 0 ? dom : undefined,
       }
     })

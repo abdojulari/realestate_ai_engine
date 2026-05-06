@@ -28,6 +28,42 @@ export interface RawPropertyData {
   daysOnMarket?: number
 }
 
+/**
+ * MLS close timestamp for rows with `status === 'sold'`.
+ *
+ * Pillar9 writes RESO CloseDate into `Property.features.closeDate`.
+ * When Pillar9 dedupes onto a CREA row, sync.post.ts copies the same
+ * fields onto the CREA record so off-market cards show real close data.
+ *
+ * `calculateAnalytics` (and monthly aggregation) use `soldDate || updatedAt`
+ * to bucket "sold in last 30 days". Without reading `features.closeDate`,
+ * every sold row falls back to Prisma `updatedAt`, which only advances when
+ * sync touches the row — a listing that closed yesterday but hasn't been
+ * re-fetched since last month disappears from soldLast30Days, surfacing as
+ * zeros for SOLD 30D / absorption / MoM sales / avg DOM on dashboards.
+ */
+export function resolvePropertySoldTimestamp(params: {
+  status: string | null | undefined
+  features: unknown
+  updatedAt: Date
+}): Date | undefined {
+  const s = (params.status || '').toLowerCase()
+  if (s !== 'sold') return undefined
+
+  const f =
+    params.features && typeof params.features === 'object' && !Array.isArray(params.features)
+      ? (params.features as Record<string, unknown>)
+      : null
+
+  const raw = f?.closeDate ?? f?.CloseDate
+  if (raw != null && String(raw).trim() !== '') {
+    const d = new Date(String(raw))
+    if (!Number.isNaN(d.getTime())) return d
+  }
+
+  return params.updatedAt
+}
+
 export interface MonthlyMetrics {
   year: number
   month: number

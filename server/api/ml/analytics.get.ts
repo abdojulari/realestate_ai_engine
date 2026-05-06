@@ -12,6 +12,7 @@ import { requireAdmin } from '../../utils/auth'
 import { requireFeature, FEATURES } from '../../utils/license'
 import { calculateAnalytics } from '../../ml/analytics'
 import type { RawPropertyData } from '../../ml/dataPrep'
+import { resolvePropertySoldTimestamp } from '../../ml/dataPrep'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -59,7 +60,9 @@ export default defineEventHandler(async (event) => {
         province: true,
         createdAt: true,
         updatedAt: true,
-        originalEntryTimestamp: true
+        originalEntryTimestamp: true,
+        daysOnMarket: true,
+        features: true,
       },
       orderBy: { createdAt: 'asc' }
     })
@@ -79,7 +82,14 @@ export default defineEventHandler(async (event) => {
     const now = new Date()
     const rawData: RawPropertyData[] = properties.map(p => {
       const listingDate = p.originalEntryTimestamp || p.createdAt
-      const daysOnMarket = Math.floor((now.getTime() - listingDate.getTime()) / (1000 * 60 * 60 * 24))
+      const dom =
+        p.daysOnMarket ??
+        Math.floor((now.getTime() - listingDate.getTime()) / (1000 * 60 * 60 * 24))
+      const soldTimestamp = resolvePropertySoldTimestamp({
+        status: p.status,
+        features: p.features,
+        updatedAt: p.updatedAt,
+      })
       return {
         id: p.id,
         price: p.price || 0,
@@ -92,7 +102,8 @@ export default defineEventHandler(async (event) => {
         province: p.province || undefined,
         createdAt: p.createdAt,
         updatedAt: p.updatedAt,
-        daysOnMarket: daysOnMarket > 0 ? daysOnMarket : undefined
+        soldDate: soldTimestamp,
+        daysOnMarket: dom > 0 ? dom : undefined
       }
     })
     
