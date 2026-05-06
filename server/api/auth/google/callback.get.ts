@@ -7,6 +7,7 @@ import {
   isAllowedTenantOrigin,
   verifyOAuthState,
 } from '../../../utils/oauthCallback'
+import { resolveTenantAdminIdFromHost } from '../../../utils/tenant'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -100,13 +101,30 @@ export default defineEventHandler(async (event) => {
   }
   const info = await infoRes.json() as any
 
+  // Derive the tenant admin from the originating tenant subdomain
+  // (e.g. tonahomes.deelbot.ai → Tona Homes admin id). In canonical
+  // mode the request `Host` is the canonical apex (deelbot.ai) so
+  // resolveTenantFromRequest(event) wouldn't find anything — we
+  // resolve from `tenantOrigin` (decoded from signed state) instead.
+  // null is acceptable when the tenant lookup fails (e.g. signing in
+  // on the SaaS apex itself); we just leave adminId null and the
+  // user is unattached to any tenant. We DO NOT attach to a fallback
+  // admin — wrong tenant attribution is worse than none.
+  let tenantAdminId: number | null = null
+  try {
+    const tenantHost = new URL(tenantOrigin).host
+    tenantAdminId = await resolveTenantAdminIdFromHost(tenantHost)
+  } catch (err) {
+    console.warn('[google/callback] Failed to derive tenant from tenantOrigin', tenantOrigin, err)
+  }
+
   const user = await prisma.user.upsert({
     where: { email: info.email },
     update: {
       firstName: info.given_name || 'Google',
       lastName: info.family_name || 'User',
       provider: 'google',
-      providerId: info.sub
+      providerId: info.sub,
     },
     create: {
       email: info.email,
@@ -114,9 +132,31 @@ export default defineEventHandler(async (event) => {
       lastName: info.family_name || 'User',
       role: 'user',
       provider: 'google',
-      providerId: info.sub
+      providerId: info.sub,
+      ...(tenantAdminId ? { adminId: tenantAdminId } : {}),
     }
   })
+
+  // Backfill adminId for existing users created BEFORE this fix
+  // shipped (tenant-orphans whose Google OAuth account predates the
+  // adminId-on-create logic). Only writes when:
+  //   - the row has no adminId today (don't switch a user's tenant on
+  //     a subsequent login from a different subdomain), AND
+  //   - we resolved a real tenant from this signin's tenantOrigin.
+  // The conditional `where` filter makes this a no-op for already-
+  // attached users and an idempotent backfill for the rest.
+  if (tenantAdminId && user.adminId == null) {
+    try {
+      await prisma.user.update({
+        where: { id: user.id, adminId: null },
+        data: { adminId: tenantAdminId },
+      })
+    } catch (err) {
+      // Race: someone else attached this user between upsert and update.
+      // Safe to ignore — their value wins.
+      console.warn('[google/callback] adminId backfill skipped (race or already attached):', err)
+    }
+  }
 
   const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || 'fallback-secret', { expiresIn: '1h' })
 

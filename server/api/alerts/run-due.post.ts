@@ -1,6 +1,7 @@
 import { createError, defineEventHandler, getHeader, getQuery } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import { getInternalApiBase, getTenantSiteUrl } from '../../utils/tenantSiteUrl'
+import { getTenantAdminId } from '../../utils/tenant'
 import { sendEmail } from '../../utils/email'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -37,6 +38,12 @@ export default defineEventHandler(async (event) => {
             firstName: true,
             lastName: true,
             marketingConsent: true,
+            // role + adminId together → getTenantAdminId() resolves
+            // admin/super_admin to user.id (they ARE the tenant) and
+            // regular users to user.adminId (their parent admin).
+            // Selecting only adminId here was the bug that caused
+            // alerts to admin-themselves users to silently skip.
+            role: true,
             adminId: true,
           }
         }
@@ -157,21 +164,18 @@ async function runPropertySearch(filters: any, city?: string) {
 
 // Send alert email to user
 async function sendAlertEmail(user: any, alert: any, properties: any[]) {
-  // Per-tenant absolute URL so each user's email links to the realtor's
-  // site (customDomain or {subdomain}.{APP_BASE_DOMAIN}). NEVER falls
-  // back to the platform apex (deelbot.ai) — that's the SaaS marketing
-  // shell, not a tenant; /property/<id> 404s there.
-  //
-  // If we can't resolve a real tenant URL (orphaned User.adminId, or
-  // TenantSettings without subdomain/customDomain), SKIP this user
-  // entirely. Sending an email full of broken links is worse than
-  // sending nothing — the orphan log written by getTenantSiteUrl gives
-  // us the data we need to fix the bad row.
-  const siteUrl = await getTenantSiteUrl(user.adminId)
+  // Resolve the tenant via getTenantAdminId — NOT raw user.adminId.
+  // For admin/super_admin recipients (e.g. the realtor herself
+  // subscribing to alerts to test the flow), user.adminId is null but
+  // user.id IS the tenant key. Using raw user.adminId silently dropped
+  // every alert to those users until this was fixed.
+  const tenantAdminId = getTenantAdminId(user)
+  const siteUrl = await getTenantSiteUrl(tenantAdminId)
   if (!siteUrl) {
     console.warn(
       `[alerts] Skipping alert email to ${user.email} — no tenant URL ` +
-      `resolvable for adminId=${user.adminId ?? 'null'}. ` +
+      `resolvable (role=${user.role}, user.id=${user.id}, ` +
+      `user.adminId=${user.adminId ?? 'null'}, tenantAdminId=${tenantAdminId ?? 'null'}). ` +
       `See [tenantSiteUrl] orphan log above for the underlying cause.`
     )
     return

@@ -103,6 +103,58 @@ function normalizeHost(rawHost: string | undefined | null): string {
 }
 
 /**
+ * Resolve the tenant admin ID from a raw host string (no event scope).
+ *
+ * Used by flows where the request Host is NOT the tenant — most notably
+ * the canonical-mode Google OAuth callback, which always lands on the
+ * canonical host (deelbot.ai) but knows the originating tenant origin
+ * from the signed `state` payload. Calling resolveTenantFromRequest
+ * there would resolve the canonical apex (no tenant), so we extract
+ * just the host portion of the tenantOrigin URL and look that up.
+ *
+ * Returns null when the host doesn't match any tenant — caller decides
+ * how to handle (skip adminId assignment, error, etc.). NEVER falls
+ * back to "first admin in DB" — that quirk only applies to public
+ * read paths, not user creation, where attaching an end user to the
+ * wrong tenant is much worse than leaving them as null.
+ */
+export async function resolveTenantAdminIdFromHost(rawHost: string | null | undefined): Promise<number | null> {
+  const host = normalizeHost(rawHost)
+  if (!host) return null
+  const baseDomain = (process.env.APP_BASE_DOMAIN || '').toLowerCase()
+
+  // Subdomain pattern: tonahomes.deelbot.ai → "tonahomes"
+  if (baseDomain && host !== baseDomain && host.endsWith('.' + baseDomain)) {
+    const subdomain = host.slice(0, -baseDomain.length - 1)
+    if (subdomain) {
+      const settings = await prisma.tenantSettings.findFirst({
+        where: { subdomain },
+        select: { adminId: true },
+      })
+      if (settings) return settings.adminId
+    }
+    return null
+  }
+
+  // Custom domain (try bare apex AND www. variant — operators commonly
+  // save just one form in TenantSettings.customDomain).
+  if (host !== 'localhost' && !host.startsWith('127.') && !host.startsWith('192.168.')) {
+    const settings = await prisma.tenantSettings.findFirst({
+      where: {
+        OR: [
+          { customDomain: host },
+          { customDomain: `www.${host}` },
+        ],
+      },
+      select: { adminId: true },
+    })
+    if (settings) return settings.adminId
+  }
+
+  return null
+}
+
+/**
  * Resolve the tenant admin ID from the incoming request domain.
  * Used by PUBLIC routes (no auth required).
  *

@@ -32,12 +32,19 @@
  *   tenant-admin-ids     One-time tenant scoping fixup: sets adminId on
  *                        tenant-scoped models to the first super_admin/admin
  *                        and creates TenantSettings if missing.
+ *   tenant-orphan-users  Attach orphan end users (role=user, adminId=null)
+ *                        to a specific tenant by subdomain. Required after
+ *                        the auth/register + google/callback handlers were
+ *                        teaching every signup to land with adminId=null,
+ *                        which broke per-user tenant scoping (alerts,
+ *                        inquiries, downstream URL resolution).
  *
  * Examples:
  *   node scripts/backfill.mjs crea-media --batch=50 --max-batches=1
  *   DRY_RUN=1 node scripts/backfill.mjs original-list-price
  *   DRY_RUN=1 node scripts/backfill.mjs seed-baselines
  *   node scripts/backfill.mjs tenant-admin-ids
+ *   DRY_RUN=1 node scripts/backfill.mjs tenant-orphan-users --subdomain=tonahomes
  *   node scripts/backfill.mjs --help
  */
 
@@ -65,6 +72,11 @@ const SUBCOMMANDS = {
     summary: 'One-time tenant scoping fixup for legacy adminId-null rows.',
     run: runTenantAdminIds,
     help: helpTenantAdminIds,
+  },
+  'tenant-orphan-users': {
+    summary: 'Attach orphan end users (role=user, adminId=null) to a tenant by subdomain.',
+    run: runTenantOrphanUsers,
+    help: helpTenantOrphanUsers,
   },
 }
 
@@ -594,6 +606,120 @@ async function runTenantAdminIds() {
     }
 
     console.log('\n✅ Backfill complete!\n')
+  } finally {
+    await prisma.$disconnect()
+  }
+}
+
+// ─── Subcommand: tenant-orphan-users ───────────────────────────────────────
+
+function helpTenantOrphanUsers() {
+  console.log(`
+backfill tenant-orphan-users — attach end users to a tenant by subdomain
+
+Usage:
+  node scripts/backfill.mjs tenant-orphan-users --subdomain=<sub>
+
+Why this exists
+  Until the auth fix in this commit, /api/auth/register and Google OAuth
+  callback created users without setting User.adminId — a silent
+  tenant-orphan path that broke per-user scoping (alerts skipped,
+  inquiries unrouted, dashboards empty). Newly-registered users are now
+  attached at signup; this script repairs the historical backlog.
+
+What it does
+  Finds every User where role='user' AND adminId IS NULL, and updates
+  them to point at the admin owning the given subdomain.
+
+  Required: --subdomain=<sub> (e.g. --subdomain=tonahomes)
+  The script resolves TenantSettings.adminId from that subdomain. There
+  is intentionally NO default — wrong tenant attribution is much worse
+  than leaving the row null, so the operator must name the target.
+
+  Idempotent: re-running matches zero rows after the first pass.
+
+Options:
+  --subdomain=<sub>  Required. The tenant's TenantSettings.subdomain.
+  --help, -h         Show this help
+
+Env:
+  DRY_RUN=1          Preview the candidate users without writing.
+
+Examples:
+  DRY_RUN=1 node scripts/backfill.mjs tenant-orphan-users --subdomain=tonahomes
+  node scripts/backfill.mjs tenant-orphan-users --subdomain=temi360realestate
+`)
+}
+
+async function runTenantOrphanUsers(args) {
+  const { PrismaClient } = await import('@prisma/client')
+  const prisma = new PrismaClient()
+  const DRY_RUN = process.env.DRY_RUN === '1' || process.env.DRY_RUN === 'true'
+
+  const subdomainArg = args.find((a) => a.startsWith('--subdomain='))
+  const subdomain = subdomainArg ? subdomainArg.slice('--subdomain='.length).trim().toLowerCase() : ''
+
+  if (!subdomain) {
+    console.error('❌ --subdomain=<sub> is required. Run with --help for examples.')
+    process.exit(1)
+  }
+
+  try {
+    const tenant = await prisma.tenantSettings.findFirst({
+      where: { subdomain },
+      select: {
+        adminId: true,
+        businessName: true,
+        admin: { select: { email: true, firstName: true, lastName: true } },
+      },
+    })
+
+    if (!tenant) {
+      console.error(`❌ No TenantSettings found for subdomain="${subdomain}". Did you create the tenant?`)
+      process.exit(1)
+    }
+
+    console.log(
+      `🎯 Target tenant: ${tenant.businessName || '(no businessName)'} ` +
+      `→ admin ${tenant.admin?.email} (id=${tenant.adminId})\n`,
+    )
+
+    const orphanCount = await prisma.user.count({
+      where: { role: 'user', adminId: null },
+    })
+
+    if (orphanCount === 0) {
+      console.log('✅ No orphan users (role=user, adminId=null) — nothing to do.')
+      return
+    }
+
+    console.log(`Found ${orphanCount} orphan end users.\n`)
+
+    if (DRY_RUN) {
+      const sample = await prisma.user.findMany({
+        where: { role: 'user', adminId: null },
+        select: { id: true, email: true, firstName: true, lastName: true, createdAt: true },
+        orderBy: { id: 'asc' },
+        take: 10,
+      })
+      console.log('Sample (first 10 that would be attached):')
+      console.table(sample)
+      console.log(`\n🔎 DRY RUN — re-run without DRY_RUN=1 to attach all ${orphanCount} to ${tenant.admin?.email}.`)
+      return
+    }
+
+    const result = await prisma.user.updateMany({
+      where: { role: 'user', adminId: null },
+      data: { adminId: tenant.adminId },
+    })
+    console.log(`✔ Attached ${result.count} users to admin ${tenant.admin?.email} (id=${tenant.adminId}).`)
+
+    const remaining = await prisma.user.count({ where: { role: 'user', adminId: null } })
+    if (remaining > 0) {
+      console.warn(`\n⚠️  ${remaining} orphan users remain (race? new signup mid-run?). Re-run if needed.`)
+    } else {
+      console.log('\n✅ All orphan end users attached.')
+    }
   } finally {
     await prisma.$disconnect()
   }
