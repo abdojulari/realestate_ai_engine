@@ -141,6 +141,23 @@ services:
       - marketing_resources_data:/app/storage/marketing-resources
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Probe /api/health from inside the container using Node 20's
+    # global fetch (no curl/wget in the runtime image — see Dockerfile).
+    # The endpoint sets `status: 'unhealthy'` (still HTTP 200) when the
+    # database check fails, so we MUST inspect the body, not just the
+    # status code. Redis/queue failures are intentionally non-fatal
+    # (the endpoint keeps `status: 'healthy'`) — they are degraded but
+    # the app still serves traffic.
+    #
+    # start_period covers `prisma migrate deploy` + Nuxt cold start
+    # (~60–80s observed in production). Tune up if your container
+    # consistently boots slower than ~90s.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>r.json()).then(h=>process.exit(h.status==='healthy'?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
     depends_on:
       db:
         condition: service_healthy

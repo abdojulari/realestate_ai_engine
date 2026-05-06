@@ -152,8 +152,13 @@ services:
       - ./nginx/snippets:/etc/nginx/snippets:ro
       - /etc/letsencrypt:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
+    # Wait for the app to be healthy (not just started) before nginx
+    # accepts traffic. Without this, nginx briefly serves 502s during
+    # cold start while Nuxt/Prisma boot. Combined with the dynamic
+    # resolver in nginx.conf, restarts and rebuilds are now seamless.
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     networks:
       - app-network
 
