@@ -10,17 +10,21 @@ globalForPrisma.prisma = prisma
 /**
  * GET /api/properties/neighborhoods?city=Edmonton
  *
- * Builds the dropdown from the same fallback chain MLS consumers expect:
- *   1. RESO SubdivisionName → `features.subdivisionName` (granular subdivision)
- *   2. RESO CityRegion / community → `features.cityRegion` (CREA writes CityRegion here)
- *   3. Top-level `Property.cityRegion` (CREA column mirror — often populated when
- *      subdivision is blank, e.g. Edmonton condos)
+ * CREA / RESO exposes **both** fields; they are not duplicates:
  *
- * Previously we only grouped on `features.subdivisionName`, so thousands of CREA
- * rows with CityRegion but empty SubdivisionName disappeared from the dropdown
- * (~30 subdivisions vs 7000+ listings). Pillar9 carries SubdivisionName on the
- * wire and should populate `features.subdivisionName`; we also map Matrix
- * CityRegion when the API exposes it (see pillar9.service.ts $select).
+ * • **SubdivisionName** — finer-grained: named subdivision, condo complex,
+ *   builder tract, or small neighbourhood label when the board fills it in.
+ * • **CityRegion** — broader intra-city area (board-dependent naming; think
+ *   “district / quadrant / MLS community area” rather than a legal subdivision).
+ *
+ * Many Alberta listings have **CityRegion** populated but **SubdivisionName**
+ * empty (common on condos / infill). Fewer have the reverse. We therefore
+ * resolve one **dropdown label** per row as:
+ *   subdivisionName → features.cityRegion → Property.cityRegion
+ * so nothing falls through the cracks when only one of the two RESO fields is set.
+ *
+ * Pillar9/Matrix maps the same RESO concepts where the API returns them:
+ * `SubdivisionName` + `CityRegion` → same JSON/column shape as CREA.
  */
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
