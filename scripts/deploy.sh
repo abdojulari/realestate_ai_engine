@@ -447,9 +447,9 @@ deploy_standalone_suhani() {
   if [ "$(read_env_value USE_HOST_EDGE_PROXY "$ENV_FILE" 2>/dev/null)" = "1" ]; then
     echo "  Host edge: TLS on this server :443 → app on ${SUHANI_APP_PORTS:-127.0.0.1:3000:3000} (see deploy/host-edge/README.md)."
   else
-    HTTP_P="${NGINX_PUBLISH_HTTP_PORT:-9080}"
-    HTTPS_P="${NGINX_PUBLISH_HTTPS_PORT:-9443}"
-    echo "  Docker Nginx: http://localhost:${HTTP_P}  https://localhost:${HTTPS_P}"
+    HTTP_HP="${NGINX_PUBLISH_HTTP_HOST_PORT:-${NGINX_PUBLISH_HTTP_PORT:-9080}}"
+    HTTPS_HP="${NGINX_PUBLISH_HTTPS_HOST_PORT:-${NGINX_PUBLISH_HTTPS_PORT:-9443}}"
+    echo "  Docker Nginx host bind (http/https): ${HTTP_HP} → :80, ${HTTPS_HP} → :443 in container"
   fi
 }
 

@@ -50,6 +50,25 @@ if [ -d "$SNIP_DIR" ]; then
       cp -a "$SNIP_DIR/$f" "/etc/nginx/snippets/$f"
     fi
   done
+  for f in deelbot-com-https-direct.inc deelbot-com-https-docker.inc; do
+    if [ -f "$SNIP_DIR/$f" ]; then
+      cp -a "$SNIP_DIR/$f" "/etc/nginx/snippets/$f"
+    fi
+  done
+  MODE="${DEELBOT_COM_PROXY_MODE:-direct}"
+  case "$MODE" in
+    direct|docker) ;;
+    *)
+      echo "Error: DEELBOT_COM_PROXY_MODE must be direct or docker (got $MODE)"
+      exit 1
+      ;;
+  esac
+  if [ -f "$SNIP_DIR/deelbot-com-https-$MODE.inc" ]; then
+    cp -a "$SNIP_DIR/deelbot-com-https-$MODE.inc" /etc/nginx/snippets/deelbot-com-https-app.inc
+  else
+    echo "Error: missing $SNIP_DIR/deelbot-com-https-$MODE.inc"
+    exit 1
+  fi
 fi
 
 install -d -m 0755 /etc/letsencrypt/renewal-hooks/deploy
@@ -64,5 +83,6 @@ systemctl reload nginx
 
 echo ""
 echo "Host Nginx installed. Open ports 80 and 443 (e.g. ufw allow 80,443/tcp)."
-echo "Ensure Docker stacks use USE_HOST_EDGE_PROXY=1 (see deploy/host-edge/README.md)."
+echo "Docker apps: USE_HOST_EDGE_PROXY=1 proxies :3000/:3001 directly (DEELBOT_COM_PROXY_MODE=direct, default)."
+echo "Hybrid: Suhani Docker nginx on host HTTP (see NGINX_PUBLISH_HTTP_HOST_PORT / NGINX_PUBLISH_HTTP_PORT, default 9080) → DEELBOT_COM_PROXY_MODE=docker + README §2b."
 echo "Let's Encrypt: sudo CERTBOT_EMAIL=you@domain.com $SCRIPT_DIR/issue-le-certs.sh"

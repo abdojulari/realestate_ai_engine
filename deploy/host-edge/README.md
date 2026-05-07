@@ -1,12 +1,14 @@
 # Host Nginx edge (Option B)
 
-This path uses **Nginx installed on the host OS** (Debian/Ubuntu package from `install-debian.sh`), **not** the Nginx containers inside your Docker Compose files. Those stay off when `USE_HOST_EDGE_PROXY=1` so **only one** process owns public **80/443** on the machine.
+This path uses **Nginx installed on the host OS** (Debian/Ubuntu package from `install-debian.sh`), **not** the Nginx containers inside your Docker Compose files — **unless** you use the **hybrid** layout in **§2b**, where host Nginx owns public **80/443** and Suhani’s **Docker** Nginx still handles `www.deelbot.com` on a loopback port.
+
+With **`USE_HOST_EDGE_PROXY=1`**, Suhani merges `docker-compose.host-edge.yml` so stack **nginx** / **certbot** stay in a disabled profile and **only** host Nginx binds public **80/443**.
 
 One Nginx on the VPS listens on **80** and **443**. It proxies:
 
 | Hostname | Upstream |
 |----------|----------|
-| `deelbot.com`, `www.deelbot.com` | `127.0.0.1:3001` (control plane container) |
+| `deelbot.com`, `www.deelbot.com` | `127.0.0.1:3001` (control plane), **or** hybrid: `127.0.0.1:9080` (Suhani Docker Nginx → CP) — see **§2b** |
 | `*.deelbot.ai` | `127.0.0.1:3000` (Suhani container) |
 
 Public URLs need **no port** (`https://www.deelbot.com`, `https://aohomes.deelbot.ai`).
@@ -52,6 +54,95 @@ SUHANI_API_URL=http://host.docker.internal:3000
 
 `./scripts/deploy.sh` reads `USE_HOST_EDGE_PROXY=1` and merges `docker-compose.host-edge.yml` plus sets the loopback port defaults if the variables above are unset.
 
+### 2b. Hybrid: host Nginx owns public :80/:443, Suhani **Docker** Nginx serves `www.deelbot.com`
+
+Use this when Suhani’s **container** `nginx` receives **HTTP** on a **non-standard host port** (default **9080** → container **:80**) and **host** Nginx still terminates browser TLS on **:443** with the `deelbot.com` certificate.
+
+**Traffic path:** browser → **host :443** (Let’s Encrypt `www.deelbot.com`) → **`http://127.0.0.1:<HTTP_PORT>`** → Suhani Docker Nginx (`deelbot-com` vhost) → **`host.docker.internal:3001`** (control plane). Only the browser↔host leg is TLS; the hop to Docker Nginx is plain HTTP on loopback.
+
+---
+
+#### A. Which Compose files to use (Suhani)
+
+Use **exactly** these files for `docker compose` / `./scripts/deploy.sh`:
+
+- `docker-compose.yml`
+- `docker-compose.prod.yml`
+
+**Do not** pass `-f docker-compose.host-edge.yml`. That file assigns the stack **`nginx`** and **`certbot`** services to a Compose **profile** so, with a normal `up -d`, those services **do not start**. That is intended for “classic” host edge (§2), but **for hybrid you must have the Suhani `nginx` container running.**
+
+**`USE_HOST_EDGE_PROXY` (read carefully)**
+
+`./scripts/deploy.sh` merges host-edge **only when** it reads **`USE_HOST_EDGE_PROXY=1`** from `.env.production` (it then adds `-f docker-compose.host-edge.yml` to every compose invocation).
+
+For hybrid you **must not** enable that:
+
+- **Remove** the line `USE_HOST_EDGE_PROXY=1`, **or**
+- Set **`USE_HOST_EDGE_PROXY=0`**, **or**
+- Leave the variable **unset** / empty.
+
+Only the literal value **`1`** turns on the host-edge overlay. Anything else → **no** `docker-compose.host-edge.yml` → **`nginx` starts** with the rest of prod.
+
+**Hand-run equivalent** (from the Suhani repo root):
+
+```bash
+docker compose --env-file .env.production \
+  -f docker-compose.yml -f docker-compose.prod.yml up -d
+```
+
+**Sanity check:** `docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml ps` must show **`nginx` running**. On the host, **`ss -tlnp 'sport = :9080'`** (or your HTTP port) should show **docker-proxy** bound to **127.0.0.1** if you use the recommended `NGINX_PUBLISH_HTTP_HOST_PORT` below.
+
+---
+
+#### B. Suhani `.env.production` (hybrid)
+
+Paste and adjust only the ports if needed:
+
+```env
+# --- Hybrid with host Nginx (§2b): do NOT set USE_HOST_EDGE_PROXY=1 ---
+USE_HOST_EDGE_PROXY=0
+
+# Suhani app container: loopback only so only Nginx on the host reaches it.
+SUHANI_APP_PORTS=127.0.0.1:3000:3000
+
+# Port numbers used when *_HOST_PORT is not set (defaults are fine).
+NGINX_PUBLISH_HTTP_PORT=9080
+NGINX_PUBLISH_HTTPS_PORT=9443
+
+# Recommended: publish Docker Nginx only on loopback (not on the public NIC).
+# docker-compose.prod.yml uses: "${NGINX_PUBLISH_HTTP_HOST_PORT}:80" etc.
+# Value is Docker’s host side: "ip:hostPort" before the ":80" container port.
+NGINX_PUBLISH_HTTP_HOST_PORT=127.0.0.1:9080
+NGINX_PUBLISH_HTTPS_HOST_PORT=127.0.0.1:9443
+```
+
+**If you omit `NGINX_PUBLISH_HTTP_HOST_PORT`:** Compose falls back to **`NGINX_PUBLISH_HTTP_PORT`** (e.g. **`9080`**), and Docker listens on **`0.0.0.0:9080`**, which is **reachable from the internet**. For hybrid, **set `NGINX_PUBLISH_HTTP_HOST_PORT=127.0.0.1:9080`** so only **host** Nginx can use that hop.
+
+**Host Nginx must match the port number:** In `/etc/nginx/conf.d/deelbot-edge.conf`, `upstream deelbot_com_docker_http` uses **`127.0.0.1:9080`**. The **9080** is the **host port** — the same number as after **`127.0.0.1:`** in `NGINX_PUBLISH_HTTP_HOST_PORT`. If you change it in `.env`, change the `upstream` to the same port and run `sudo nginx -t && sudo systemctl reload nginx`.
+
+---
+
+#### C. Host Nginx (`DEELBOT_COM_PROXY_MODE=docker`)
+
+```bash
+cd ~/opt/apps/suhani
+sudo DEELBOT_COM_PROXY_MODE=docker ./deploy/host-edge/install-debian.sh
+```
+
+That installs the Docker-hop snippet and reloads host Nginx. For **direct** `127.0.0.1:3001` (no Suhani Docker Nginx in the middle), use `DEELBOT_COM_PROXY_MODE=direct` (default).
+
+---
+
+#### D. `deelbot.ai` tenants
+
+Unchanged: **`suhani_app`** → `127.0.0.1:3000`. Only **`www.deelbot.com` / `deelbot.com`** use `deelbot-com-https-docker.inc` when mode is `docker`.
+
+---
+
+#### E. Let’s Encrypt for `deelbot.com`
+
+Still on the **host**: `./deploy/host-edge/issue-le-certs.sh`. Verify with `openssl s_client -servername www.deelbot.com -connect www.deelbot.com:443`.
+
 ## 3. Redeploy both stacks
 
 ```bash
@@ -59,7 +150,9 @@ cd ~/opt/apps/suhani && ./scripts/deploy.sh
 cd ~/opt/apps/saas-control-plane && ./scripts/deploy.sh
 ```
 
-Stack **Nginx + Certbot** containers stay off (Compose profile) so they do not bind host 80/443.
+**Classic host edge** (`USE_HOST_EDGE_PROXY=1` in Suhani / CP `.env.production`): `deploy.sh` adds `docker-compose.host-edge.yml`; Suhani’s **Nginx + Certbot** containers stay off (Compose profile) so they do not bind host **80/443**.
+
+**Hybrid (§2b):** set **`USE_HOST_EDGE_PROXY=0`** (or unset) in **Suhani** `.env.production` before `./scripts/deploy.sh` so **host-edge is not merged** and Suhani’s **`nginx` container stays on**. Control plane may still use `USE_HOST_EDGE_PROXY=1` if you want CP without its published edge — follow CP’s own docs; typical hybrid is Suhani `nginx` on **9080**, CP on **3001** loopback.
 
 ## 4. Let’s Encrypt (replace bootstrap certs)
 

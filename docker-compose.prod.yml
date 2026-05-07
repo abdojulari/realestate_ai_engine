@@ -146,9 +146,17 @@ services:
     # Reach saas-control-plane on the host (127.0.0.1:3001) from inside this container.
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # Defaults 9080/9443 assume another reverse proxy (or host nginx) owns public :80/:443.
+    # If THIS container should terminate TLS for www.deelbot.com on the Internet,
+    # set NGINX_PUBLISH_HTTP_PORT=80 and NGINX_PUBLISH_HTTPS_PORT=443 in .env.production
+    # and ensure nothing else binds those ports.
+    #
+    # Host binding: use NGINX_PUBLISH_HTTP_HOST_PORT / NGINX_PUBLISH_HTTPS_HOST_PORT when the
+    # left side of the map must be `ip:port` (e.g. loopback-only for hybrid host-edge — see
+    # deploy/host-edge/README.md §2b). If unset, falls back to NGINX_PUBLISH_HTTP(S)_PORT.
     ports:
-      - "${NGINX_PUBLISH_HTTP_PORT:-9080}:80"
-      - "${NGINX_PUBLISH_HTTPS_PORT:-9443}:443"
+      - "${NGINX_PUBLISH_HTTP_HOST_PORT:-${NGINX_PUBLISH_HTTP_PORT:-9080}}:80"
+      - "${NGINX_PUBLISH_HTTPS_HOST_PORT:-${NGINX_PUBLISH_HTTPS_PORT:-9443}}:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
