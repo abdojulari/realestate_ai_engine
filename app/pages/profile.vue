@@ -14,6 +14,17 @@
           </v-card-title>
 
           <v-card-text>
+            <v-alert
+              v-if="!formData.phone?.trim()"
+              type="warning"
+              variant="tonal"
+              density="compact"
+              class="mb-4"
+              prominent
+            >
+              Please add a phone number — saving your profile requires a valid phone so your agent can reach you.
+            </v-alert>
+
             <v-form v-model="isFormValid" @submit.prevent="handleSubmit">
               <v-row>
                 <v-col cols="12" md="6">
@@ -53,18 +64,56 @@
                     label="Phone"
                     :readonly="!isEditing"
                     variant="outlined"
-                    :rules="phoneRules"
+                    :rules="phoneRulesActive"
                   />
                 </v-col>
 
                 <v-col cols="12" md="6">
-                  <v-select density="compact"
-                    v-model="formData.preferredContactTime"
-                    :items="contactTimeOptions"
-                    label="Preferred Contact Time"
-                    :readonly="!isEditing"
-                    variant="outlined"
-                  />
+                  <v-menu
+                    v-model="contactMenuOpen"
+                    :close-on-content-click="false"
+                    location="bottom"
+                    min-width="360"
+                  >
+                    <template #activator="{ props: menuProps }">
+                      <v-text-field
+                        v-bind="menuProps"
+                        :model-value="preferredContactSummary || undefined"
+                        label="Preferred contact (date & time)"
+                        variant="outlined"
+                        density="compact"
+                        readonly
+                        :disabled="!isEditing"
+                        placeholder="Select date & time"
+                        hint="Saved to your CRM record when you choose a slot"
+                        persistent-hint
+                        append-inner-icon="mdi-calendar-clock"
+                      />
+                    </template>
+                    <v-card elevation="8" class="pa-4 rounded-lg">
+                      <div class="text-subtitle-2 mb-2 text-medium-emphasis">Pick a window</div>
+                      <v-date-picker
+                        v-model="preferredSlotDate"
+                        hide-header
+                        class="mb-3 rounded-lg"
+                        :min="minContactDate"
+                      />
+                      <v-select
+                        density="comfortable"
+                        v-model="preferredSlotTime"
+                        :items="contactTimeSlots"
+                        item-title="title"
+                        item-value="value"
+                        label="Time"
+                        variant="outlined"
+                        hide-details="auto"
+                      />
+                      <div class="d-flex justify-end gap-2 mt-4">
+                        <v-btn size="small" variant="text" @click="clearPreferredSlot">Clear</v-btn>
+                        <v-btn size="small" color="primary" variant="flat" @click="contactMenuOpen = false">Done</v-btn>
+                      </div>
+                    </v-card>
+                  </v-menu>
                 </v-col>
               </v-row>
 
@@ -154,18 +203,54 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, computed, watch } from 'vue'
 import { useAuthStore } from '~/stores/auth'
+
+definePageMeta({
+  middleware: ['auth'],
+})
+
 const auth = useAuthStore()
-const { $fetch } = useNuxtApp()
+const api = useApi()
 
 const isEditing = ref(false)
 const loading = ref(false)
 const isFormValid = ref(false)
 const savedSearches = ref<any[]>([])
 const viewingRequests = ref<any[]>([])
+const contactMenuOpen = ref(false)
 
-// Snackbar feedback so profile / saved-search actions don't fail silently.
+const preferredSlotDate = ref('')
+const preferredSlotTime = ref('09:00')
+
+const contactTimeSlots = [
+  { title: '8:00 AM', value: '08:00' },
+  { title: '8:30 AM', value: '08:30' },
+  { title: '9:00 AM', value: '09:00' },
+  { title: '9:30 AM', value: '09:30' },
+  { title: '10:00 AM', value: '10:00' },
+  { title: '10:30 AM', value: '10:30' },
+  { title: '11:00 AM', value: '11:00' },
+  { title: '11:30 AM', value: '11:30' },
+  { title: '12:00 PM', value: '12:00' },
+  { title: '12:30 PM', value: '12:30' },
+  { title: '1:00 PM', value: '13:00' },
+  { title: '1:30 PM', value: '13:30' },
+  { title: '2:00 PM', value: '14:00' },
+  { title: '2:30 PM', value: '14:30' },
+  { title: '3:00 PM', value: '15:00' },
+  { title: '3:30 PM', value: '15:30' },
+  { title: '4:00 PM', value: '16:00' },
+  { title: '4:30 PM', value: '16:30' },
+  { title: '5:00 PM', value: '17:00' },
+  { title: '5:30 PM', value: '17:30' },
+  { title: '6:00 PM', value: '18:00' },
+  { title: '6:30 PM', value: '18:30' },
+  { title: '7:00 PM', value: '19:00' },
+]
+
+const minContactDate = computed(() => new Date().toISOString().split('T')[0])
+
 const feedback = reactive({
   show: false,
   color: 'success' as 'success' | 'error',
@@ -184,34 +269,86 @@ const formData = ref({
   lastName: '',
   email: '',
   phone: '',
-  preferredContactTime: ''
+  preferredContactTime: '',
 })
-
-const contactTimeOptions = [
-  'Morning (9AM - 12PM)',
-  'Afternoon (12PM - 5PM)',
-  'Evening (5PM - 8PM)',
-  'Any Time'
-]
 
 const nameRules = [
   (v: string) => !!v || 'Name is required',
-  (v: string) => v.length >= 2 || 'Name must be at least 2 characters'
+  (v: string) => v.length >= 2 || 'Name must be at least 2 characters',
 ]
 
 const emailRules = [
   (v: string) => !!v || 'Email is required',
-  (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
+  (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid',
 ]
 
-const phoneRules = [
-  (v: string) => !v || /^\+?[\d\s-]{10,}$/.test(v) || 'Please enter a valid phone number'
+const phoneRulesOptional = [
+  (v: string) => !v || /^\+?[\d\s-]{10,}$/.test(v) || 'Please enter a valid phone number',
 ]
 
-// Load user data
+const phoneRulesRequired = [
+  (v: string) => !!v?.trim() || 'Phone is required',
+  (v: string) => /^\+?[\d\s-]{10,}$/.test(v?.trim() || '') || 'Please enter a valid phone number',
+]
+
+const phoneRulesActive = computed(() => (isEditing.value ? phoneRulesRequired : phoneRulesOptional))
+
+function hydratePreferredSlot(raw?: string | null) {
+  preferredSlotDate.value = ''
+  preferredSlotTime.value = '09:00'
+  if (!raw?.trim()) return
+  const dt = new Date(raw)
+  if (Number.isNaN(dt.getTime())) return
+  const y = dt.getFullYear()
+  const m = String(dt.getMonth() + 1).padStart(2, '0')
+  const d = String(dt.getDate()).padStart(2, '0')
+  preferredSlotDate.value = `${y}-${m}-${d}`
+  const hh = String(dt.getHours()).padStart(2, '0')
+  const mm = String(dt.getMinutes()).padStart(2, '0')
+  preferredSlotTime.value = `${hh}:${mm}`
+}
+
+function preferredSlotToIso(): string | null {
+  if (!preferredSlotDate.value || !preferredSlotTime.value) return null
+  const isoLocal = `${preferredSlotDate.value}T${preferredSlotTime.value}:00`
+  const dt = new Date(isoLocal)
+  if (Number.isNaN(dt.getTime())) return null
+  return dt.toISOString()
+}
+
+const preferredContactSummary = computed(() => {
+  const raw = formData.value.preferredContactTime?.trim()
+  if (!raw) return ''
+  const dt = new Date(raw)
+  if (!Number.isNaN(dt.getTime())) {
+    return dt.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+  }
+  return raw
+})
+
+watch([preferredSlotDate, preferredSlotTime], () => {
+  const iso = preferredSlotToIso()
+  if (iso) {
+    formData.value.preferredContactTime = iso
+  }
+})
+
+function clearPreferredSlot() {
+  preferredSlotDate.value = ''
+  preferredSlotTime.value = '09:00'
+  formData.value.preferredContactTime = ''
+}
+
 onMounted(async () => {
   if (auth.user) {
-    formData.value = { ...(auth.user as any) }
+    formData.value = {
+      firstName: auth.user.firstName || '',
+      lastName: auth.user.lastName || '',
+      email: auth.user.email || '',
+      phone: auth.user.phone || '',
+      preferredContactTime: (auth.user as any).preferredContactTime || '',
+    }
+    hydratePreferredSlot(formData.value.preferredContactTime)
     await loadSavedSearches()
     await loadViewingRequests()
   }
@@ -220,13 +357,25 @@ onMounted(async () => {
 const handleSubmit = async () => {
   loading.value = true
   try {
-    // @ts-ignore
-    const response = await $fetch('/api/user/profile', {
-      method: 'PUT',
-      body: formData.value
-    })
-    if (response) {
-      // reflect server response if needed
+    const payload = {
+      firstName: formData.value.firstName,
+      lastName: formData.value.lastName,
+      email: formData.value.email,
+      phone: formData.value.phone?.trim() || '',
+      preferredContactTime: formData.value.preferredContactTime?.trim() || '',
+    }
+    const updated = await api.put<any>('/user/profile', payload)
+    if (updated) {
+      auth.setUser({
+        ...auth.user!,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        email: updated.email,
+        phone: updated.phone,
+        preferredContactTime: updated.preferredContactTime,
+      } as any)
+      formData.value.preferredContactTime = updated.preferredContactTime || ''
+      hydratePreferredSlot(formData.value.preferredContactTime)
       isEditing.value = false
       notify('Profile updated.', 'success')
     }
@@ -240,9 +389,8 @@ const handleSubmit = async () => {
 
 const loadSavedSearches = async () => {
   try {
-    // @ts-ignore
-    const response = await $fetch('/api/user/saved-searches') as any[]
-    savedSearches.value = response
+    const response = await api.get<any[]>('/user/saved-searches')
+    savedSearches.value = Array.isArray(response) ? response : []
   } catch (error) {
     console.error('Load saved searches error:', error)
     notify(describeError(error, 'Could not load your saved searches.'), 'error')
@@ -251,9 +399,8 @@ const loadSavedSearches = async () => {
 
 const loadViewingRequests = async () => {
   try {
-    // @ts-ignore
-    const response = await $fetch('/api/user/viewing-requests') as any[]
-    viewingRequests.value = response
+    const response = await api.get<any[]>('/user/viewing-requests')
+    viewingRequests.value = Array.isArray(response) ? response : []
   } catch (error) {
     console.error('Load viewing requests error:', error)
     notify(describeError(error, 'Could not load your viewing requests.'), 'error')
@@ -262,11 +409,8 @@ const loadViewingRequests = async () => {
 
 const deleteSavedSearch = async (id: number) => {
   try {
-    // @ts-ignore
-    await $fetch(`/api/user/saved-searches/${id}`, {
-      method: 'DELETE'
-    })
-    savedSearches.value = savedSearches.value.filter(search => search.id !== id)
+    await api.del(`/user/saved-searches/${id}`)
+    savedSearches.value = savedSearches.value.filter((search) => search.id !== id)
     notify('Saved search removed.', 'success')
   } catch (error) {
     console.error('Delete saved search error:', error)
@@ -275,13 +419,20 @@ const deleteSavedSearch = async (id: number) => {
 }
 
 const formatSearchTitle = (search: any) => {
-  const filters = search.filters
+  const filters = search.filters || {}
   return `${filters.city || 'Any City'} - ${filters.propertyType || 'Any Type'}`
 }
 
 const formatSearchCriteria = (search: any) => {
-  const filters = search.filters
-  return `${filters.beds}+ beds, ${filters.baths}+ baths, $${filters.priceRange[0]}-${filters.priceRange[1]}`
+  const filters = search.filters || {}
+  const beds = filters.beds ?? '—'
+  const baths = filters.baths ?? '—'
+  const pr = filters.priceRange
+  let price = 'Any price'
+  if (Array.isArray(pr) && pr.length >= 2) {
+    price = `$${pr[0]}-${pr[1]}`
+  }
+  return `${beds}+ beds, ${baths}+ baths, ${price}`
 }
 
 const formatViewingDate = (date: string) => {
@@ -293,7 +444,7 @@ const getStatusColor = (status: string) => {
     pending: 'warning',
     approved: 'success',
     rejected: 'error',
-    completed: 'info'
+    completed: 'info',
   }
   return colors[status as keyof typeof colors] || 'grey'
 }

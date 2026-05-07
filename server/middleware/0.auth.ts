@@ -74,6 +74,8 @@ export default defineEventHandler(async (event) => {
     // only non-sensitive diagnostics (status, uptime, dep checks);
     // do NOT add user-/tenant-scoped data here.
     '/api/health',
+    // Anonymous analytics / behaviour events from `useTrack()` — recorder sets cookies; must not 401.
+    '/api/events',
     // Tenant settings (public - for branding, social links, contact info)
     '/api/tenant-settings',
     // User provisioning from SaaS control plane (uses API key auth)
