@@ -1,5 +1,5 @@
 import { defineEventHandler, readBody, createError, getRouterParam } from 'h3'
-import { requireAdmin } from '../../../utils/auth'
+import { requireAdmin, isAdminRole } from '../../../utils/auth'
 import { requireTenantAccess } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
@@ -39,7 +39,36 @@ export default defineEventHandler(async (event) => {
     approved?: boolean
     featured?: boolean
     displayOrder?: number
+    /** Super-admin only: attach legacy orphan rows (`adminId` null) to a tenant broker user. */
+    adminId?: number | null
   }>(event)
+
+  let assignAdminId: number | undefined
+  if (body.adminId !== undefined) {
+    if (user.role !== 'super_admin') {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Only platform super-admins can assign testimonial tenant ownership',
+      })
+    }
+    if (body.adminId === null) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'adminId cannot be cleared; assign a valid tenant broker user id',
+      })
+    }
+    const broker = await prisma.user.findUnique({
+      where: { id: body.adminId },
+      select: { id: true, role: true },
+    })
+    if (!broker || !isAdminRole(broker.role)) {
+      throw createError({
+        statusCode: 400,
+        statusMessage: 'adminId must be an admin or super_admin user',
+      })
+    }
+    assignAdminId = broker.id
+  }
 
   try {
     const testimonial = await prisma.testimonial.update({
@@ -47,8 +76,9 @@ export default defineEventHandler(async (event) => {
       data: {
         ...(body.approved !== undefined && { approved: body.approved }),
         ...(body.featured !== undefined && { featured: body.featured }),
-        ...(body.displayOrder !== undefined && { displayOrder: body.displayOrder })
-      }
+        ...(body.displayOrder !== undefined && { displayOrder: body.displayOrder }),
+        ...(assignAdminId !== undefined && { adminId: assignAdminId }),
+      },
     })
 
     return testimonial

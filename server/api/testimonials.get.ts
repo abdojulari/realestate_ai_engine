@@ -16,14 +16,12 @@ export default defineEventHandler(async (event) => {
     const limit = parseInt(query.limit as string) || (featured ? 10 : 50)
     const offset = parseInt(query.offset as string) || 0
 
-    // Scope to the visiting tenant. Without this every site in the platform
-    // would render every other tenant's testimonials. We also include any
-    // legacy rows with `adminId = null` so older single-tenant deployments
-    // don't suddenly start showing an empty list.
+    // Strict tenant isolation: only this site's testimonials (`adminId` must match).
+    // Never merge `adminId: null` — those rows would leak onto every tenant's homepage.
+    // If tenant resolution fails entirely, return nothing (never `{}`, which would list all rows).
     const adminId = await resolveTenantFromRequest(event)
-    const where: any = adminId
-      ? { OR: [{ adminId }, { adminId: null }] }
-      : {}
+    const where: Record<string, unknown> =
+      adminId != null ? { adminId } : { id: { in: [] as number[] } }
 
     if (approved) {
       where.approved = true

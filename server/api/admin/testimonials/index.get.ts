@@ -1,6 +1,6 @@
-import { defineEventHandler, getQuery } from 'h3'
+import { defineEventHandler, getQuery, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
-import { getTenantFilter } from '../../../utils/tenant'
+import { getTenantAdminId } from '../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -19,18 +19,40 @@ export default defineEventHandler(async (event) => {
   const limit = parseInt((query.limit as string) || '20')
   const offset = (page - 1) * limit
 
-  // Tenant isolation: each admin only sees their own testimonials. Without
-  // this an admin could see (and approve / delete) every other tenant's
-  // submissions through this list endpoint.
-  const where: any = { ...getTenantFilter(user) }
+  const scope = (query.scope as string | undefined) || ''
+
+  // Strict tenant isolation — matched adminId only (same as public GET).
+  const tenantId = getTenantAdminId(user)
+  const where: Record<string, unknown> = {}
+  const andParts: Record<string, unknown>[] = []
+
+  if (scope === 'orphans') {
+    if (user.role !== 'super_admin') {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Only super-admins can list unattributed testimonials',
+      })
+    }
+    andParts.push({ adminId: null })
+  } else if (tenantId != null) {
+    andParts.push({ adminId: tenantId })
+  } else {
+    andParts.push({ id: { in: [] } })
+  }
 
   if (search) {
-    where.OR = [
-      { name: { contains: search, mode: 'insensitive' } },
-      { email: { contains: search, mode: 'insensitive' } },
-      { location: { contains: search, mode: 'insensitive' } },
-      { content: { contains: search, mode: 'insensitive' } }
-    ]
+    andParts.push({
+      OR: [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { location: { contains: search, mode: 'insensitive' } },
+        { content: { contains: search, mode: 'insensitive' } },
+      ],
+    })
+  }
+
+  if (andParts.length > 0) {
+    where.AND = andParts
   }
 
   if (status === 'pending') {

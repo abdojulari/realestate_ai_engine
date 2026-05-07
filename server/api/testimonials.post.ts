@@ -2,7 +2,7 @@ import { defineEventHandler, readMultipartFormData, createError } from 'h3'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
-import { resolveTenantFromRequest } from '../utils/tenant'
+import { resolveTenantAdminIdForTestimonialSubmit } from '../utils/tenant'
 import { upsertCrmClientFromPlatformContact } from '../utils/crmClientSync'
 import { getUploadRoot } from '../utils/uploadStorage'
 import { PrismaClient } from '@prisma/client'
@@ -136,8 +136,8 @@ export default defineEventHandler(async (event) => {
     const clientIP = event.node.req.headers['x-forwarded-for'] || event.node.req.connection?.remoteAddress || 'unknown'
     const userAgent = event.node.req.headers['user-agent']
 
-    // Resolve tenant
-    const adminId = await resolveTenantFromRequest(event)
+    // Scope to domain tenant — required (no null adminId); Referer/Origin back Host when proxies lie.
+    const adminId = await resolveTenantAdminIdForTestimonialSubmit(event)
 
     // Create testimonial record
     const testimonial = await prisma.testimonial.create({
@@ -154,11 +154,11 @@ export default defineEventHandler(async (event) => {
         featured: false, // Not featured by default
         ipAddress: (clientIP || null) as any,
         userAgent: userAgent || null,
-        ...(adminId ? { adminId } : {})
+        adminId,
       }
     })
 
-    if (adminId && data.email) {
+    if (data.email) {
       await upsertCrmClientFromPlatformContact(prisma, {
         adminId,
         email: data.email,

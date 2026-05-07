@@ -155,16 +155,12 @@ export async function resolveTenantAdminIdFromHost(rawHost: string | null | unde
 }
 
 /**
- * Resolve the tenant admin ID from the incoming request domain.
- * Used by PUBLIC routes (no auth required).
+ * Resolve tenant admin ID from Host / X-Tenant-Domain only — **no** dev fallback.
+ * Use for writes (e.g. testimonial POST) where assigning the wrong tenant is unacceptable.
  *
- * Resolution order:
- *  1. X-Tenant-Domain header
- *  2. Host subdomain   (acme.realestatehub.ca → "acme")
- *  3. Custom domain     (acmesrealty.com — tries both bare and www.)
- *  4. Fallback: first admin/super_admin (for development)
+ * Order: X-Tenant-Domain → Host subdomain → custom domain (bare + www.).
  */
-export async function resolveTenantFromRequest(event: H3Event): Promise<number | null> {
+export async function resolveTenantAdminIdFromDomainRequest(event: H3Event): Promise<number | null> {
   // 1. Explicit header
   const tenantHeader = getHeader(event, 'x-tenant-domain')
   if (tenantHeader) {
@@ -213,7 +209,10 @@ export async function resolveTenantFromRequest(event: H3Event): Promise<number |
     if (settings) return settings.adminId
   }
 
-  // 4. Fallback for development – first admin / super_admin
+  return null
+}
+
+async function getCachedDevFallbackTenantAdminId(): Promise<number | null> {
   if (_fallbackAdminId !== undefined) return _fallbackAdminId
 
   const fallback = await prisma.user.findFirst({
@@ -223,6 +222,66 @@ export async function resolveTenantFromRequest(event: H3Event): Promise<number |
   })
   _fallbackAdminId = fallback?.id ?? null
   return _fallbackAdminId
+}
+
+/**
+ * Resolve the tenant admin ID from the incoming request domain.
+ * Used by PUBLIC routes (no auth required).
+ *
+ * Resolution order:
+ *  1. {@link resolveTenantAdminIdFromDomainRequest}
+ *  2. Fallback: first admin/super_admin (for development only — avoids empty homepage on localhost)
+ */
+export async function resolveTenantFromRequest(event: H3Event): Promise<number | null> {
+  const fromDomain = await resolveTenantAdminIdFromDomainRequest(event)
+  if (fromDomain != null) return fromDomain
+
+  return getCachedDevFallbackTenantAdminId()
+}
+
+/**
+ * Tenant admin ID for anonymous testimonial POST: resolves from request Host /
+ * X-Tenant-Domain, then Referer and Origin hostnames (SPA/proxy cases where
+ * Host alone is wrong). Production never uses the first-admin fallback.
+ */
+export async function resolveTenantAdminIdForTestimonialSubmit(event: H3Event): Promise<number> {
+  let adminId = await resolveTenantAdminIdFromDomainRequest(event)
+
+  if (adminId == null) {
+    const referer = getHeader(event, 'referer')
+    if (referer) {
+      try {
+        adminId = await resolveTenantAdminIdFromHost(new URL(referer).hostname)
+      } catch {
+        /* malformed Referer */
+      }
+    }
+  }
+
+  if (adminId == null) {
+    const origin = getHeader(event, 'origin')
+    if (origin) {
+      try {
+        adminId = await resolveTenantAdminIdFromHost(new URL(origin).hostname)
+      } catch {
+        /* malformed Origin */
+      }
+    }
+  }
+
+  if (adminId == null && process.env.NODE_ENV !== 'production') {
+    adminId = await getCachedDevFallbackTenantAdminId()
+  }
+
+  if (adminId == null) {
+    throw createError({
+      statusCode: 400,
+      statusMessage:
+        'Could not determine which brokerage this testimonial belongs to. Please submit the form from your agent website.',
+    })
+  }
+
+  return adminId
 }
 
 /**
