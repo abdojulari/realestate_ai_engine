@@ -27,7 +27,7 @@
                 color="primary" 
                 size="x-large" 
                 class="hero-cta-primary text-none font-weight-bold px-12"
-                to="/properties"
+                :to="{ path: '/properties', query: { status: 'for_sale' } }"
                 rounded="xl"
                 elevation="8"
               >
@@ -127,7 +127,7 @@
         </div>
 
         <div class="text-center mt-12">
-          <v-btn color="primary" size="large" class="text-none px-10" to="/properties" rounded="xl">
+          <v-btn color="primary" size="large" class="text-none px-10" :to="{ path: '/properties', query: { status: 'for_sale' } }" rounded="xl">
             Explore All Properties
             <v-icon end>mdi-chevron-right</v-icon>
           </v-btn>
@@ -161,6 +161,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { buildPropertiesListingQuery } from '~/utils/propertiesListingQuery'
 
 const props = defineProps<{
   featuredProperties?: any[]
@@ -186,7 +187,7 @@ const onIntersect = (isIntersecting: boolean) => {
 
 const handleSearch = (params: any) => {
   searchActive.value = false
-  navigateTo({ path: '/properties', query: params })
+  navigateTo({ path: '/properties', query: buildPropertiesListingQuery(params) })
 }
 
 function onSelectProperty(p: any) {

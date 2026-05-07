@@ -223,10 +223,14 @@ const handleLocationInput = async (value: string) => {
     return
   }
   try {
-    const response = await fetch(`/api/locations/suggest?q=${value}`)
+    const response = await fetch(`/api/locations/suggest?q=${encodeURIComponent(value)}`)
+    if (!response.ok) {
+      locationSuggestions.value = []
+      return
+    }
     const data = await response.json()
-    locationSuggestions.value = data
-    showSuggestions.value = true
+    locationSuggestions.value = Array.isArray(data) ? data : []
+    showSuggestions.value = locationSuggestions.value.length > 0
   } catch (error) {
     console.error('Location suggestion error:', error)
   }
@@ -251,7 +255,9 @@ const search = () => {
     maxPrice: searchParams.value.maxPrice || undefined,
     beds: searchParams.value.beds || undefined,
     baths: searchParams.value.baths || undefined,
-    features: searchParams.value.features
+    minSqft: searchParams.value.minSqft || undefined,
+    maxSqft: searchParams.value.maxSqft || undefined,
+    features: searchParams.value.features,
   }
   emit('search', transformedParams)
 }

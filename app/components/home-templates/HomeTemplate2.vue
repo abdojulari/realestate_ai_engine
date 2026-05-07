@@ -31,7 +31,7 @@
                 color="amber-darken-2" 
                 size="x-large" 
                 class="hero-btn-primary text-none font-weight-bold px-12"
-                to="/properties"
+                :to="{ path: '/properties', query: { status: 'for_sale' } }"
                 elevation="12"
               >
                 Explore Properties
@@ -108,7 +108,7 @@
             color="grey-darken-4" 
             size="large"
             class="text-none px-10"
-            to="/properties"
+            :to="{ path: '/properties', query: { status: 'for_sale' } }"
             rounded="0"
           >
             View All Properties
@@ -154,6 +154,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { buildPropertiesListingQuery } from '~/utils/propertiesListingQuery'
 
 const props = defineProps<{
   featuredProperties?: any[]
@@ -168,13 +169,11 @@ const totalProperties = computed(() => `${props.totalProperties ?? 0}+`)
 const awardsDisplay = computed(() => `${props.awardsCount ?? 0}+`)
 
 const handleSearch = (params: any) => {
-  // Note: Standard Vue Router uses useRouter() or navigateTo in Nuxt
-  // Replacing with a generic handler if navigateTo isn't globally defined
-  console.log('Searching with:', params)
+  navigateTo({ path: '/properties', query: buildPropertiesListingQuery(params) })
 }
 
 function onSelectProperty(p: any) {
-  console.log('Selected property:', p.id)
+  navigateTo(`/property/${p.id}`)
 }
 
 const scrollToSearch = () => {

@@ -60,6 +60,7 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import PropertyCard from '~/components/common/PropertyCard.vue'
 import EmptyState from '~/components/common/EmptyState.vue'
 
@@ -72,6 +73,8 @@ useSeoMeta({
 })
 import LoadingState from '~/components/common/LoadingState.vue'
 
+const route = useRoute()
+
 const loading = ref(false)
 const items = ref<any[]>([])
 const q = ref('')
@@ -80,74 +83,62 @@ const totalPages = ref(1)
 const totalProperties = ref(0)
 const limit = 10
 
-// Use property service composable for service worker integration
-const { searchProperties, loading: serviceLoading } = usePropertyService()
+/** Forward route query to `/api/properties`, supporting repeated keys (arrays). */
+function appendRouteQuery(searchParams: URLSearchParams, query: typeof route.query) {
+  for (const key of Object.keys(query)) {
+    if (key === 'limit' || key === 'page') continue
+    const value = query[key]
+    if (value === undefined || value === null) continue
+    if (Array.isArray(value)) {
+      for (const v of value) {
+        if (v !== undefined && v !== null && String(v) !== '')
+          searchParams.append(key, String(v))
+      }
+    } else if (String(value) !== '' && value !== 'undefined' && value !== 'null') {
+      searchParams.append(key, String(value))
+    }
+  }
+}
 
 const loadProperties = async (page = 1) => {
   loading.value = true
   try {
-    // Get search parameters from URL query
-    const route = useRoute()
-    const queryParams = route.query
-    
-    console.log('🔍 Properties page URL query params:', queryParams) // Debug log
-    
-    // TEMPORARILY DISABLED: Try service worker first for better performance
-    // The service worker is returning cached data without agent information
-    // Force direct API calls until service worker cache is updated
-    console.log('⚠️ Service worker temporarily disabled - using direct API calls for agent data')
-    
-    
-    // Fallback to direct API call
     const searchParams = new URLSearchParams()
-    searchParams.append('limit', limit.toString())
-    searchParams.append('page', page.toString())
-    
-    // Add all non-empty query parameters
-    Object.entries(queryParams).forEach(([key, value]) => {
-      if (value && value !== 'undefined' && value !== 'null' && key !== 'limit' && key !== 'page') {
-        searchParams.append(key, String(value))
-      }
-    })
-    
-    const apiUrl = `/api/properties?${searchParams.toString()}`
-    console.log('🔍 Fetching from API URL:', apiUrl) // Debug log
-    
-    const response = await $fetch(apiUrl) as any
-    console.log('🔍 API Response type:', typeof response, Array.isArray(response))
-    console.log('🔍 API Response keys:', Object.keys(response))
-    console.log('🔍 API Response sample:', response.properties?.[0] || response[0]) // Debug the actual response
-    
+    searchParams.set('limit', String(limit))
+    searchParams.set('page', String(page))
+    appendRouteQuery(searchParams, route.query)
+    // Consumer browse defaults to active MLS rows stored as `for_sale`
+    if (!searchParams.has('status')) searchParams.set('status', 'for_sale')
+
+    const response = await $fetch(`/api/properties?${searchParams.toString()}`) as any
+
     const { filterResidentialProperties } = await import('../../../utils/propertyFilters')
-    
-    // Handle both old array format and new paginated format
+
     if (Array.isArray(response)) {
-      // Old format - just an array
       items.value = filterResidentialProperties(response)
       currentPage.value = page
       totalPages.value = 1
       totalProperties.value = response.length
-      console.log('🔍 After filtering (array format), first item agent:', items.value[0]?.listingAgent)
     } else {
-      // New paginated format
       const allProperties = response.properties || []
-      console.log('🔍 Properties array before filtering, first item agent:', allProperties[0]?.listingAgent)
       items.value = filterResidentialProperties(allProperties)
       currentPage.value = response.pagination?.page || page
       totalPages.value = response.pagination?.totalPages || 1
       totalProperties.value = response.pagination?.total || 0
-      console.log('🔍 After filtering (paginated format), first item agent:', items.value[0]?.listingAgent)
     }
-    
-    console.log('✅ Found properties:', items.value.length, 'residential of', totalProperties.value, 'total') // Debug log
   } finally {
     loading.value = false
   }
 }
 
-onMounted(async () => {
-  await loadProperties(1)
-})
+watch(
+  () => route.fullPath,
+  () => {
+    currentPage.value = 1
+    void loadProperties(1)
+  },
+  { immediate: true }
+)
 
 const goToPage = async (page: number) => {
   if (page >= 1 && page <= totalPages.value) {

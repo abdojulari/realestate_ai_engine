@@ -331,8 +331,13 @@ export default defineEventHandler(async (event) => {
   // Features filter - comprehensive database-level filtering
   let requiredFeatures: string[] = []
   if (features) {
-    const featureArray = Array.isArray(features) ? features : [features]
-    requiredFeatures = featureArray.map(f => f.toLowerCase().replace(/\s+/g, ''))
+    const rawList = Array.isArray(features) ? features : [features]
+    const featureArray = rawList.flatMap((f) =>
+      typeof f === 'string' && f.includes(',')
+        ? f.split(',').map((s) => s.trim()).filter(Boolean)
+        : [f]
+    )
+    requiredFeatures = featureArray.map(f => String(f).toLowerCase().replace(/\s+/g, ''))
     console.log('🔍 Features will be filtered in database query:', requiredFeatures)
     
     if (requiredFeatures.length > 0) {

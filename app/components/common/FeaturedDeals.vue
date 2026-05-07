@@ -69,7 +69,7 @@
         color="primary" 
         size="small" 
         class="mt-4"
-        to="/properties"
+        :to="{ path: '/properties', query: { status: 'for_sale' } }"
       >
         Browse All Properties
       </v-btn>

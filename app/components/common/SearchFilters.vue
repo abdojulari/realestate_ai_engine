@@ -330,9 +330,13 @@ const handleLocationInput = async (value: string) => {
 
   try {
     // Replace with actual API call
-    const response = await fetch(`/api/locations/suggest?q=${value}`)
+    const response = await fetch(`/api/locations/suggest?q=${encodeURIComponent(value)}`)
+    if (!response.ok) {
+      locationSuggestions.value = []
+      return
+    }
     const data = await response.json()
-    locationSuggestions.value = data
+    locationSuggestions.value = Array.isArray(data) ? data : []
     showSuggestions.value = true
   } catch (error) {
     console.error('Location suggestion error:', error)

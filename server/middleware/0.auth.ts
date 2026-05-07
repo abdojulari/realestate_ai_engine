@@ -76,6 +76,8 @@ export default defineEventHandler(async (event) => {
     '/api/health',
     // Anonymous analytics / behaviour events from `useTrack()` — recorder sets cookies; must not 401.
     '/api/events',
+    // Location autocomplete on home / search UIs (tenant-scoped in handler)
+    '/api/locations/suggest',
     // Tenant settings (public - for branding, social links, contact info)
     '/api/tenant-settings',
     // User provisioning from SaaS control plane (uses API key auth)

@@ -20,7 +20,7 @@
                   color="grey-darken-4" 
                   size="x-large" 
                   class="hero-cta-btn text-none font-weight-bold px-10"
-                  to="/properties"
+                  :to="{ path: '/properties', query: { status: 'for_sale' } }"
                   elevation="0"
                 >
                   Get Started
@@ -95,7 +95,7 @@
             variant="outlined" 
             color="white" 
             class="explore-btn text-none px-6"
-            to="/properties"
+            :to="{ path: '/properties', query: { status: 'for_sale' } }"
             rounded="0"
           >
             Explore All
@@ -156,6 +156,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { buildPropertiesListingQuery } from '~/utils/propertiesListingQuery'
 
 const props = defineProps<{
   featuredProperties?: any[]
@@ -170,7 +171,7 @@ const totalProperties = computed(() => `${props.totalProperties ?? 0}+`)
 const awardsDisplay = computed(() => `${props.awardsCount ?? 0}+`)
 
 const handleSearch = (params: any) => {
-  navigateTo({ path: '/properties', query: params })
+  navigateTo({ path: '/properties', query: buildPropertiesListingQuery(params) })
 }
 
 function onSelectProperty(p: any) {

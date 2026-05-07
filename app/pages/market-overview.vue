@@ -209,7 +209,7 @@ const handleCitySelected = async (city: string) => {
 }
 
 const searchPropertiesInCity = () => {
-  navigateTo({ path: '/properties', query: { city: selectedCity.value } })
+  navigateTo({ path: '/properties', query: { city: selectedCity.value, status: 'for_sale' } })
   showCityDialog.value = false
 }
 

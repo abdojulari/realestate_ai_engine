@@ -185,12 +185,7 @@ export async function syncCrmClientProfileFields(
         firstName: fn || row.firstName,
         lastName: ln || row.lastName,
         notes,
-        metadata:
-          Object.keys(metadata).length > 0
-            ? metadata
-            : row.metadata === null || row.metadata === undefined
-              ? undefined
-              : metadata,
+        metadata,
       },
     })
   } catch (e) {
