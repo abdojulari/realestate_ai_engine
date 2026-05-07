@@ -2,11 +2,22 @@ import type { NitroFetchRequest } from 'nitropack'
 
 type FetchOpts = Omit<RequestInit, 'method' | 'body'>
 
+/**
+ * Docker Compose often sets `NUXT_PUBLIC_API_BASE=` (empty). Nitro merges that
+ * over the nuxt.config default `/api`, so `config.public.apiBase` becomes `''`.
+ * ofetch then calls `/admin/...` instead of `/api/admin/...` → HTML page response,
+ * JSON parse fails, admin tables stay empty with no obvious error.
+ */
+function normalizeApiBase(raw: unknown): string {
+  if (raw == null) return '/api'
+  const s = String(raw).trim()
+  return s === '' ? '/api' : s
+}
+
 export function useApi() {
   const config = useRuntimeConfig()
-  const { showMessage } = useNuxtApp()
 
-  const baseURL = config.public.apiBase
+  const baseURL = normalizeApiBase(config.public.apiBase)
   const buildHeaders = () => {
     const headers: Record<string, any> = { 'Content-Type': 'application/json' }
     if (process.client) {
