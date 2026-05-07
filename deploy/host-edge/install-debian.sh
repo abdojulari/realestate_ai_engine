@@ -78,8 +78,19 @@ if [ -f "$SCRIPT_DIR/renewal-hooks/deploy/99-reload-nginx.sh" ]; then
 fi
 
 nginx -t
-systemctl enable --now nginx
-systemctl reload nginx
+systemctl enable nginx
+if systemctl is-active --quiet nginx; then
+  systemctl reload nginx
+else
+  if ! systemctl start nginx; then
+    echo ""
+    echo "Error: nginx failed to start. Common causes:"
+    echo "  • Another process already uses TCP 80 or 443 (Docker, Apache, a second nginx)."
+    echo "  • Run: sudo ss -tlnp | grep -E ':80 |:443 '"
+    echo "  • Run: sudo journalctl -xeu nginx.service --no-pager -n 40"
+    exit 1
+  fi
+fi
 
 echo ""
 echo "Host Nginx installed. Open ports 80 and 443 (e.g. ufw allow 80,443/tcp)."
