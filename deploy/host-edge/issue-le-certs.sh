@@ -8,6 +8,9 @@
 #   - Wildcard *.deelbot.ai: use --deelbot-ai-wildcard + Cloudflare DNS API (no HTTP-01 for *)
 #
 # Usage:
+#   sudo ./deploy/host-edge/issue-le-certs.sh
+#   (CERTBOT_EMAIL from the environment, or from Suhani repo .env.production / .env)
+#
 #   sudo CERTBOT_EMAIL=you@deelbot.com ./deploy/host-edge/issue-le-certs.sh
 #
 # Optional:
@@ -77,6 +80,30 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
+
+# Repo .env (optional): same pattern as Docker deploy — no need to export when running sudo.
+SUHANI_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+if [ -z "${CERTBOT_EMAIL:-}" ]; then
+  for ENV_FILE in "$SUHANI_ROOT/.env.production" "$SUHANI_ROOT/.env"; do
+    [ -f "$ENV_FILE" ] || continue
+    line="$(grep -E '^[[:space:]]*CERTBOT_EMAIL=' "$ENV_FILE" | tail -n1 || true)"
+    [ -z "$line" ] && continue
+    val="${line#*=}"
+    val="${val%%#*}"
+    val="${val#"${val%%[![:space:]]*}"}"
+    val="${val%"${val##*[![:space:]]}"}"
+    val="${val%$'\r'}"
+    case "$val" in
+      \"*\") val="${val#\"}"; val="${val%\"}" ;;
+      \'*\') val="${val#\'}"; val="${val%\'}" ;;
+    esac
+    if [ -n "$val" ]; then
+      CERTBOT_EMAIL="$val"
+      export CERTBOT_EMAIL
+      break
+    fi
+  done
+fi
 
 EMAIL="${CERTBOT_EMAIL:-}"
 if [ -z "$EMAIL" ]; then
