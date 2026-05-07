@@ -123,6 +123,8 @@ const OPTIONAL_SELECT_FIELDS = [
   'CloseDate',
   'ListAgentFullName',
   'CoListAgentFullName',
+  // Community naming varies — CREA uses CityRegion; abrls Matrix omits it entirely.
+  'SubdivisionName',
 ]
 
 // Populated by detectSupportedFields() before extraction starts.

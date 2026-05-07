@@ -110,8 +110,9 @@ interface Pillar9Property {
   DaysOnMarket?: number | null
 
   // 2026 schema update (only fields confirmed available in Matrix API)
+  /** Present on many Matrix installs; omitted from $select when tenant rejects it. */
   SubdivisionName?: string | null
-  /** RESO community / city region — CREA equivalent is CityRegion. */
+  /** Not on `MatrixData.Property.Property` for abrls — never add to $select or every batch 400s. */
   CityRegion?: string | null
 }
 
@@ -274,8 +275,12 @@ class Pillar9Service {
 
     // Matrix OData $select: every field that transformToLocalProperty reads.
     // Unknown names are rejected by the API — Matrix rejects the WHOLE query
-    // when any $select field is unknown, taking down every city. Only add
-    // fields proven against this tenant via scripts/test-pillar9-direct.mjs.
+    // when any $select field is unknown, taking down every city. Align with
+    // scripts/test-pillar9-direct.mjs (probe unknowns one-by-one there first).
+    //
+    // Explicitly excluded: `CityRegion` — abrls returns
+    // "Could not find a property named 'CityRegion' on type 'MatrixData.Property.Property'."
+    // Neighborhood UI still gets subdivision from SubdivisionName where present; CREA rows carry CityRegion.
     //
     // Re-added 2026-05 after the test script's --probe-only run confirmed
     // they're in this tenant's schema:
@@ -333,8 +338,6 @@ class Pillar9Service {
       'PoolFeatures', 'WaterfrontFeatures',
       // 2026 schema additions (only fields confirmed available in Matrix API)
       'SubdivisionName',
-      // Community / area label — aligns with CREA CityRegion for neighborhood dropdowns
-      'CityRegion',
     ]
     const select = filters.select?.length ? filters.select : defaultSelect
     queryParts.push(`$select=${encodeURIComponent(select.join(','))}`)
@@ -535,7 +538,7 @@ class Pillar9Service {
       closeDate: p9Prop.CloseDate,
       closePrice: p9Prop.ClosePrice,
       subdivisionName: p9Prop.SubdivisionName ?? null,
-      /** Mirrors CREA `features.cityRegion` from RESO CityRegion */
+      // Pillar9 abrls tenant has no CityRegion on Property — CREA fills features.cityRegion where needed
       cityRegion: p9Prop.CityRegion ?? null,
     }
 
@@ -584,7 +587,7 @@ class Pillar9Service {
       taxYear: p9Prop.TaxYear || null,
       parcelNumber: p9Prop.ParcelNumber || null,
       
-      // RESO CityRegion — same semantic as CREA CityRegion (community / area)
+      // Not populated from Pillar9 on abrls (field absent); CREA sync supplies cityRegion when available
       cityRegion: p9Prop.CityRegion ?? null,
       waterBodyName: null,
 
