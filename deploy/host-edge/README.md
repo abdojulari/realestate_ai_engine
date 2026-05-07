@@ -58,7 +58,9 @@ SUHANI_API_URL=http://host.docker.internal:3000
 
 Use this when Suhani’s **container** `nginx` receives **HTTP** on a **non-standard host port** (default **9080** → container **:80**) and **host** Nginx still terminates browser TLS on **:443** with the `deelbot.com` certificate.
 
-**Traffic path:** browser → **host :443** (Let’s Encrypt `www.deelbot.com`) → **`http://127.0.0.1:<HTTP_PORT>`** → Suhani Docker Nginx (`deelbot-com` vhost) → **`host.docker.internal:3001`** (control plane). Only the browser↔host leg is TLS; the hop to Docker Nginx is plain HTTP on loopback.
+**Traffic path:** browser → **host :443** (Let’s Encrypt `www.deelbot.com`) → **`http://127.0.0.1:<HTTP_PORT>`** → Suhani Docker Nginx (`deelbot-com` vhost) → **`http://host.docker.internal:3001`** (control plane). Only the browser↔host leg is TLS; the hop to Docker Nginx is plain HTTP on loopback.
+
+**Important:** `host.docker.internal` on Linux points at the **Docker bridge gateway** (e.g. `172.17.0.1`), **not** `127.0.0.1`. If the control plane is published as **`127.0.0.1:3001:3001`**, it accepts connections **only** on host loopback — the Suhani **`nginx`** container **cannot** reach it, so `proxy_pass` hangs until timeout (**504** from host nginx, **`curl …:9080` stalls**). For hybrid you need **`CP_APP_PORTS=3001:3001`** (or another publish that listens on an address reachable from the bridge), then **redeploy the control plane** stack. Lock down **:3001** with UFW / a cloud security group if the host is on a public network. **Classic** host edge (no Suhani Docker nginx hop) can keep **`127.0.0.1:3001:3001`** because only **host** Nginx talks to that port.
 
 ---
 
@@ -119,6 +121,27 @@ NGINX_PUBLISH_HTTPS_HOST_PORT=127.0.0.1:9443
 **If you omit `NGINX_PUBLISH_HTTP_HOST_PORT`:** Compose falls back to **`NGINX_PUBLISH_HTTP_PORT`** (e.g. **`9080`**), and Docker listens on **`0.0.0.0:9080`**, which is **reachable from the internet**. For hybrid, **set `NGINX_PUBLISH_HTTP_HOST_PORT=127.0.0.1:9080`** so only **host** Nginx can use that hop.
 
 **Host Nginx must match the port number:** In `/etc/nginx/conf.d/deelbot-edge.conf`, `upstream deelbot_com_docker_http` uses **`127.0.0.1:9080`**. The **9080** is the **host port** — the same number as after **`127.0.0.1:`** in `NGINX_PUBLISH_HTTP_HOST_PORT`. If you change it in `.env`, change the `upstream` to the same port and run `sudo nginx -t && sudo systemctl reload nginx`.
+
+---
+
+#### B2. Control plane (`saas-control-plane`) publish port for hybrid
+
+Suhani `nginx` uses **`proxy_pass http://host.docker.internal:3001`** for `www.deelbot.com`. Inside the container, that resolves to the **host’s Docker gateway IP**. The control plane’s Docker publish must accept TCP on that path, **not** only on **`127.0.0.1`**.
+
+In **saas-control-plane** `.env.production`:
+
+```env
+CP_APP_PORTS=3001:3001
+```
+
+Then redeploy the CP stack (`./scripts/deploy.sh` or `docker compose … up -d`). **Classic** host edge (`DEELBOT_COM_PROXY_MODE=direct`, **no** Suhani Docker hop) may keep **`CP_APP_PORTS=127.0.0.1:3001:3001`**.
+
+Quick check from the **Suhani** `nginx` container:
+
+```bash
+docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml exec nginx \
+  wget -qO- --timeout=3 http://host.docker.internal:3001/ | head -c 120 || echo FAIL
+```
 
 ---
 
@@ -287,6 +310,8 @@ This is unrelated to **deelbot.com** TLS; it is only the **`.ai`** lineage.
 ### `504 Gateway Time-out` on `deelbot.com` / `www.deelbot.com` (hybrid)
 
 Host Nginx proxies **HTTPS** for `www.deelbot.com` to **`http://127.0.0.1:9080`** (Suhani Docker Nginx), which should proxy to the control plane on **`host.docker.internal:3001`**. A **504** means that hop did not return a response in time (or never connected).
+
+**Most common (hybrid):** control plane published as **`127.0.0.1:3001:3001`** only — unreachable from other Docker containers. Use **`CP_APP_PORTS=3001:3001`** on the CP stack and redeploy (see **§2b B2**).
 
 On the VPS:
 
