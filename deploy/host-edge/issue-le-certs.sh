@@ -16,6 +16,7 @@
 # Optional:
 #   DEELBOT_AI_INCLUDE_APEX=0                       # omit deelbot.ai apex (use if you have no @ A record)
 #   DEELBOT_AI_EXTRA_DOMAINS="aohomes.deelbot.ai"   # SANs (HTTP-01); * in DNS does not cover apex
+#   DEELBOT_AI_PRESERVE_EXISTING_SANS=0             # do not merge current cert SANs (default: merge)
 #   sudo ./deploy/host-edge/issue-le-certs.sh --deelbot-com-only
 #   sudo ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-only
 #   sudo CLOUDFLARE_CREDENTIALS=/root/.secrets/cloudflare.ini \
@@ -236,23 +237,84 @@ issue_deelbot_com() {
 }
 
 issue_deelbot_ai_http() {
-  local -a domains=()
+  declare -A dns_seen=()
+
+  add_ai_name() {
+    local n="$1"
+    [ -z "$n" ] && return
+    case "$n" in
+      deelbot.ai|*.deelbot.ai) dns_seen["$n"]=1 ;;
+      *)
+        echo "Warning: skipping non-deelbot.ai hostname for ${AI_CERT} cert: $n"
+        ;;
+    esac
+  }
+
   if [ "${DEELBOT_AI_INCLUDE_APEX:-1}" != "0" ]; then
-    domains+=( -d deelbot.ai )
+    add_ai_name "deelbot.ai"
   fi
   local extra="${DEELBOT_AI_EXTRA_DOMAINS:-}"
-  if [ -n "$extra" ]; then
-    local d
-    for d in $extra; do
-      domains+=( -d "$d" )
-    done
+  local d
+  for d in $extra; do
+    add_ai_name "$d"
+  done
+
+  # Never shrink HTTP-01 SANs: reuse every DNS name already on this lineage so a plain
+  # `issue-le-certs.sh` run cannot drop tenant subdomains (unless explicitly disabled).
+  local pem="/etc/letsencrypt/live/${AI_CERT}/fullchain.pem"
+  if [ "${DEELBOT_AI_PRESERVE_EXISTING_SANS:-1}" != "0" ] && [ -f "$pem" ] && command -v openssl >/dev/null 2>&1; then
+    local san
+    san=$(openssl x509 -in "$pem" -noout -ext subjectAltName 2>/dev/null || true)
+    if printf '%s' "$san" | grep -q 'DNS:\*'; then
+      echo "Note: ${AI_CERT} includes a wildcard SAN. HTTP-01 cannot issue *."
+      echo "      Use: sudo $SCRIPT_DIR/issue-le-certs.sh --deelbot-ai-only --deelbot-ai-wildcard"
+      echo "      or certbot renew (same authenticator as last issuance)."
+    else
+      local part
+      while IFS= read -r part; do
+        [ -z "$part" ] && continue
+        case "$part" in
+          deelbot.ai|*.deelbot.ai) dns_seen["$part"]=1 ;;
+        esac
+      done < <(printf '%s' "$san" | tr ',' '\n' | sed -n 's/^[[:space:]]*DNS://p' | tr -d ' \t\r')
+    fi
   fi
+
+  local -a names=()
+  for d in "${!dns_seen[@]}"; do
+    names+=("$d")
+  done
+  local -a sorted=()
+  if [ ${#names[@]} -gt 0 ]; then
+    IFS=$'\n' sorted=($(printf '%s\n' "${names[@]}" | sort -u))
+    unset IFS
+  fi
+  local -a domains=()
+  for d in "${sorted[@]}"; do
+    domains+=( -d "$d" )
+  done
 
   if [ ${#domains[@]} -eq 0 ]; then
     echo "Error: no hostnames for the deelbot-ai certificate."
     echo "  • Add DEELBOT_AI_EXTRA_DOMAINS='aohomes.deelbot.ai ...', and/or"
     echo "  • Keep apex on the cert (default) with a Cloudflare A record: name @ → your VPS IP"
     exit 1
+  fi
+
+  local only_apex=1
+  for d in "${!dns_seen[@]}"; do
+    if [ "$d" != "deelbot.ai" ]; then
+      only_apex=0
+      break
+    fi
+  done
+  if [ "$only_apex" = 1 ]; then
+    echo ""
+    echo "Warning: the deelbot-ai HTTP-01 request only lists the apex (deelbot.ai)."
+    echo "  Browsers will show ERR_CERT_COMMON_NAME_INVALID on tenant hosts (e.g. aohomes.deelbot.ai)"
+    echo "  unless you add each hostname to DEELBOT_AI_EXTRA_DOMAINS or use a wildcard cert:"
+    echo "  sudo $SCRIPT_DIR/issue-le-certs.sh --deelbot-ai-only --deelbot-ai-wildcard"
+    echo ""
   fi
 
   if [ "${DEELBOT_AI_INCLUDE_APEX:-1}" != "0" ] && command -v dig >/dev/null 2>&1; then

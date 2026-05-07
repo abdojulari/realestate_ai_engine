@@ -194,7 +194,7 @@ sudo CERTBOT_EMAIL=you@deelbot.com \
   ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-only
 ```
 
-Add more space-separated names to `DEELBOT_AI_EXTRA_DOMAINS` as you onboard tenants (re-run the same command with `--expand` behavior: Certbot updates the existing `deelbot-ai` cert when you pass the full domain list — you may need to include **all** previous SANs plus new ones, or use `certbot certonly --cert-name deelbot-ai --webroot ...` with a complete `-d` set).
+Add more space-separated names to `DEELBOT_AI_EXTRA_DOMAINS` as you onboard tenants. The issuer **merges existing DNS SANs** from the current `deelbot-ai` certificate into the next HTTP-01 request (unless `DEELBOT_AI_PRESERVE_EXISTING_SANS=0`), which avoids accidentally **dropping** hostnames that were already on the cert. It does **not** restore names that are already missing from the cert — add those via `DEELBOT_AI_EXTRA_DOMAINS` or use a wildcard cert.
 
 **Option B — Wildcard `*.deelbot.ai` (recommended for many tenants):** Covers **every** subdomain (`foo.deelbot.ai`, `aohomes.deelbot.ai`, …) without re-running Certbot per host. Uses **DNS-01**: Certbot creates temporary `_acme-challenge` TXT records in Cloudflare via an API token.
 
@@ -262,6 +262,51 @@ Let’s Encrypt hits **`http://your-domain:80/.well-known/...` on your VPS’s p
    Usually **Ubuntu’s `sites-enabled` default** is still answering for `Host: www.deelbot.com` with `root /var/www/html`. Run **`install-debian.sh` again** (it clears `sites-enabled/*`), ensure **`/etc/nginx/snippets/deelbot-acme.inc`** exists, then `sudo cp .../deploy/host-edge/nginx/deelbot-edge.conf /etc/nginx/conf.d/deelbot-edge.conf && sudo nginx -t && sudo systemctl reload nginx`.
 
 `issue-le-certs.sh` runs a **preflight** before Certbot. Use `--skip-preflight` only if you know what you’re doing.
+
+### `ERR_CERT_COMMON_NAME_INVALID` on `something.deelbot.ai`
+
+The **deelbot-ai** Let’s Encrypt certificate must list **every** tenant hostname (or **`*.deelbot.ai`** via DNS-01). A cert that only covers **`deelbot.ai`** is valid for the apex only — **not** for `aohomes.deelbot.ai`, so Chrome shows **Your connection is not private**.
+
+This is unrelated to **deelbot.com** TLS; it is only the **`.ai`** lineage.
+
+**Fix (pick one):**
+
+1. **HTTP-01 — add each tenant** (space-separated, re-run when you add a host):
+
+   ```bash
+   cd ~/opt/apps/suhani
+   sudo DEELBOT_AI_EXTRA_DOMAINS="aohomes.deelbot.ai" ./deploy/host-edge/issue-le-certs.sh --deelbot-ai-only
+   ```
+
+   Include **all** subdomains you need on one line (long-term, prefer wildcard below).
+
+2. **DNS-01 wildcard** (`*.deelbot.ai` + apex) — Cloudflare token + `--deelbot-ai-wildcard` (see §4 Option B above).
+
+**Going forward:** `issue-le-certs.sh` **merges DNS names already on the current `deelbot-ai` certificate** into the next HTTP-01 request (unless `DEELBOT_AI_PRESERVE_EXISTING_SANS=0`), so a full run is less likely to **drop** existing tenants. It **does not invent** names that are no longer on the cert — if the live cert was already reduced to apex-only, set `DEELBOT_AI_EXTRA_DOMAINS` once (or switch to wildcard).
+
+### `504 Gateway Time-out` on `deelbot.com` / `www.deelbot.com` (hybrid)
+
+Host Nginx proxies **HTTPS** for `www.deelbot.com` to **`http://127.0.0.1:9080`** (Suhani Docker Nginx), which should proxy to the control plane on **`host.docker.internal:3001`**. A **504** means that hop did not return a response in time (or never connected).
+
+On the VPS:
+
+```bash
+# 1) Suhani stack nginx + app up?
+docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml ps
+
+# 2) Loopback port matches upstream in /etc/nginx/conf.d/deelbot-edge.conf ?
+curl -sS -o /dev/null -w "%{http_code}\n" --max-time 5 \
+  -H "Host: www.deelbot.com" http://127.0.0.1:9080/
+
+# 3) Control plane answering on the host?
+curl -sS -o /dev/null -w "%{http_code}\n" --max-time 5 http://127.0.0.1:3001/
+
+# 4) From inside Suhani nginx container → host CP
+docker compose --env-file .env.production -f docker-compose.yml -f docker-compose.prod.yml exec nginx \
+  wget -qO- --timeout=3 http://host.docker.internal:3001/ | head -c 200 || true
+```
+
+If **(2)** fails: fix `NGINX_PUBLISH_HTTP_HOST_PORT` / `9080` and host **`upstream deelbot_com_docker_http`**. If **(2)** works but browser 504s, check **host** `proxy_read_timeout` vs app cold start; if **(3)** fails, start the CP stack; if **(3)** works but **(4)** fails, **`host.docker.internal`** / `extra_hosts` in compose is wrong for that container.
 
 ## 5. Tenant vanity domains
 
