@@ -3,7 +3,9 @@
     <!-- Navigation Drawer -->
     <v-navigation-drawer
       v-model="drawer"
+      class="admin-sidebar-drawer"
       :rail="rail"
+      width="310"
       permanent
       @click="rail = false"
     >
@@ -23,7 +25,7 @@
 
       <v-divider />
 
-      <v-list nav v-model:opened="openedGroups">
+      <v-list nav v-model:opened="openedGroups" class="admin-sidebar-nav">
         <template v-for="node in groupedMenu" :key="node.type === 'group' ? `g-${node.key}` : `i-${node.to}`">
           <!-- Top-level leaf items -->
           <v-list-item
@@ -73,7 +75,7 @@
       </v-list>
 
       <template v-slot:append>
-        <v-list nav>
+        <v-list nav class="admin-sidebar-nav">
           <v-list-item
             v-if="showSettingsDrawerLink"
             prepend-icon="mdi-cog"
@@ -653,6 +655,15 @@ onMounted(async () => {
 <style scoped>
 .max-w-xs {
   max-width: 300px;
+}
+
+/* Sidebar: show full labels (default Vuetify truncates long titles with ellipsis). */
+.admin-sidebar-drawer.v-navigation-drawer:not(.v-navigation-drawer--rail) :deep(.v-list-item-title) {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.35;
+  word-break: break-word;
 }
 
 :deep(.v-navigation-drawer--rail) {
