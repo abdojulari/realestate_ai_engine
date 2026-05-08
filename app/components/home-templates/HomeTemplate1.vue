@@ -8,12 +8,11 @@
             <div class="hero-text">
               <span class="premium-label mb-4">EXCEPTIONAL REAL ESTATE</span>
               <h1 class="hero-title">
-                Find A House<br>
-                <span class="hero-title-accent">That Suits You</span>
+                {{ heroPrimary }}<br>
+                <span class="hero-title-accent">{{ heroAccent }}</span>
               </h1>
               <p class="hero-subtitle">
-                Discover a curated collection of properties designed for your lifestyle. 
-                Our dedicated team ensures your journey to a new home is seamless and sophisticated.
+                {{ heroSub }}
               </p>
               <div class="d-flex align-center gap-4">
                 <v-btn 
@@ -56,7 +55,7 @@
           </v-col>
           <v-col cols="12" md="6" class="pa-0"> 
               <v-img
-                :src="heroImage || 'https://images.unsplash.com/photo-1678575326996-a1bf09b86158?q=80&w=1932&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'"
+                :src="heroImgSrc"
                 alt="Modern House"
                 class="hero-house"
                 cover
@@ -155,17 +154,34 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { buildPropertiesListingQuery } from '~/utils/propertiesListingQuery'
+import { cmsOr } from '~/utils/cmsDisplay'
+
+const DEFAULT_HERO_IMG =
+  'https://images.unsplash.com/photo-1678575326996-a1bf09b86158?q=80&w=1932&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'
 
 const props = defineProps<{
   featuredProperties?: any[]
   heroImage?: string
+  heroTitlePrimary?: string
+  heroTitleAccent?: string
+  heroSubtitle?: string
   featuredTestimonials?: any[]
   totalUsers?: number
   totalProperties?: number
   awardsCount?: number
 }>()
+
+const heroImgSrc = computed(() => cmsOr(props.heroImage, DEFAULT_HERO_IMG))
+const heroPrimary = computed(() => cmsOr(props.heroTitlePrimary, 'Find A House'))
+const heroAccent = computed(() => cmsOr(props.heroTitleAccent, 'That Suits You'))
+const heroSub = computed(() =>
+  cmsOr(
+    props.heroSubtitle,
+    'Discover a curated collection of properties designed for your lifestyle. Our dedicated team ensures your journey to a new home is seamless and sophisticated.',
+  ),
+)
 
 const totalProperties = computed(() => `${props.totalProperties ?? 0}+`)
 const awardsDisplay = computed(() => `${props.awardsCount ?? 0}+`)

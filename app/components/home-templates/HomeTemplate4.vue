@@ -7,12 +7,11 @@
           <div class="hero-content-split pl-16">
             <span class="hero-label">EXCLUSIVE REAL ESTATE</span>
             <h1 class="hero-title-split">
-              Find Your<br>
-              <span class="accent-text">Perfect Match</span>
+              {{ heroPrimary }}<br>
+              <span class="accent-text">{{ heroAccent }}</span>
             </h1>
             <p class="hero-description-split">
-              We specialize in connecting you with exceptional properties that match your vision. 
-              Experience personalized service and expert guidance throughout your journey.
+              {{ heroSub }}
             </p>
             <div class="d-flex align-center gap-4 mt-8">
               <v-btn 
@@ -57,7 +56,7 @@
         </v-col>
         <v-col cols="12" md="6" class="hero-right pa-0">
           <v-img
-            :src="heroImage || 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2053&auto=format&fit=crop'"
+            :src="heroImgSrc"
             alt="Luxury Property"
             class="hero-image-split"
             cover
@@ -148,15 +147,32 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { buildPropertiesListingQuery } from '~/utils/propertiesListingQuery'
+import { cmsOr } from '~/utils/cmsDisplay'
+
+const DEFAULT_HERO_IMG =
+  'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=2053&auto=format&fit=crop'
 
 const props = defineProps<{
   featuredProperties?: any[]
   heroImage?: string
+  heroTitlePrimary?: string
+  heroTitleAccent?: string
+  heroSubtitle?: string
   featuredTestimonials?: any[]
   totalUsers?: number
   totalProperties?: number
   awardsCount?: number
 }>()
+
+const heroImgSrc = computed(() => cmsOr(props.heroImage, DEFAULT_HERO_IMG))
+const heroPrimary = computed(() => cmsOr(props.heroTitlePrimary, 'Find Your'))
+const heroAccent = computed(() => cmsOr(props.heroTitleAccent, 'Perfect Match'))
+const heroSub = computed(() =>
+  cmsOr(
+    props.heroSubtitle,
+    'We specialize in connecting you with exceptional properties that match your vision. Experience personalized service and expert guidance throughout your journey.',
+  ),
+)
 
 const totalProperties = computed(() => `${props.totalProperties ?? 0}+`)
 const awardsDisplay = computed(() => `${props.awardsCount ?? 0}+`)

@@ -3,7 +3,7 @@
     <section class="hero-centered">
       <div class="hero-bg-wrapper">
         <v-img
-          :src="heroImage || 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?q=80&w=2070&auto=format&fit=crop'"
+          :src="heroImgSrc"
           alt="Beautiful Home"
           class="hero-background-img"
           cover
@@ -15,12 +15,11 @@
           <v-col cols="12" md="10" class="text-center">
             <span class="hero-badge-centered animate-fade-in">PREMIUM REAL ESTATE SOLUTIONS</span>
             <h1 class="hero-title-centered animate-slide-up">
-              Welcome to Your<br>
-              <span class="gradient-text">Future Home</span>
+              {{ heroPrimary }}<br>
+              <span class="gradient-text">{{ heroAccent }}</span>
             </h1>
             <p class="hero-subtitle-centered animate-slide-up-delayed">
-              Discover exceptional properties tailored to your lifestyle. 
-              From urban condos to suburban estates, we have the perfect match for every buyer.
+              {{ heroSub }}
             </p>
             <div class="d-flex align-center justify-center gap-4 mt-10 animate-fade-in-delayed">
               <v-btn 
@@ -162,15 +161,32 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { buildPropertiesListingQuery } from '~/utils/propertiesListingQuery'
+import { cmsOr } from '~/utils/cmsDisplay'
+
+const DEFAULT_HERO_IMG =
+  'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?q=80&w=2070&auto=format&fit=crop'
 
 const props = defineProps<{
   featuredProperties?: any[]
   heroImage?: string
+  heroTitlePrimary?: string
+  heroTitleAccent?: string
+  heroSubtitle?: string
   featuredTestimonials?: any[]
   totalUsers?: number
   totalProperties?: number
   awardsCount?: number
 }>()
+
+const heroImgSrc = computed(() => cmsOr(props.heroImage, DEFAULT_HERO_IMG))
+const heroPrimary = computed(() => cmsOr(props.heroTitlePrimary, 'Welcome to Your'))
+const heroAccent = computed(() => cmsOr(props.heroTitleAccent, 'Future Home'))
+const heroSub = computed(() =>
+  cmsOr(
+    props.heroSubtitle,
+    'Discover exceptional properties tailored to your lifestyle. From urban condos to suburban estates, we have the perfect match for every buyer.',
+  ),
+)
 
 const searchActive = ref(false)
 const isShowcaseVisible = ref(false)

@@ -8,12 +8,11 @@
             <div class="hero-content-minimal">
               <div class="hero-tag">LUXURY REAL ESTATE</div>
               <h1 class="hero-heading">
-                Discover Your<br>
-                <span class="text-primary">Perfect Home</span>
+                {{ heroPrimary }}<br>
+                <span class="text-primary">{{ heroAccent }}</span>
               </h1>
               <p class="hero-text-minimal">
-                Browse through our carefully curated selection of premium properties. 
-                Each home is chosen for its unique character, prime location, and exceptional quality.
+                {{ heroSub }}
               </p>
               <div class="d-flex align-center gap-3 mt-8">
                 <v-btn 
@@ -39,7 +38,7 @@
           <v-col cols="12" md="5">
             <div class="hero-image-wrapper">
               <v-img
-                :src="heroImage || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop'"
+                :src="heroImgSrc"
                 alt="Modern Home"
                 class="hero-image-minimal"
                 cover
@@ -145,15 +144,32 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { buildPropertiesListingQuery } from '~/utils/propertiesListingQuery'
+import { cmsOr } from '~/utils/cmsDisplay'
+
+const DEFAULT_HERO_IMG =
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=2070&auto=format&fit=crop'
 
 const props = defineProps<{
   featuredProperties?: any[]
   heroImage?: string
+  heroTitlePrimary?: string
+  heroTitleAccent?: string
+  heroSubtitle?: string
   featuredTestimonials?: any[]
   totalUsers?: number
   totalProperties?: number
   awardsCount?: number
 }>()
+
+const heroImgSrc = computed(() => cmsOr(props.heroImage, DEFAULT_HERO_IMG))
+const heroPrimary = computed(() => cmsOr(props.heroTitlePrimary, 'Discover Your'))
+const heroAccent = computed(() => cmsOr(props.heroTitleAccent, 'Perfect Home'))
+const heroSub = computed(() =>
+  cmsOr(
+    props.heroSubtitle,
+    'Browse through our carefully curated selection of premium properties. Each home is chosen for its unique character, prime location, and exceptional quality.',
+  ),
+)
 
 const totalProperties = computed(() => `${props.totalProperties ?? 0}+`)
 const awardsDisplay = computed(() => `${props.awardsCount ?? 0}+`)

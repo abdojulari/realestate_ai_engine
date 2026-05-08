@@ -1,6 +1,10 @@
 import { defineEventHandler, readMultipartFormData, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter } from '../../../utils/tenant'
+import {
+  contentBlockUsesRichHtml,
+  sanitizeContentBlockHtml,
+} from '../../../utils/contentBlockSanitize'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -54,11 +58,25 @@ export default defineEventHandler(async (event) => {
     published: payload.published ?? existingMeta.published ?? true
   }
 
+  const mergedType = payload.type ?? block.type
+  const mergedKey = payload.key ?? block.key
+  let nextContent = payload.content !== undefined && payload.content !== null
+    ? String(payload.content)
+    : block.content
+
+  if (
+    payload.content !== undefined &&
+    payload.content !== null &&
+    contentBlockUsesRichHtml({ type: mergedType, key: mergedKey })
+  ) {
+    nextContent = sanitizeContentBlockHtml(nextContent)
+  }
+
   const dataToUpdate = {
-    key: payload.key ?? block.key,
+    key: mergedKey,
     title: payload.title ?? block.title,
-    type: payload.type ?? block.type,
-    content: payload.content ?? block.content,
+    type: mergedType,
+    content: nextContent,
     metadata: metadata as any
   }
   

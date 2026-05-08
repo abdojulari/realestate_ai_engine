@@ -100,7 +100,7 @@ onMounted(async () => {
       // Fallback for demo purposes if API is empty
       cards.value = [
         { icon: 'mdi-shield-check-outline', title: 'Secure Assets', description: 'Your investments are protected by industry-leading security protocols.' },
-        { icon: 'mdi- medals-outline', title: 'Award Winning', description: 'Recognized globally for excellence in luxury architectural services.' },
+        { icon: 'mdi-medal-outline', title: 'Award Winning', description: 'Recognized globally for excellence in luxury architectural services.' },
         { icon: 'mdi-clover', title: 'Sustainable', description: 'Commitment to eco-friendly building materials and green energy.' },
         { icon: 'mdi-handshake-outline', title: 'Personalized', description: 'A dedicated concierge for every client, ensuring total satisfaction.' }
       ]

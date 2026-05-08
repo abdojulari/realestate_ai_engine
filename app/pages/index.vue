@@ -8,6 +8,9 @@
     :is="activeTemplateComponent"
     :featured-properties="featuredProperties"
     :hero-image="heroImage"
+    :hero-title-primary="heroTitlePrimary"
+    :hero-title-accent="heroTitleAccent"
+    :hero-subtitle="heroSubtitle"
     :featured-testimonials="featuredTestimonials"
     :total-users="totalUsers"
     :total-properties="totalProperties"
@@ -19,6 +22,10 @@
 import { ref, computed, onMounted } from 'vue'
 import HomeTemplate1 from '~/components/home-templates/HomeTemplate1.vue'
 import HomeTemplate2 from '~/components/home-templates/HomeTemplate2.vue'
+import HomeTemplate3 from '~/components/home-templates/HomeTemplate3.vue'
+import HomeTemplate4 from '~/components/home-templates/HomeTemplate4.vue'
+import HomeTemplate5 from '~/components/home-templates/HomeTemplate5.vue'
+import { extractHomeHeroFromBlocks } from '~/utils/homeHeroCms'
 
 const { businessName, adminFullName } = useTenantSettings()
 useSeoMeta({
@@ -114,14 +121,14 @@ useHead({
         }))
       : [],
 })
-import HomeTemplate3 from '~/components/home-templates/HomeTemplate3.vue'
-import HomeTemplate4 from '~/components/home-templates/HomeTemplate4.vue'
-import HomeTemplate5 from '~/components/home-templates/HomeTemplate5.vue'
 
 const loading = ref(true)
 const activeTemplate = ref(1)
 const featuredProperties = ref<any[]>([])
 const heroImage = ref<string>('')
+const heroTitlePrimary = ref<string>('')
+const heroTitleAccent = ref<string>('')
+const heroSubtitle = ref<string>('')
 const featuredTestimonials = ref<any[]>([])
 const totalUsers = ref<number>(0)
 const totalProperties = ref<number>(0)
@@ -177,6 +184,17 @@ onMounted(async () => {
     if (typeof ts?.awardsCount === 'number') awardsCount.value = ts.awardsCount
   } catch (e) {
     console.warn('[home] Failed to load /api/tenant-settings for awardsCount', e)
+  }
+
+  try {
+    const homePage: any = await $fetch('/api/content/page/home')
+    const hero = extractHomeHeroFromBlocks(homePage?.items || [])
+    heroImage.value = hero.heroImageUrl
+    heroTitlePrimary.value = hero.heroTitlePrimary
+    heroTitleAccent.value = hero.heroTitleAccent
+    heroSubtitle.value = hero.heroSubtitle
+  } catch (e) {
+    console.warn('[home] Failed to load CMS hero blocks', e)
   }
 
   // Load Properties

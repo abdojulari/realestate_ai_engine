@@ -280,6 +280,19 @@ export function useContentAdmin() {
   }
 
   async function saveContent() {
+    const usesRichHtml =
+      contentForm.type === 'html' || contentForm.key === 'about.story.content'
+    if (usesRichHtml) {
+      const plain = String(contentForm.content || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+      if (!plain) {
+        showError('Please enter content before saving.', 'Validation')
+        return
+      }
+    }
+
     saving.value = true
     try {
       const dataToSend = {

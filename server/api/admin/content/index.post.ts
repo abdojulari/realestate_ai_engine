@@ -1,6 +1,10 @@
 import { defineEventHandler, readMultipartFormData, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { getAdminIdForCreate } from '../../../utils/tenant'
+import {
+  contentBlockUsesRichHtml,
+  sanitizeContentBlockHtml,
+} from '../../../utils/contentBlockSanitize'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -41,12 +45,17 @@ export default defineEventHandler(async (event) => {
     published: payload.published !== false
   }
 
+  let content = payload.content || ''
+  if (contentBlockUsesRichHtml({ type: payload.type, key: payload.key })) {
+    content = sanitizeContentBlockHtml(String(content))
+  }
+
   const created = await prisma.contentBlock.create({
     data: {
       key: payload.key,
       title: payload.title,
       type: payload.type,
-      content: payload.content || '',
+      content,
       metadata: metadata as any,
       adminId
     }

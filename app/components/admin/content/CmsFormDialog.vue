@@ -82,20 +82,19 @@
                 />
               </div>
 
-              <div v-else-if="form.type === 'html'">
-                <v-textarea density="compact"
+              <div v-else-if="showRichHtmlEditor">
+                <label class="text-caption text-medium-emphasis d-block mb-1">Content</label>
+                <CmsRichTextField
                   v-model="form.content"
-                  label="HTML Content"
-                  rows="12"
-                  variant="outlined"
-                  :rules="[v => !!v || 'Content is required']"
-                  required
-                  class="html-code-editor premium-input"
-                  rounded="lg"
-                  spellcheck="false"
-                  auto-grow
-                  hint="Enter your HTML content. Use Tab for indentation."
-                  persistent-hint
+                  :min-height="180"
+                  placeholder="Write formatted content…"
+                />
+                <v-text-field
+                  v-show="false"
+                  v-model="form.content"
+                  :rules="[richHtmlRequired]"
+                  tabindex="-1"
+                  aria-hidden="true"
                 />
 
                 <div v-if="form.section === 'about'" class="mt-6">
@@ -303,9 +302,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
-defineProps<{
+const props = defineProps<{
   modelValue: boolean
   editing: boolean
   saving: boolean
@@ -315,6 +314,19 @@ defineProps<{
   keyOptions: any[]
   isImageContent: boolean
 }>()
+
+/** TipTap-style HTML — includes About story even if legacy type was mis-set. */
+const showRichHtmlEditor = computed(
+  () => props.form?.type === 'html' || props.form?.key === 'about.story.content',
+)
+
+function richHtmlRequired(v: string | undefined) {
+  const plain = String(v || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return plain.length > 0 || 'Content is required'
+}
 
 defineEmits<{
   'update:modelValue': [value: boolean]
