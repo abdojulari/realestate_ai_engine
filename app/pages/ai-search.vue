@@ -161,27 +161,19 @@
                 </div>
               </div>
 
-              <!-- Error Display -->
-              <v-alert
-                v-if="errorMessage"
-                type="error"
-                variant="tonal"
-                class="mt-4"
-                closable
-                @click:close="errorMessage = ''"
-              >
-                {{ errorMessage }}
-              </v-alert>
             </div>
           </v-card>
 
-          <!-- Loading State Overlay -->
-          <v-fade-transition>
-            <div v-if="searching" class="search-loader py-16 text-center">
-              <v-progress-circular indeterminate color="black" size="64" width="2" />
-              <div class="mt-6 text-h6 font-weight-light">Analyzing your requirements...</div>
-            </div>
-          </v-fade-transition>
+          <UnifiedSearchStatus
+            :busy="searching"
+            :phase="searchPhase"
+            :title="statusTitle"
+            :subtitle="statusSubtitle"
+            :partial-message="partialNotice"
+            :error-message="errorMessage"
+            :show-cancel="searching"
+            @cancel="cancelSearch"
+          />
 
           <!-- No Results / Empty State -->
           <div v-if="!searching && searchResults.length === 0 && totalProperties === 0 && searchQuery" class="mt-12">
@@ -587,12 +579,11 @@
 
 <script setup lang="ts">
 import FeatureGate from '~/components/FeatureGate.vue'
+import UnifiedSearchStatus from '~/components/search/UnifiedSearchStatus.vue'
 import { FEATURES } from '~/composables/useLicense'
 
 const searchQuery = ref('')
-const searching = ref(false)
 const searchResults = ref<any[]>([])
-const errorMessage = ref('')
 const currentPage = ref(1)
 const totalPages = ref(0)
 const totalProperties = ref(0)
@@ -604,6 +595,25 @@ const selectedNeighborhoodName = ref<string | null>(null)
 const cities = ref<any[]>([])
 const loadingCities = ref(false)
 const userLocation = ref<{lat: number, lng: number} | null>(null)
+
+const {
+  phase: searchPhase,
+  statusTitle,
+  statusSubtitle,
+  partialNotice,
+  errorMessage,
+  lastSearchFilters,
+  isSearchBusy,
+  executeSearch,
+  cancelSearch,
+} = usePropertySearchOrchestrator({
+  searchQuery,
+  selectedCity,
+  selectedNeighborhoodName,
+  itemsPerPage,
+})
+
+const searching = isSearchBusy
 
 // Speech Recognition
 const isListening = ref(false)
@@ -663,235 +673,59 @@ const frequencyOptions = [
   { label: 'Monthly', value: '30d', description: 'Monthly property updates' }
 ]
 
-// Store the last search filters for pagination
-const lastSearchFilters = ref<any>(null)
-
 const searchWithAI = async (pageNum = 1) => {
-  // Ensure pageNum is a number
   const page = typeof pageNum === 'number' ? pageNum : 1
-  
-  searching.value = true
-  errorMessage.value = ''
+
   if (page === 1) {
     searchResults.value = []
     currentPage.value = 1
   }
-  
-  try {
-    let parseResult
-    
-    // For pagination (page > 1), reuse the last search filters
-    if (page > 1 && lastSearchFilters.value) {
-      parseResult = lastSearchFilters.value
-    } else {
-      // Step 1: Parse the natural language query (only for new searches)
-      parseResult = await $fetch('/api/ai/parse-property-query', {
-        method: 'POST',
-        body: { query: searchQuery.value }
-      })
-      
-      // Store filters for pagination
-      lastSearchFilters.value = parseResult
-    }
-    
-    // AI parsing completed
-    
-    // Step 2: Convert extracted filters to API query parameters
-    const queryParams = new URLSearchParams()
-    Object.entries(parseResult.filters).forEach(([key, value]) => {
-      if (value !== null && value !== undefined && value !== '') {
-        // Handle mappings for the enhanced API
-        if (key === 'beds') {
-          // Check if original query indicates minimum (3+, "or more", etc.)
-          const query = searchQuery.value.toLowerCase()
-          const isMinimum = query.includes('+') || 
-                           query.includes('or more') ||
-                           query.includes('plus') ||
-                           query.includes('minimum') ||
-                           query.includes('at least')
-          
-          const isExact = query.includes('exactly') || 
-                         query.includes('precise') ||
-                         query.includes('specific')
-          
-          if (isExact) {
-            // Explicitly requested exact match
-            queryParams.append('bedsExact', String(value))
-          } else if (isMinimum) {
-            // Use minimum bedrooms (3+ bedrooms = 3 or more)
-            queryParams.append('beds', String(value))
-          } else {
-            // Default: for most searches like "4 bedroom house", use exact match
-            // This matches user expectations better
-            queryParams.append('bedsExact', String(value))
-          }
-        } else if (key === 'garageSpaces') {
-          // Map garageSpaces to garage feature
-          queryParams.append('features', 'garage')
-        } else if (key === 'basement') {
-          // Map basement to basement feature
-          queryParams.append('features', 'basement')
-        } else if (key === 'garage' && value === true) {
-          // Map garage boolean to garage feature
-          queryParams.append('features', 'garage')
-        } else if (key === 'features' && typeof value === 'object') {
-          // Handle features object - ADD ALL FEATURES for comprehensive search
-          // Group features by category for better logging
-          const allFeatures: string[] = []
-          
-          // Add all detected features to the search
-          Object.entries(value).forEach(([feature, isEnabled]) => {
-            if (isEnabled) {
-              queryParams.append('features', feature)
-              allFeatures.push(feature)
-            }
-          })
-          
-          console.log('🎯 All features for search:', allFeatures)
-        // ========== ENHANCED RESIDENTIAL FIELD MAPPINGS ==========
-        
-        // Price filters
-        } else if (key === 'minPrice') {
-          queryParams.append('minPrice', String(value))
-        } else if (key === 'maxPrice') {
-          queryParams.append('maxPrice', String(value))
-          
-        // Square footage
-        } else if (key === 'minSqft') {
-          queryParams.append('minSqft', String(value))
-        } else if (key === 'maxSqft') {
-          queryParams.append('maxSqft', String(value))
-          
-        // Lot size
-        } else if (key === 'lotSizeAcres' || key === 'minLotSizeAcres') {
-          queryParams.append('lotSizeAcres', String(value))
-        } else if (key === 'maxLotSizeAcres') {
-          queryParams.append('maxLotSizeAcres', String(value))
-        } else if (key === 'lotSizeSqFt') {
-          queryParams.append('lotSizeSqFt', String(value))
-          
-        // Building characteristics
-        } else if (key === 'stories') {
-          queryParams.append('stories', String(value))
-        } else if (key === 'minYearBuilt') {
-          queryParams.append('minYearBuilt', String(value))
-        } else if (key === 'maxYearBuilt') {
-          queryParams.append('maxYearBuilt', String(value))
-        } else if (key === 'condition') {
-          queryParams.append('condition', String(value))
-          
-        // Zoning and location
-        } else if (key === 'zoning') {
-          queryParams.append('zoning', String(value))
-        } else if (key === 'location' || key === 'locationType') {
-          // Don't override city dropdown selection
-          if (!selectedCity.value) {
-            queryParams.append('location', String(value))
-          }
-        } else if (key === 'subdivision') {
-          queryParams.append('subdivision', String(value))
-          
-        // HOA/Condo fees
-        } else if (key === 'maxHoaFee') {
-          queryParams.append('maxHoaFee', String(value))
-        } else if (key === 'noHoaFee') {
-          if (value) queryParams.append('noHoaFee', 'true')
-          
-        // Tax amount
-        } else if (key === 'maxTaxAmount') {
-          queryParams.append('maxTaxAmount', String(value))
-          
-        // Bathrooms
-        } else if (key === 'baths') {
-          queryParams.append('baths', String(value))
-          
-        // Proximity/near
-        } else if (key === 'near') {
-          // Store for potential future use (would need POI integration)
-          console.log('📍 Proximity filter detected:', value)
-          
-        // Multi-level property types as features
-        } else if (key === 'multiLevel' || key === 'splitLevel') {
-          queryParams.append('features', key)
-        } else if (key === 'largeLot' || key === 'smallLot') {
-          queryParams.append('features', key)
-          
-        // Skip internal flags
-        } else if (key === 'bedsMinimum') {
-          // This is handled by beds logic above
-        } else if (key === 'mainFloorBedrooms' || key === 'upperFloorBedroomCount') {
-          // Informational counts used for remark keyword generation
-          
-        // Arrays (like 'near' items and remarkKeywords)
-        } else if (Array.isArray(value)) {
-          queryParams.append(key, value.join(','))
-          
-        // Catch-all for any other filters
-        } else {
-          queryParams.append(key, String(value))
-        }
+
+  await executeSearch(page, {
+    onResults(response: any) {
+      if (response == null) {
+        searchResults.value = []
+        totalProperties.value = 0
+        totalPages.value = 0
+        return
       }
-    })
-    
-    // Add city filter if selected
-    if (selectedCity.value) {
-      queryParams.append('city', selectedCity.value)
-    }
-    
-    // Add neighborhood/subdivision filter if selected
-    if (selectedNeighborhoodName.value) {
-      queryParams.append('subdivision', selectedNeighborhoodName.value)
-    }
-    
-    // Add pagination parameters
-    queryParams.append('limit', itemsPerPage.toString())
-    queryParams.append('page', page.toString())
-    
-    // API query prepared
-    
-    // Step 3: Search properties using existing API
-    const response = await $fetch(`/api/properties?${queryParams.toString()}`)
-    
-    if (response && response.properties && Array.isArray(response.properties)) {
-      searchResults.value = response.properties
-      
-      // Extract pagination data
-      if (response.pagination) {
-        totalProperties.value = response.pagination.total
-        totalPages.value = response.pagination.totalPages
-        currentPage.value = response.pagination.page
+      if (response && response.properties && Array.isArray(response.properties)) {
+        searchResults.value = response.properties
+        if (response.pagination) {
+          totalProperties.value = response.pagination.total
+          totalPages.value = response.pagination.totalPages
+          currentPage.value = response.pagination.page
+        } else {
+          console.error('❌ No pagination data in response!')
+          totalProperties.value = response.properties.length
+          totalPages.value = 1
+          currentPage.value = 1
+        }
+        console.log(
+          '✅ Search completed:',
+          searchResults.value.length,
+          'properties on page',
+          currentPage.value,
+          'of',
+          totalPages.value,
+        )
+        if (totalProperties.value === 0) {
+          console.log('⚠️ No properties found with current filters. Consider removing some filters.')
+        }
       } else {
-        // This should never happen - pagination should always be present
-        console.error('❌ No pagination data in response!')
-        totalProperties.value = response.properties.length
-        totalPages.value = 1
+        console.error('❌ API returned unexpected format:', response)
+        searchResults.value = []
+        totalProperties.value = 0
+        totalPages.value = 0
         currentPage.value = 1
       }
-      
-      // Search completed successfully
-      console.log('✅ Search completed:', searchResults.value.length, 'properties on page', currentPage.value, 'of', totalPages.value)
-      
-      // Show a helpful message if no results
-      if (totalProperties.value === 0) {
-        console.log('⚠️ No properties found with current filters. Consider removing some filters.')
-      }
-    } else {
-      console.error('❌ API returned unexpected format:', response)
+    },
+    onEmptyParse() {
       searchResults.value = []
       totalProperties.value = 0
       totalPages.value = 0
-      currentPage.value = 1
-    }
-    
-  } catch (error: any) {
-    console.error('❌ AI Search failed:', error)
-    errorMessage.value = error.data?.statusMessage || 'Search failed. Please try again.'
-    searchResults.value = []
-    totalProperties.value = 0
-    totalPages.value = 0
-  } finally {
-    searching.value = false
-  }
+    },
+  })
 }
 
 const handlePageChange = (page: any) => {
