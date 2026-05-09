@@ -39,6 +39,7 @@
 import type { H3Event } from 'h3'
 import { getRequestHeader } from 'h3'
 import { PrismaClient } from '@prisma/client'
+import { clearTenantEmailOutboundCache } from './tenantEmailOutbound'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -442,4 +443,5 @@ export function clearTenantEmailCache(adminId: number | null | undefined): void 
   if (!adminId) return
   senderCache.delete(adminId)
   smtpCache.delete(adminId)
+  clearTenantEmailOutboundCache(adminId)
 }

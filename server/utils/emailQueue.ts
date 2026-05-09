@@ -1,43 +1,13 @@
 import Bull from 'bull'
-import nodemailer from 'nodemailer'
 import { getRedisClient } from './redis'
-import { getTenantSender, getTenantSmtpConfig } from './tenantSiteUrl'
-import type { TenantSmtpConfig } from './tenantSiteUrl'
+import { sendEmail } from './email'
+import { getTenantSender } from './tenantSiteUrl'
 
-/**
- * Build a nodemailer transport for a specific job. Uses the tenant's
- * SMTP relay if they fully configured one in Email Settings; otherwise
- * the platform SMTP_USERNAME/SMTP_PASSWORD env vars. Mirrors the
- * resolution done by `email.ts → getTransporter`.
- */
-function buildTransport(tenantSmtp: TenantSmtpConfig | null) {
-  if (tenantSmtp) {
-    return nodemailer.createTransport({
-      host: tenantSmtp.host,
-      port: tenantSmtp.port,
-      secure: tenantSmtp.secure,
-      auth: { user: tenantSmtp.username, pass: tenantSmtp.password },
-    })
-  }
-  return nodemailer.createTransport({
-    host: process.env.SMTP_HOSTNAME || 'smtp.gmail.com',
-    port: Number(process.env.SMTP_PORT || 587),
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: {
-      user: process.env.SMTP_USERNAME,
-      pass: process.env.SMTP_PASSWORD,
-    },
-  })
-}
-
-async function resolveTenantSmtp(adminId?: number | null): Promise<TenantSmtpConfig | null> {
-  if (adminId == null) return null
-  try {
-    return await getTenantSmtpConfig(adminId)
-  } catch (err) {
-    console.warn('[emailQueue] tenant SMTP lookup failed, using platform SMTP:', err)
-    return null
-  }
+function escapeForPre(text: string): string {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
 }
 
 interface EmailJob {
@@ -114,34 +84,30 @@ export function getEmailQueue(): Bull.Queue<EmailJob> | null {
       })
 
       // Process email jobs
-      emailQueue.process(5, async (job) => { // Process up to 5 emails concurrently
+      emailQueue.process(5, async (job) => {
         const { to, subject, text, html, requestId } = job.data
 
         const logPrefix = requestId ? `[${requestId}]` : '[EMAIL]'
         console.log(`${logPrefix} Processing email job: ${subject} to ${to}`)
 
         try {
-          const tenantSmtp = await resolveTenantSmtp(job.data.adminId)
-          const transporter = buildTransport(tenantSmtp)
-
           const { from, replyTo } = await resolveQueueSender(job.data)
-
-          const mailOptions: nodemailer.SendMailOptions = {
-            from,
+          const safeHtml = html || `<pre style="font-family:system-ui, sans-serif;white-space:pre-wrap">${escapeForPre(text)}</pre>`
+          const ok = await sendEmail({
             to,
             subject,
+            html: safeHtml,
             text,
-            ...(html && { html }),
+            adminId: job.data.adminId,
+            from,
             ...(replyTo ? { replyTo } : {}),
-          }
-
-          const result = await transporter.sendMail(mailOptions)
-          console.log(`${logPrefix} Email sent successfully:`, result.messageId)
-          
-          return result
+          })
+          if (!ok) throw new Error('sendEmail returned false')
+          console.log(`${logPrefix} Email sent successfully`)
+          return { ok: true }
         } catch (error) {
           console.error(`${logPrefix} Email send failed:`, error)
-          throw error // This will trigger job retry
+          throw error
         }
       })
 
@@ -201,25 +167,22 @@ export async function queueEmail(emailData: EmailJob): Promise<boolean> {
 
 async function sendEmailDirectly(emailData: EmailJob): Promise<boolean> {
   try {
-    const tenantSmtp = await resolveTenantSmtp(emailData.adminId)
-    const transporter = buildTransport(tenantSmtp)
-
     const { from, replyTo } = await resolveQueueSender(emailData)
-
-    const mailOptions: nodemailer.SendMailOptions = {
-      from,
+    const safeHtml =
+      emailData.html ||
+      `<pre style="font-family:system-ui, sans-serif;white-space:pre-wrap">${escapeForPre(emailData.text)}</pre>`
+    const ok = await sendEmail({
       to: emailData.to,
       subject: emailData.subject,
+      html: safeHtml,
       text: emailData.text,
-      ...(emailData.html && { html: emailData.html }),
+      adminId: emailData.adminId,
+      from,
       ...(replyTo ? { replyTo } : {}),
-    }
-
-    await transporter.sendMail(mailOptions)
-    
+    })
     const logPrefix = emailData.requestId ? `[${emailData.requestId}]` : '[EMAIL]'
     console.log(`${logPrefix} Email sent directly: ${emailData.subject}`)
-    return true
+    return ok
   } catch (error) {
     const logPrefix = emailData.requestId ? `[${emailData.requestId}]` : '[EMAIL]'
     console.error(`${logPrefix} Direct email send failed:`, error)

@@ -416,8 +416,69 @@
                   Leave this section blank and your emails will be sent through our platform mail server (recommended). Filling these in connects your own SMTP relay (Gmail, Mailgun, SendGrid, etc.) so outbound mail is sent from your own address. <strong>You must fill in host, port, username AND password</strong> — partial configs are ignored and we'll fall back to platform mail. A wrong password will silently break your tenant's email until you fix it. If you're not sure what any of this means, don't touch it.
                 </div>
               </v-alert>
+
+              <v-alert type="info" variant="tonal" density="comfortable" class="mb-6" border="start">
+                <div class="font-weight-bold mb-1">MailerLite (optional)</div>
+                <div class="text-body-2">
+                  Choose <strong>MailerLite API</strong> below to send marketing-style campaigns through MailerLite when <code class="text-caption">MAILERLITE_API_TOKEN</code> is set on the server.
+                  Delivery always falls back to SMTP if MailerLite errors or is unavailable — your existing SMTP setup is never removed.
+                  SMS uses MailerSend separately (<code class="text-caption">MAILERSEND_API_TOKEN</code>, <code class="text-caption">MAILERSEND_SMS_FROM_NUMBER</code>); MailerLite's API alone does not send SMS.
+                </div>
+              </v-alert>
+
               <v-form v-model="isEmailFormValid" @submit.prevent="saveEmailSettings">
                 <v-row>
+                  <v-col cols="12">
+                    <div class="text-subtitle-2 font-weight-bold text-slate-700 mb-2">Outbound delivery</div>
+                    <v-radio-group
+                      v-model="emailSettings.outboundDelivery"
+                      hide-details
+                      density="comfortable"
+                      class="premium-input"
+                    >
+                      <v-radio label="Default — SMTP (tenant relay or platform mail)" value="smtp" />
+                      <v-radio label="MailerLite API — instant campaign send, then SMTP fallback if it fails" value="mailerlite" />
+                    </v-radio-group>
+                  </v-col>
+
+                  <v-col v-if="emailSettings.outboundDelivery === 'mailerlite'" cols="12">
+                    <v-switch
+                      v-model="emailSettings.mailerliteSmsEnabled"
+                      label="Allow SMS notifications via MailerSend (when server env is configured)"
+                      color="primary"
+                      class="premium-switch"
+                      hide-details
+                    />
+                    <div class="text-caption text-slate-500 mt-1 ml-12">
+                      Feature hooks respect this toggle; SMS itself requires MailerSend credentials on the server.
+                    </div>
+                  </v-col>
+
+                  <v-col v-if="emailSettings.outboundDelivery === 'mailerlite' && !mailerLiteTokenConfigured" cols="12">
+                    <v-alert
+                      type="error"
+                      variant="tonal"
+                      density="comfortable"
+                      border="start"
+                      prominent
+                      icon="mdi-key-alert"
+                    >
+                      <div class="font-weight-bold mb-1">MailerLite cannot send until the API token is on the server</div>
+                      <div class="text-body-2">
+                        Add <code class="text-caption">MAILERLITE_API_TOKEN</code> to the deployment environment (same place as SMTP variables), restart the app, then reload this page.
+                        Until then, messages fall back to SMTP — which is why tests look like platform mail.
+                      </div>
+                    </v-alert>
+                  </v-col>
+
+                  <v-col v-if="emailSettings.outboundDelivery === 'mailerlite'" cols="12">
+                    <v-alert type="warning" variant="tonal" density="compact" border="start" class="mb-0">
+                      <span class="text-body-2">
+                        After switching to MailerLite, click <strong>Save Changes</strong> before using Test — the test uses your <strong>saved</strong> preference, not unsaved radio state.
+                      </span>
+                    </v-alert>
+                  </v-col>
+
                   <v-col cols="12" md="6">
                     <v-select density="compact"
                       v-model="emailSettings.provider"
@@ -426,6 +487,8 @@
                       variant="outlined"
                       rounded="lg"
                       class="premium-input"
+                      persistent-hint
+                      :hint="emailSettings.outboundDelivery === 'mailerlite' ? 'Reference label only — outbound channel is set by the option above.' : ''"
                       required
                       :rules="[v => !!v || 'Email provider is required']"
                     />
@@ -469,7 +532,7 @@
                               <v-text-field density="compact"
                                 v-model="emailSettings.smtp.host"
                                 label="SMTP Host"
-                                :rules="[v => !!v || 'SMTP host is required']"
+                                :rules="smtpHostRules"
                                 variant="outlined"
                                 rounded="lg"
                                 class="premium-input"
@@ -481,7 +544,7 @@
                                 v-model="emailSettings.smtp.port"
                                 label="SMTP Port"
                                 type="number"
-                                :rules="[v => !!v || 'SMTP port is required']"
+                                :rules="smtpPortRules"
                                 variant="outlined"
                                 rounded="lg"
                                 class="premium-input"
@@ -583,6 +646,9 @@
                     >
                       Test Email Settings
                     </v-btn>
+                    <div class="text-caption text-slate-500 mt-2">
+                      Uses your <strong>saved</strong> outbound channel (MailerLite vs SMTP) and saved From identity. Save changes before testing if you just switched MailerLite or edited From Email / Name.
+                    </div>
                   </v-col>
                 </v-row>
               </v-form>
@@ -817,9 +883,9 @@
     </v-dialog>
 
     <!-- Snackbar -->
-    <v-snackbar v-model="snackShow" :color="snackColor" location="top right" rounded="lg" :timeout="4000">
+    <v-snackbar v-model="snackShow" :color="snackColor" location="top right" rounded="lg" :timeout="snackColor === 'warning' ? 9000 : 4000">
       <div class="d-flex align-center">
-        <v-icon class="mr-2">{{ snackColor === 'success' ? 'mdi-check-circle' : 'mdi-alert-circle' }}</v-icon>
+        <v-icon class="mr-2">{{ snackColor === 'success' ? 'mdi-check-circle' : snackColor === 'warning' ? 'mdi-alert' : 'mdi-alert-circle' }}</v-icon>
         {{ snackMsg }}
       </div>
     </v-snackbar>
@@ -838,8 +904,8 @@ const getAuthHeaders = (): Record<string, string> => {
 
 const snackShow = ref(false)
 const snackMsg = ref('')
-const snackColor = ref<'success' | 'error'>('success')
-const showToast = (msg: string, color: 'success' | 'error' = 'success') => {
+const snackColor = ref<'success' | 'error' | 'warning'>('success')
+const showToast = (msg: string, color: 'success' | 'error' | 'warning' = 'success') => {
   snackMsg.value = msg
   snackColor.value = color
   snackShow.value = true
@@ -926,6 +992,8 @@ const marketingSaving = ref(false)
 const showMetaCapiToken = ref(false)
 // Same write-only treatment for the SMTP password.
 const hasSavedSmtpPassword = ref(false)
+/** Server has MAILERLITE_API_TOKEN (boolean from GET / settings — token never exposed). */
+const mailerLiteTokenConfigured = ref(false)
 
 const generalSettings = ref({
   siteName: '',
@@ -940,6 +1008,8 @@ const emailSettings = ref({
   provider: '',
   fromEmail: '',
   fromName: '',
+  outboundDelivery: 'smtp' as 'smtp' | 'mailerlite',
+  mailerliteSmsEnabled: false,
   smtp: {
     host: '',
     port: '',
@@ -948,6 +1018,29 @@ const emailSettings = ref({
     secure: true
   }
 })
+
+const smtpHostRules = computed(() =>
+  emailSettings.value.outboundDelivery === 'smtp'
+    ? [(v: string) => !!v || 'SMTP host is required']
+    : [],
+)
+
+const smtpPortRules = computed(() =>
+  emailSettings.value.outboundDelivery === 'smtp'
+    ? [(v: string) => !!v || 'SMTP port is required']
+    : [],
+)
+
+watch(
+  () => emailSettings.value.outboundDelivery,
+  (v) => {
+    if (v === 'mailerlite') {
+      emailSettings.value.provider = 'MailerLite'
+    } else if (emailSettings.value.provider === 'MailerLite') {
+      emailSettings.value.provider = 'SMTP'
+    }
+  },
+)
 
 // API Integration section was removed; Google Maps key isn't used by this
 // app and Stripe billing lives in saas-control-plane. Future per-tenant
@@ -990,6 +1083,7 @@ const onTemplateDialogToggle = (open: boolean | null) => {
 
 const emailProviders = [
   'SMTP',
+  'MailerLite',
   'SendGrid',
   'Mailgun',
   'Amazon SES'
@@ -1172,6 +1266,8 @@ const saveEmailSettings = async () => {
         provider: emailSettings.value.provider,
         fromEmail: emailSettings.value.fromEmail,
         fromName: emailSettings.value.fromName,
+        outboundDelivery: emailSettings.value.outboundDelivery,
+        mailerliteSmsEnabled: emailSettings.value.mailerliteSmsEnabled,
         smtp: smtpToSend,
       })
     })
@@ -1239,7 +1335,9 @@ const testEmailSettings = async () => {
     }
     
     const result = await response.json()
-    showToast(result.message || 'Test email sent successfully')
+    const toastColor: 'success' | 'warning' =
+      result.deliveredVia === 'smtp' && result.mailerLiteSkippedReason ? 'warning' : 'success'
+    showToast(result.message || 'Test email sent successfully', toastColor)
   } catch (error: any) {
     console.error('Error testing email settings:', error)
     showToast(error.message || 'Failed to send test email', 'error')
@@ -1626,6 +1724,8 @@ const loadAllSettings = async () => {
         provider: data?.provider ?? '',
         fromEmail: data?.fromEmail ?? '',
         fromName: data?.fromName ?? '',
+        outboundDelivery: data?.outboundDelivery === 'mailerlite' ? 'mailerlite' : 'smtp',
+        mailerliteSmsEnabled: !!data?.mailerliteSmsEnabled,
         smtp: {
           host: data?.smtp?.host ?? '',
           port: data?.smtp?.port ?? '',
@@ -1638,6 +1738,7 @@ const loadAllSettings = async () => {
         },
       }
       hasSavedSmtpPassword.value = !!data?.smtp?.hasPassword
+      mailerLiteTokenConfigured.value = !!data?.mailerLiteTokenConfigured
     }
 
     if (securityRes.ok) {

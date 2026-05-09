@@ -50,11 +50,25 @@ export default defineEventHandler(async (event) => {
       hasPassword: !!(smtpRaw.password && String(smtpRaw.password).length > 0),
     }
 
+    const rawOutbound = String(settingsMap.outbound_delivery || 'smtp').toLowerCase()
+    const outboundDelivery = rawOutbound === 'mailerlite' ? 'mailerlite' : 'smtp'
+    const smsRaw = settingsMap.mailerlite_sms_enabled
+    const mailerliteSmsEnabled =
+      smsRaw === true ||
+      smsRaw === 'true' ||
+      smsRaw === 1 ||
+      smsRaw === '1' ||
+      (typeof smsRaw === 'string' && smsRaw.toLowerCase() === 'true')
+
     return {
       provider: settingsMap.provider || '',
       fromEmail: settingsMap.fromEmail || '',
       fromName: settingsMap.fromName || '',
       smtp,
+      outboundDelivery,
+      mailerliteSmsEnabled,
+      /** Boolean only — never exposes the token. Lets the UI warn when MailerLite is chosen but the server has no token. */
+      mailerLiteTokenConfigured: !!process.env.MAILERLITE_API_TOKEN?.trim(),
     }
   } catch (error: any) {
     console.error('❌ Failed to load email settings:', error)
@@ -69,7 +83,10 @@ export default defineEventHandler(async (event) => {
         password: '',
         secure: true,
         hasPassword: false,
-      }
+      },
+      outboundDelivery: 'smtp',
+      mailerliteSmsEnabled: false,
+      mailerLiteTokenConfigured: false,
     }
   }
 })

@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
-import { getTenantFilter, getAdminIdForCreate } from '../../../utils/tenant'
+import { getAdminIdForCreate } from '../../../utils/tenant'
 import { clearTenantEmailCache } from '../../../utils/tenantSiteUrl'
 import { PrismaClient } from '@prisma/client'
 
@@ -12,11 +12,10 @@ globalForPrisma.prisma = prisma
 
 export default defineEventHandler(async (event) => {
   const user = await requireAdmin(event)
-  const tenantFilter = getTenantFilter(user)
   const adminId = getAdminIdForCreate(user)
 
   const body = await readBody(event)
-  const { provider, fromEmail, fromName, smtp } = body
+  const { provider, fromEmail, fromName, smtp, outboundDelivery, mailerliteSmsEnabled } = body
 
   try {
     // Helper function to upsert settings scoped to tenant
@@ -66,13 +65,32 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Store all email settings
-    await Promise.all([
+    const outbound =
+      typeof outboundDelivery === 'string' && outboundDelivery.toLowerCase() === 'mailerlite'
+        ? 'mailerlite'
+        : 'smtp'
+    const smsOn =
+      mailerliteSmsEnabled === true ||
+      mailerliteSmsEnabled === 'true' ||
+      mailerliteSmsEnabled === 1 ||
+      mailerliteSmsEnabled === '1'
+
+    // Store all email settings. Outbound / SMS keys are optional on the body so
+    // older clients that only POST provider/from/smtp never wipe MailerLite prefs.
+    const writes: Promise<unknown>[] = [
       upsertSetting('email.provider', provider),
       upsertSetting('email.fromEmail', fromEmail),
       upsertSetting('email.fromName', fromName),
-      upsertSetting('email.smtp', smtpToPersist)
-    ])
+      upsertSetting('email.smtp', smtpToPersist),
+    ]
+    if (Object.prototype.hasOwnProperty.call(body, 'outboundDelivery')) {
+      writes.push(upsertSetting('email.outbound_delivery', outbound))
+    }
+    if (Object.prototype.hasOwnProperty.call(body, 'mailerliteSmsEnabled')) {
+      writes.push(upsertSetting('email.mailerlite_sms_enabled', smsOn ? 'true' : 'false'))
+    }
+
+    await Promise.all(writes)
 
     // Drop the cached sender + SMTP config for this tenant so the next
     // outbound email picks up the new settings immediately. Without

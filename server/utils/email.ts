@@ -2,6 +2,15 @@ import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
 import { getTenantSender, getTenantSiteUrl, getTenantSmtpConfig } from './tenantSiteUrl'
 import type { TenantSmtpConfig } from './tenantSiteUrl'
+import { getTenantEmailOutbound, getTenantMailerLiteFromIdentity } from './tenantEmailOutbound'
+import { sendViaMailerLiteCampaign } from './mailerliteCampaignSend'
+
+export interface SendEmailResult {
+  ok: boolean
+  deliveredVia?: 'mailerlite' | 'smtp'
+  /** Tenant chose MailerLite but this send used SMTP (missing token, API error, etc.). */
+  mailerLiteSkippedReason?: string
+}
 
 interface EmailOptions {
   to: string | string[]
@@ -109,12 +118,77 @@ function getTransporter(tenantSmtp?: TenantSmtpConfig | null): Transporter {
   return created
 }
 
+function normalizeRecipientEmails(to: string | string[]): string[] {
+  const raw = Array.isArray(to) ? to : String(to).split(/[,;]+/)
+  const rx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return [...new Set(raw.map((e) => e.trim()).filter((e) => rx.test(e)))]
+}
+
 /**
- * Send an email
+ * Send an email and report whether MailerLite or SMTP delivered it.
  */
-export async function sendEmail(options: EmailOptions): Promise<boolean> {
+export async function sendEmailDetailed(options: EmailOptions): Promise<SendEmailResult> {
+  let mailerLiteSkippedReason: string | undefined
+  let attemptedMailerliteRoute = false
+
   try {
     const config = useRuntimeConfig()
+    const adminId = options.adminId ?? null
+
+    // MailerLite path: tenant preference is evaluated FIRST so missing token logs clearly (not silently skipped).
+    if (adminId != null && !options.attachments?.length) {
+      const outbound = await getTenantEmailOutbound(adminId)
+      if (outbound.channel === 'mailerlite') {
+        attemptedMailerliteRoute = true
+        const token = process.env.MAILERLITE_API_TOKEN?.trim()
+        if (!token) {
+          mailerLiteSkippedReason =
+            'MAILERLITE_API_TOKEN is not set on this server — add it to .env (or container env) and restart the app.'
+          console.warn('[email] MailerLite chosen for tenant but MAILERLITE_API_TOKEN missing — falling back to SMTP')
+        } else {
+          const mlFrom = await getTenantMailerLiteFromIdentity(adminId)
+          const recipients = normalizeRecipientEmails(options.to)
+          if (!mlFrom) {
+            mailerLiteSkippedReason =
+              'Saved From Email is missing — save Email settings with a verified MailerLite sender address.'
+            console.warn('[email] MailerLite enabled but From Email missing — falling back to SMTP')
+          } else if (recipients.length === 0) {
+            mailerLiteSkippedReason = 'No valid recipient addresses.'
+            console.warn('[email] MailerLite: no valid recipients — falling back to SMTP')
+          } else {
+            let replySingle: string | null = null
+            if (options.replyTo != null && options.replyTo !== '') {
+              replySingle = Array.isArray(options.replyTo)
+                ? options.replyTo[0] || null
+                : options.replyTo
+            } else {
+              try {
+                const sender = await getTenantSender(adminId)
+                replySingle = sender.replyTo
+              } catch {
+                /* ignore */
+              }
+            }
+
+            const mlOk = await sendViaMailerLiteCampaign({
+              recipients,
+              subject: options.subject,
+              html: options.html,
+              text: options.text,
+              fromEmail: mlFrom.fromEmail,
+              fromName: mlFrom.fromName,
+              replyTo: replySingle,
+            })
+            if (mlOk) {
+              return { ok: true, deliveredVia: 'mailerlite' }
+            }
+            mailerLiteSkippedReason =
+              'MailerLite API rejected this send or returned an error — check server logs for lines tagged [mailerlite].'
+            console.warn('[email] MailerLite outbound failed — falling back to SMTP')
+          }
+        }
+      }
+    }
 
     // Resolve per-tenant SMTP relay (returns null unless the tenant
     // explicitly configured all four required fields). The transporter
@@ -158,11 +232,26 @@ export async function sendEmail(options: EmailOptions): Promise<boolean> {
     }
 
     await transport.sendMail(mailOptions)
-    return true
+    return {
+      ok: true,
+      deliveredVia: 'smtp',
+      mailerLiteSkippedReason: attemptedMailerliteRoute ? mailerLiteSkippedReason : undefined,
+    }
   } catch (error) {
     console.error('Error sending email:', error)
-    return false
+    return {
+      ok: false,
+      mailerLiteSkippedReason: attemptedMailerliteRoute ? mailerLiteSkippedReason : undefined,
+    }
   }
+}
+
+/**
+ * Send an email (backward-compatible boolean).
+ */
+export async function sendEmail(options: EmailOptions): Promise<boolean> {
+  const r = await sendEmailDetailed(options)
+  return r.ok
 }
 
 /**

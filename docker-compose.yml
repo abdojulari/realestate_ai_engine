@@ -115,6 +115,11 @@ services:
       SMTP_PORT: ${SMTP_PORT:-}
       SMTP_SENDER: ${SMTP_SENDER:-}
       AGENT_EMAIL: ${AGENT_EMAIL:-}
+      # MailerLite / MailerSend — explicit passthrough so the container always receives them from the project `.env`
+      # (same pattern as SMTP_*). Relying on env_file alone can fail after compose merges or alternate SUHANI_ENV_FILE paths.
+      MAILERLITE_API_TOKEN: ${MAILERLITE_API_TOKEN:-}
+      MAILERSEND_API_TOKEN: ${MAILERSEND_API_TOKEN:-}
+      MAILERSEND_SMS_FROM_NUMBER: ${MAILERSEND_SMS_FROM_NUMBER:-}
       OPENCAGE_API_KEY: ${OPENCAGE_API_KEY:-}
       NUXT_PUBLIC_GEOAPIFY_API_KEY: ${GEOAPIFY_API_KEY:-${VITE_GEOAPIFY:-}}
       NUXT_PUBLIC_GTAG_ID: ${NUXT_PUBLIC_GTAG_ID:-}
