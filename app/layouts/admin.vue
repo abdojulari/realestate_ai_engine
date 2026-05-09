@@ -10,13 +10,16 @@
       @click="rail = false"
     >
       <v-list-item
-        prepend-icon="mdi-shield-account"
         :title="rail ? '' : 'Admin Panel'"
         nav
       >
+        <template #prepend>
+          <v-icon color="blue-darken-4">mdi-shield-account</v-icon>
+        </template>
         <template v-slot:append>
           <v-btn
             variant="text"
+            color="blue-darken-4"
             icon="mdi-chevron-left"
             @click.stop="rail = !rail"
           />
@@ -35,7 +38,7 @@
             :value="node.title"
           >
             <template #prepend>
-              <v-icon>{{ node.icon }}</v-icon>
+              <v-icon color="blue-darken-4">{{ node.icon }}</v-icon>
             </template>
             <template v-slot:append v-if="!rail && node.badge">
               <v-badge :content="node.badge" color="error" floating />
@@ -51,7 +54,7 @@
                 :value="`group-${node.key}`"
               >
                 <template #prepend>
-                  <v-icon>{{ node.icon }}</v-icon>
+                  <v-icon color="blue-darken-4">{{ node.icon }}</v-icon>
                 </template>
               </v-list-item>
             </template>
@@ -64,7 +67,7 @@
               :value="child.title"
             >
               <template #prepend>
-                <v-icon>{{ child.icon }}</v-icon>
+                <v-icon color="blue-darken-4">{{ child.icon }}</v-icon>
               </template>
               <template v-slot:append v-if="!rail && child.badge">
                 <v-badge :content="child.badge" color="error" floating />
@@ -78,22 +81,31 @@
         <v-list nav class="admin-sidebar-nav">
           <v-list-item
             v-if="showSettingsDrawerLink"
-            prepend-icon="mdi-cog"
             :title="rail ? '' : 'Settings'"
             to="/admin/settings"
-          />
+          >
+            <template #prepend>
+              <v-icon color="blue-darken-4">mdi-cog</v-icon>
+            </template>
+          </v-list-item>
           <v-list-item
             v-if="showHelpDrawerLink"
-            prepend-icon="mdi-help-circle"
             :title="rail ? '' : 'Help'"
             to="/admin/help"
-          />
+          >
+            <template #prepend>
+              <v-icon color="blue-darken-4">mdi-help-circle</v-icon>
+            </template>
+          </v-list-item>
           <v-divider class="my-2" />
           <v-list-item
-            prepend-icon="mdi-logout"
             :title="rail ? '' : 'Logout'"
             @click="handleLogout"
-          />
+          >
+            <template #prepend>
+              <v-icon color="blue-darken-4">mdi-logout</v-icon>
+            </template>
+          </v-list-item>
         </v-list>
       </template>
     </v-navigation-drawer>
@@ -655,6 +667,28 @@ onMounted(async () => {
 <style scoped>
 .max-w-xs {
   max-width: 300px;
+}
+
+/* Sidebar: nav labels match icon accent (dark blue, Material blue-darken-4) */
+.admin-sidebar-drawer :deep(.v-list-item .v-list-item-title) {
+  color: #0d47a1 !important;
+}
+
+/* Sidebar: soft blue hover / active — tint stays light so text & icons stay clear */
+.admin-sidebar-drawer :deep(.v-list-item:not(:disabled)) {
+  transition: background-color 0.18s ease;
+}
+
+.admin-sidebar-drawer :deep(.v-list-item:hover:not(.v-list-item--active):not(:disabled)) {
+  background-color: rgba(13, 71, 161, 0.085);
+}
+
+.admin-sidebar-drawer :deep(.v-list-item--active:not(:disabled)) {
+  background-color: rgba(13, 71, 161, 0.12);
+}
+
+.admin-sidebar-drawer :deep(.v-list-item--active:hover:not(:disabled)) {
+  background-color: rgba(13, 71, 161, 0.15);
 }
 
 /* Sidebar: show full labels (default Vuetify truncates long titles with ellipsis). */
