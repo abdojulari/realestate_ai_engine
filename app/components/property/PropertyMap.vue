@@ -152,7 +152,7 @@
 
 <script setup lang="ts">
 import type { Map } from 'leaflet'
-import { onUnmounted, watch } from 'vue'
+import { onUnmounted, watch, nextTick } from 'vue'
 
 const props = defineProps({
   title: {
@@ -409,6 +409,17 @@ onUnmounted(() => {
   resizeObserver?.disconnect()
   resizeObserver = null
 })
+
+watch(
+  () => props.properties?.length ?? 0,
+  () => {
+    nextTick(() => {
+      try {
+        map.value?.invalidateSize?.()
+      } catch {}
+    })
+  },
+)
 
 // Watch for latitude/longitude changes and recenter the map
 watch(

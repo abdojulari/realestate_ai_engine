@@ -4,8 +4,8 @@
       <v-row dense>
         <!-- City Selection (Primary) -->
        
-        <!-- Property Type -->
-        <v-col cols="12" sm="6" :md="expanded ? 12 : 6">
+        <!-- Property Type (full width so HOA + Builder sit on one row below) -->
+        <v-col cols="12">
           <v-select
             v-model="filters.propertyType"
             :items="propertyTypes"
@@ -16,8 +16,8 @@
           />
         </v-col>
 
-        <!-- No HOA/Condo Fee -->
-        <v-col cols="12" sm="6" :md="expanded ? 12 : 6" class="d-flex align-center">
+        <!-- No HOA / Builder side by side -->
+        <v-col cols="12" sm="6" class="d-flex align-center">
           <v-checkbox
             v-model="filters.noHoaFee"
             label="No HOA / Condo Fee"
@@ -27,8 +27,7 @@
           />
         </v-col>
 
-        <!-- Manual / builder inventory -->
-        <v-col cols="12" sm="6" :md="expanded ? 12 : 6" class="d-flex align-center">
+        <v-col cols="12" sm="6" class="d-flex align-center">
           <v-checkbox
             v-model="filters.builderOrOffMarketOnly"
             label="Builder or Off-Market listings only"

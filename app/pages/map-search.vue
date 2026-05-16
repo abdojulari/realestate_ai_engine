@@ -272,7 +272,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import type { Property as BaseProperty, PropertyFilter, User } from '~/types'
 import { useAnalytics } from '../../utils/analytics'
 import { propertyService } from '~/services/property.service'
@@ -373,9 +373,15 @@ const selectedNeighborhoodName = ref<string | null>(null)
 const selectedNeighborhoodInfo = ref<any>(null)
 const totalProperties = ref(0)
 const totalPages = ref(0)
-let boundsUpdateTimeout: NodeJS.Timeout | null = null
-
+let boundsUpdateTimeout: ReturnType<typeof setTimeout> | null = null
 const { registerServiceWorker } = usePropertyService()
+
+function clearBoundsDebounce() {
+  if (boundsUpdateTimeout != null) {
+    clearTimeout(boundsUpdateTimeout)
+    boundsUpdateTimeout = null
+  }
+}
 
 const filters = ref<PropertyFilter>({
   location: '',
@@ -462,6 +468,10 @@ const handleSearch = async (searchParams: PropertyFilter, showLoadingState: bool
       isSaved: Boolean(p.isSaved),
       agent: p.agent || p.user
     }))
+
+    if (selectedProperty.value && !properties.value.some((p) => p.id === selectedProperty.value?.id)) {
+      selectedProperty.value = null
+    }
   } catch (error: any) {
     console.error('Search error:', error)
     searchErrorMessage.value =
@@ -476,21 +486,27 @@ const handleSearch = async (searchParams: PropertyFilter, showLoadingState: bool
   }
 }
 
-const updateFilters = (newFilters: PropertyFilter) => {
+const updateFilters = async (newFilters: PropertyFilter) => {
+  clearBoundsDebounce()
   filters.value = { ...filters.value, ...newFilters }
   if (!newFilters.source) delete filters.value.source
+  if (newFilters.noHoaFee !== true) delete (filters.value as any).noHoaFee
   currentPage.value = 1
-  handleSearch(filters.value)
+  await handleSearch(filters.value)
+  await nextTick()
+  if (import.meta.client) window.dispatchEvent(new Event('resize'))
 }
 
 const handleSortChange = () => {
+  clearBoundsDebounce()
   currentPage.value = 1
   handleSearch(filters.value, true, 1)
 }
 
 const handleBoundsUpdate = (bounds: any) => {
-  if (boundsUpdateTimeout) clearTimeout(boundsUpdateTimeout)
+  clearBoundsDebounce()
   boundsUpdateTimeout = setTimeout(() => {
+    boundsUpdateTimeout = null
     handleSearch({ ...filters.value, bounds }, false)
   }, 600)
 }
@@ -512,6 +528,7 @@ const handleInquiry = async () => { showContactDialog.value = false }
 const handleSchedule = async () => { showContactDialog.value = false }
 
 const handleCitySelected = (city: City | null) => {
+  clearBoundsDebounce()
   if (city) {
     selectedCity.value = city.name
     selectedCityCoordinates.value = city.coordinates || null
@@ -526,6 +543,7 @@ const handleCitySelected = (city: City | null) => {
 }
 
 const handleNeighborhoodSelected = (neighborhood: any) => {
+  clearBoundsDebounce()
   selectedNeighborhoodInfo.value = neighborhood
   if (neighborhood) {
     // Keep the city filter active — subdivision is WITHIN the selected city
@@ -547,6 +565,7 @@ const handleNeighborhoodSelected = (neighborhood: any) => {
 }
 
 const clearLocationSelection = () => {
+  clearBoundsDebounce()
   selectedCity.value = ''
   selectedCityCoordinates.value = null
   selectedNeighborhoodName.value = null
@@ -558,6 +577,7 @@ const clearLocationSelection = () => {
 }
 
 const clearCitySelection = () => {
+  clearBoundsDebounce()
   selectedCity.value = ''
   selectedCityCoordinates.value = null
   filters.value.city = ''
@@ -591,6 +611,7 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  clearBoundsDebounce()
   window.removeEventListener('mousemove', onResizeMove)
   window.removeEventListener('mouseup', stopResize)
   document.body.style.cursor = ''
