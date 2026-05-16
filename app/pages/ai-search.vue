@@ -71,6 +71,18 @@
                 </v-col>
               </v-row>
 
+              <v-row class="mb-4">
+                <v-col cols="12">
+                  <v-checkbox
+                    v-model="builderOrOffMarketOnly"
+                    label="Builder or Off-Market listings only"
+                    density="comfortable"
+                    hide-details
+                    color="primary"
+                  />
+                </v-col>
+              </v-row>
+
               <!-- AI Input -->
               <div class="input-wrapper relative mb-6">
                 <v-textarea density="compact"
@@ -197,6 +209,7 @@
                   <li v-if="selectedCity" class="mb-2">Remove the city filter to search all cities</li>
                   <li class="mb-2">Adjust your search query (e.g., try "3 bedroom" instead of "4 bedroom")</li>
                   <li class="mb-2">Remove specific features like "garage" or "basement"</li>
+                  <li v-if="builderOrOffMarketOnly" class="mb-2">Turn off &ldquo;Builder or Off-Market listings only&rdquo; to include MLS listings</li>
                   <li>Try a more general search query</li>
                 </ul>
               </v-card>
@@ -592,6 +605,7 @@ const itemsPerPage = 9
 // City detection and selection
 const selectedCity = ref<string>('')
 const selectedNeighborhoodName = ref<string | null>(null)
+const builderOrOffMarketOnly = ref(false)
 const cities = ref<any[]>([])
 const loadingCities = ref(false)
 const userLocation = ref<{lat: number, lng: number} | null>(null)
@@ -611,6 +625,7 @@ const {
   selectedCity,
   selectedNeighborhoodName,
   itemsPerPage,
+  builderOrOffMarketOnly,
 })
 
 const searching = isSearchBusy

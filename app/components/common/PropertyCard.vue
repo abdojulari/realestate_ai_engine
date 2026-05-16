@@ -46,7 +46,7 @@
             class="premium-chip font-weight-bold"
           >
             <v-icon start icon="mdi-hammer-wrench" size="14"></v-icon>
-            PRE-CONSTRUCTION
+            Builder or Off-Market
           </v-chip>
           
           <v-chip

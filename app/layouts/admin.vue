@@ -417,6 +417,7 @@ const allMenuItems = [
   { title: 'Book Keeping', icon: 'mdi-book-open-page-variant', to: '/admin/bookkeeping', requiresFeature: FEATURES.BOOKKEEPING, tier: 'basic', delegateFeature: 'bookkeeping', groupKey: 'workspace' },
   { title: 'Calendar', icon: 'mdi-calendar-clock', to: '/admin/calendar', requiresFeature: null, delegateFeature: 'calendar', groupKey: 'workspace' },
   { title: 'CMA', icon: 'mdi-scale-balance', to: '/admin/cma', requiresFeature: FEATURES.CMA, tier: 'silver', delegateFeature: 'cma', groupKey: 'workspace' },
+  { title: 'Deal Sheet', icon: 'mdi-file-chart-outline', to: '/admin/deal-sheet', requiresFeature: null, delegateFeature: 'core', groupKey: 'workspace' },
   { title: 'Documents', icon: 'mdi-file-cabinet', to: '/admin/documents', requiresFeature: FEATURES.DOCUMENTS, tier: 'silver', delegateFeature: 'documents', groupKey: 'workspace' },
   { title: 'Reports', icon: 'mdi-chart-box', to: '/admin/reports', requiresFeature: FEATURES.REPORTS, tier: 'silver', delegateFeature: 'reports', groupKey: 'workspace' },
   { title: 'Tools', icon: 'mdi-draw', to: '/admin/tools', requiresFeature: FEATURES.WORKSPACE_TOOLS, tier: 'silver', delegateFeature: 'workspace_tools', groupKey: 'workspace' },

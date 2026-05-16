@@ -43,7 +43,7 @@
           variant="flat"
         >
           <v-icon start icon="mdi-hammer-wrench"></v-icon>
-          PRE-CONSTRUCTION
+          Builder or Off-Market
         </v-chip>
         
         <!-- Status Badge -->

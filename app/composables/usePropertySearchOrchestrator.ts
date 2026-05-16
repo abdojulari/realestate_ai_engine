@@ -74,6 +74,8 @@ export interface PropertySearchOrchestratorOptions {
   selectedCity: Ref<string>
   selectedNeighborhoodName: Ref<string | null>
   itemsPerPage: number
+  /** When true, requests only manual (builder / off-market) listings via `source=manual`. */
+  builderOrOffMarketOnly?: Ref<boolean>
   parseTimeoutMs?: number
   fetchTimeoutMs?: number
   maxFetchRetries?: number
@@ -96,6 +98,7 @@ export function usePropertySearchOrchestrator(opts: PropertySearchOrchestratorOp
     selectedCity,
     selectedNeighborhoodName,
     itemsPerPage,
+    builderOrOffMarketOnly,
     parseTimeoutMs = 22_000,
     fetchTimeoutMs = 55_000,
     maxFetchRetries = 3,
@@ -227,6 +230,10 @@ export function usePropertySearchOrchestrator(opts: PropertySearchOrchestratorOp
       const merged = new URLSearchParams(base)
       merged.set('limit', String(itemsPerPage))
       merged.set('page', String(page))
+      if (builderOrOffMarketOnly) {
+        if (builderOrOffMarketOnly.value) merged.set('source', 'manual')
+        else merged.delete('source')
+      }
 
       phase.value = 'fetching'
       if (page === 1) {

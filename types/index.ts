@@ -209,6 +209,8 @@ export interface PropertyFilter {
   subdivision?: string
   // HOA/Condo fee filter
   noHoaFee?: boolean
+  /** Public catalog: tenant manual / builder listings (`/api/properties?source=manual`) */
+  source?: 'crea' | 'manual'
 }
 
 // Viewing Request types

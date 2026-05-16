@@ -478,6 +478,7 @@ const handleSearch = async (searchParams: PropertyFilter, showLoadingState: bool
 
 const updateFilters = (newFilters: PropertyFilter) => {
   filters.value = { ...filters.value, ...newFilters }
+  if (!newFilters.source) delete filters.value.source
   currentPage.value = 1
   handleSearch(filters.value)
 }

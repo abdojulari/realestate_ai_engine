@@ -27,6 +27,17 @@
           />
         </v-col>
 
+        <!-- Manual / builder inventory -->
+        <v-col cols="12" sm="6" :md="expanded ? 12 : 6" class="d-flex align-center">
+          <v-checkbox
+            v-model="filters.builderOrOffMarketOnly"
+            label="Builder or Off-Market listings only"
+            density="compact"
+            hide-details
+            color="primary"
+          />
+        </v-col>
+
         <!-- Price Range -->
         <v-col cols="12" sm="6" :md="expanded ? 12 : 6">
           <v-select
@@ -244,6 +255,7 @@ const filters = ref({
   noHoaFee: false,
   maxDaysOnMarket: null,
   minParking: null,
+  builderOrOffMarketOnly: false,
   ...props.initialFilters
 })
 
@@ -364,7 +376,8 @@ const clearFilters = () => {
     sortBy: null,
     noHoaFee: false,
     maxDaysOnMarket: null,
-    minParking: null
+    minParking: null,
+    builderOrOffMarketOnly: false
   }
 }
 
