@@ -81,6 +81,17 @@ export function requireTenantAccess(user: TenantUser, recordAdminId: number | nu
   }
 }
 
+/**
+ * Strict tenant boundary for features where even super_admin must only see their own tenant's rows
+ * (same isolation model as admin brokers).
+ */
+export function requireSameTenantOnly(user: TenantUser, recordAdminId: number | null | undefined): void {
+  const tenantId = getTenantAdminId(user)
+  if (!tenantId || recordAdminId == null || tenantId !== recordAdminId) {
+    throw createError({ statusCode: 403, statusMessage: 'Access denied: record belongs to another tenant' })
+  }
+}
+
 // ── Public-facing route helpers (domain-based resolution) ───
 
 // Cache the fallback admin ID so we don't query every request

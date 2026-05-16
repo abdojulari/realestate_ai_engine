@@ -57,6 +57,7 @@ export const DELEGATION_FEATURE_LABELS: Record<string, string> = {
   settings: 'Settings',
   tenant_settings: 'Branding & tenant settings',
   testimonials: 'Testimonials',
+  partnerships: 'Partnership & team',
   bookings: 'Bookings',
   estimates: 'Estimates',
   signatures: 'Signatures',

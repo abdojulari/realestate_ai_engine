@@ -11,7 +11,7 @@ export function resolveStoredUploadUrl(stored: string | null | undefined): strin
   if (t.startsWith('uploads/')) return `/${t}`
   // Relative paths saved without leading slash (e.g. logos/foo.png)
   if (
-    /^(logos|avatars|favicons|brokerage|documents|properties|blog|testimonials|newsletter-attachments|listing-templates)\//i.test(
+    /^(logos|avatars|favicons|brokerage|documents|properties|blog|testimonials|newsletter-attachments|listing-templates|partnerships)\//i.test(
       t,
     )
   ) {

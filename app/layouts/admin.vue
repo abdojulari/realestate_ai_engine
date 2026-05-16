@@ -406,6 +406,10 @@ const allMenuItems = [
   { title: 'Facebook', icon: 'mdi-facebook', to: '/admin/facebook', requiresFeature: null, delegateFeature: 'facebook', groupKey: 'marketing' },
   { title: 'Newsletter', icon: 'mdi-email-newsletter', to: '/admin/newsletter', requiresFeature: FEATURES.NEWSLETTER, tier: 'basic', delegateFeature: 'newsletter', groupKey: 'marketing' },
 
+  // Partnership & Team
+  { title: 'Partnership', icon: 'mdi-storefront-outline', to: '/admin/partnerships/partners', requiresFeature: null, delegateFeature: 'partnerships', groupKey: 'partnerships_team' },
+  { title: 'Team', icon: 'mdi-account-supervisor-outline', to: '/admin/partnerships/team', requiresFeature: null, delegateFeature: 'partnerships', groupKey: 'partnerships_team' },
+
   // News & Resources
   { title: 'Blog', icon: 'mdi-post-outline', to: '/admin/blog', requiresFeature: null, delegateFeature: 'blog', groupKey: 'content' },
   { title: 'Content', icon: 'mdi-file-document', to: '/admin/content', requiresFeature: null, delegateFeature: 'content', groupKey: 'content' },
@@ -429,6 +433,7 @@ const MENU_GROUPS: { key: string; title: string; icon: string }[] = [
   { key: 'users',      title: 'User Management',          icon: 'mdi-account-cog' },
   { key: 'properties', title: 'Properties & Listings',    icon: 'mdi-home-search' },
   { key: 'marketing',  title: 'Marketing & Communications', icon: 'mdi-bullhorn' },
+  { key: 'partnerships_team', title: 'Partnership & Team', icon: 'mdi-handshake' },
   { key: 'content',    title: 'News & Resources',         icon: 'mdi-bookshelf' },
   { key: 'workspace',  title: 'Tools & Reports',          icon: 'mdi-toolbox' },
 ]

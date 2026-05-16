@@ -122,6 +122,9 @@ model User {
   tenantWorkspaceTools      WorkspaceTool[]      @relation("TenantWorkspaceTools")
   tenantFlashNews           FlashNews[]          @relation("TenantFlashNews")
   tenantPostedRates         PostedRate[]         @relation("TenantPostedRates")
+  tenantPartnershipTeamMembers PartnershipTeamMember[] @relation("TenantPartnershipTeamMembers")
+  tenantPartnershipPromotions   PartnershipPromotion[]   @relation("TenantPartnershipPromotions")
+  tenantPartnershipTeamInvites  PartnershipTeamInvite[]  @relation("TenantPartnershipTeamInvites")
 
   // ── Event-driven platform (tenant-scoped) ──
   tenantVisitors        Visitor[]          @relation("TenantVisitors")
@@ -1773,4 +1776,68 @@ model AutomationRunLog {
   @@index([ruleId, createdAt])
   @@index([adminId, createdAt])
   @@index([visitorId, ruleId, createdAt])
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PARTNERSHIP & TEAM – trusted professionals & partner offers (tenant-scoped)
+// ═══════════════════════════════════════════════════════════════
+
+// Invite link for external specialists to submit profile (pending approval).
+model PartnershipTeamInvite {
+  id         Int       @id @default(autoincrement())
+  adminId    Int
+  admin      User      @relation("TenantPartnershipTeamInvites", fields: [adminId], references: [id], onDelete: Cascade)
+  category   String // mortgage_specialist | lawyer | home_inspector
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  redeemedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  member PartnershipTeamMember?
+
+  @@index([adminId])
+  @@index([adminId, category])
+}
+
+model PartnershipTeamMember {
+  id             Int      @id @default(autoincrement())
+  adminId        Int
+  admin          User     @relation("TenantPartnershipTeamMembers", fields: [adminId], references: [id], onDelete: Cascade)
+  category       String // mortgage_specialist | lawyer | home_inspector
+  contactName    String
+  organization   String // brokerage, bank, or firm name
+  phone          String
+  email          String
+  address        String   @db.Text
+  bio            String?  @db.Text
+  credentials    String?  @db.Text // certificates, degrees
+  photoUrl       String? // profile headshot — `/uploads/partnerships/...` or https CDN
+  approved       Boolean  @default(false)
+  sortOrder      Int      @default(0)
+  inviteId       Int?     @unique
+  invite         PartnershipTeamInvite? @relation(fields: [inviteId], references: [id], onDelete: SetNull)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([adminId, category, approved, sortOrder])
+}
+
+// Partner businesses & promotions (furniture, blinds, etc.).
+model PartnershipPromotion {
+  id            Int      @id @default(autoincrement())
+  adminId       Int
+  admin         User     @relation("TenantPartnershipPromotions", fields: [adminId], references: [id], onDelete: Cascade)
+  companyName   String
+  categoryTag   String // e.g. Furniture, Window coverings
+  description   String   @db.Text
+  offerSummary  String? // short discount / promo headline
+  websiteUrl    String?
+  logoUrl       String? // business logo
+  coverImageUrl String? // storefront / hero photo
+  approved      Boolean  @default(true)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([adminId, approved, sortOrder])
 }
