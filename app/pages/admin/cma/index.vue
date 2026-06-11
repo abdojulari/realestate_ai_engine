@@ -181,7 +181,14 @@
 
         <!-- Valuation Summary Card -->
         <v-card v-if="compStats.estimatedValue" class="pa-4 mb-6 valuation-card" elevation="0">
-          <div class="text-subtitle-1 font-weight-bold mb-4">Market Valuation</div>
+          <div class="d-flex align-center justify-space-between mb-4">
+            <div class="text-subtitle-1 font-weight-bold">
+              Market Valuation
+              <span v-if="fallbackInfo" class="text-caption text-warning font-weight-regular ml-2">
+                (indicative — based on active listings, not sold comparables)
+              </span>
+            </div>
+          </div>
           <v-row>
             <v-col cols="12" md="4">
               <div class="valuation-box text-center pa-6 rounded-lg">
@@ -225,13 +232,24 @@
 
         <v-card class="pa-4 mb-6" elevation="0">
           <div class="d-flex align-center justify-space-between mb-4">
-            <div class="text-subtitle-1 font-weight-bold">Comparables</div>
+            <div class="text-subtitle-1 font-weight-bold">
+              {{ fallbackInfo ? 'Comparables (Currently Listed)' : 'Comparables' }}
+            </div>
             <div class="text-caption text-medium-emphasis">
               {{ compStats.count }} comps ({{ minMatchScore }}%+ match)
               <span v-if="compStats.neighbourhoodComps"> &middot; {{ compStats.neighbourhoodComps }} in neighbourhood</span>
             </div>
           </div>
-          <v-alert v-if="searchScope && filters.community" type="info" variant="tonal" density="compact" class="mb-4">
+          <!-- "No recent sold" fallback notice. Shown when the server fell back to currently-listed properties because there were no sold comps in the requested window. -->
+          <v-alert v-if="fallbackInfo" type="warning" variant="tonal" density="compact" class="mb-4" icon="mdi-information-outline">
+            <div class="font-weight-medium">No recently sold comparables found</div>
+            <div class="text-caption">
+              No sold properties matched
+              <span v-if="filters.community">in <strong>{{ filters.community }}</strong> </span>
+              within the selected date range. Showing currently listed (active / pending) properties as a market reference. These are <strong>not confirmed sales</strong> — treat valuation as indicative only.
+            </div>
+          </v-alert>
+          <v-alert v-else-if="searchScope && filters.community" type="info" variant="tonal" density="compact" class="mb-4">
             <span v-if="searchScope === 'neighbourhood'">
               Showing comps from <strong>{{ filters.community }}</strong> neighbourhood.
             </span>
@@ -268,6 +286,9 @@
                     {{ comp.city }}
                     <v-chip v-if="comp.inSameNeighbourhood" size="x-small" color="primary" variant="tonal" class="ml-1">
                       Same neighbourhood
+                    </v-chip>
+                    <v-chip v-if="comp.isFallback" size="x-small" color="warning" variant="tonal" class="ml-1">
+                      {{ comp.listingStatus === 'pending' ? 'Pending' : 'Currently listed' }}
                     </v-chip>
                   </div>
                   <div v-if="comp.cityRegion" class="text-caption text-medium-emphasis">{{ comp.cityRegion }}</div>
@@ -452,6 +473,10 @@ const radiusKm = ref(1)
 const comparables = ref<any[]>([])
 const loadingComps = ref(false)
 const searchScope = ref<string>('')
+// Set when the server fell back to active/pending listings because there were
+// no recent sold comparables. Drives the "no recent sold" warning banner and
+// the per-row "Currently listed" / "Pending" chips.
+const fallbackInfo = ref<null | { type: string; reason: string }>(null)
 const compStats = ref<any>({ 
   count: 0, 
   avgPrice: 0, 
@@ -628,6 +653,7 @@ const findComps = async () => {
     compStats.value = response.stats || compStats.value
     methodology.value = response.methodology || null
     searchScope.value = response.searchScope || ''
+    fallbackInfo.value = response.fallback || null
   } catch (error) {
     console.error('Failed to load comparables:', error)
   } finally {

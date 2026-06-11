@@ -351,11 +351,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import FeatureGate from '~/components/FeatureGate.vue'
 import { FEATURES } from '~/composables/useLicense'
 
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
+
+const route = useRoute()
+const router = useRouter()
 
 const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
@@ -382,13 +385,39 @@ const filterOptions = ref<{ cities: string[]; communities: string[]; propertyTyp
   propertyTypes: [],
 })
 
+// Initialize filters from URL query params so they persist across navigation
+// (e.g. when the user opens a property details page and clicks "Go Back").
+const initialQuery = route.query
 const filters = ref({
-  city: '',
-  community: '',
-  propertyType: '',
-  minDrop: null as number | null,
-  sortBy: 'biggest_drop',
+  city: typeof initialQuery.city === 'string' ? initialQuery.city : '',
+  community: typeof initialQuery.community === 'string' ? initialQuery.community : '',
+  propertyType: typeof initialQuery.propertyType === 'string' ? initialQuery.propertyType : '',
+  minDrop: initialQuery.minDrop ? Number(initialQuery.minDrop) : (null as number | null),
+  sortBy: typeof initialQuery.sortBy === 'string' ? initialQuery.sortBy : 'biggest_drop',
 })
+
+if (initialQuery.page) {
+  const p = Number(initialQuery.page)
+  if (!Number.isNaN(p) && p > 0) pagination.value.page = p
+}
+
+// Keep the URL in sync with the current filters so back-navigation restores them.
+function syncFiltersToUrl() {
+  const query: Record<string, string> = {}
+  if (filters.value.city) query.city = filters.value.city
+  if (filters.value.community) query.community = filters.value.community
+  if (filters.value.propertyType) query.propertyType = filters.value.propertyType
+  if (filters.value.minDrop != null) query.minDrop = String(filters.value.minDrop)
+  if (filters.value.sortBy && filters.value.sortBy !== 'biggest_drop') query.sortBy = filters.value.sortBy
+  if (pagination.value.page > 1) query.page = String(pagination.value.page)
+
+  router.replace({ query }).catch(() => { /* ignore duplicate navigation */ })
+}
+
+watch(
+  () => [filters.value.city, filters.value.community, filters.value.propertyType, filters.value.minDrop, filters.value.sortBy, pagination.value.page],
+  syncFiltersToUrl,
+)
 
 const dropRanges = [
   { label: '1%+', value: 1 },
@@ -514,6 +543,11 @@ function postToFacebook(property: any) {
 onMounted(() => {
   loadFilterOptions()
   loadSavedSearches()
+  // If filters were restored from the URL (e.g. user navigated back from a
+  // property details page), re-run the search so the results show immediately.
+  if (filters.value.city) {
+    search()
+  }
 })
 </script>
 

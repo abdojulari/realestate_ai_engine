@@ -2,6 +2,7 @@ import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { creaService } from '../../../utils/crea.service'
 import { buildCityWhereClause } from '../../../utils/city-dictionary'
+import { isLeaseLikeProperty } from '../../../utils/lease-detector'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -46,6 +47,12 @@ export default defineEventHandler(async (event) => {
   const page = parseInt((q.page as string) || '1')
   const skip = (page - 1) * limit
 
+  // Sale-only universe. CMA must never compare against leases/rentals —
+  // those are a different market with different price dynamics. Pillar9 and
+  // the post-2026-06 CREA transformer correctly map LEASED → 'leased', but
+  // legacy CREA rows that pre-date the fix may still be sitting in the DB
+  // with `status='sold'`; isLeaseLikeProperty() catches those at query time
+  // (see the .filter(...) call after the query below).
   const where: any = { status: 'sold' }
   if (province) {
     const provinceMap: Record<string, string> = {
@@ -147,17 +154,27 @@ export default defineEventHandler(async (event) => {
     }
   }))
 
+  // Defense-in-depth: drop any rows that look like leases/rentals even if
+  // their `status` column says 'sold'. Catches legacy CREA rows synced before
+  // crea.service.ts gained proper lease detection (2026-06).
+  const saleOnly = enriched.filter((property: any) => !isLeaseLikeProperty(property))
+
   const filtered = shouldFilterBySoldDate
-    ? enriched.filter((property: any) => {
+    ? saleOnly.filter((property: any) => {
         // Use soldDate for filtering (which now falls back to updatedAt)
         if (!property.soldDate) return false
         const d = new Date(property.soldDate)
         if (isNaN(d.getTime())) return false
         return d >= (dateFilter as any).gte && d <= (dateFilter as any).lte
       })
-    : enriched
+    : saleOnly
 
   const paged = shouldFilterBySoldDate ? filtered.slice(skip, skip + limit) : filtered
+  // When date-filtering is on we paginate in-memory and the true count is the
+  // post-filter length. When date-filtering is off we paginated via DB and our
+  // in-memory lease filter can only shrink the page; the DB-side `total` is
+  // therefore a slight overcount, but always within the lease-contamination
+  // delta (which fades to zero as CREA rows are re-synced).
   const totalCount = shouldFilterBySoldDate ? filtered.length : total
 
   return {

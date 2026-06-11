@@ -719,9 +719,50 @@ class CreaService {
       return null // Return null to indicate this should be filtered out
     }
 
+    // CREA uses `StandardStatus = "Closed"` for BOTH sold sales and completed
+    // leases, so we have to disambiguate from the lease-specific fields before
+    // mapping the status. Otherwise a closed lease ends up as `status='sold'`
+    // and contaminates CMA / "best deals" / sold-comparable analytics.
+    //
+    // Lease signals (any one is sufficient):
+    //   - LeaseAmount / LeaseAmountFrequency / LeasePerUnit / TotalActualRent
+    //   - ExistingLeaseType (free-text or array)
+    //   - PropertyType / PropertySubType contains "lease" or "rental"
+    const isLeaseListing = (() => {
+      if (creaProp.LeaseAmount != null && creaProp.LeaseAmount > 0) return true
+      if (creaProp.TotalActualRent != null && creaProp.TotalActualRent > 0) return true
+      if (creaProp.LeaseAmountFrequency && String(creaProp.LeaseAmountFrequency).trim()) return true
+      if (creaProp.LeasePerUnit && String(creaProp.LeasePerUnit).trim()) return true
+      if (creaProp.ExistingLeaseType) {
+        const arr = Array.isArray(creaProp.ExistingLeaseType) ? creaProp.ExistingLeaseType : [creaProp.ExistingLeaseType]
+        if (arr.some(v => typeof v === 'string' && v.trim().length > 0)) return true
+      }
+      const subType = (creaProp.PropertySubType || '').toLowerCase()
+      const propType = (creaProp.PropertyType || '').toLowerCase()
+      if (subType.includes('lease') || subType.includes('rental') || subType.includes('for rent')) return true
+      if (propType.includes('lease') || propType.includes('rental') || propType.includes('for rent')) return true
+      return false
+    })()
+
     let status = 'for_sale'
     const creaStatus = creaProp.StandardStatus?.toLowerCase() || ''
-    if (creaStatus.includes('active') || creaStatus === 'a - active') {
+
+    if (isLeaseListing) {
+      // Lease/rental lifecycle — never `for_sale` / `sold` / `pending` (those
+      // are sale-only statuses by convention in this app, used by CMA and
+      // price-trend analytics).
+      if (creaStatus.includes('sold') || creaStatus.includes('closed')) {
+        status = 'leased'
+      } else if (creaStatus.includes('terminated') || creaStatus.includes('cancel')) {
+        status = 'terminated'
+      } else if (creaStatus.includes('withdrawn')) {
+        status = 'withdrawn'
+      } else if (creaStatus.includes('expired')) {
+        status = 'expired'
+      } else {
+        status = 'for_rent'
+      }
+    } else if (creaStatus.includes('active') || creaStatus === 'a - active') {
       status = 'for_sale'
     } else if (creaStatus.includes('sold') || creaStatus.includes('closed')) {
       status = 'sold'

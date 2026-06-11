@@ -2,6 +2,7 @@ import { defineEventHandler, readBody } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { requireFeature, FEATURES } from '../../../utils/license'
 import { buildCityWhereClause } from '../../../utils/city-dictionary'
+import { isLeaseLikeProperty } from '../../../utils/lease-detector'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -345,221 +346,271 @@ export default defineEventHandler(async (event) => {
     updatedAt: true,
   }
 
-  const baseWhere: any = { status: 'sold' }
-  if (filters.province || subject.province) baseWhere.province = filters.province || subject.province
-  // Code/name/alias-aware city matcher so CMA doesn't miss Pillar9-coded
-  // sold rows or alias spellings in the comp pool.
+  // Shared province + city scoping used by both the SOLD search and the
+  // ACTIVE/PENDING fallback search.
+  const provinceFilter = filters.province || subject.province
   const cityInput = (filters.city || subject.city) as string | undefined
-  if (cityInput) {
-    const cityConditions = buildCityWhereClause(cityInput)
+  const cityConditions = cityInput ? buildCityWhereClause(cityInput) : []
+
+  function buildBaseWhere(statusClause: any, applyDateFilter: boolean): any {
+    const where: any = { ...statusClause }
+    if (provinceFilter) where.province = provinceFilter
     if (cityConditions.length > 0) {
-      baseWhere.AND = [...(baseWhere.AND || []), { OR: cityConditions }]
+      where.AND = [...(where.AND || []), { OR: cityConditions }]
     }
+    // The true sold date can live in several places (closeDate, statusChange-
+    // Timestamp, pendingTimestamp, modificationTimestamp) — see resolveSoldDate
+    // for the priority chain. We keep a wide pre-filter on updatedAt for query
+    // performance (+90 days of buffer past the requested window so we don't miss
+    // anything CREA touched after the sale), then re-filter precisely in-memory
+    // using the resolved sold date from the JSON features blob.
+    if (applyDateFilter && dateFilter) {
+      const padded: { gte?: Date; lte?: Date } = {}
+      if (dateFilter.gte) padded.gte = dateFilter.gte
+      if (dateFilter.lte) padded.lte = new Date(dateFilter.lte.getTime() + 90 * 24 * 60 * 60 * 1000)
+      where.updatedAt = padded
+    }
+    return where
   }
 
-  // The true sold date can live in several places (closeDate, statusChange-
-  // Timestamp, pendingTimestamp, modificationTimestamp) — see resolveSoldDate
-  // for the priority chain. We keep a wide pre-filter on updatedAt for query
-  // performance (+90 days of buffer past the requested window so we don't miss
-  // anything CREA touched after the sale), then re-filter precisely in-memory
-  // using the resolved sold date from the JSON features blob.
   const dateFilter = parseDateRange(filters.range, filters.startDate, filters.endDate)
-  if (dateFilter) {
-    const padded: { gte?: Date; lte?: Date } = {}
-    if (dateFilter.gte) padded.gte = dateFilter.gte
-    if (dateFilter.lte) padded.lte = new Date(dateFilter.lte.getTime() + 90 * 24 * 60 * 60 * 1000)
-    baseWhere.updatedAt = padded
-  }
-
-  // Search sold properties — strictly within the community when specified
-  let properties: any[] = []
-  let searchScope: 'neighbourhood' | 'radius' | 'city' = 'city'
-
-  if (community) {
-    const neighbourhoodWhere = {
-      ...baseWhere,
-      cityRegion: { contains: community, mode: 'insensitive' as const },
-    }
-    properties = await prisma.property.findMany({
-      where: neighbourhoodWhere,
-      orderBy: { updatedAt: 'desc' },
-      take: 500,
-      select: propertySelect,
-    })
-    searchScope = 'neighbourhood'
-    console.log(`[CMA] Neighbourhood "${community}": ${properties.length} sold properties found`)
-  } else if (subjectCoords) {
-    // No community — use bounding box to limit DB query to radius
-    const latDelta = radiusKm / KM_PER_DEGREE
-    const lonDelta = radiusKm / (KM_PER_DEGREE * Math.cos(subjectCoords.lat * Math.PI / 180))
-    const radiusWhere = {
-      ...baseWhere,
-      latitude: { gte: subjectCoords.lat - latDelta, lte: subjectCoords.lat + latDelta },
-      longitude: { gte: subjectCoords.lng - lonDelta, lte: subjectCoords.lng + lonDelta },
-    }
-    properties = await prisma.property.findMany({
-      where: radiusWhere,
-      orderBy: { updatedAt: 'desc' },
-      take: 500,
-      select: propertySelect,
-    })
-    searchScope = 'radius'
-    console.log(`[CMA] Radius ${radiusKm}km search: ${properties.length} sold properties found`)
-  } else {
-    // No community, no coordinates — cannot determine radius, return empty
-    properties = []
-    searchScope = 'city'
-    console.log(`[CMA] No community or coordinates provided, no results`)
-  }
-
   const subjectFeatures = (subject.features || []).map(normalizeFeature)
-
-  // Step 1: Bounding box pre-filter for performance (if coordinates available)
-  // This is a cheap O(1) check that eliminates obviously distant properties
-  const preFilteredProperties = subjectCoords
-    ? properties.filter(p => {
-        if (!p.latitude || !p.longitude) return true // Include if no coords
-        return isWithinBoundingBox(
-          subjectCoords.lat, 
-          subjectCoords.lng, 
-          p.latitude, 
-          p.longitude, 
-          radiusKm * 1.2 // Slightly larger to account for bounding box approximation
-        )
-      })
-    : properties
-
-  console.log(`[CMA] Pre-filter: ${properties.length} -> ${preFilteredProperties.length} properties`)
-
-  // Step 2: Enhanced scoring with exact Haversine distance calculation
-  // Neighbourhood matches get a bonus to prioritize same-community comps
   const communityLower = community.toLowerCase()
 
-  const comps = preFilteredProperties
-    .map((property) => {
-      const featureSet = extractPropertyFeatures(property)
-      const matchedFeatures = subjectFeatures.filter(f => featureSet.has(f))
-      const missingFeatures = subjectFeatures.filter(f => !featureSet.has(f))
-      
-      // Feature match: user-selected features
-      const featureScore = subjectFeatures.length 
-        ? (matchedFeatures.length / subjectFeatures.length) * 100 
-        : 50
+  /**
+   * One CMA pipeline pass: fetch raw rows for `statusClause`, drop leases,
+   * compute match/distance scores, apply min-score and radius gates, sort,
+   * and slice to `limit`.
+   *
+   * `enforceDateFilter` controls whether we apply the user's date range to
+   * the resolved sold-date during in-memory filtering. The SOLD pass enforces
+   * it strictly. The ACTIVE/PENDING fallback pass disables it — "recently
+   * listed" means currently on market, not closed-within-N-days.
+   */
+  async function runCmaPipeline(opts: {
+    statusClause: any
+    enforceDateFilter: boolean
+    label: string
+  }): Promise<{ comps: any[]; searchScope: 'neighbourhood' | 'radius' | 'city'; rawCount: number; preFilterCount: number; saleOnlyCount: number }> {
+    const baseWhere = buildBaseWhere(opts.statusClause, opts.enforceDateFilter)
 
-      // Value-impact: weighted by how much each feature affects price
-      const valueImpact = calcValueImpactScore(subjectFeatures, featureSet)
-      const valueImpactScore = valueImpact.score
+    let properties: any[] = []
+    let searchScope: 'neighbourhood' | 'radius' | 'city' = 'city'
 
-      // Combined feature score: 60% match count + 40% value-weighted impact
-      const combinedFeatureScore = subjectFeatures.length
-        ? featureScore * 0.6 + valueImpactScore * 0.4
-        : 50
+    if (community) {
+      const neighbourhoodWhere = {
+        ...baseWhere,
+        cityRegion: { contains: community, mode: 'insensitive' as const },
+      }
+      properties = await prisma.property.findMany({
+        where: neighbourhoodWhere,
+        orderBy: { updatedAt: 'desc' },
+        take: 500,
+        select: propertySelect,
+      })
+      searchScope = 'neighbourhood'
+      console.log(`[CMA] ${opts.label} | Neighbourhood "${community}": ${properties.length} rows`)
+    } else if (subjectCoords) {
+      const latDelta = radiusKm / KM_PER_DEGREE
+      const lonDelta = radiusKm / (KM_PER_DEGREE * Math.cos(subjectCoords.lat * Math.PI / 180))
+      const radiusWhere = {
+        ...baseWhere,
+        latitude: { gte: subjectCoords.lat - latDelta, lte: subjectCoords.lat + latDelta },
+        longitude: { gte: subjectCoords.lng - lonDelta, lte: subjectCoords.lng + lonDelta },
+      }
+      properties = await prisma.property.findMany({
+        where: radiusWhere,
+        orderBy: { updatedAt: 'desc' },
+        take: 500,
+        select: propertySelect,
+      })
+      searchScope = 'radius'
+      console.log(`[CMA] ${opts.label} | Radius ${radiusKm}km: ${properties.length} rows`)
+    } else {
+      properties = []
+      searchScope = 'city'
+      console.log(`[CMA] ${opts.label} | No community or coords, skipping`)
+    }
 
-      let bedsScore = 100
-      if (subject.beds != null && subject.beds > 0) {
-        if (!property.beds || property.beds === 0) {
-          bedsScore = 0
-        } else {
-          const bedsDiff = Math.abs(subject.beds - property.beds)
-          bedsScore = Math.max(0, 100 - bedsDiff * 25)
+    // Drop leases/rentals that may have leaked in via legacy mis-tagged rows.
+    // See server/utils/lease-detector.ts.
+    const saleOnly = properties.filter(p => !isLeaseLikeProperty(p))
+
+    // Bounding-box pre-filter for performance when we have coords.
+    const preFiltered = subjectCoords
+      ? saleOnly.filter(p => {
+          if (!p.latitude || !p.longitude) return true
+          return isWithinBoundingBox(
+            subjectCoords!.lat,
+            subjectCoords!.lng,
+            p.latitude,
+            p.longitude,
+            radiusKm * 1.2,
+          )
+        })
+      : saleOnly
+
+    const scored = preFiltered
+      .map((property) => {
+        const featureSet = extractPropertyFeatures(property)
+        const matchedFeatures = subjectFeatures.filter(f => featureSet.has(f))
+        const missingFeatures = subjectFeatures.filter(f => !featureSet.has(f))
+
+        const featureScore = subjectFeatures.length
+          ? (matchedFeatures.length / subjectFeatures.length) * 100
+          : 50
+
+        const valueImpact = calcValueImpactScore(subjectFeatures, featureSet)
+        const valueImpactScore = valueImpact.score
+
+        const combinedFeatureScore = subjectFeatures.length
+          ? featureScore * 0.6 + valueImpactScore * 0.4
+          : 50
+
+        let bedsScore = 100
+        if (subject.beds != null && subject.beds > 0) {
+          if (!property.beds || property.beds === 0) {
+            bedsScore = 0
+          } else {
+            const bedsDiff = Math.abs(subject.beds - property.beds)
+            bedsScore = Math.max(0, 100 - bedsDiff * 25)
+          }
         }
-      }
-      
-      let bathsScore = 100
-      if (subject.baths != null && subject.baths > 0) {
-        if (!property.baths || property.baths === 0) {
-          bathsScore = 0
-        } else {
-          const bathsDiff = Math.abs(subject.baths - property.baths)
-          bathsScore = Math.max(0, 100 - bathsDiff * 25)
+
+        let bathsScore = 100
+        if (subject.baths != null && subject.baths > 0) {
+          if (!property.baths || property.baths === 0) {
+            bathsScore = 0
+          } else {
+            const bathsDiff = Math.abs(subject.baths - property.baths)
+            bathsScore = Math.max(0, 100 - bathsDiff * 25)
+          }
         }
-      }
-      
-      let sqftScore = 100
-      if (subject.sqft != null && subject.sqft > 0) {
-        if (!property.sqft || property.sqft === 0) {
-          sqftScore = 0
-        } else {
-          const sqftDiff = Math.abs(subject.sqft - property.sqft)
-          const sqftPercentDiff = sqftDiff / subject.sqft
-          sqftScore = Math.max(0, 100 - sqftPercentDiff * 200)
+
+        let sqftScore = 100
+        if (subject.sqft != null && subject.sqft > 0) {
+          if (!property.sqft || property.sqft === 0) {
+            sqftScore = 0
+          } else {
+            const sqftDiff = Math.abs(subject.sqft - property.sqft)
+            const sqftPercentDiff = sqftDiff / subject.sqft
+            sqftScore = Math.max(0, 100 - sqftPercentDiff * 200)
+          }
         }
-      }
 
-      const propRegion = ((property as any).cityRegion || '').toLowerCase()
-      const inSameNeighbourhood = communityLower && propRegion
-        ? propRegion.includes(communityLower) || communityLower.includes(propRegion)
-        : false
-      const neighbourhoodScore = communityLower
-        ? (inSameNeighbourhood ? 100 : 0)
-        : 50
+        const propRegion = ((property as any).cityRegion || '').toLowerCase()
+        const inSameNeighbourhood = communityLower && propRegion
+          ? propRegion.includes(communityLower) || communityLower.includes(propRegion)
+          : false
+        const neighbourhoodScore = communityLower
+          ? (inSameNeighbourhood ? 100 : 0)
+          : 50
 
-      const hasComm = Boolean(communityLower)
-      const matchScore = Math.round(
-        combinedFeatureScore * (hasComm ? 0.15 : 0.40) +
-        bedsScore * 0.10 +
-        bathsScore * 0.10 +
-        sqftScore * (hasComm ? 0.15 : 0.30) +
-        neighbourhoodScore * (hasComm ? 0.50 : 0)
-      )
-      
-      const distance = subjectCoords && property.latitude && property.longitude
-        ? distanceKm(subjectCoords, { lat: property.latitude, lng: property.longitude })
-        : null
+        const hasComm = Boolean(communityLower)
+        const matchScore = Math.round(
+          combinedFeatureScore * (hasComm ? 0.15 : 0.40) +
+          bedsScore * 0.10 +
+          bathsScore * 0.10 +
+          sqftScore * (hasComm ? 0.15 : 0.30) +
+          neighbourhoodScore * (hasComm ? 0.50 : 0)
+        )
 
-      // Walk the sold-date fallback chain. See resolveSoldDate() for the full
-      // priority order and why each level exists.
-      const features = (property as any).features
-      const featuresObj = typeof features === 'string'
-        ? safeParseJson(features)
-        : (features || {})
-      const { date: soldDate, source: soldDateSource } = resolveSoldDate(property, featuresObj)
-      const soldDateMs = soldDate.getTime()
+        const distance = subjectCoords && property.latitude && property.longitude
+          ? distanceKm(subjectCoords, { lat: property.latitude, lng: property.longitude })
+          : null
 
-      return {
-        ...property,
-        images: typeof property.images === 'string' ? JSON.parse(property.images || '[]') : property.images,
-        matchScore,
-        featureScore: Math.round(combinedFeatureScore),
-        featureMatchScore: Math.round(featureScore),
-        valueImpactScore: Math.round(valueImpactScore),
-        valueImpactDetails: valueImpact.details,
-        bedsScore: Math.round(bedsScore),
-        bathsScore: Math.round(bathsScore),
-        sqftScore: Math.round(sqftScore),
-        neighbourhoodScore: Math.round(neighbourhoodScore),
-        inSameNeighbourhood,
-        matchedFeatures,
-        missingFeatures,
-        distanceKm: distance,
-        soldDate,
-        soldDateMs,
-        soldDateSource,
-      }
+        const features = (property as any).features
+        const featuresObj = typeof features === 'string'
+          ? safeParseJson(features)
+          : (features || {})
+        const { date: soldDate, source: soldDateSource } = resolveSoldDate(property, featuresObj)
+        const soldDateMs = soldDate.getTime()
+
+        return {
+          ...property,
+          images: typeof property.images === 'string' ? JSON.parse(property.images || '[]') : property.images,
+          matchScore,
+          featureScore: Math.round(combinedFeatureScore),
+          featureMatchScore: Math.round(featureScore),
+          valueImpactScore: Math.round(valueImpactScore),
+          valueImpactDetails: valueImpact.details,
+          bedsScore: Math.round(bedsScore),
+          bathsScore: Math.round(bathsScore),
+          sqftScore: Math.round(sqftScore),
+          neighbourhoodScore: Math.round(neighbourhoodScore),
+          inSameNeighbourhood,
+          matchedFeatures,
+          missingFeatures,
+          distanceKm: distance,
+          soldDate,
+          soldDateMs,
+          soldDateSource,
+        }
+      })
+      .filter((property) => {
+        if (!opts.enforceDateFilter || !dateFilter) return true
+        if (dateFilter.gte && property.soldDateMs < dateFilter.gte.getTime()) return false
+        if (dateFilter.lte && property.soldDateMs > dateFilter.lte.getTime()) return false
+        return true
+      })
+      .filter((property) => property.matchScore >= minMatchScore)
+      .filter((property) => {
+        if (property.inSameNeighbourhood) return true
+        if (!subjectCoords) return true
+        if (property.distanceKm == null) return false
+        return property.distanceKm <= radiusKm
+      })
+      .sort((a, b) => {
+        if (a.inSameNeighbourhood !== b.inSameNeighbourhood) return a.inSameNeighbourhood ? -1 : 1
+        if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore
+        if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm
+        return 0
+      })
+      .slice(0, limit)
+
+    return {
+      comps: scored,
+      searchScope,
+      rawCount: properties.length,
+      saleOnlyCount: saleOnly.length,
+      preFilterCount: preFiltered.length,
+    }
+  }
+
+  // ── Primary pass: SOLD only, honor user's date range ──────────────────
+  const soldPass = await runCmaPipeline({
+    statusClause: { status: 'sold' },
+    enforceDateFilter: true,
+    label: 'SOLD',
+  })
+
+  console.log(`[CMA] SOLD pass: raw=${soldPass.rawCount} → saleOnly=${soldPass.saleOnlyCount} → preFilter=${soldPass.preFilterCount} → comps=${soldPass.comps.length}`)
+
+  // ── Fallback pass: when zero sold comps, look at currently-on-market
+  // listings (active for_sale + pending) in the same community/radius so the
+  // user always has *something* to compare against. We tag the response so
+  // the UI can show a clear "no recent sold comparables" banner.
+  // Never include leased/rented — isLeaseLikeProperty() drops them anyway.
+  let fallback: null | { type: 'active_listings'; reason: 'no_recent_sold' } = null
+  let comps = soldPass.comps
+  let searchScope = soldPass.searchScope
+
+  if (comps.length === 0) {
+    const fallbackPass = await runCmaPipeline({
+      statusClause: { status: { in: ['for_sale', 'pending'] } },
+      enforceDateFilter: false, // "recently listed" = currently on market, not closed-within-N-days
+      label: 'FALLBACK',
     })
-    // Precise sold-date window using StatusChangeTimestamp.
-    .filter((property) => {
-      if (!dateFilter) return true
-      if (dateFilter.gte && property.soldDateMs < dateFilter.gte.getTime()) return false
-      if (dateFilter.lte && property.soldDateMs > dateFilter.lte.getTime()) return false
-      return true
-    })
-    .filter((property) => property.matchScore >= minMatchScore)
-    // Filter by radius (always keep neighbourhood matches)
-    .filter((property) => {
-      if (property.inSameNeighbourhood) return true
-      if (!subjectCoords) return true
-      if (property.distanceKm == null) return false
-      return property.distanceKm <= radiusKm
-    })
-    // Sort: same neighbourhood first, then by match score, then by distance
-    .sort((a, b) => {
-      if (a.inSameNeighbourhood !== b.inSameNeighbourhood) return a.inSameNeighbourhood ? -1 : 1
-      if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore
-      if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm
-      return 0
-    })
-    .slice(0, limit)
+    console.log(`[CMA] FALLBACK pass: raw=${fallbackPass.rawCount} → saleOnly=${fallbackPass.saleOnlyCount} → preFilter=${fallbackPass.preFilterCount} → comps=${fallbackPass.comps.length}`)
+
+    if (fallbackPass.comps.length > 0) {
+      // Annotate each fallback comp so consumers can distinguish them from
+      // confirmed sold comps at the item level.
+      comps = fallbackPass.comps.map(c => ({ ...c, isFallback: true, listingStatus: c.status }))
+      searchScope = fallbackPass.searchScope
+      fallback = { type: 'active_listings', reason: 'no_recent_sold' }
+    }
+  }
 
   const prices = comps.map(p => p.price || 0).filter(p => p > 0)
   const avgPrice = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0
@@ -580,6 +631,14 @@ export default defineEventHandler(async (event) => {
 
   const neighbourhoodComps = comps.filter(c => c.inSameNeighbourhood).length
 
+  const baseDescription = community
+    ? `Comparative Market Analysis prioritizing "${community}" neighbourhood, expanded to ${radiusKm}km radius when needed`
+    : 'Comparative Market Analysis based on recently sold properties'
+
+  const description = fallback
+    ? `No sold comparables found${community ? ` in "${community}"` : ''} within the selected date range. Showing currently listed (active / pending) properties as a market reference.`
+    : baseDescription
+
   return {
     subject: {
       ...subject,
@@ -588,6 +647,7 @@ export default defineEventHandler(async (event) => {
     },
     comps,
     searchScope,
+    fallback,
     stats: {
       count: comps.length,
       neighbourhoodComps,
@@ -603,9 +663,8 @@ export default defineEventHandler(async (event) => {
       }
     },
     methodology: {
-      description: community
-        ? `Comparative Market Analysis prioritizing "${community}" neighbourhood, expanded to ${radiusKm}km radius when needed`
-        : 'Comparative Market Analysis based on recently sold properties',
+      description,
+      isFallback: Boolean(fallback),
       matchCriteria: community
         ? [
             'Neighbourhood match (50% weight)',
@@ -621,9 +680,11 @@ export default defineEventHandler(async (event) => {
             'Square footage similarity (30% weight)',
           ],
       distanceMethod: 'Haversine formula (straight-line distance, ±0.1% accuracy)',
-      searchStrategy: community
-        ? `Searched "${community}" first (${neighbourhoodComps} found), then expanded to ${radiusKm}km radius`
-        : `Searched within ${radiusKm}km radius`,
+      searchStrategy: fallback
+        ? `No recent sold comparables — comparing against currently listed (active / pending) properties${community ? ` in "${community}"` : ` within ${radiusKm}km`}`
+        : (community
+            ? `Searched "${community}" first (${neighbourhoodComps} found), then expanded to ${radiusKm}km radius`
+            : `Searched within ${radiusKm}km radius`),
       filters: {
         community: community || null,
         minMatchScore,
