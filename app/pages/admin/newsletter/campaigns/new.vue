@@ -174,28 +174,24 @@
               </v-card-text>
             </v-card>
 
-            <!-- Campaign Settings Card -->
+            <!-- Engagement Tracking -->
             <v-card class="mb-6 premium-card" elevation="0">
               <v-card-title class="text-h6 font-weight-bold pa-6 border-b">
-                <v-icon icon="mdi-cog" class="mr-2" color="primary" />
-                Settings
+                <v-icon icon="mdi-chart-line" class="mr-2" color="primary" />
+                Engagement Tracking
               </v-card-title>
               <v-card-text class="pa-6">
-                <v-switch
-                  v-model="form.trackOpens"
-                  label="Track Opens"
-                  color="primary"
-                  density="comfortable"
-                  hide-details
-                  class="mb-4"
-                />
-                <v-switch
-                  v-model="form.trackClicks"
-                  label="Track Clicks"
-                  color="primary"
-                  density="comfortable"
-                  hide-details
-                />
+                <div class="d-flex align-center mb-2">
+                  <v-icon icon="mdi-check-circle" color="success" size="20" class="mr-2" />
+                  <span class="text-body-2">Opens tracked via embedded pixel</span>
+                </div>
+                <div class="d-flex align-center">
+                  <v-icon icon="mdi-check-circle" color="success" size="20" class="mr-2" />
+                  <span class="text-body-2">Clicks tracked via link redirect</span>
+                </div>
+                <p class="text-caption text-medium-emphasis mt-3 mb-0">
+                  Open and click metrics appear on the Newsletter dashboard once recipients begin engaging.
+                </p>
               </v-card-text>
             </v-card>
 
@@ -266,7 +262,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { formatDateTime } from '~/utils/formatters'
 
@@ -303,16 +299,13 @@ const form = ref({
   sendType: 'draft',
   scheduledDate: '',
   scheduledTime: '',
-  trackOpens: true,
-  trackClicks: true
 })
 
 const templates = ref<any[]>([])
 const audienceOptions = [
-  { title: 'All Subscribers', value: 'all' },
-  { title: 'Active Subscribers Only', value: 'active' },
+  { title: 'All Active Subscribers', value: 'all' },
   { title: 'New Subscribers (Last 30 Days)', value: 'new' },
-  { title: 'Inactive Subscribers', value: 'inactive' }
+  { title: 'Re-engage Inactive (No Opens in 90 Days)', value: 'inactive' }
 ]
 
 // Load templates
@@ -349,11 +342,33 @@ const loadTemplate = async (templateId: number) => {
   }
 }
 
-// Get audience count
+// Live audience count from the server (matches what the send path actually targets).
+const audienceCount = ref<number | null>(null)
+const audienceCountLoading = ref(false)
+
 const getAudienceCount = () => {
-  // This would typically fetch from the API
-  return '1,234'
+  if (audienceCountLoading.value) return '…'
+  if (audienceCount.value == null) return '—'
+  return audienceCount.value.toLocaleString()
 }
+
+const refreshAudienceCount = async () => {
+  audienceCountLoading.value = true
+  try {
+    const res = await $fetch<{ count: number }>('/api/admin/newsletter/audience-count', {
+      params: { audience: form.value.targetAudience },
+      headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+    })
+    audienceCount.value = res?.count ?? 0
+  } catch (e) {
+    console.error('Failed to load audience count', e)
+    audienceCount.value = null
+  } finally {
+    audienceCountLoading.value = false
+  }
+}
+
+watch(() => form.value.targetAudience, refreshAudienceCount)
 
 // Get submit button text
 const getSubmitButtonText = () => {
@@ -396,8 +411,6 @@ const saveCampaign = async () => {
       status,
       scheduledFor,
       targetFilters: { audience: form.value.targetAudience },
-      trackOpens: form.value.trackOpens,
-      trackClicks: form.value.trackClicks
     }
 
     const response = await $fetch('/api/admin/newsletter/campaigns', {
@@ -553,6 +566,7 @@ function buildListingEmailHtml(d: any) {
 
 onMounted(async () => {
   await loadTemplates()
+  await refreshAudienceCount()
   const pid = route.query.propertyId
   if (pid) await prefillFromProperty(Number(pid))
 })

@@ -1,5 +1,6 @@
 import { requireAdmin } from '../../../../utils/auth'
 import { getTenantFilter, getAdminIdForCreate } from '../../../../utils/tenant'
+import { buildAudienceWhere, normalizeAudience } from '../../../../utils/newsletterAudience'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -33,13 +34,12 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'Name, subject, and content are required' })
     }
 
-    let recipientCount = 0
-    if (targetFilters && Object.keys(targetFilters).length > 0) {
-      const where: any = { status: 'active', ...tenantFilter }
-      recipientCount = await prisma.newsletterSubscriber.count({ where })
-    } else {
-      recipientCount = await prisma.newsletterSubscriber.count({ where: { status: 'active', ...tenantFilter } })
-    }
+    // Resolve recipient count via the SAME helper the send path uses, so the
+    // number persisted on the campaign matches what will actually be sent.
+    const audience = normalizeAudience((targetFilters as any)?.audience)
+    const recipientCount = await prisma.newsletterSubscriber.count({
+      where: buildAudienceWhere(audience, tenantFilter),
+    })
 
     const campaign = await prisma.newsletter.create({
       data: {

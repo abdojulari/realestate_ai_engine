@@ -251,11 +251,22 @@ export async function resolveTenantFromRequest(event: H3Event): Promise<number |
 }
 
 /**
- * Tenant admin ID for anonymous testimonial POST: resolves from request Host /
- * X-Tenant-Domain, then Referer and Origin hostnames (SPA/proxy cases where
- * Host alone is wrong). Production never uses the first-admin fallback.
+ * Strict tenant resolution for anonymous public submits where attributing the
+ * record to the wrong tenant is unacceptable (testimonials, newsletter signups,
+ * contact forms, etc.).
+ *
+ * Resolution order:
+ *   1. Host / X-Tenant-Domain header
+ *   2. Referer hostname (SPA / proxy cases where Host doesn't match the brand site)
+ *   3. Origin hostname (CORS XHR cases)
+ *   4. NON-PRODUCTION ONLY: first admin in DB (so localhost dev still works)
+ *
+ * Returns the tenant adminId, or null if resolution failed. Callers should
+ * reject the submit (typically 400) on null so we never silently misattribute.
  */
-export async function resolveTenantAdminIdForTestimonialSubmit(event: H3Event): Promise<number> {
+export async function resolveAnonymousSubmitTenantAdminId(
+  event: H3Event
+): Promise<number | null> {
   let adminId = await resolveTenantAdminIdFromDomainRequest(event)
 
   if (adminId == null) {
@@ -284,6 +295,14 @@ export async function resolveTenantAdminIdForTestimonialSubmit(event: H3Event): 
     adminId = await getCachedDevFallbackTenantAdminId()
   }
 
+  return adminId
+}
+
+/**
+ * Tenant admin ID for anonymous testimonial POST. Throws 400 if attribution fails.
+ */
+export async function resolveTenantAdminIdForTestimonialSubmit(event: H3Event): Promise<number> {
+  const adminId = await resolveAnonymousSubmitTenantAdminId(event)
   if (adminId == null) {
     throw createError({
       statusCode: 400,
@@ -291,7 +310,6 @@ export async function resolveTenantAdminIdForTestimonialSubmit(event: H3Event): 
         'Could not determine which brokerage this testimonial belongs to. Please submit the form from your agent website.',
     })
   }
-
   return adminId
 }
 

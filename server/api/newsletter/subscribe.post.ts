@@ -1,4 +1,4 @@
-import { resolveTenantFromRequest } from '../../utils/tenant'
+import { resolveAnonymousSubmitTenantAdminId } from '../../utils/tenant'
 import { upsertCrmClientFromPlatformContact } from '../../utils/crmClientSync'
 import { sendMetaEvent, newMetaEventId } from '../../utils/metaPixel'
 import { recordServerEvent } from '../../utils/eventsRecorder'
@@ -23,8 +23,17 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Resolve tenant
-    const adminId = await resolveTenantFromRequest(event)
+    // Strict tenant attribution (Host → Referer → Origin → dev-only fallback).
+    // Refuse to create a subscriber with null adminId or silently attribute to
+    // the "first admin in DB" — both are tenant leaks.
+    const adminId = await resolveAnonymousSubmitTenantAdminId(event)
+    if (adminId == null) {
+      return {
+        success: false,
+        message:
+          'Could not determine which brokerage you are subscribing to. Please subscribe from the brokerage website.',
+      }
+    }
     const metaEventId: string = _metaEventId || newMetaEventId()
 
     // Get IP and user agent for tracking
@@ -34,7 +43,7 @@ export default defineEventHandler(async (event) => {
 
     // Check if subscriber already exists for this tenant (adminId + email uniqueness)
     const existingSubscriber = await prisma.newsletterSubscriber.findFirst({
-      where: { email: email.toLowerCase(), ...(adminId ? { adminId } : {}) }
+      where: { email: email.toLowerCase(), adminId }
     })
 
     if (existingSubscriber) {
@@ -53,16 +62,14 @@ export default defineEventHandler(async (event) => {
           }
         })
 
-        if (adminId) {
-          await upsertCrmClientFromPlatformContact(prisma, {
-            adminId,
-            email: updated.email,
-            firstName: updated.firstName || undefined,
-            lastName: updated.lastName || undefined,
-            source: 'newsletter',
-            sourceId: updated.id,
-          })
-        }
+        await upsertCrmClientFromPlatformContact(prisma, {
+          adminId,
+          email: updated.email,
+          firstName: updated.firstName || undefined,
+          lastName: updated.lastName || undefined,
+          source: 'newsletter',
+          sourceId: updated.id,
+        })
 
         void sendMetaEvent({
           adminId,
@@ -104,20 +111,18 @@ export default defineEventHandler(async (event) => {
         source,
         ipAddress,
         userAgent,
-        ...(adminId ? { adminId } : {})
+        adminId,
       }
     })
 
-    if (adminId) {
-      await upsertCrmClientFromPlatformContact(prisma, {
-        adminId,
-        email: created.email,
-        firstName: created.firstName || undefined,
-        lastName: created.lastName || undefined,
-        source: 'newsletter',
-        sourceId: created.id,
-      })
-    }
+    await upsertCrmClientFromPlatformContact(prisma, {
+      adminId,
+      email: created.email,
+      firstName: created.firstName || undefined,
+      lastName: created.lastName || undefined,
+      source: 'newsletter',
+      sourceId: created.id,
+    })
 
     void sendMetaEvent({
       adminId,

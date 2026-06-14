@@ -64,8 +64,16 @@ export default defineEventHandler(async (event) => {
     // Newsletter subscription (public - no login required)
     '/api/newsletter/subscribe',
     '/api/newsletter/unsubscribe',
+    // Newsletter open/click tracking — recipients open emails without a JWT.
+    // Handlers verify HMAC-signed tokens before incrementing counts.
+    '/api/newsletter/track',
     // Alert scheduler endpoint (protected by secret in handler)
     '/api/alerts/run-due',
+    // Cron endpoints — gated by ?secret=CRON_SECRET inside each handler.
+    // Whitelist the prefix so external schedulers (cron, k8s jobs) can hit
+    // them without a Bearer token. Without this the JWT middleware 401s
+    // before the handler can validate the secret.
+    '/api/cron/',
     // License endpoint (internal use, no auth required)
     '/api/license',
     // Health endpoint — must stay anonymous so uptime monitors,

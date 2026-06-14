@@ -1,9 +1,9 @@
 import nodemailer from 'nodemailer'
 import type { Transporter } from 'nodemailer'
-import { getTenantSender, getTenantSiteUrl, getTenantSmtpConfig } from './tenantSiteUrl'
-import type { TenantSmtpConfig } from './tenantSiteUrl'
+import { getTenantSender, getTenantSiteUrl } from './tenantSiteUrl'
 import { getTenantEmailOutbound, getTenantMailerLiteFromIdentity } from './tenantEmailOutbound'
 import { sendViaMailerLiteCampaign } from './mailerliteCampaignSend'
+import { signNewsletterToken } from './newsletterTokens'
 
 export interface SendEmailResult {
   ok: boolean
@@ -74,37 +74,29 @@ function smtpPass(config: ReturnType<typeof useRuntimeConfig>) {
 }
 
 /**
- * Get-or-create a transporter. When `tenantSmtp` is provided the
- * transport authenticates against the tenant's own SMTP relay
- * (per-tenant override). Otherwise falls back to the platform
- * SMTP_USERNAME / SMTP_PASSWORD env vars.
+ * Get-or-create the platform SMTP transporter.
  *
- * Both paths cache by `host:port:user` so we don't open a new
- * connection on every send.
+ * All outbound mail authenticates against the single platform SMTP relay
+ * (`SMTP_HOSTNAME` / `SMTP_USERNAME` / `SMTP_PASSWORD` in .env). Per-tenant
+ * SMTP overrides are intentionally NOT honored on send — every tenant ships
+ * through the same envelope sender, which is what Gmail/Workspace expect
+ * (the SMTP user must match the From address envelope, otherwise the
+ * message gets rejected or rewritten).
+ *
+ * Tenant branding is still applied — see `getTenantSender` below — but only
+ * at the display-name + Reply-To layer, not at the transport layer.
+ *
+ * Cached so we don't open a new TCP connection on every send.
  */
-function getTransporter(tenantSmtp?: TenantSmtpConfig | null): Transporter {
-  let host: string
-  let port: number
-  let user: string
-  let pass: string
-  let secure: boolean
+function getTransporter(): Transporter {
+  const config = useRuntimeConfig()
+  const host = smtpHost(config)
+  const port = smtpPort(config)
+  const user = smtpUser(config)
+  const pass = smtpPass(config)
+  const secure = process.env.SMTP_SECURE === 'true'
 
-  if (tenantSmtp) {
-    host = tenantSmtp.host
-    port = tenantSmtp.port
-    user = tenantSmtp.username
-    pass = tenantSmtp.password
-    secure = tenantSmtp.secure
-  } else {
-    const config = useRuntimeConfig()
-    host = smtpHost(config)
-    port = smtpPort(config)
-    user = smtpUser(config)
-    pass = smtpPass(config)
-    secure = process.env.SMTP_SECURE === 'true'
-  }
-
-  const key = `${host}:${port}:${user}:${pass}:${secure}`
+  const key = `${host}:${port}:${user}:${secure}`
   const existing = transporterCache.get(key)
   if (existing) return existing
 
@@ -190,29 +182,41 @@ export async function sendEmailDetailed(options: EmailOptions): Promise<SendEmai
       }
     }
 
-    // Resolve per-tenant SMTP relay (returns null unless the tenant
-    // explicitly configured all four required fields). The transporter
-    // is then keyed against those creds; otherwise platform SMTP is used.
-    let tenantSmtp: TenantSmtpConfig | null = null
-    if (options.adminId != null) {
-      try {
-        tenantSmtp = await getTenantSmtpConfig(options.adminId)
-      } catch (err) {
-        console.warn('[email] tenant SMTP lookup failed, using platform SMTP:', err)
-      }
-    }
-    const transport = getTransporter(tenantSmtp)
+    // Platform SMTP is the single source of truth for the transport layer.
+    // Tenant branding still applies below via getTenantSender (display name +
+    // Reply-To) but the envelope sender / credentials come from .env so
+    // Gmail/Workspace don't reject the message.
+    const transport = getTransporter()
 
-    // Resolve per-tenant sender identity when caller passed adminId AND
+    // Resolve per-tenant From identity when caller passed adminId AND
     // didn't override `from`/`replyTo`. We never overwrite explicit
     // values — callers like contact.post.ts (where replyTo is the
     // visitor's email) must keep working.
+    //
+    // Important: since the transport always authenticates as the platform
+    // SMTP user (SMTP_USERNAME), the envelope address in From MUST be the
+    // platform SMTP user — otherwise Gmail/Workspace will rewrite or reject
+    // the message. We only inject the tenant's *display name* so recipients
+    // still see their broker's brand (e.g. `"Tona Homes" <real4ojus@gmail.com>`).
+    // Tenant-specific email addresses go in Reply-To, which has no such
+    // restriction.
     let resolvedFrom = options.from
     let resolvedReplyTo: string | string[] | undefined = options.replyTo
     if (options.adminId != null) {
       try {
         const sender = await getTenantSender(options.adminId)
-        if (!resolvedFrom) resolvedFrom = sender.formatted
+        if (!resolvedFrom) {
+          const envelope = smtpUser(config) || process.env.SMTP_SENDER || process.env.SMTP_FROM || ''
+          const displayName = (sender.displayName || '').trim()
+          if (displayName && envelope) {
+            // Quote the display name if it contains characters that would
+            // break a bare RFC 5322 atom. Safe-quote everything for simplicity.
+            const safeName = displayName.replace(/"/g, '\\"')
+            resolvedFrom = `"${safeName}" <${envelope}>`
+          } else if (envelope) {
+            resolvedFrom = envelope
+          }
+        }
         if (!resolvedReplyTo && sender.replyTo) resolvedReplyTo = sender.replyTo
       } catch (err) {
         console.warn('[email] tenant sender lookup failed, using global SMTP defaults:', err)
@@ -279,11 +283,21 @@ export async function sendNewsletterBatch(
   const results = { success: 0, failed: 0, errors: [] as any[] }
   const siteUrl = await getTenantSiteUrl(options?.adminId ?? null)
 
+  const adminId = options?.adminId ?? null
+  // Base URL for tracking / unsubscribe links. Falls back to platform site URL
+  // when the tenant hasn't bound a domain yet (otherwise links would be relative
+  // and 404 in every mail client).
+  const linkBase =
+    siteUrl ||
+    process.env.NUXT_PUBLIC_SITE_URL ||
+    process.env.APP_URL ||
+    ''
+
   // Send emails in batches to avoid rate limits
   const batchSize = 50
   for (let i = 0; i < subscribers.length; i += batchSize) {
     const batch = subscribers.slice(i, i + batchSize)
-    
+
     await Promise.all(
       batch.map(async (subscriber) => {
         try {
@@ -293,10 +307,48 @@ export async function sendNewsletterBatch(
             .replace(/\{lastName\}/g, subscriber.lastName || '')
             .replace(/\{email\}/g, subscriber.email)
 
-          const unsubscribeLink = siteUrl
-            ? `${siteUrl}/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
-            : `/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
-          personalizedContent += `<br><br><small><a href="${unsubscribeLink}">Unsubscribe</a></small>`
+          // Per-recipient signed tokens — recipient can't tamper with the link
+          // to unsubscribe or pollute open/click counts for someone else.
+          if (adminId != null) {
+            const unsubToken = signNewsletterToken({ t: 'u', sid: subscriber.id, aid: adminId })
+            const openToken = signNewsletterToken({ t: 'o', sid: subscriber.id, nid: campaign.id, aid: adminId })
+
+            const unsubscribeLink = linkBase
+              ? `${linkBase}/newsletter/unsubscribe?token=${encodeURIComponent(unsubToken)}`
+              : `/newsletter/unsubscribe?token=${encodeURIComponent(unsubToken)}`
+
+            // Rewrite <a href="..."> to route through the click-tracking
+            // endpoint, which verifies the HMAC then 302-redirects to the
+            // original URL. Only rewrites absolute http(s) links so we don't
+            // break mailto:, tel:, anchors, or our own unsubscribe footer.
+            personalizedContent = rewriteLinksForTracking(
+              personalizedContent,
+              subscriber.id,
+              campaign.id,
+              adminId,
+              linkBase,
+            )
+
+            // 1×1 transparent open-tracking pixel. Some mail clients block
+            // remote images by default — that's fine; opens just won't fire
+            // for those readers, matching how every mainstream ESP behaves.
+            const pixelUrl = linkBase
+              ? `${linkBase}/api/newsletter/track/open?token=${encodeURIComponent(openToken)}`
+              : ''
+            if (pixelUrl) {
+              personalizedContent += `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:block;border:0;outline:none;text-decoration:none;height:1px;width:1px;" />`
+            }
+
+            personalizedContent += `<br><br><small style="color:#999"><a href="${unsubscribeLink}" style="color:#999">Unsubscribe</a></small>`
+          } else {
+            // Cross-tenant / platform send with no adminId — best-effort
+            // unsubscribe by email (legacy). Token can't be signed without
+            // an adminId so we degrade gracefully.
+            const fallbackLink = linkBase
+              ? `${linkBase}/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
+              : `/newsletter/unsubscribe?email=${encodeURIComponent(subscriber.email)}`
+            personalizedContent += `<br><br><small><a href="${fallbackLink}">Unsubscribe</a></small>`
+          }
 
           const sent = await sendEmail({
             to: subscriber.email,
@@ -308,7 +360,7 @@ export async function sendNewsletterBatch(
             // tenant's branded From + Reply-To. Without this, a
             // newsletter blast from "tonahomes.deelbot.ai" would still
             // show the global SMTP_SENDER as From.
-            adminId: options?.adminId ?? null,
+            adminId,
           })
 
           if (sent) {
@@ -331,6 +383,39 @@ export async function sendNewsletterBatch(
   }
 
   return results
+}
+
+/**
+ * Replace every absolute http(s) `<a href="...">` with a click-tracking
+ * redirect URL. The original URL is appended as `&u=<base64url>` so the
+ * tracking endpoint can verify the HMAC, increment counts, and 302 to it.
+ *
+ * Leaves alone:
+ *  • the unsubscribe footer link (we append it AFTER this pass)
+ *  • mailto:, tel:, anchors, javascript: (security)
+ *  • relative URLs (mail clients can't open them anyway)
+ */
+function rewriteLinksForTracking(
+  html: string,
+  subscriberId: number,
+  campaignId: number,
+  adminId: number,
+  linkBase: string,
+): string {
+  if (!linkBase) return html
+  const clickToken = signNewsletterToken({ t: 'c', sid: subscriberId, nid: campaignId, aid: adminId })
+
+  return html.replace(
+    /<a\b([^>]*?)href\s*=\s*(['"])(https?:\/\/[^'"]+)\2([^>]*)>/gi,
+    (_match, beforeHref, quote, originalUrl, afterHref) => {
+      const u = Buffer.from(originalUrl, 'utf8').toString('base64')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '')
+      const trackingUrl = `${linkBase}/api/newsletter/track/click?token=${encodeURIComponent(clickToken)}&u=${u}`
+      return `<a${beforeHref}href=${quote}${trackingUrl}${quote}${afterHref}>`
+    },
+  )
 }
 
 /**

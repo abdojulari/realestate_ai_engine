@@ -151,12 +151,18 @@
 
             <v-card class="mb-6 premium-card" elevation="0">
               <v-card-title class="text-h6 font-weight-bold pa-6 border-b">
-                <v-icon icon="mdi-cog" class="mr-2" color="primary" />
-                Settings
+                <v-icon icon="mdi-chart-line" class="mr-2" color="primary" />
+                Engagement Tracking
               </v-card-title>
               <v-card-text class="pa-6">
-                <v-switch v-model="form.trackOpens" label="Track Opens" color="primary" density="comfortable" hide-details class="mb-4" />
-                <v-switch v-model="form.trackClicks" label="Track Clicks" color="primary" density="comfortable" hide-details />
+                <div class="d-flex align-center mb-2">
+                  <v-icon icon="mdi-check-circle" color="success" size="20" class="mr-2" />
+                  <span class="text-body-2">Opens tracked via embedded pixel</span>
+                </div>
+                <div class="d-flex align-center">
+                  <v-icon icon="mdi-check-circle" color="success" size="20" class="mr-2" />
+                  <span class="text-body-2">Clicks tracked via link redirect</span>
+                </div>
               </v-card-text>
             </v-card>
 
@@ -249,8 +255,6 @@ const form = ref({
   sendType: 'draft',
   scheduledDate: '',
   scheduledTime: '',
-  trackOpens: true,
-  trackClicks: true
 })
 
 // Sanitized preview of the campaign body so the dialog can't execute scripts
@@ -259,10 +263,9 @@ const safePreview = useSanitizedHtml(() => form.value.content, { allowIframes: t
 
 const templates = ref<any[]>([])
 const audienceOptions = [
-  { title: 'All Subscribers', value: 'all' },
-  { title: 'Active Subscribers Only', value: 'active' },
+  { title: 'All Active Subscribers', value: 'all' },
   { title: 'New Subscribers (Last 30 Days)', value: 'new' },
-  { title: 'Inactive Subscribers', value: 'inactive' }
+  { title: 'Re-engage Inactive (No Opens in 90 Days)', value: 'inactive' }
 ]
 
 const statusAlertType = computed(() => {
@@ -286,8 +289,6 @@ async function loadCampaign() {
     form.value.templateId = data.templateId || null
     form.value.content = data.content || ''
     form.value.plainTextContent = data.plainTextContent || ''
-    form.value.trackOpens = data.trackOpens ?? true
-    form.value.trackClicks = data.trackClicks ?? true
 
     const filters = data.targetFilters as any
     form.value.targetAudience = filters?.audience || 'all'
@@ -366,8 +367,6 @@ async function updateCampaign() {
         status,
         scheduledFor,
         targetFilters: { audience: form.value.targetAudience },
-        trackOpens: form.value.trackOpens,
-        trackClicks: form.value.trackClicks
       }
     })
 

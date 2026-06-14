@@ -1,6 +1,8 @@
 import { requireAdmin } from '../../../../../utils/auth'
 import { getTenantAdminId, getTenantFilter } from '../../../../../utils/tenant'
 import { sendEmail, sendNewsletterBatch } from '../../../../../utils/email'
+import { sanitizeEmailHtml } from '../../../../../utils/emailHtmlSanitize'
+import { buildAudienceWhere, normalizeAudience } from '../../../../../utils/newsletterAudience'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -13,6 +15,7 @@ export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
     const tenantFilter = getTenantFilter(user)
+    const adminId = getTenantAdminId(user)
     const id = parseInt(event.context.params?.id || '0')
 
     if (!id) {
@@ -34,13 +37,16 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'Campaign has already been sent' })
     }
 
+    // Sanitize once up front — both test sends and real sends use it.
+    const safeHtml = sanitizeEmailHtml(campaign.content)
+
     if (testMode && testEmail) {
       await sendEmail({
         to: testEmail,
         subject: `[TEST] ${campaign.subject}`,
-        html: campaign.content,
+        html: safeHtml,
         text: campaign.plainTextContent || undefined,
-        adminId: getTenantAdminId(user),
+        adminId,
       })
       return { success: true, message: `Test email sent to ${testEmail}`, testMode: true }
     }
@@ -50,15 +56,8 @@ export default defineEventHandler(async (event) => {
       data: { status: 'sending' }
     })
 
-    const where: any = { status: 'active', ...tenantFilter }
-    const filters = campaign.targetFilters as any
-    if (filters?.audience === 'new') {
-      const thirtyDaysAgo = new Date()
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-      where.createdAt = { gte: thirtyDaysAgo }
-    } else if (filters?.audience === 'inactive') {
-      where.status = 'inactive'
-    }
+    const audience = normalizeAudience((campaign.targetFilters as any)?.audience)
+    const where = buildAudienceWhere(audience, tenantFilter)
 
     const subscribers = await prisma.newsletterSubscriber.findMany({
       where,
@@ -75,27 +74,43 @@ export default defineEventHandler(async (event) => {
       {
         id: campaign.id,
         subject: campaign.subject,
-        content: campaign.content,
+        content: safeHtml,
         plainTextContent: campaign.plainTextContent || undefined,
         attachments: campaign.attachments
       },
-      { adminId: getTenantAdminId(user) }
+      { adminId }
     )
 
-    const sentRecords = subscribers.map(subscriber => ({
-      newsletterId: campaign.id,
-      subscriberId: subscriber.id,
-      status: 'sent',
-      sentAt: new Date()
-    }))
+    // Per-recipient SentNewsletter status reflects actual delivery, not a
+    // blanket 'sent'. Failed recipients can be retried / inspected later.
+    const failedEmails = new Set(
+      (emailResults.errors || []).map((e: any) => String(e?.email || '').toLowerCase())
+    )
+    const sentRecords = subscribers.map(subscriber => {
+      const didFail = failedEmails.has(subscriber.email.toLowerCase())
+      return {
+        newsletterId: campaign.id,
+        subscriberId: subscriber.id,
+        status: didFail ? 'failed' : 'sent',
+        sentAt: new Date(),
+      }
+    })
     await prisma.sentNewsletter.createMany({ data: sentRecords })
+
+    // Campaign final status reflects aggregate delivery:
+    //  • all-success  → 'sent'
+    //  • all-failed   → 'failed'
+    //  • some-failed  → 'partial_sent' (admins can re-drive failed rows later)
+    let finalStatus: 'sent' | 'failed' | 'partial_sent' = 'sent'
+    if (emailResults.failed > 0 && emailResults.success === 0) finalStatus = 'failed'
+    else if (emailResults.failed > 0) finalStatus = 'partial_sent'
 
     await prisma.newsletter.update({
       where: { id },
       data: {
-        status: 'sent',
+        status: finalStatus,
         sentAt: new Date(),
-        recipientCount: subscribers.length
+        recipientCount: subscribers.length,
       }
     })
 
@@ -104,7 +119,8 @@ export default defineEventHandler(async (event) => {
       message: `Campaign sent to ${emailResults.success} of ${subscribers.length} subscribers`,
       recipientCount: subscribers.length,
       emailsSent: emailResults.success,
-      emailsFailed: emailResults.failed
+      emailsFailed: emailResults.failed,
+      status: finalStatus,
     }
   } catch (error: any) {
     console.error('Error sending campaign:', error)
