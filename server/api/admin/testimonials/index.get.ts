@@ -22,15 +22,26 @@ export default defineEventHandler(async (event) => {
 
   const scope = (query.scope as string | undefined) || ''
 
-  // Tenant isolation:
-  // • Delegated / broker `admin` → only rows where testimonial.adminId = their tenant user id.
-  // • `super_admin` → broker testimonials are keyed by *that broker's* User.id (e.g. 1), not
-  //   necessarily the super-admin's own User.id, so we must NOT filter by getTenantAdminId() here
-  //   or the UI shows 0 even though rows exist under adminId=1.
-  //   Optional: ?tenantAdminId=1 to narrow to one broker.
+  // Tenant isolation (matches server/utils/tenant.ts contract):
+  //  • admin / super_admin → see only their own tenant's rows (adminId = user.id)
+  //  • delegated user      → see only their broker's tenant (adminId = user.adminId)
+  //
+  // Super-admin escape hatches (platform support only, opt-in):
+  //  • ?scope=all      → cross-tenant listing (no adminId filter)
+  //  • ?scope=orphans  → rows with adminId IS NULL (legacy unattributed)
+  //  • ?tenantAdminId=N → narrow to one specific broker
   const tenantId = getTenantAdminId(user)
   const where: Record<string, unknown> = {}
   const andParts: Record<string, unknown>[] = []
+
+  const rawTenantAdminId = query.tenantAdminId
+  const parsedTenantAdminId = (() => {
+    if (rawTenantAdminId === undefined || rawTenantAdminId === null) return null
+    const s = String(rawTenantAdminId).trim()
+    if (s === '') return null
+    const n = parseInt(s, 10)
+    return Number.isNaN(n) || n <= 0 ? null : n
+  })()
 
   if (scope === 'orphans') {
     if (user.role !== 'super_admin') {
@@ -40,14 +51,22 @@ export default defineEventHandler(async (event) => {
       })
     }
     andParts.push({ adminId: null })
-  } else if (user.role === 'super_admin') {
-    const rawTa = query.tenantAdminId
-    if (rawTa !== undefined && rawTa !== null && String(rawTa).trim() !== '') {
-      const aid = parseInt(String(rawTa), 10)
-      if (!Number.isNaN(aid) && aid > 0) {
-        andParts.push({ adminId: aid })
-      }
+  } else if (scope === 'all') {
+    if (user.role !== 'super_admin') {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Only super-admins can list testimonials across all tenants',
+      })
     }
+    // No adminId filter — intentional cross-tenant view.
+  } else if (parsedTenantAdminId !== null) {
+    if (user.role !== 'super_admin') {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Only super-admins can list another tenant\'s testimonials',
+      })
+    }
+    andParts.push({ adminId: parsedTenantAdminId })
   } else if (tenantId != null) {
     andParts.push({ adminId: tenantId })
   } else {

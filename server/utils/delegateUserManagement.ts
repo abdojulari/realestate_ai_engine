@@ -82,13 +82,18 @@ export function assertCanAccessTenantUser(
 }
 
 /**
- * ActivityLog.userId filter: super_admin → all; else principal id + team members, minus VIP exclusions for delegates.
+ * ActivityLog.userId filter: scoped to the actor's tenant (principal id + team members, minus VIP exclusions for delegates).
+ *
+ * Tenant isolation is enforced even for `super_admin`. To intentionally view
+ * cross-tenant activity (platform support), the caller must pass `{ crossTenant: true }`
+ * after gating on `actor.role === 'super_admin'`.
  */
 export async function getActivityLogAllowedUserIds(
   prisma: PrismaClient,
-  actor: UserActor
+  actor: UserActor,
+  opts: { crossTenant?: boolean } = {}
 ): Promise<number[] | 'all'> {
-  if (actor.role === 'super_admin') return 'all'
+  if (opts.crossTenant && actor.role === 'super_admin') return 'all'
 
   const tenantId = getTenantAdminId(actor as TenantUser)
   if (tenantId == null) return []

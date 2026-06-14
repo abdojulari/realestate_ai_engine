@@ -272,7 +272,8 @@ import { formatDateTime } from '~/utils/formatters'
 
 definePageMeta({
   layout: 'admin',
-  middleware: ['auth']
+  middleware: ['admin', 'delegate-feature'],
+  delegateFeature: 'newsletter',
 })
 
 const router = useRouter()

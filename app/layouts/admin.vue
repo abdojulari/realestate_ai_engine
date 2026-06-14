@@ -390,7 +390,7 @@ const allMenuItems = [
   // User Management
   { title: 'CRM', icon: 'mdi-account-multiple', to: '/admin/crm', requiresFeature: null, delegateFeature: 'crm', getBadge: () => crmBadge.value, groupKey: 'users' },
   { title: 'Lead Generation', icon: 'mdi-account-search', to: '/admin/lead-generation', requiresFeature: FEATURES.LEAD_GENERATION, tier: 'gold', delegateFeature: 'lead_generation', groupKey: 'users' },
-  { title: 'Testimonials', icon: 'mdi-comment-quote', to: '/admin/testimonials', requiresFeature: null, delegateFeature: 'content', groupKey: 'users' },
+  { title: 'Testimonials', icon: 'mdi-comment-quote', to: '/admin/testimonials', requiresFeature: null, delegateFeature: 'testimonials', groupKey: 'users' },
   { title: 'Users', icon: 'mdi-account-group', to: '/admin/users', requiresFeature: null, delegateFeature: 'user_management', getBadge: () => userBadge.value, groupKey: 'users' },
 
   // Properties & Listings

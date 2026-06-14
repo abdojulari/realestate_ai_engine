@@ -281,7 +281,9 @@
 
 // Meta
 definePageMeta({
-  layout: 'admin'
+  layout: 'admin',
+  middleware: ['admin', 'delegate-feature'],
+  delegateFeature: 'testimonials',
 })
 
 const { get, del, patch } = useApi()

@@ -397,8 +397,9 @@ interface SyncResult {
 }
 
 definePageMeta({
-  middleware: 'auth',
-  layout: 'admin'
+  layout: 'admin',
+  middleware: ['admin', 'delegate-feature'],
+  delegateFeature: 'crea_sync',
 })
 
 const loading = ref(false)

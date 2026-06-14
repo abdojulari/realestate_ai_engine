@@ -18,8 +18,19 @@ export default defineEventHandler(async (event) => {
     const limit = parseInt(query.limit as string) || 50
     const skip = (page - 1) * limit
 
+    // Tenant-scoped by default. Super-admins can pass ?scope=all for cross-tenant
+    // platform audit; any other caller passing it gets ignored by the helper.
+    const crossTenant = (query.scope as string | undefined) === 'all' && user.role === 'super_admin'
+
+    if ((query.scope as string | undefined) === 'all' && user.role !== 'super_admin') {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Only super-admins can view cross-tenant activity logs',
+      })
+    }
+
     // ActivityLog.userId: tenant principal + team; delegates omit VIP-excluded user ids.
-    const allowedIds = await getActivityLogAllowedUserIds(prisma, user as any)
+    const allowedIds = await getActivityLogAllowedUserIds(prisma, user as any, { crossTenant })
     const userIdFilter: Record<string, unknown> =
       allowedIds === 'all' ? {} : { userId: { in: allowedIds } }
 

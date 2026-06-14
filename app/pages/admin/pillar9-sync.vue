@@ -537,8 +537,9 @@ interface Settings {
 }
 
 definePageMeta({
-  middleware: 'auth',
-  layout: 'admin'
+  layout: 'admin',
+  middleware: ['admin', 'delegate-feature'],
+  delegateFeature: 'pillar9_sync',
 })
 
 const loading = ref(false)
