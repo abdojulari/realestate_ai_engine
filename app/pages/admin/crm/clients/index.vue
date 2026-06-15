@@ -588,19 +588,36 @@ async function submitConvert() {
   if (!convertingClient.value) return
   converting.value = true
   try {
+    // `v-text-field type="number"` returns its value as a STRING, and Prisma
+    // strictly rejects a string for the `Float?` salePrice column. Normalize
+    // here so the wire payload matches the schema (server also re-validates).
+    const rawPrice = convertForm.value.salePrice as number | string | null
+    let parsedPrice: number | null = null
+    if (rawPrice !== null && rawPrice !== '' && rawPrice !== undefined) {
+      const n = typeof rawPrice === 'number' ? rawPrice : Number(rawPrice)
+      parsedPrice = Number.isFinite(n) && n >= 0 ? n : null
+    }
+
+    const propertyAddress = (convertForm.value.propertyAddress || '').trim() || null
+
     const res = await $fetch('/api/admin/crm/clients/convert', {
       method: 'POST',
       headers: getAuthHeaders(),
       body: {
         clientId: convertingClient.value.id,
-        ...convertForm.value
-      }
+        type: convertForm.value.type,
+        propertyAddress,
+        salePrice: parsedPrice,
+      },
     }) as any
 
     showConvertDialog.value = false
     if (res.transaction?.id) {
       navigateTo(`/admin/crm/transactions/${res.transaction.id}`)
     }
+  } catch (e: any) {
+    console.error('Convert failed:', e?.data?.message || e?.statusMessage || e)
+    alert(e?.data?.message || e?.statusMessage || 'Could not convert this client. Please try again.')
   } finally {
     converting.value = false
   }

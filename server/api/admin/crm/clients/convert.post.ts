@@ -1,5 +1,5 @@
 import { requireAdmin } from '../../../../utils/auth'
-import { getAdminIdForCreate, requireTenantAccess } from '../../../../utils/tenant'
+import { requireTenantAccess } from '../../../../utils/tenant'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -8,71 +8,134 @@ const prisma = globalForPrisma.prisma ?? new PrismaClient()
 globalForPrisma.prisma = prisma
 
 
+/**
+ * Coerce numeric input from a JSON body to a finite number, or `null`.
+ *
+ * Vuetify's `v-text-field type="number"` ships its value to the server as a
+ * STRING ("330162.57"), which Prisma 6 refuses to accept for a `Float?`
+ * column — that's how this endpoint was 500ing before. We accept either
+ * number or string, parse with `Number()`, and reject anything that isn't a
+ * finite, non-negative value (negative sale prices don't exist for a CRM
+ * conversion).
+ */
+function coerceSalePrice(raw: unknown): number | null {
+  if (raw === null || raw === undefined || raw === '') return null
+  const n = typeof raw === 'number' ? raw : Number(raw)
+  if (!Number.isFinite(n)) return null
+  if (n < 0) return null
+  return n
+}
+
+function coerceClientId(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isInteger(raw) && raw > 0) return raw
+  if (typeof raw === 'string' && /^\d+$/.test(raw)) return parseInt(raw, 10)
+  return null
+}
+
+function coerceOptionalString(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 export default defineEventHandler(async (event) => {
   try {
     const user = await requireAdmin(event)
     const body = await readBody(event)
 
-    const { clientId, type, propertyAddress, salePrice, notes } = body
+    const clientId = coerceClientId(body?.clientId)
+    const type = body?.type
+    const propertyAddress = coerceOptionalString(body?.propertyAddress)
+    const salePrice = coerceSalePrice(body?.salePrice)
+    const notes = coerceOptionalString(body?.notes)
 
-    if (!clientId || !type) {
-      throw createError({ statusCode: 400, message: 'Client ID and transaction type are required' })
+    if (!clientId) {
+      throw createError({ statusCode: 400, message: 'A valid client ID is required' })
     }
-
+    if (!type) {
+      throw createError({ statusCode: 400, message: 'Transaction type is required' })
+    }
     if (!['buying', 'selling'].includes(type)) {
       throw createError({ statusCode: 400, message: 'Type must be "buying" or "selling"' })
     }
 
-    // Verify client exists and belongs to tenant
+    // Verify client exists and the caller has access to the tenant that owns it.
     const client = await prisma.crmClient.findUnique({ where: { id: clientId } })
     if (!client) throw createError({ statusCode: 404, message: 'Client not found' })
     requireTenantAccess(user, client.adminId)
 
-    // Update client type based on transaction
-    const clientType = type === 'buying' ? 'buyer' : 'seller'
-    await prisma.crmClient.update({
-      where: { id: clientId },
-      data: { type: clientType }
-    })
+    // Strict tenancy: a client always carries an `adminId` once owned. If a
+    // legacy row has `adminId == null` we refuse rather than guess — that's
+    // safer than attaching a transaction to the wrong tenant.
+    if (client.adminId == null) {
+      throw createError({
+        statusCode: 409,
+        message: 'This client is not attached to a tenant — please re-create or assign an owner before converting.',
+      })
+    }
 
-    // Create transaction with default checklist
+    // The transaction MUST live in the same tenant as the client. We do NOT
+    // use `getAdminIdForCreate(user)` here because a super_admin converting
+    // another tenant's client would otherwise pull the transaction into the
+    // super_admin's tenant — silently splitting the client/transaction pair
+    // across tenants. Always anchor to `client.adminId`.
+    const transactionAdminId = client.adminId
+
+    const clientType = type === 'buying' ? 'buyer' : 'seller'
     const checklist = type === 'buying' ? getBuyerChecklist() : getSellerChecklist()
 
-    const transaction = await prisma.crmTransaction.create({
-      data: {
-        clientId,
-        type,
-        propertyAddress,
-        salePrice,
-        notes,
-        status: 'active',
-        currentStage: checklist[0]?.category || 'initial',
-        progress: 0,
-        adminId: getAdminIdForCreate(user),
-        checklist: {
-          create: checklist.map((item, index) => ({
-            label: item.label,
-            description: item.description,
-            category: item.category,
-            sortOrder: index,
-            isRequired: (item as any).isRequired !== false,
-          }))
-        }
-      },
-      include: {
-        checklist: { orderBy: { sortOrder: 'asc' } }
-      }
+    // Wrap the client-type update + transaction create in a single transaction
+    // so we never end up with a buyer-typed client and no transaction (or
+    // vice versa) on partial failure.
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.crmClient.update({
+        where: { id: clientId },
+        data: { type: clientType },
+      })
+
+      return tx.crmTransaction.create({
+        data: {
+          clientId,
+          type,
+          propertyAddress,
+          salePrice,
+          notes,
+          status: 'active',
+          currentStage: checklist[0]?.category || 'initial',
+          progress: 0,
+          adminId: transactionAdminId,
+          checklist: {
+            create: checklist.map((item, index) => ({
+              label: item.label,
+              description: item.description,
+              category: item.category,
+              sortOrder: index,
+              isRequired: (item as any).isRequired !== false,
+            })),
+          },
+        },
+        include: {
+          checklist: { orderBy: { sortOrder: 'asc' } },
+        },
+      })
     })
 
     return {
       success: true,
       message: `Client converted to ${clientType} with ${type} transaction`,
-      transaction
+      transaction: result,
     }
   } catch (error: any) {
+    // Without this log the raw Prisma validation error never reaches the
+    // server console — every failure looked like a generic 500.
+    console.error('[crm/clients/convert] failed:', {
+      message: error?.message,
+      code: error?.code,
+      meta: error?.meta,
+    })
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Internal server error'
+      message: error.message || 'Internal server error',
     })
   }
 })
