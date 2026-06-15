@@ -21,26 +21,42 @@ export function getDelegationExcludedIds(actor: UserActor): number[] {
   return [...new Set(ids.filter((n) => Number.isInteger(n) && n > 0))]
 }
 
-/** Merge Prisma where for user list: tenant team + optional exclusion filter for delegates. */
+/**
+ * Merge Prisma where for user list, tenant-scoped.
+ *
+ * Tenant scope = principal (admin / super_admin) + their team members (users
+ * whose `adminId` points at the principal).
+ *
+ * - Principal (admin / super_admin) sees themselves + their team.
+ *   This matters because the principal's own User row has `adminId = null`
+ *   (they ARE the tenant), so a naive `adminId = tenantId` filter would hide
+ *   them from their own admin pages, dashboards, reports, etc.
+ * - Delegated assistant (`role === 'user'`) sees the team only (minus any
+ *   VIP-excluded ids). They cannot manage / see the principal — that gate is
+ *   also enforced by `assertCanAccessTenantUser`.
+ */
 export function mergeTenantUserListWhere(
   actor: UserActor,
   baseWhere: Record<string, unknown>
 ): Record<string, unknown> {
   const tenantId = getTenantAdminId(actor as TenantUser)
-  const teamWhere =
-    tenantId === null ? { ...baseWhere } : { ...baseWhere, adminId: tenantId }
 
-  if (actor.role !== 'user') {
-    return teamWhere
+  if (tenantId === null) {
+    return { ...baseWhere }
   }
 
-  const excluded = getDelegationExcludedIds(actor)
-  if (excluded.length === 0) {
-    return teamWhere
+  if (actor.role === 'user') {
+    const teamWhere = { ...baseWhere, adminId: tenantId }
+    const excluded = getDelegationExcludedIds(actor)
+    if (excluded.length === 0) return teamWhere
+    return { AND: [teamWhere, { id: { notIn: excluded } }] }
   }
 
   return {
-    AND: [teamWhere, { id: { notIn: excluded } }],
+    AND: [
+      baseWhere,
+      { OR: [{ adminId: tenantId }, { id: tenantId }] },
+    ],
   }
 }
 
@@ -63,7 +79,12 @@ export function assertCanAccessTenantUser(
     })
   }
 
-  if (target.adminId !== tenantId) {
+  // Principal (admin / super_admin) may also act on their own User row.
+  // Delegated assistants (role === 'user') may not — the principal is off-limits.
+  const isSelf = target.id === tenantId
+  const belongsToTenant = target.adminId === tenantId
+
+  if (!belongsToTenant && !(isSelf && actor.role !== 'user')) {
     throw createError({
       statusCode: 403,
       statusMessage: 'You do not have permission to access this user',

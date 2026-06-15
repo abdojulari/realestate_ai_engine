@@ -12,7 +12,7 @@
     :hero-title-accent="heroTitleAccent"
     :hero-subtitle="heroSubtitle"
     :featured-testimonials="featuredTestimonials"
-    :total-users="totalUsers"
+    :total-clients="totalClients"
     :total-properties="totalProperties"
     :awards-count="awardsCount"
   />
@@ -130,7 +130,7 @@ const heroTitlePrimary = ref<string>('')
 const heroTitleAccent = ref<string>('')
 const heroSubtitle = ref<string>('')
 const featuredTestimonials = ref<any[]>([])
-const totalUsers = ref<number>(0)
+const totalClients = ref<number>(0)
 const totalProperties = ref<number>(0)
 const awardsCount = ref<number>(0)
 
@@ -168,11 +168,12 @@ onMounted(async () => {
   // Load Stats. These are decorative — if they fail we keep going so the
   // rest of the homepage still renders, but we log so on-call sees the
   // failure instead of silently shipping a broken section.
-  // /api/stats returns tenant-scoped counts: totalUsers (admin + their users)
-  // and totalProperties (CREA + Pillar9 shared MLS + this tenant's manual listings).
+  // /api/stats returns tenant-scoped counts: totalClients (tenant's CRM
+  // clients — buyers / sellers / past clients) and totalProperties (CREA +
+  // Pillar9 shared MLS + this tenant's manual listings).
   try {
     const stats: any = await $fetch('/api/stats')
-    if (typeof stats?.totalUsers === 'number') totalUsers.value = stats.totalUsers
+    if (typeof stats?.totalClients === 'number') totalClients.value = stats.totalClients
     if (typeof stats?.totalProperties === 'number') totalProperties.value = stats.totalProperties
   } catch (e) {
     console.warn('[home] Failed to load /api/stats', e)

@@ -58,6 +58,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  assertCanAccessTenantUser(user as any, {
+    id: existingUser.id,
+    adminId: existingUser.adminId,
+  })
+
   // Prevent non-super_admin from modifying a super_admin
   if (existingUser.role === 'super_admin' && user.role !== 'super_admin') {
     throw createError({
@@ -71,6 +76,14 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 403,
       statusMessage: 'Only super admins can assign the super admin role'
+    })
+  }
+
+  // Prevent the principal from demoting themselves and locking themselves out.
+  if (existingUser.id === user.id && role !== existingUser.role) {
+    throw createError({
+      statusCode: 400,
+      statusMessage: 'You cannot change your own role from this page'
     })
   }
 

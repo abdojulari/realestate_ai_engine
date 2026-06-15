@@ -12,14 +12,21 @@ export default defineEventHandler(async (event) => {
   try {
     const tenantFilter = await getPublicTenantFilter(event)
 
-    // Build user filter: include admin themselves + their users
-    const userWhere = tenantFilter.adminId
-      ? { OR: [{ adminId: tenantFilter.adminId }, { id: tenantFilter.adminId }] }
-      : {}
+    // Public homepage social proof: count the tenant's CRM clients
+    // (buyers / sellers / past clients / leads), NOT auth users. Exclude
+    // soft-disabled rows so the number reflects real people the broker has
+    // worked with or is working with.
+    // If we can't resolve a tenant from the domain, return 0 — never leak a
+    // cross-tenant aggregate to the public.
+    const clientWhere = tenantFilter.adminId
+      ? { adminId: tenantFilter.adminId, status: { not: 'inactive' } }
+      : null
 
-    // Get basic public statistics
-    const [totalUsers, totalProperties, totalActiveProperties] = await Promise.all([
-      prisma.user.count({ where: userWhere }),
+    const [totalClients, totalProperties, totalActiveProperties] = await Promise.all([
+      clientWhere
+        // @ts-ignore - crmClient is in the Prisma schema
+        ? prisma.crmClient.count({ where: clientWhere })
+        : Promise.resolve(0),
       prisma.property.count({ where: { AND: [getPublicSharedMlsWhere(tenantFilter)] } }),
       prisma.property.count({
         where: {
@@ -36,7 +43,7 @@ export default defineEventHandler(async (event) => {
     ])
 
     return {
-      totalUsers,
+      totalClients,
       totalProperties,
       totalActiveProperties
     }
@@ -44,7 +51,7 @@ export default defineEventHandler(async (event) => {
     console.error('Error fetching public stats:', error)
     // Return fallback values if database query fails
     return {
-      totalUsers: 0,
+      totalClients: 0,
       totalProperties: 0,
       totalActiveProperties: 0
     }

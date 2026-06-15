@@ -173,7 +173,7 @@ const props = defineProps<{
   heroTitleAccent?: string
   heroSubtitle?: string
   featuredTestimonials?: any[]
-  totalUsers?: number
+  totalClients?: number
   totalProperties?: number
   awardsCount?: number
 }>()
@@ -193,7 +193,7 @@ const isShowcaseVisible = ref(false)
 
 const stats = computed(() => [
   { icon: 'mdi-home-city-outline', value: `${props.totalProperties ?? 0}+`, label: 'Properties Available' },
-  { icon: 'mdi-account-group-outline', value: `${props.totalUsers ?? 0}+`, label: 'Happy Families' },
+  { icon: 'mdi-account-group-outline', value: `${props.totalClients ?? 0}+`, label: 'Happy Families' },
   { icon: 'mdi-trophy-variant-outline', value: `${props.awardsCount ?? 0}+`, label: 'Awards Won' }
 ])
 

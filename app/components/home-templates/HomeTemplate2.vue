@@ -59,7 +59,7 @@
                 <div class="stat-icon-wrapper">
                   <v-icon class="stat-icon" color="amber-lighten-3">mdi-account-group-outline</v-icon>
                 </div>
-                <div class="stat-value">{{ (totalUsers ?? 0) > 0 ? `${totalUsers}+` : '500+' }}</div>
+                <div class="stat-value">{{ (totalClients ?? 0) > 0 ? `${totalClients}+` : '500+' }}</div>
                 <div class="stat-text">Happy Clients</div>
               </div>
               <div class="stat-card">
@@ -166,7 +166,7 @@ const props = defineProps<{
   heroTitleAccent?: string
   heroSubtitle?: string
   featuredTestimonials?: any[]
-  totalUsers?: number
+  totalClients?: number
   totalProperties?: number
   awardsCount?: number
 }>()

@@ -641,7 +641,11 @@ async function loadHeaderData() {
     if (auth.user?.role === 'admin' || auth.user?.role === 'super_admin') {
       try {
         userBadge.value = await api.get('/api/admin/users').then((arr: any) => arr?.length || 0)
-        crmBadge.value = await api.get('/api/admin/users?role=crm').then((arr: any) => arr?.length || 0)
+        // CRM badge counts CrmClient rows (the actual CRM table), not Users.
+        // We only need the count, so request limit=1 and read pagination.total.
+        crmBadge.value = await api
+          .get('/api/admin/crm/clients?limit=1')
+          .then((res: any) => res?.pagination?.total ?? 0)
       } catch {
         userBadge.value = undefined
         crmBadge.value = undefined

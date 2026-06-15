@@ -43,7 +43,7 @@
               </div>
               <div class="stat-divider"></div>
               <div class="stat-item">
-                <div class="stat-number">{{ (totalUsers ?? 0) > 0 ? `${totalUsers}+` : '500+' }}</div>
+                <div class="stat-number">{{ (totalClients ?? 0) > 0 ? `${totalClients}+` : '500+' }}</div>
                 <div class="stat-label">Clients</div>
               </div>
               <div class="stat-divider"></div>
@@ -168,7 +168,7 @@ const props = defineProps<{
   heroTitleAccent?: string
   heroSubtitle?: string
   featuredTestimonials?: any[]
-  totalUsers?: number
+  totalClients?: number
   totalProperties?: number
   awardsCount?: number
 }>()

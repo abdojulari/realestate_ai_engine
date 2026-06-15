@@ -57,7 +57,7 @@
           </v-col>
           <v-col cols="12" md="4">
             <div class="stat-box">
-              <div class="stat-number-minimal">{{ (totalUsers ?? 0) > 0 ? `${totalUsers}+` : '500+' }}</div>
+              <div class="stat-number-minimal">{{ (totalClients ?? 0) > 0 ? `${totalClients}+` : '500+' }}</div>
               <div class="stat-label-minimal">Satisfied Clients</div>
             </div>
           </v-col>
@@ -156,7 +156,7 @@ const props = defineProps<{
   heroTitleAccent?: string
   heroSubtitle?: string
   featuredTestimonials?: any[]
-  totalUsers?: number
+  totalClients?: number
   totalProperties?: number
   awardsCount?: number
 }>()

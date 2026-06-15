@@ -25,14 +25,18 @@ export default defineEventHandler(async (event) => {
     ]
   }
   if (role) {
-    if (role === 'crm') {
-      base.role = { notIn: ['admin', 'agent'] }
-    } else {
-      base.role = role
-    }
+    base.role = role
   }
 
-  const where: any = mergeTenantUserListWhere(user as any, base)
+  // Platform owner (super_admin) sees every User across every tenant —
+  // this surface is for platform-level account management (support, role
+  // grants, audits), not for tenant-scoped business data.
+  // Regular admin / agent / delegated user see only their own tenant scope
+  // (principal + team members, minus VIP exclusions for delegates).
+  const where: any =
+    user.role === 'super_admin'
+      ? base
+      : mergeTenantUserListWhere(user as any, base)
 
   const users = await prisma.user.findMany({
     where,
@@ -44,15 +48,46 @@ export default defineEventHandler(async (event) => {
       email: true,
       role: true,
       phone: true,
+      adminId: true,
       createdAt: true,
-      updatedAt: true
-    }
+      updatedAt: true,
+      // Include the owning tenant principal so super_admin can tell which
+      // tenant a user belongs to. Only fetched when needed (small payload).
+      admin: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+        },
+      },
+    },
   })
 
-  // Map to UI shape, add status/lastLogin placeholders
-  return users.map((u: any) => ({
-    ...u,
-    status: 'active',
-    lastLogin: u.updatedAt
-  }))
+  // Map to UI shape. `tenant` is a derived label for display only.
+  return users.map((u: any) => {
+    const tenant = u.admin
+      ? {
+          id: u.admin.id,
+          name: `${u.admin.firstName || ''} ${u.admin.lastName || ''}`.trim() || u.admin.email,
+          email: u.admin.email,
+        }
+      : u.role === 'super_admin' || u.role === 'admin'
+        ? { id: u.id, name: 'Platform / Self', email: u.email, self: true }
+        : null
+    return {
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      role: u.role,
+      phone: u.phone,
+      adminId: u.adminId,
+      createdAt: u.createdAt,
+      updatedAt: u.updatedAt,
+      tenant,
+      status: 'active',
+      lastLogin: u.updatedAt,
+    }
+  })
 })

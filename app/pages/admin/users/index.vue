@@ -114,6 +114,27 @@
             </v-chip>
           </template>
 
+          <!-- Tenant Slot (super_admin cross-tenant view only) -->
+          <template v-if="isPlatformOwner" v-slot:item.tenant="{ item }">
+            <div class="d-flex flex-column align-center">
+              <template v-if="(item as any).tenant">
+                <span
+                  class="text-caption font-weight-bold"
+                  :class="(item as any).tenant.self ? 'text-gold' : ''"
+                >
+                  {{ (item as any).tenant.name }}
+                </span>
+                <span
+                  v-if="!(item as any).tenant.self"
+                  class="text-caption text-medium-emphasis"
+                >
+                  {{ (item as any).tenant.email }}
+                </span>
+              </template>
+              <span v-else class="text-caption text-medium-emphasis">—</span>
+            </div>
+          </template>
+
           <!-- Status Slot -->
           <template v-slot:item.status="{ item }">
             <div class="d-flex align-center justify-center">
@@ -329,6 +350,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useAuthStore } from '~/stores/auth'
 
 // Helper function to safely get auth headers
 const getAuthHeaders = (): Record<string, string> => {
@@ -342,6 +364,11 @@ const getAuthHeaders = (): Record<string, string> => {
 // NO LOGIC CHANGES BELOW
 const { showDialog, alertType, alertTitle, alertMessage, alertConfirmText, showSuccess, showError, closeAlert } = useAlert()
 const route = useRoute()
+const authStore = useAuthStore()
+
+// Platform owner gets a cross-tenant view of every User row; everyone else
+// stays scoped to their own tenant. Drives the conditional "Tenant" column.
+const isPlatformOwner = computed(() => authStore.user?.role === 'super_admin')
 
 const loading = ref(false)
 const saving = ref(false)
@@ -371,16 +398,24 @@ const userForm = ref({
   password: ''
 })
 
-const headers = [
-  { title: 'Identity', key: 'user', sortable: false },
-  { title: 'Security Role', key: 'role', align: 'center' },
-  { title: 'Platform Status', key: 'status', align: 'center' },
-  { title: 'Last Session', key: 'lastLogin' },
-  { title: 'Operations', key: 'actions', sortable: false, align: 'end' }
-]
+const headers = computed(() => {
+  const base: any[] = [
+    { title: 'Identity', key: 'user', sortable: false },
+    { title: 'Security Role', key: 'role', align: 'center' },
+  ]
+  if (isPlatformOwner.value) {
+    base.push({ title: 'Tenant', key: 'tenant', align: 'center', sortable: false })
+  }
+  base.push(
+    { title: 'Platform Status', key: 'status', align: 'center' },
+    { title: 'Last Session', key: 'lastLogin' },
+    { title: 'Operations', key: 'actions', sortable: false, align: 'end' }
+  )
+  return base
+})
 
 const roleOptions = ['user', 'agent', 'admin']
-const roleFilterOptions = ['user', 'agent', 'admin', 'crm']
+const roleFilterOptions = ['user', 'agent', 'admin']
 const statusOptions = ['active', 'inactive', 'pending']
 const users = ref<any[]>([])
 
@@ -438,11 +473,8 @@ const applyFilters = async () => {
 }
 
 const syncFiltersFromRoute = () => {
-  const crm = route.query.crm === '1' || route.query.crm === 'true'
   const role = (route.query.role as string) || null
-  if (crm) {
-    filters.value.role = 'crm'
-  } else if (role) {
+  if (role && roleFilterOptions.includes(role)) {
     filters.value.role = role
   }
 }
