@@ -80,7 +80,7 @@
               <div class="mobile-hero-content">
                 <v-icon size="40" color="white" class="mb-2">mdi-home-heart</v-icon>
                 <h2 class="text-h5 text-white font-weight-bold">Share Your Experience</h2>
-                <p class="text-body-2 text-white-darken-1 mt-2">{{ slides[currentSlide]?.statement }}</p>
+                <p class="text-body-2 text-white mt-2">{{ slides[currentSlide]?.statement }}</p>
               </div>
             </div>
             
