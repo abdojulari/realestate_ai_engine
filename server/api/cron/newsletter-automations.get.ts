@@ -1,6 +1,5 @@
-import { sendNewsletterBatch } from '../../utils/email'
-import { sanitizeEmailHtml } from '../../utils/emailHtmlSanitize'
-import { buildAudienceWhere, normalizeAudience } from '../../utils/newsletterAudience'
+import { dispatchNewsletter } from '../../utils/newsletterDispatch'
+import { normalizeAudience, normalizeSubscriberIds } from '../../utils/newsletterAudience'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -46,7 +45,9 @@ export default defineEventHandler(async (event) => {
 
     for (const automation of dueAutomations) {
       try {
-        console.log(`[Newsletter Automation] Processing automation ${automation.id} (${automation.name}) tenant=${automation.adminId}`)
+        console.log(
+          `[Newsletter Automation] Processing automation ${automation.id} (${automation.name}) tenant=${automation.adminId}`,
+        )
 
         if (automation.adminId == null) {
           // Defensive: a NULL-tenant automation is malformed — refuse to send.
@@ -56,102 +57,63 @@ export default defineEventHandler(async (event) => {
           continue
         }
 
-        const tenantFilter = { adminId: automation.adminId }
-        const audience = normalizeAudience((automation.targetFilters as any)?.audience)
-        const where = buildAudienceWhere(audience, tenantFilter)
+        const filters = (automation.targetFilters as any) || {}
+        const audience = normalizeAudience(filters.audience)
+        const subscriberIds = normalizeSubscriberIds(filters.subscriberIds)
+        const campaignId = filters.campaignId ? Number(filters.campaignId) : null
 
-        const subscribers = await prisma.newsletterSubscriber.findMany({
-          where,
-          select: { id: true, email: true, firstName: true, lastName: true },
-        })
-
-        if (subscribers.length === 0) {
-          console.log(`[Newsletter Automation] No subscribers for automation ${automation.id}`)
-          // Still advance the schedule so we don't tight-loop on empty audiences.
-          const nextRun = calculateNextRun(automation)
-          await prisma.newsletterAutomation.update({
-            where: { id: automation.id },
-            data: { lastRun: now, nextRun, runCount: automation.runCount + 1 },
-          })
-          results.push({ automationId: automation.id, success: true, sent: 0, failed: 0, nextRun: nextRun.toISOString() })
-          continue
-        }
-
-        // Tenant-scoped template lookup so a misconfigured automation can't
-        // be tricked into sending another tenant's template body.
-        let template: { subject: string; content: string; plainTextContent: string | null } | null = null
-        if (automation.templateId) {
-          template = await prisma.newsletterTemplate.findFirst({
-            where: { id: automation.templateId, ...tenantFilter },
-            select: { subject: true, content: true, plainTextContent: true },
-          })
-        }
-
-        const rawContent = template?.content || '<p>Newsletter content</p>'
-        const safeHtml = sanitizeEmailHtml(rawContent)
-
-        const campaign = await prisma.newsletter.create({
-          data: {
-            name: `${automation.name} - ${now.toISOString()}`,
-            subject: automation.subject || template?.subject || 'Newsletter Update',
-            content: rawContent,
-            plainTextContent: template?.plainTextContent || null,
-            status: 'sending',
-            recipientCount: subscribers.length,
-            frequency: automation.frequency || null,
+        let dispatchResult: Awaited<ReturnType<typeof dispatchNewsletter>> | null = null
+        try {
+          dispatchResult = await dispatchNewsletter({
             adminId: automation.adminId,
             createdBy: automation.createdBy ?? null,
-            targetFilters: { audience },
-          },
-        })
-
-        const sendResults = await sendNewsletterBatch(
-          subscribers,
-          {
-            id: campaign.id,
-            subject: campaign.subject,
-            content: safeHtml,
-            plainTextContent: campaign.plainTextContent || undefined,
-          },
-          { adminId: automation.adminId },
-        )
-
-        const failedEmails = new Set(
-          (sendResults.errors || []).map((e: any) => String(e?.email || '').toLowerCase()),
-        )
-        const sentRecords = subscribers.map((subscriber) => ({
-          newsletterId: campaign.id,
-          subscriberId: subscriber.id,
-          status: failedEmails.has(subscriber.email.toLowerCase()) ? 'failed' : 'sent',
-          sentAt: new Date(),
-        }))
-        await prisma.sentNewsletter.createMany({ data: sentRecords })
-
-        let finalStatus: 'sent' | 'failed' | 'partial_sent' = 'sent'
-        if (sendResults.failed > 0 && sendResults.success === 0) finalStatus = 'failed'
-        else if (sendResults.failed > 0) finalStatus = 'partial_sent'
-
-        await prisma.newsletter.update({
-          where: { id: campaign.id },
-          data: { status: finalStatus, sentAt: new Date(), recipientCount: subscribers.length },
-        })
+            campaignId,
+            templateId: automation.templateId ?? null,
+            subject: automation.subject ?? null,
+            audience,
+            subscriberIds,
+            name: automation.name,
+            sourceLabel: `Automation: ${automation.name}`,
+          })
+        } catch (e: any) {
+          // dispatchNewsletter throws on "no recipients" too — surface it but
+          // still advance the schedule so we don't tight-loop on empty audiences.
+          console.warn(
+            `[Newsletter Automation] Dispatch skipped for ${automation.id}: ${e?.message || e}`,
+          )
+        }
 
         const nextRun = calculateNextRun(automation)
         await prisma.newsletterAutomation.update({
           where: { id: automation.id },
-          data: { lastRun: now, nextRun, runCount: automation.runCount + 1 },
+          data: {
+            lastRun: now,
+            nextRun,
+            runCount: automation.runCount + (dispatchResult ? 1 : 0),
+          },
         })
 
-        results.push({
-          automationId: automation.id,
-          automationName: automation.name,
-          campaignId: campaign.id,
-          success: true,
-          sent: sendResults.success,
-          failed: sendResults.failed,
-          status: finalStatus,
-          nextRun: nextRun.toISOString(),
-        })
+        if (dispatchResult) {
+          results.push({
+            automationId: automation.id,
+            automationName: automation.name,
+            campaignId: dispatchResult.campaignId,
+            success: true,
+            sent: dispatchResult.emailsSent,
+            failed: dispatchResult.emailsFailed,
+            status: dispatchResult.status,
+            nextRun: nextRun.toISOString(),
+          })
+        } else {
+          results.push({
+            automationId: automation.id,
+            automationName: automation.name,
+            success: true,
+            sent: 0,
+            failed: 0,
+            nextRun: nextRun.toISOString(),
+          })
+        }
       } catch (error) {
         console.error(`[Newsletter Automation] Error processing automation ${automation.id}:`, error)
         results.push({

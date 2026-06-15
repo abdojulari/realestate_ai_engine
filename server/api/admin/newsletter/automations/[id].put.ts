@@ -1,5 +1,6 @@
 import { requireAdmin } from '../../../../utils/auth'
 import { getTenantFilter } from '../../../../utils/tenant'
+import { normalizeAudience, normalizeSubscriberIds } from '../../../../utils/newsletterAudience'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -8,13 +9,13 @@ const prisma = globalForPrisma.prisma ?? new PrismaClient()
 globalForPrisma.prisma = prisma
 
 
-function calculateNextRun(frequency: string, dayOfWeek?: number, dayOfMonth?: number, timeOfDay?: string, timezone?: string): Date {
+function calculateNextRun(frequency: string, dayOfWeek?: number, dayOfMonth?: number, timeOfDay?: string, _timezone?: string): Date {
   const now = new Date()
   const [hours, minutes] = (timeOfDay || '09:00').split(':').map(Number)
-  
+
   const nextRun = new Date(now)
   nextRun.setHours(hours!, minutes!, 0, 0)
-  
+
   if (frequency === 'daily') {
     if (nextRun <= now) {
       nextRun.setDate(nextRun.getDate() + 1)
@@ -29,7 +30,7 @@ function calculateNextRun(frequency: string, dayOfWeek?: number, dayOfMonth?: nu
       nextRun.setMonth(nextRun.getMonth() + 1)
     }
   }
-  
+
   return nextRun
 }
 
@@ -44,9 +45,8 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 400, message: 'Invalid automation ID' })
     }
 
-    // Verify tenant ownership before updating
     const existingAutomation = await prisma.newsletterAutomation.findFirst({
-      where: { id, ...tenantFilter }
+      where: { id, ...tenantFilter },
     })
 
     if (!existingAutomation) {
@@ -63,20 +63,70 @@ export default defineEventHandler(async (event) => {
       timeOfDay,
       timezone,
       templateId,
+      campaignId,
       subject,
-      targetFilters,
-      isActive
+      audience,
+      subscriberIds,
+      isActive,
     } = body
 
-    let nextRun = undefined
+    // Tenant-scope template and campaign references on update too.
+    if (templateId) {
+      const t = await prisma.newsletterTemplate.findFirst({ where: { id: Number(templateId), ...tenantFilter } })
+      if (!t) throw createError({ statusCode: 400, message: 'Template not found' })
+    }
+    if (campaignId) {
+      const c = await prisma.newsletter.findFirst({ where: { id: Number(campaignId), ...tenantFilter } })
+      if (!c) throw createError({ statusCode: 400, message: 'Campaign not found' })
+    }
+
+    let nextRun: Date | undefined
     if (frequency || dayOfWeek !== undefined || dayOfMonth !== undefined || timeOfDay) {
       nextRun = calculateNextRun(
         frequency || existingAutomation.frequency || 'weekly',
         dayOfWeek !== undefined ? dayOfWeek : existingAutomation.dayOfWeek || undefined,
         dayOfMonth !== undefined ? dayOfMonth : existingAutomation.dayOfMonth || undefined,
         timeOfDay || existingAutomation.timeOfDay || '09:00',
-        timezone || existingAutomation.timezone
+        timezone || existingAutomation.timezone,
       )
+    }
+
+    // Only rebuild targetFilters when the audience or source changes.
+    // Toggling `isActive` should not silently wipe the saved audience.
+    const audienceProvided =
+      audience !== undefined || subscriberIds !== undefined || campaignId !== undefined
+    let targetFiltersUpdate: any = undefined
+    if (audienceProvided) {
+      const normalized = normalizeAudience(
+        audience !== undefined ? audience : (existingAutomation.targetFilters as any)?.audience,
+      )
+      let cleanIds: number[] = []
+      if (normalized === 'specific') {
+        const rawIds =
+          subscriberIds !== undefined
+            ? subscriberIds
+            : (existingAutomation.targetFilters as any)?.subscriberIds
+        const requested = normalizeSubscriberIds(rawIds)
+        if (requested.length > 0) {
+          const rows = await prisma.newsletterSubscriber.findMany({
+            where: { id: { in: requested }, ...tenantFilter },
+            select: { id: true },
+          })
+          cleanIds = rows.map((r) => r.id)
+        }
+      }
+      const campaignIdNum =
+        campaignId !== undefined
+          ? campaignId
+            ? Number(campaignId)
+            : null
+          : (existingAutomation.targetFilters as any)?.campaignId ?? null
+
+      const filters: Record<string, unknown> = { audience: normalized }
+      if (normalized === 'specific') filters.subscriberIds = cleanIds
+      if (campaignIdNum) filters.campaignId = campaignIdNum
+      if (tenantFilter.adminId !== undefined) filters.tenantAdminId = tenantFilter.adminId
+      targetFiltersUpdate = filters
     }
 
     const automation = await prisma.newsletterAutomation.update({
@@ -90,24 +140,24 @@ export default defineEventHandler(async (event) => {
         dayOfMonth,
         timeOfDay,
         timezone,
-        templateId: templateId || null,
+        templateId: templateId !== undefined ? (templateId ? Number(templateId) : null) : undefined,
         subject,
-        targetFilters: targetFilters || null,
+        targetFilters: targetFiltersUpdate,
         isActive,
-        nextRun
-      }
+        nextRun,
+      },
     })
 
     return {
       success: true,
       message: 'Automation updated successfully',
-      automation
+      automation,
     }
   } catch (error: any) {
     console.error('Error updating automation:', error)
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || 'Internal server error'
+      message: error.message || 'Internal server error',
     })
   }
 })
