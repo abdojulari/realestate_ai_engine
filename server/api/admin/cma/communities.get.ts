@@ -1,8 +1,11 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { requireFeature, FEATURES } from '../../../utils/license'
-import { buildCityWhereClause } from '../../../utils/city-dictionary'
-import { PrismaClient } from '@prisma/client'
+import {
+  sqlCityMatchesProperty,
+  sqlResolvedNeighborhoodLabel,
+} from '../../../utils/propertyNeighborhoodArea'
+import { Prisma, PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 const prisma = globalForPrisma.prisma ?? new PrismaClient()
@@ -15,33 +18,36 @@ export default defineEventHandler(async (event) => {
   await requireFeature(FEATURES.CMA, event)
 
   const query = getQuery(event)
-  const province = query.province as string | undefined
-  const city = query.city as string | undefined
+  const province = (query.province as string | undefined) || ''
+  const city = (query.city as string | undefined) || ''
 
-  const where: any = { status: 'sold' }
+  // Resolve the dropdown label the same way `/api/properties/neighborhoods`
+  // does: subdivisionName (CREA/Pillar9 RESO) → features.cityRegion → column
+  // cityRegion. Many sold rows (esp. Edmonton) only fill the JSON fields, so
+  // reading `cityRegion` alone returned an empty list.
+  const resolved = sqlResolvedNeighborhoodLabel('')
 
-  if (province && province !== 'All') {
-    where.province = province
-  }
-  if (city) {
-    // Pull communities from every row that resolves to the same canonical
-    // city (handles "Calgary" + "Calgary (NW)" + Pillar9 codes 0046/0047
-    // returning one combined community list).
-    const cityConditions = buildCityWhereClause(city)
-    if (cityConditions.length > 0) {
-      where.AND = [...(where.AND || []), { OR: cityConditions }]
-    }
-  }
+  const provinceClause =
+    province && province !== 'All'
+      ? Prisma.sql`AND province = ${province}`
+      : Prisma.sql``
 
-  const raw = await prisma.property.findMany({
-    where,
-    distinct: ['cityRegion'],
-    select: { cityRegion: true },
-    orderBy: { cityRegion: 'asc' },
-  })
+  const cityClause = city
+    ? Prisma.sql`AND ${sqlCityMatchesProperty('', city)}`
+    : Prisma.sql``
 
-  const communities = raw
-    .map(r => r.cityRegion)
+  const rows = await prisma.$queryRaw<Array<{ neighborhood: string }>>`
+    SELECT DISTINCT ${resolved} AS neighborhood
+    FROM "public"."Property"
+    WHERE status = 'sold'
+      ${provinceClause}
+      ${cityClause}
+      AND ${resolved} IS NOT NULL
+      AND LENGTH(TRIM(${resolved})) > 0
+  `
+
+  const communities = rows
+    .map(r => r.neighborhood)
     .filter((c): c is string => Boolean(c) && c.trim().length > 0 && !/^\d+$/.test(c))
     .sort((a, b) => a.localeCompare(b))
 
