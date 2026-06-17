@@ -258,6 +258,7 @@ const statsCards = computed(() => [
 const quickActions = [
   { title: 'Subscribers', icon: 'mdi-account-multiple', color: 'primary', to: '/admin/newsletter/subscribers' },
   { title: 'Campaigns', icon: 'mdi-email-multiple', color: 'success', to: '/admin/newsletter/campaigns' },
+  { title: 'Welcome Email', icon: 'mdi-email-heart-outline', color: 'secondary', to: '/admin/newsletter/welcome-email' },
   { title: 'Templates', icon: 'mdi-file-document-multiple', color: 'info', to: '/admin/newsletter/templates' },
   { title: 'Automation', icon: 'mdi-robot', color: 'warning', to: '/admin/newsletter/automations' }
 ]

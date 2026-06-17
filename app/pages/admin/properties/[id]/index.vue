@@ -17,7 +17,7 @@
         <v-col cols="12" md="4" class="text-md-right d-flex ga-2 justify-md-end">
           <v-chip variant="tonal" :color="sourceColor" class="font-weight-bold">{{ property.source || 'manual' }}</v-chip>
           <v-chip variant="tonal" :color="statusColor" class="font-weight-bold text-capitalize">{{ formatStatus(property.status) }}</v-chip>
-          <v-btn variant="tonal" color="primary" prepend-icon="mdi-pencil" class="premium-action-btn ml-2" :to="`/admin/properties/${id}/edit`">Edit</v-btn>
+          <v-btn v-if="canEditProperty" variant="tonal" color="primary" prepend-icon="mdi-pencil" class="premium-action-btn ml-2" :to="`/admin/properties/${id}/edit`">Edit</v-btn>
         </v-col>
       </v-row>
 
@@ -224,7 +224,7 @@
           <v-card class="view-card mb-6" elevation="0">
             <v-card-text class="pa-6">
               <div class="text-h6 font-weight-bold mb-4">Actions</div>
-              <v-btn block variant="tonal" color="primary" prepend-icon="mdi-pencil" class="mb-3 premium-action-btn" :to="`/admin/properties/${id}/edit`">Edit Property</v-btn>
+              <v-btn v-if="canEditProperty" block variant="tonal" color="primary" prepend-icon="mdi-pencil" class="mb-3 premium-action-btn" :to="`/admin/properties/${id}/edit`">Edit Property</v-btn>
               <v-btn block variant="tonal" prepend-icon="mdi-facebook" class="mb-3 premium-action-btn" :to="`/admin/facebook?propertyId=${id}`">Post to Facebook</v-btn>
               <v-btn block variant="tonal" prepend-icon="mdi-email-outline" class="mb-3 premium-action-btn" :to="`/admin/newsletter/campaigns/new?propertyId=${id}`">Email Campaign</v-btn>
               <v-btn block variant="outlined" prepend-icon="mdi-arrow-left" class="premium-action-btn" @click="$router.back()">Go Back</v-btn>
@@ -281,11 +281,26 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({ layout: 'admin', middleware: ['admin'] })
 
 const route = useRoute()
 const id = computed(() => route.params.id as string)
+const auth = useAuthStore()
+
+// Mirror the server-side `getTenantAdminId` rule so the UI agrees with the
+// API about which tenant the current session belongs to:
+//   - principal admin / super_admin → their own user.id
+//   - delegated user                → user.adminId
+// Used by `canEditProperty` (declared further down once `property` exists)
+// to decide whether to render the Edit buttons.
+const currentTenantAdminId = computed<number | null>(() => {
+  const u = auth.user
+  if (!u) return null
+  if (u.role === 'admin' || u.role === 'super_admin') return u.id
+  return u.adminId ?? null
+})
 
 const getAuthHeaders = (): Record<string, string> => {
   if (process.client) {
@@ -299,6 +314,19 @@ const property = ref<any>({})
 const loading = ref(false)
 const showGallery = ref(false)
 const galleryIndex = ref(0)
+
+// CREA + Pillar9 rows are shared platform-wide and effectively read-only —
+// next sync overwrites any local edits, and other tenants can read but
+// can't write to them (PUT is strict-scoped on the server). Manual rows
+// are only editable by the owning tenant. Hiding the Edit buttons in both
+// cases prevents the confusing "I can see it but Save 404s" loop that
+// surfaced after we opened the GET to all tenants for shared MLS rows.
+const canEditProperty = computed(() => {
+  const p = property.value
+  if (!p?.id) return false
+  if (p.source === 'crea' || p.source === 'pillar9') return false
+  return currentTenantAdminId.value != null && p.adminId === currentTenantAdminId.value
+})
 
 const images = computed(() => {
   const imgs = property.value.images

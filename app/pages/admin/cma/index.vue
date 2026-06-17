@@ -153,17 +153,23 @@
             </v-chip>
           </div>
           <div class="cma-data-table-wrapper">
-            <v-data-table
+            <!-- v-data-table-server lets us drive pagination from the API:
+                 the previous v-data-table computed its footer from items.length,
+                 which capped the view at the current page's 10 rows even when
+                 the server reported 781 total. -->
+            <v-data-table-server
               :headers="soldHeaders"
               :items="soldProperties"
               :loading="loadingSold"
               :items-per-page="soldPagination.limit"
+              :items-per-page-options="[10, 25, 50, 100]"
               :page="soldPagination.page"
               :items-length="soldPagination.total"
               class="elevation-0 cma-sold-table"
               height="400"
               fixed-header
               @update:page="updateSoldPage"
+              @update:items-per-page="updateSoldLimit"
             >
             <template #item.status="{ item }">
               <v-chip :color="statusChipColor(item.status)" size="x-small" variant="tonal">
@@ -203,7 +209,7 @@
                 No comparable market activity found for the current filters.
               </div>
             </template>
-          </v-data-table>
+          </v-data-table-server>
           </div>
         </v-card>
 
@@ -688,6 +694,17 @@ const loadSold = async () => {
 
 const updateSoldPage = (page: number) => {
   soldPagination.value.page = page
+  loadSold()
+}
+
+// `-1` is Vuetify's "All" sentinel from the items-per-page menu. We don't
+// support unbounded fetches here (the comp universe can be thousands of
+// rows), so cap at 100 and reset to page 1.
+const updateSoldLimit = (limit: number) => {
+  const next = limit && limit > 0 ? Math.min(limit, 100) : 10
+  if (next === soldPagination.value.limit) return
+  soldPagination.value.limit = next
+  soldPagination.value.page = 1
   loadSold()
 }
 

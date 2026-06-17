@@ -3,6 +3,7 @@ import { upsertCrmClientFromPlatformContact } from '../../utils/crmClientSync'
 import { sendMetaEvent, newMetaEventId } from '../../utils/metaPixel'
 import { recordServerEvent } from '../../utils/eventsRecorder'
 import { EVENT_NAMES } from '../../utils/eventConstants'
+import { sendNewsletterWelcomeEmail } from '../../utils/newsletterWelcomeEmail'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -87,6 +88,20 @@ export default defineEventHandler(async (event) => {
           },
         })
 
+        // Fire-and-forget tenant-branded "welcome back" email. Failures are
+        // logged but must never block the API response — the subscriber is
+        // already saved at this point.
+        void sendNewsletterWelcomeEmail({
+          adminId,
+          subscriber: {
+            id: updated.id,
+            email: updated.email,
+            firstName: updated.firstName,
+            lastName: updated.lastName,
+          },
+          flavor: 'reactivation',
+        })
+
         return {
           success: true,
           message: 'Welcome back! You have been resubscribed to our newsletter.',
@@ -154,9 +169,24 @@ export default defineEventHandler(async (event) => {
       },
     })
 
+    // Fire-and-forget tenant-branded welcome email. Subscriber row is
+    // already committed; a render/SMTP failure here must not bubble up to
+    // the visitor (they'd see "subscription failed" while actually being
+    // subscribed in the DB).
+    void sendNewsletterWelcomeEmail({
+      adminId,
+      subscriber: {
+        id: created.id,
+        email: created.email,
+        firstName: created.firstName,
+        lastName: created.lastName,
+      },
+      flavor: 'new',
+    })
+
     return {
       success: true,
-      message: 'Thank you for subscribing! You will receive our curated property collections and market insights.',
+      message: 'Thank you for subscribing! Check your inbox for a welcome note.',
       _metaEventId: metaEventId,
     }
   } catch (error) {
