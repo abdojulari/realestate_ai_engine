@@ -3,9 +3,9 @@
     <v-container fluid class="pa-6">
       <v-row class="mb-6">
         <v-col cols="12" md="8">
-          <h1 class="text-h4 font-weight-bold">CMA - Sold Comparables</h1>
+          <h1 class="text-h4 font-weight-bold">Comparative Market Analysis</h1>
           <p class="text-subtitle-2 text-medium-emphasis">
-            Filter sold listings and compare against subject properties.
+            Comprehensive CMA across sold, active, pending, expired, terminated and withdrawn listings &mdash; weighted by neighbourhood and status confidence.
           </p>
         </v-col>
       <v-col cols="12" md="4" class="d-flex justify-end align-center">
@@ -57,7 +57,7 @@
             class="mt-3"
             density="compact"
             clearable
-            hint="From sold records"
+            hint="Essential for accurate comps &mdash; pulled from sold, active, pending, expired, terminated and withdrawn listings"
             persistent-hint
           />
           <v-select density="compact" v-model="filters.range" :items="dateRanges" label="Date Range" variant="outlined" class="mt-3" />
@@ -83,7 +83,7 @@
             density="compact"
           />
           <v-btn color="primary" class="mt-4" :loading="loadingSold" @click="loadSold">
-            Load Sold Properties
+            Load Properties
           </v-btn>
         </v-card>
 
@@ -131,11 +131,26 @@
 
       <v-col cols="12" lg="8" class="cma-tables-col">
         <v-card class="pa-4 mb-6 cma-sold-card" elevation="0">
-          <div class="d-flex align-center justify-space-between mb-4">
-            <div class="text-subtitle-1 font-weight-bold">Sold Properties</div>
+          <div class="d-flex align-center justify-space-between mb-4 flex-wrap" style="gap: 8px;">
+            <div class="text-subtitle-1 font-weight-bold">Comparable Market Activity</div>
             <div class="text-caption text-medium-emphasis">
-              {{ soldPagination.total }} total
+              {{ soldPagination.total }} total &middot; sold, active, pending, expired, terminated &amp; withdrawn
             </div>
+          </div>
+          <!-- Status breakdown chips: shows the comprehensive mix at a glance.
+               A "Sold-only" CMA is a quick view; the comprehensive one blends
+               every sale-side status, and this chip row makes that visible. -->
+          <div v-if="hasStatusBreakdown" class="d-flex flex-wrap mb-3" style="gap: 8px;">
+            <v-chip
+              v-for="(count, status) in soldStatusBreakdown"
+              :key="status"
+              :color="statusChipColor(String(status))"
+              size="small"
+              variant="tonal"
+              v-show="count > 0"
+            >
+              {{ statusLabel(String(status)) }}: {{ count }}
+            </v-chip>
           </div>
           <div class="cma-data-table-wrapper">
             <v-data-table
@@ -150,8 +165,21 @@
               fixed-header
               @update:page="updateSoldPage"
             >
+            <template #item.status="{ item }">
+              <v-chip :color="statusChipColor(item.status)" size="x-small" variant="tonal">
+                {{ statusLabel(item.status) }}
+              </v-chip>
+            </template>
             <template #item.price="{ item }">
-              ${{ formatCurrency(item.price) }}
+              <div class="d-flex flex-column">
+                <span class="font-weight-medium">${{ formatCurrency(item.price) }}</span>
+                <span
+                  v-if="item.listingPrice && item.listingPrice !== item.price"
+                  class="text-caption text-medium-emphasis"
+                >
+                  Listed: ${{ formatCurrency(item.listingPrice) }}
+                </span>
+              </div>
             </template>
             <template #item.bedsBaths="{ item }">
               {{ item.beds }} / {{ item.baths }}
@@ -166,13 +194,13 @@
                   <template #activator="{ props }">
                     <v-icon v-bind="props" size="14" color="warning">mdi-alert-circle-outline</v-icon>
                   </template>
-                  <span>Inferred from {{ soldDateSourceLabel(item.soldDateSource) }} — exact sold date unavailable.</span>
+                  <span>Inferred from {{ soldDateSourceLabel(item.soldDateSource) }} — exact status-change date unavailable.</span>
                 </v-tooltip>
               </div>
             </template>
             <template #no-data>
               <div class="text-center py-6 text-medium-emphasis">
-                No sold properties found for the current filters.
+                No comparable market activity found for the current filters.
               </div>
             </template>
           </v-data-table>
@@ -185,7 +213,10 @@
             <div class="text-subtitle-1 font-weight-bold">
               Market Valuation
               <span v-if="fallbackInfo" class="text-caption text-warning font-weight-regular ml-2">
-                (indicative — based on active listings, not sold comparables)
+                (indicative — date range broadened to find activity)
+              </span>
+              <span v-else class="text-caption text-medium-emphasis font-weight-regular ml-2">
+                (weighted by status confidence: sold &gt; pending &gt; active &gt; expired/terminated/withdrawn)
               </span>
             </div>
           </div>
@@ -231,36 +262,53 @@
         </v-card>
 
         <v-card class="pa-4 mb-6" elevation="0">
-          <div class="d-flex align-center justify-space-between mb-4">
+          <div class="d-flex align-center justify-space-between mb-4 flex-wrap" style="gap: 8px;">
             <div class="text-subtitle-1 font-weight-bold">
-              {{ fallbackInfo ? 'Comparables (Currently Listed)' : 'Comparables' }}
+              Comparable Properties
             </div>
             <div class="text-caption text-medium-emphasis">
               {{ compStats.count }} comps ({{ minMatchScore }}%+ match)
               <span v-if="compStats.neighbourhoodComps"> &middot; {{ compStats.neighbourhoodComps }} in neighbourhood</span>
             </div>
           </div>
-          <!-- "No recent sold" fallback notice. Shown when the server fell back to currently-listed properties because there were no sold comps in the requested window. -->
+          <!-- Comp-set status breakdown: shows the mix of sold/active/pending/
+               expired/terminated/withdrawn that fed into the valuation. -->
+          <div v-if="hasCompStatusBreakdown" class="d-flex flex-wrap mb-3" style="gap: 8px;">
+            <v-chip
+              v-for="(count, status) in compStatusBreakdown"
+              :key="`comp-${status}`"
+              :color="statusChipColor(String(status))"
+              size="small"
+              variant="tonal"
+              v-show="count > 0"
+            >
+              {{ statusLabel(String(status)) }}: {{ count }}
+            </v-chip>
+          </div>
+          <!-- Closed-comp fallback notice. Triggered when the server couldn't
+               find any dated activity in the selected window and broadened to
+               all available comparables regardless of date. -->
           <v-alert v-if="fallbackInfo" type="warning" variant="tonal" density="compact" class="mb-4" icon="mdi-information-outline">
-            <div class="font-weight-medium">No recently sold comparables found</div>
+            <div class="font-weight-medium">No recent activity in the selected date range</div>
             <div class="text-caption">
-              No sold properties matched
+              No comparables matched
               <span v-if="filters.community">in <strong>{{ filters.community }}</strong> </span>
-              within the selected date range. Showing currently listed (active / pending) properties as a market reference. These are <strong>not confirmed sales</strong> — treat valuation as indicative only.
+              within the selected date range. Showing all available comparables (sold, active, pending, expired, terminated, withdrawn) instead. Treat valuation as indicative.
             </div>
           </v-alert>
           <v-alert v-else-if="searchScope && filters.community" type="info" variant="tonal" density="compact" class="mb-4">
             <span v-if="searchScope === 'neighbourhood'">
-              Showing comps from <strong>{{ filters.community }}</strong> neighbourhood.
+              Showing comps from <strong>{{ filters.community }}</strong> neighbourhood &mdash; sold, active, pending, expired, terminated and withdrawn.
             </span>
             <span v-else>
-              Not enough comps in <strong>{{ filters.community }}</strong> — expanded search to {{ radiusKm }}km radius.
+              Not enough comps in <strong>{{ filters.community }}</strong> &mdash; expanded search to {{ radiusKm }}km radius.
             </span>
           </v-alert>
           <v-table>
             <thead>
               <tr>
                 <th>Property</th>
+                <th>Status</th>
                 <th>Price</th>
                 <th>Beds/Baths</th>
                 <th>Sqft</th>
@@ -270,12 +318,12 @@
             </thead>
             <tbody>
               <tr v-if="loadingComps">
-                <td colspan="6" class="text-center py-6">
+                <td colspan="7" class="text-center py-6">
                   <v-progress-circular indeterminate color="primary" />
                 </td>
               </tr>
               <tr v-else-if="comparables.length === 0">
-                <td colspan="6" class="text-center py-6 text-medium-emphasis">
+                <td colspan="7" class="text-center py-6 text-medium-emphasis">
                   No comparables found with {{ minMatchScore }}%+ match. Try adjusting the criteria.
                 </td>
               </tr>
@@ -287,13 +335,30 @@
                     <v-chip v-if="comp.inSameNeighbourhood" size="x-small" color="primary" variant="tonal" class="ml-1">
                       Same neighbourhood
                     </v-chip>
-                    <v-chip v-if="comp.isFallback" size="x-small" color="warning" variant="tonal" class="ml-1">
-                      {{ comp.listingStatus === 'pending' ? 'Pending' : 'Currently listed' }}
-                    </v-chip>
                   </div>
                   <div v-if="comp.cityRegion" class="text-caption text-medium-emphasis">{{ comp.cityRegion }}</div>
                 </td>
-                <td class="font-weight-bold">${{ formatCurrency(comp.price) }}</td>
+                <td>
+                  <v-chip :color="statusChipColor(comp.status)" size="x-small" variant="tonal">
+                    {{ statusLabel(comp.status) }}
+                  </v-chip>
+                </td>
+                <td>
+                  <div class="font-weight-bold">${{ formatCurrency(comp.price) }}</div>
+                  <div
+                    v-if="comp.listingPrice && comp.listingPrice !== comp.price"
+                    class="text-caption text-medium-emphasis"
+                  >
+                    Listed: ${{ formatCurrency(comp.listingPrice) }}
+                  </div>
+                  <div
+                    v-if="comp.status === 'sold' && comp.listVsFinalDelta != null"
+                    class="text-caption"
+                    :class="comp.listVsFinalDelta >= 0 ? 'text-success' : 'text-error'"
+                  >
+                    {{ comp.listVsFinalDelta >= 0 ? '+' : '' }}{{ comp.listVsFinalDelta }}% vs list
+                  </div>
+                </td>
                 <td>{{ comp.beds }} / {{ comp.baths }}</td>
                 <td>{{ comp.sqft ? comp.sqft.toLocaleString() : '—' }}</td>
                 <td>
@@ -328,8 +393,10 @@
           </ul>
           <v-divider class="my-4" />
           <div class="text-caption text-medium-emphasis">
-            <strong>Disclaimer:</strong> This analysis is based on comparable sold properties and should not be 
-            considered as an official appraisal. Market conditions and property specifics may affect actual value.
+            <strong>Disclaimer:</strong> This analysis is based on comparable properties across multiple listing
+            statuses (sold, active, pending, expired, terminated, withdrawn) and should not be considered an official
+            appraisal. Expired, terminated and withdrawn listings reflect <em>unsold</em> asking prices and are
+            weighted accordingly. Market conditions and property specifics may affect actual value.
           </div>
         </v-card>
       </v-col>
@@ -442,14 +509,40 @@ const minMatchScore = ref(50)
 const loadingSold = ref(false)
 const soldProperties = ref<any[]>([])
 const soldPagination = ref({ page: 1, limit: 10, total: 0, pages: 1 })
+const soldStatusBreakdown = ref<Record<string, number>>({})
+const hasStatusBreakdown = computed(() =>
+  Object.values(soldStatusBreakdown.value).some(v => (v as number) > 0)
+)
 const soldHeaders = [
   { title: 'Property', key: 'title' },
+  { title: 'Status', key: 'status' },
   { title: 'Price', key: 'price' },
   { title: 'Beds/Baths', key: 'bedsBaths' },
   { title: 'City', key: 'city' },
   { title: 'Community', key: 'cityRegion' },
-  { title: 'Sold Date', key: 'soldDate' }
+  { title: 'Status Date', key: 'soldDate' }
 ]
+
+// Status presentation helpers — single source of truth for status labels and
+// chip colors across both tables and the report sender.
+const STATUS_LABELS: Record<string, string> = {
+  sold: 'Sold',
+  for_sale: 'Active',
+  pending: 'Pending',
+  expired: 'Expired',
+  terminated: 'Terminated',
+  withdrawn: 'Withdrawn',
+}
+const STATUS_COLORS: Record<string, string> = {
+  sold: 'success',
+  pending: 'info',
+  for_sale: 'warning',
+  expired: 'error',
+  terminated: 'grey',
+  withdrawn: 'grey',
+}
+const statusLabel = (status: string) => STATUS_LABELS[status] || status || '—'
+const statusChipColor = (status: string) => STATUS_COLORS[status] || 'default'
 
 const estimates = ref<any[]>([])
 const selectedEstimateId = ref<number | null>(null)
@@ -473,21 +566,29 @@ const radiusKm = ref(1)
 const comparables = ref<any[]>([])
 const loadingComps = ref(false)
 const searchScope = ref<string>('')
-// Set when the server fell back to active/pending listings because there were
-// no recent sold comparables. Drives the "no recent sold" warning banner and
-// the per-row "Currently listed" / "Pending" chips.
+// Set when the server couldn't find dated activity in the requested window and
+// had to broaden to all available comparables. Drives the "no recent activity"
+// banner on the comparables panel.
 const fallbackInfo = ref<null | { type: string; reason: string }>(null)
-const compStats = ref<any>({ 
-  count: 0, 
-  avgPrice: 0, 
+const compStats = ref<any>({
+  count: 0,
+  neighbourhoodComps: 0,
+  avgPrice: 0,
   medianPrice: 0,
-  minPrice: 0, 
+  weightedAvgPrice: 0,
+  minPrice: 0,
   maxPrice: 0,
   avgPricePerSqft: 0,
   estimatedValue: 0,
+  avgListVsFinalDelta: null as number | null,
   priceRange: { low: 0, high: 0 }
 })
 const methodology = ref<any>(null)
+const compStatusBreakdown = ref<Record<string, number>>({})
+const compStatusStats = ref<Record<string, { count: number; avgPrice: number; medianPrice: number }>>({})
+const hasCompStatusBreakdown = computed(() =>
+  Object.values(compStatusBreakdown.value).some(v => (v as number) > 0)
+)
 
 // Report/Email state
 const generatingReport = ref(false)
@@ -577,8 +678,9 @@ const loadSold = async () => {
     const response: any = await api.get(`/api/admin/cma/sold?${query.toString()}`)
     soldProperties.value = response.properties || []
     soldPagination.value = response.pagination || soldPagination.value
+    soldStatusBreakdown.value = response.statusBreakdown || {}
   } catch (error) {
-    console.error('Failed to load sold properties:', error)
+    console.error('Failed to load comparable market activity:', error)
   } finally {
     loadingSold.value = false
   }
@@ -654,6 +756,8 @@ const findComps = async () => {
     methodology.value = response.methodology || null
     searchScope.value = response.searchScope || ''
     fallbackInfo.value = response.fallback || null
+    compStatusBreakdown.value = response.statusBreakdown || {}
+    compStatusStats.value = response.statusStats || {}
   } catch (error) {
     console.error('Failed to load comparables:', error)
   } finally {
@@ -673,6 +777,8 @@ const downloadReport = async () => {
       comps: comparables.value,
       stats: compStats.value,
       methodology: methodology.value,
+      statusBreakdown: compStatusBreakdown.value,
+      statusStats: compStatusStats.value,
       clientName: clientName.value,
       action: 'download'
     })
@@ -726,6 +832,8 @@ const sendReport = async () => {
       comps: comparables.value,
       stats: compStats.value,
       methodology: methodology.value,
+      statusBreakdown: compStatusBreakdown.value,
+      statusStats: compStatusStats.value,
       clientEmail: clientEmail.value,
       clientName: clientName.value,
       action: 'send'

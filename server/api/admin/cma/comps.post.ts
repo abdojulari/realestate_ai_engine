@@ -28,24 +28,74 @@ type Subject = {
   longitude?: number
 }
 
+// Comprehensive CMA universe. A "Sold-only" CMA is the quick path — a true
+// comprehensive one factors in active listings (current asks), pendings
+// (near-future sales), and the failure modes (expired / terminated /
+// withdrawn) which signal overpricing in the same micro-market.
+//
+// Leases/rentals are *never* part of CMA — `for_rent` / `leased` are excluded
+// at the SQL layer and `isLeaseLikeProperty()` is the runtime backstop.
+const COMPREHENSIVE_STATUSES = [
+  'sold',
+  'for_sale',
+  'pending',
+  'expired',
+  'terminated',
+  'withdrawn',
+] as const
+
+type CmaStatus = (typeof COMPREHENSIVE_STATUSES)[number]
+
+const CLOSED_STATUSES = new Set<CmaStatus>([
+  'sold',
+  'expired',
+  'terminated',
+  'withdrawn',
+])
+
+// Per-status confidence weight when blending into the estimated value.
+// Sold transactions are the gold standard (1.0). Pendings are firm sales but
+// the price isn't yet confirmed (0.85). Active asks are aspirational (0.6).
+// Expired/terminated/withdrawn reflect the *unsold* price — they pull avg up
+// but are informative as a ceiling indicator, so they get the lowest weight.
+const STATUS_PRICE_WEIGHT: Record<CmaStatus, number> = {
+  sold: 1.0,
+  pending: 0.85,
+  for_sale: 0.6,
+  expired: 0.35,
+  terminated: 0.35,
+  withdrawn: 0.35,
+}
+
+// Human-friendly status labels used in tooltips, methodology, and reports.
+const STATUS_LABEL: Record<CmaStatus, string> = {
+  sold: 'Sold',
+  for_sale: 'Active',
+  pending: 'Pending',
+  expired: 'Expired',
+  terminated: 'Terminated',
+  withdrawn: 'Withdrawn',
+}
+
 // Defensive JSON parse for the Property.features column when stored as string.
 function safeParseJson(value: unknown): any {
   if (typeof value !== 'string') return value
   try { return JSON.parse(value) } catch { return null }
 }
 
-// Resolve the best-available "sold date" for a property record.
+// Resolve the best-available "effective date" for a property record (when the
+// sale closed, the listing expired, was withdrawn, was put on market, etc).
 //
 // Different sources expose different timestamps and any individual field can
 // be null on a given row, so we walk a priority chain:
 //
-//   1. features.closeDate           — Pillar9's actual closing date. Gold standard.
+//   1. features.closeDate           — Pillar9's actual closing date. Gold standard
+//                                     for sold rows.
 //   2. features.statusChangeTimestamp — CREA's StandardStatus transition (when it
-//                                       flipped to Closed/Sold). Public DDF doesn't
-//                                       expose CloseDate, so this is CREA's best signal.
+//                                       flipped to Closed/Sold/Expired/etc). The
+//                                       canonical "this is when the status changed"
+//                                       timestamp for any non-active state.
 //   3. features.pendingTimestamp    — when listing went pending (firm sale).
-//                                     Used when a sold record is missing the
-//                                     status-change date but kept its pending date.
 //   4. features.modificationTimestamp — last CREA-side edit. Auto-sold rows
 //                                       usually modify on the same poll, so this
 //                                       is a tight upper bound.
@@ -344,10 +394,15 @@ export default defineEventHandler(async (event) => {
     description: true,
     yearBuilt: true,
     updatedAt: true,
+    // MLS-fed listing-price provenance — the report shows the listing-vs-sold
+    // spread per comp, so we always carry these along.
+    originalListPrice: true,
+    previousListPrice: true,
+    firstEntryPrice: true,
+    priceChangeTimestamp: true,
   }
 
-  // Shared province + city scoping used by both the SOLD search and the
-  // ACTIVE/PENDING fallback search.
+  // Shared province + city scoping used across the comp universe.
   const provinceFilter = filters.province || subject.province
   const cityInput = (filters.city || subject.city) as string | undefined
   const cityConditions = cityInput ? buildCityWhereClause(cityInput) : []
@@ -358,12 +413,12 @@ export default defineEventHandler(async (event) => {
     if (cityConditions.length > 0) {
       where.AND = [...(where.AND || []), { OR: cityConditions }]
     }
-    // The true sold date can live in several places (closeDate, statusChange-
+    // The true effective date can live in several places (closeDate, statusChange-
     // Timestamp, pendingTimestamp, modificationTimestamp) — see resolveSoldDate
     // for the priority chain. We keep a wide pre-filter on updatedAt for query
     // performance (+90 days of buffer past the requested window so we don't miss
-    // anything CREA touched after the sale), then re-filter precisely in-memory
-    // using the resolved sold date from the JSON features blob.
+    // anything CREA touched after the closure), then re-filter precisely in-
+    // memory using the resolved date from the JSON features blob.
     if (applyDateFilter && dateFilter) {
       const padded: { gte?: Date; lte?: Date } = {}
       if (dateFilter.gte) padded.gte = dateFilter.gte
@@ -377,15 +432,27 @@ export default defineEventHandler(async (event) => {
   const subjectFeatures = (subject.features || []).map(normalizeFeature)
   const communityLower = community.toLowerCase()
 
+  // Optional caller-supplied status restriction. Defaults to the comprehensive
+  // universe. The UI doesn't expose a filter today, but keeping the contract
+  // open lets the report toggle a "Sold-only" view later without another API.
+  const requestedStatuses: string[] = Array.isArray(filters.statuses) && filters.statuses.length > 0
+    ? filters.statuses
+    : [...COMPREHENSIVE_STATUSES]
+  const allowedStatusSet = new Set<string>(COMPREHENSIVE_STATUSES)
+  const comprehensiveStatuses = requestedStatuses
+    .filter((s): s is CmaStatus => allowedStatusSet.has(s))
+
   /**
    * One CMA pipeline pass: fetch raw rows for `statusClause`, drop leases,
    * compute match/distance scores, apply min-score and radius gates, sort,
    * and slice to `limit`.
    *
    * `enforceDateFilter` controls whether we apply the user's date range to
-   * the resolved sold-date during in-memory filtering. The SOLD pass enforces
-   * it strictly. The ACTIVE/PENDING fallback pass disables it — "recently
-   * listed" means currently on market, not closed-within-N-days.
+   * the resolved effective-date during in-memory filtering. We enforce it for
+   * *closed* events (sold/expired/terminated/withdrawn) since the date is
+   * meaningful (when did it close/fail). For currently-listed rows
+   * (for_sale/pending) we disable it — those reflect current market state
+   * and "recently listed" means on-market *now*, not closed-in-N-days.
    */
   async function runCmaPipeline(opts: {
     statusClause: any
@@ -526,6 +593,22 @@ export default defineEventHandler(async (event) => {
         const { date: soldDate, source: soldDateSource } = resolveSoldDate(property, featuresObj)
         const soldDateMs = soldDate.getTime()
 
+        // MLS-driven listing-price provenance so the report can show
+        // "Listed at $X · Sold at $Y · Δ%".
+        const listingPrice =
+          (property as any).originalListPrice ??
+          (property as any).previousListPrice ??
+          (property as any).firstEntryPrice ??
+          null
+        const finalPrice = property.price || 0
+        const listVsFinalDelta = listingPrice && finalPrice
+          ? Math.round(((finalPrice - listingPrice) / listingPrice) * 1000) / 10 // 1 decimal %
+          : null
+
+        const status = (property.status as CmaStatus) || 'sold'
+        const isClosed = CLOSED_STATUSES.has(status)
+        const isCurrentlyListed = status === 'for_sale' || status === 'pending'
+
         return {
           ...property,
           images: typeof property.images === 'string' ? JSON.parse(property.images || '[]') : property.images,
@@ -545,10 +628,27 @@ export default defineEventHandler(async (event) => {
           soldDate,
           soldDateMs,
           soldDateSource,
+          // ── Comprehensive-CMA fields ─────────────────────────────────────
+          status,
+          statusLabel: STATUS_LABEL[status] || status,
+          listingPrice,
+          listVsFinalDelta,        // % difference, sign = direction
+          priceWeight: STATUS_PRICE_WEIGHT[status] ?? 0.5,
+          // `isFallback` previously meant "fell back to active/pending because
+          // no sold". We keep it for backwards-compat with the existing UI
+          // chip but reinterpret: it's true whenever the comp is *currently
+          // listed* (i.e. not a closed transaction). The UI chip text already
+          // distinguishes Active vs Pending.
+          isFallback: isCurrentlyListed,
+          isClosed,
+          listingStatus: status,
         }
       })
       .filter((property) => {
         if (!opts.enforceDateFilter || !dateFilter) return true
+        // Date filter only applies to closed events — current listings stay
+        // visible regardless of date window.
+        if (!CLOSED_STATUSES.has(property.status as CmaStatus)) return true
         if (dateFilter.gte && property.soldDateMs < dateFilter.gte.getTime()) return false
         if (dateFilter.lte && property.soldDateMs > dateFilter.lte.getTime()) return false
         return true
@@ -561,7 +661,12 @@ export default defineEventHandler(async (event) => {
         return property.distanceKm <= radiusKm
       })
       .sort((a, b) => {
+        // Neighbourhood first — neighbourhood comps are the most valuable
+        // input to a CMA. The user explicitly called these out as essential.
         if (a.inSameNeighbourhood !== b.inSameNeighbourhood) return a.inSameNeighbourhood ? -1 : 1
+        // Sold > Pending > Active > Expired/Terminated/Withdrawn so the most
+        // confidence-weighted comps surface first.
+        if (b.priceWeight !== a.priceWeight) return b.priceWeight - a.priceWeight
         if (b.matchScore !== a.matchScore) return b.matchScore - a.matchScore
         if (a.distanceKm != null && b.distanceKm != null) return a.distanceKm - b.distanceKm
         return 0
@@ -577,67 +682,136 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // ── Primary pass: SOLD only, honor user's date range ──────────────────
-  const soldPass = await runCmaPipeline({
-    statusClause: { status: 'sold' },
+  // ── Comprehensive pass: all status types in a single pipeline ────────
+  // We pull the full universe (sold + active + pending + expired + terminated
+  // + withdrawn) in one query so the comp set reflects every available price-
+  // discovery signal in the subject's micro-market.
+  const comprehensivePass = await runCmaPipeline({
+    statusClause: { status: { in: comprehensiveStatuses } },
+    // Enforce date filter — the pipeline itself only applies it to *closed*
+    // statuses, leaving active/pending visible regardless of window.
     enforceDateFilter: true,
-    label: 'SOLD',
+    label: 'COMPREHENSIVE',
   })
 
-  console.log(`[CMA] SOLD pass: raw=${soldPass.rawCount} → saleOnly=${soldPass.saleOnlyCount} → preFilter=${soldPass.preFilterCount} → comps=${soldPass.comps.length}`)
+  console.log(
+    `[CMA] COMPREHENSIVE pass: raw=${comprehensivePass.rawCount} → saleOnly=${comprehensivePass.saleOnlyCount} → preFilter=${comprehensivePass.preFilterCount} → comps=${comprehensivePass.comps.length}`
+  )
 
-  // ── Fallback pass: when zero sold comps, look at currently-on-market
-  // listings (active for_sale + pending) in the same community/radius so the
-  // user always has *something* to compare against. We tag the response so
-  // the UI can show a clear "no recent sold comparables" banner.
+  // ── No-match fallback: if nothing came back at all (e.g. extremely narrow
+  // criteria), retry without the date filter so the user still sees something.
   // Never include leased/rented — isLeaseLikeProperty() drops them anyway.
-  let fallback: null | { type: 'active_listings'; reason: 'no_recent_sold' } = null
-  let comps = soldPass.comps
-  let searchScope = soldPass.searchScope
+  let fallback: null | { type: 'no_dated_results'; reason: 'no_recent_activity' } = null
+  let comps = comprehensivePass.comps
+  let searchScope = comprehensivePass.searchScope
 
   if (comps.length === 0) {
     const fallbackPass = await runCmaPipeline({
-      statusClause: { status: { in: ['for_sale', 'pending'] } },
-      enforceDateFilter: false, // "recently listed" = currently on market, not closed-within-N-days
+      statusClause: { status: { in: comprehensiveStatuses } },
+      enforceDateFilter: false,
       label: 'FALLBACK',
     })
     console.log(`[CMA] FALLBACK pass: raw=${fallbackPass.rawCount} → saleOnly=${fallbackPass.saleOnlyCount} → preFilter=${fallbackPass.preFilterCount} → comps=${fallbackPass.comps.length}`)
 
     if (fallbackPass.comps.length > 0) {
-      // Annotate each fallback comp so consumers can distinguish them from
-      // confirmed sold comps at the item level.
-      comps = fallbackPass.comps.map(c => ({ ...c, isFallback: true, listingStatus: c.status }))
+      comps = fallbackPass.comps
       searchScope = fallbackPass.searchScope
-      fallback = { type: 'active_listings', reason: 'no_recent_sold' }
+      fallback = { type: 'no_dated_results', reason: 'no_recent_activity' }
     }
   }
 
-  const prices = comps.map(p => p.price || 0).filter(p => p > 0)
+  // ── Status breakdown — drives the comprehensive summary chips in the UI
+  // and the per-status section in the email report.
+  const statusBreakdown: Record<string, number> = {}
+  for (const s of comprehensiveStatuses) statusBreakdown[s] = 0
+  for (const c of comps) {
+    const s = (c.status as string) || 'sold'
+    if (statusBreakdown[s] == null) statusBreakdown[s] = 0
+    statusBreakdown[s] += 1
+  }
+
+  // ── Stats: weighted by status confidence so a single stale expired listing
+  // doesn't pull avg through the floor. The unweighted versions are also
+  // returned for transparency.
+  const validPriced = comps.filter(p => (p.price || 0) > 0)
+  const prices = validPriced.map(p => p.price as number)
   const avgPrice = prices.length ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0
-  const medianPrice = prices.length ? prices.sort((a, b) => a - b)[Math.floor(prices.length / 2)] : 0
-  
-  // Calculate price per sqft
-  const pricesPerSqft = comps
-    .filter(p => p.price && p.sqft && p.sqft > 0)
-    .map(p => p.price / p.sqft)
-  const avgPricePerSqft = pricesPerSqft.length 
-    ? Math.round(pricesPerSqft.reduce((a, b) => a + b, 0) / pricesPerSqft.length)
+  const sortedPrices = [...prices].sort((a, b) => a - b)
+  const medianPrice = sortedPrices.length ? sortedPrices[Math.floor(sortedPrices.length / 2)] : 0
+
+  // Weighted average using STATUS_PRICE_WEIGHT — the headline "Estimated Value"
+  // leans on sold/pending and only lightly on expired/terminated/withdrawn.
+  const totalWeight = validPriced.reduce((acc, p) => acc + (p.priceWeight ?? 0.5), 0)
+  const weightedAvgPrice = totalWeight > 0
+    ? Math.round(validPriced.reduce((acc, p) => acc + (p.price as number) * (p.priceWeight ?? 0.5), 0) / totalWeight)
+    : avgPrice
+
+  // Per-status averages — surfaced in the report for context (e.g. "Sold avg
+  // $X vs Active avg $Y" tells the story of whether the market is hot/cold).
+  const pricesByStatus: Record<string, number[]> = {}
+  for (const p of validPriced) {
+    const s = (p.status as string) || 'sold'
+    if (!pricesByStatus[s]) pricesByStatus[s] = []
+    pricesByStatus[s].push(p.price as number)
+  }
+  const statusStats: Record<string, { count: number; avgPrice: number; medianPrice: number }> = {}
+  for (const [s, arr] of Object.entries(pricesByStatus)) {
+    if (!arr || arr.length === 0) continue
+    const sorted = [...arr].sort((a, b) => a - b)
+    statusStats[s] = {
+      count: arr.length,
+      avgPrice: Math.round(arr.reduce((a, b) => a + b, 0) / arr.length),
+      medianPrice: sorted[Math.floor(sorted.length / 2)] ?? 0,
+    }
+  }
+
+  // Price per sqft (weighted by status confidence)
+  const pricedWithSqft = validPriced.filter(p => p.sqft && (p.sqft as number) > 0)
+  const totalSqftWeight = pricedWithSqft.reduce((acc, p) => acc + (p.priceWeight ?? 0.5), 0)
+  const avgPricePerSqft = totalSqftWeight > 0
+    ? Math.round(
+        pricedWithSqft.reduce((acc, p) => acc + ((p.price as number) / (p.sqft as number)) * (p.priceWeight ?? 0.5), 0) /
+        totalSqftWeight
+      )
     : 0
 
-  // Estimated value for subject property
-  const estimatedValue = subject.sqft && avgPricePerSqft 
+  // Estimated value for subject property — prefer $/sqft × subject sqft
+  // (controls for size); fall back to weighted avg price.
+  const estimatedValue = subject.sqft && avgPricePerSqft
     ? Math.round(subject.sqft * avgPricePerSqft)
-    : avgPrice
+    : weightedAvgPrice
+
+  // Listing-vs-final price delta across SOLD comps only — the headline market
+  // tightness indicator the user wants in the email ("homes are selling for
+  // X% over/under list").
+  const soldWithBothPrices = comps.filter(c =>
+    c.status === 'sold' && c.listingPrice && c.price && (c.listingPrice as number) > 0
+  )
+  const avgListVsFinalDelta = soldWithBothPrices.length
+    ? Math.round(
+        (soldWithBothPrices.reduce((acc, c) => acc + ((c.price as number) - (c.listingPrice as number)) / (c.listingPrice as number), 0) /
+         soldWithBothPrices.length) * 1000
+      ) / 10
+    : null
 
   const neighbourhoodComps = comps.filter(c => c.inSameNeighbourhood).length
 
   const baseDescription = community
-    ? `Comparative Market Analysis prioritizing "${community}" neighbourhood, expanded to ${radiusKm}km radius when needed`
-    : 'Comparative Market Analysis based on recently sold properties'
+    ? `Comprehensive Comparative Market Analysis prioritizing "${community}" neighbourhood, expanded to ${radiusKm}km radius when needed. Includes sold, active, pending, expired, terminated, and withdrawn listings for full market context.`
+    : 'Comprehensive Comparative Market Analysis including sold, active, pending, expired, terminated, and withdrawn listings for full market context.'
 
   const description = fallback
-    ? `No sold comparables found${community ? ` in "${community}"` : ''} within the selected date range. Showing currently listed (active / pending) properties as a market reference.`
+    ? `${baseDescription} No activity matched the selected date range — showing all available comparables instead.`
     : baseDescription
+
+  // Methodology bullets reflect the status weighting so the agent can
+  // explain to clients why an "expired" listing is included but counted less.
+  const statusWeightCriteria = [
+    'Sold transactions weighted highest (closed-price evidence)',
+    'Pending sales weighted next (firm contracts; price not yet confirmed)',
+    'Active listings show current market asks (aspirational pricing)',
+    'Expired / Terminated / Withdrawn included as overpricing signal (lowest weight)',
+  ]
 
   return {
     subject: {
@@ -648,15 +822,20 @@ export default defineEventHandler(async (event) => {
     comps,
     searchScope,
     fallback,
+    statuses: comprehensiveStatuses,
+    statusBreakdown,
+    statusStats,
     stats: {
       count: comps.length,
       neighbourhoodComps,
       avgPrice,
       medianPrice,
+      weightedAvgPrice,
       minPrice: prices.length ? Math.min(...prices) : 0,
       maxPrice: prices.length ? Math.max(...prices) : 0,
       avgPricePerSqft,
       estimatedValue,
+      avgListVsFinalDelta, // Sold-only listing→sold delta in %
       priceRange: {
         low: Math.round(estimatedValue * 0.95),
         high: Math.round(estimatedValue * 1.05)
@@ -665,26 +844,27 @@ export default defineEventHandler(async (event) => {
     methodology: {
       description,
       isFallback: Boolean(fallback),
+      statuses: comprehensiveStatuses,
       matchCriteria: community
         ? [
-            'Neighbourhood match (50% weight)',
+            'Neighbourhood match (50% weight) — same community is the strongest comp signal',
             'Feature matching (15% weight)',
             'Bedroom count similarity (10% weight)',
             'Bathroom count similarity (10% weight)',
             'Square footage similarity (15% weight)',
+            ...statusWeightCriteria,
           ]
         : [
             'Feature matching (40% weight)',
             'Bedroom count similarity (15% weight)',
             'Bathroom count similarity (15% weight)',
             'Square footage similarity (30% weight)',
+            ...statusWeightCriteria,
           ],
       distanceMethod: 'Haversine formula (straight-line distance, ±0.1% accuracy)',
-      searchStrategy: fallback
-        ? `No recent sold comparables — comparing against currently listed (active / pending) properties${community ? ` in "${community}"` : ` within ${radiusKm}km`}`
-        : (community
-            ? `Searched "${community}" first (${neighbourhoodComps} found), then expanded to ${radiusKm}km radius`
-            : `Searched within ${radiusKm}km radius`),
+      searchStrategy: community
+        ? `Searched "${community}" neighbourhood first (${neighbourhoodComps} matched) across sold, active, pending, expired, terminated and withdrawn; expanded to ${radiusKm}km radius where needed.`
+        : `Searched within ${radiusKm}km radius across sold, active, pending, expired, terminated and withdrawn.`,
       filters: {
         community: community || null,
         minMatchScore,

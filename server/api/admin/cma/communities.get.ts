@@ -36,10 +36,16 @@ export default defineEventHandler(async (event) => {
     ? Prisma.sql`AND ${sqlCityMatchesProperty('', city)}`
     : Prisma.sql``
 
+  // Comprehensive CMA neighbourhood universe — pull communities from every
+  // sale-side status so the dropdown reflects the full comp pool, not just
+  // sold rows. The previous query missed neighbourhoods that only had active
+  // / pending / expired / terminated / withdrawn listings, which made them
+  // invisible to a "Sold-only" CMA but meaningful to a comprehensive one.
+  // Leases/rentals are excluded by status (no 'leased' / 'for_rent').
   const rows = await prisma.$queryRaw<Array<{ neighborhood: string }>>`
     SELECT DISTINCT ${resolved} AS neighborhood
     FROM "public"."Property"
-    WHERE status = 'sold'
+    WHERE status IN ('sold', 'for_sale', 'pending', 'expired', 'terminated', 'withdrawn')
       ${provinceClause}
       ${cityClause}
       AND ${resolved} IS NOT NULL
