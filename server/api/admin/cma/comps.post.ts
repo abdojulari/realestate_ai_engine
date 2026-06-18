@@ -356,9 +356,13 @@ export default defineEventHandler(async (event) => {
   const body = await readBody(event)
   const subject: Subject = body?.subject || {}
   const filters = body?.filters || {}
-  const radiusKm = Number(filters.radiusKm || 1)
   const limit = Number(filters.limit || 20)
-  const minMatchScore = Number(filters.minMatchScore || 50)
+  // `minMatchScore` is now a soft signal — comps below it are still returned
+  // and shown to the agent (they're useful context), but they're flagged with
+  // `meetsMinMatch: false` so the UI can de-emphasise them. This replaces the
+  // old behaviour where 0 comps could come back simply because the threshold
+  // was set too high relative to a sparse micro-market.
+  const minMatchScore = Number(filters.minMatchScore || 0)
   const community = (filters.community || subject.community || '') as string
 
   // Geocode subject address if no coordinates provided
@@ -407,24 +411,21 @@ export default defineEventHandler(async (event) => {
   const cityInput = (filters.city || subject.city) as string | undefined
   const cityConditions = cityInput ? buildCityWhereClause(cityInput) : []
 
-  function buildBaseWhere(statusClause: any, applyDateFilter: boolean): any {
+  function buildBaseWhere(statusClause: any): any {
     const where: any = { ...statusClause }
     if (provinceFilter) where.province = provinceFilter
     if (cityConditions.length > 0) {
       where.AND = [...(where.AND || []), { OR: cityConditions }]
     }
-    // The true effective date can live in several places (closeDate, statusChange-
-    // Timestamp, pendingTimestamp, modificationTimestamp) — see resolveSoldDate
-    // for the priority chain. We keep a wide pre-filter on updatedAt for query
-    // performance (+90 days of buffer past the requested window so we don't miss
-    // anything CREA touched after the closure), then re-filter precisely in-
-    // memory using the resolved date from the JSON features blob.
-    if (applyDateFilter && dateFilter) {
-      const padded: { gte?: Date; lte?: Date } = {}
-      if (dateFilter.gte) padded.gte = dateFilter.gte
-      if (dateFilter.lte) padded.lte = new Date(dateFilter.lte.getTime() + 90 * 24 * 60 * 60 * 1000)
-      where.updatedAt = padded
-    }
+    // Date filtering used to live on `updatedAt` at the SQL layer for ALL
+    // statuses, which silently dropped any Active listing whose row hadn't
+    // been touched recently — so the comps universe was strictly smaller
+    // than the "Comparable Market Activity" table (sold.get.ts), which
+    // applies the date filter in-memory and only to *closed* statuses.
+    // We now mirror that pattern: no SQL-level date filter; the resolved
+    // effective-date check (closeDate → statusChangeTimestamp → updatedAt)
+    // is applied in-memory below, and only for closed events. Active and
+    // pending rows are current market state and ignore the date window.
     return where
   }
 
@@ -444,13 +445,20 @@ export default defineEventHandler(async (event) => {
 
   /**
    * One CMA pipeline pass: fetch raw rows for `statusClause`, drop leases,
-   * compute match/distance scores, apply min-score and radius gates, sort,
-   * and slice to `limit`.
+   * compute match/distance scores, sort by relevance, and slice to `limit`.
+   *
+   * Universe rules (match what the "Comparable Market Activity" table shows):
+   *   • With community  → city + community + statuses (no radius gate)
+   *   • Without community → city + statuses (no radius gate)
+   * Distance to the subject is still computed for display, but is never
+   * used as a hard cutoff. Radius was removed entirely after we found it
+   * was excluding obvious neighbourhood comps that the agent could see in
+   * the activity table right above.
    *
    * `enforceDateFilter` controls whether we apply the user's date range to
-   * the resolved effective-date during in-memory filtering. We enforce it for
-   * *closed* events (sold/expired/terminated/withdrawn) since the date is
-   * meaningful (when did it close/fail). For currently-listed rows
+   * the resolved effective-date during in-memory filtering. We enforce it
+   * for *closed* events (sold/expired/terminated/withdrawn) since the date
+   * is meaningful (when did it close/fail). For currently-listed rows
    * (for_sale/pending) we disable it — those reflect current market state
    * and "recently listed" means on-market *now*, not closed-in-N-days.
    */
@@ -458,11 +466,11 @@ export default defineEventHandler(async (event) => {
     statusClause: any
     enforceDateFilter: boolean
     label: string
-  }): Promise<{ comps: any[]; searchScope: 'neighbourhood' | 'radius' | 'city'; rawCount: number; preFilterCount: number; saleOnlyCount: number }> {
-    const baseWhere = buildBaseWhere(opts.statusClause, opts.enforceDateFilter)
+  }): Promise<{ comps: any[]; searchScope: 'neighbourhood' | 'city'; rawCount: number; preFilterCount: number; saleOnlyCount: number }> {
+    const baseWhere = buildBaseWhere(opts.statusClause)
 
     let properties: any[] = []
-    let searchScope: 'neighbourhood' | 'radius' | 'city' = 'city'
+    let searchScope: 'neighbourhood' | 'city' = 'city'
 
     if (community) {
       const neighbourhoodWhere = {
@@ -472,52 +480,37 @@ export default defineEventHandler(async (event) => {
       properties = await prisma.property.findMany({
         where: neighbourhoodWhere,
         orderBy: { updatedAt: 'desc' },
-        take: 500,
+        // Match sold.get.ts's generous take so the comps universe is
+        // strictly a superset of (or equal to) what shows in the activity
+        // table — never smaller.
+        take: 1000,
         select: propertySelect,
       })
       searchScope = 'neighbourhood'
       console.log(`[CMA] ${opts.label} | Neighbourhood "${community}": ${properties.length} rows`)
-    } else if (subjectCoords) {
-      const latDelta = radiusKm / KM_PER_DEGREE
-      const lonDelta = radiusKm / (KM_PER_DEGREE * Math.cos(subjectCoords.lat * Math.PI / 180))
-      const radiusWhere = {
-        ...baseWhere,
-        latitude: { gte: subjectCoords.lat - latDelta, lte: subjectCoords.lat + latDelta },
-        longitude: { gte: subjectCoords.lng - lonDelta, lte: subjectCoords.lng + lonDelta },
-      }
+    } else if (cityConditions.length > 0 || provinceFilter) {
+      // No community: fall back to city/province scope. Same query, same
+      // statuses — distance to the subject is computed for display below
+      // but never used to filter rows out.
       properties = await prisma.property.findMany({
-        where: radiusWhere,
+        where: baseWhere,
         orderBy: { updatedAt: 'desc' },
-        take: 500,
+        take: 1000,
         select: propertySelect,
       })
-      searchScope = 'radius'
-      console.log(`[CMA] ${opts.label} | Radius ${radiusKm}km: ${properties.length} rows`)
+      searchScope = 'city'
+      console.log(`[CMA] ${opts.label} | City scope: ${properties.length} rows`)
     } else {
       properties = []
       searchScope = 'city'
-      console.log(`[CMA] ${opts.label} | No community or coords, skipping`)
+      console.log(`[CMA] ${opts.label} | No community or city, skipping`)
     }
 
     // Drop leases/rentals that may have leaked in via legacy mis-tagged rows.
     // See server/utils/lease-detector.ts.
     const saleOnly = properties.filter(p => !isLeaseLikeProperty(p))
 
-    // Bounding-box pre-filter for performance when we have coords.
-    const preFiltered = subjectCoords
-      ? saleOnly.filter(p => {
-          if (!p.latitude || !p.longitude) return true
-          return isWithinBoundingBox(
-            subjectCoords!.lat,
-            subjectCoords!.lng,
-            p.latitude,
-            p.longitude,
-            radiusKm * 1.2,
-          )
-        })
-      : saleOnly
-
-    const scored = preFiltered
+    const scored = saleOnly
       .map((property) => {
         const featureSet = extractPropertyFeatures(property)
         const matchedFeatures = subjectFeatures.filter(f => featureSet.has(f))
@@ -613,6 +606,10 @@ export default defineEventHandler(async (event) => {
           ...property,
           images: typeof property.images === 'string' ? JSON.parse(property.images || '[]') : property.images,
           matchScore,
+          // `meetsMinMatch` lets the UI visually de-emphasise comps below
+          // the user-set threshold (e.g. muted chip, sub-section heading)
+          // without hiding them. Threshold is a *highlight*, not a gate.
+          meetsMinMatch: matchScore >= minMatchScore,
           featureScore: Math.round(combinedFeatureScore),
           featureMatchScore: Math.round(featureScore),
           valueImpactScore: Math.round(valueImpactScore),
@@ -647,21 +644,22 @@ export default defineEventHandler(async (event) => {
       .filter((property) => {
         if (!opts.enforceDateFilter || !dateFilter) return true
         // Date filter only applies to closed events — current listings stay
-        // visible regardless of date window.
+        // visible regardless of date window. This mirrors sold.get.ts so the
+        // comps universe is consistent with the activity table.
         if (!CLOSED_STATUSES.has(property.status as CmaStatus)) return true
         if (dateFilter.gte && property.soldDateMs < dateFilter.gte.getTime()) return false
         if (dateFilter.lte && property.soldDateMs > dateFilter.lte.getTime()) return false
         return true
       })
-      .filter((property) => property.matchScore >= minMatchScore)
-      .filter((property) => {
-        if (property.inSameNeighbourhood) return true
-        if (!subjectCoords) return true
-        if (property.distanceKm == null) return false
-        return property.distanceKm <= radiusKm
-      })
+      // No matchScore gate, no radius gate. The universe is now "everything
+      // visible in the activity table for this neighbourhood/city + status +
+      // date window". Sorting (next) brings the strongest comps to the top;
+      // the UI tags below-threshold rows but still shows them.
       .sort((a, b) => {
-        // Neighbourhood first — neighbourhood comps are the most valuable
+        // Above-threshold first — keeps the user's "highlight strong comps"
+        // intent intact without filtering anyone out.
+        if (a.meetsMinMatch !== b.meetsMinMatch) return a.meetsMinMatch ? -1 : 1
+        // Neighbourhood next — neighbourhood comps are the most valuable
         // input to a CMA. The user explicitly called these out as essential.
         if (a.inSameNeighbourhood !== b.inSameNeighbourhood) return a.inSameNeighbourhood ? -1 : 1
         // Sold > Pending > Active > Expired/Terminated/Withdrawn so the most
@@ -678,7 +676,7 @@ export default defineEventHandler(async (event) => {
       searchScope,
       rawCount: properties.length,
       saleOnlyCount: saleOnly.length,
-      preFilterCount: preFiltered.length,
+      preFilterCount: saleOnly.length,
     }
   }
 
@@ -797,8 +795,8 @@ export default defineEventHandler(async (event) => {
   const neighbourhoodComps = comps.filter(c => c.inSameNeighbourhood).length
 
   const baseDescription = community
-    ? `Comprehensive Comparative Market Analysis prioritizing "${community}" neighbourhood, expanded to ${radiusKm}km radius when needed. Includes sold, active, pending, expired, terminated, and withdrawn listings for full market context.`
-    : 'Comprehensive Comparative Market Analysis including sold, active, pending, expired, terminated, and withdrawn listings for full market context.'
+    ? `Comprehensive Comparative Market Analysis scoped to "${community}" neighbourhood. Every comparable in the loaded activity is included — sold, active, pending, expired, terminated, and withdrawn — with each property scored on a one-to-one feature comparison against the subject.`
+    : 'Comprehensive Comparative Market Analysis across the loaded activity — sold, active, pending, expired, terminated, and withdrawn — each property scored on a one-to-one feature comparison against the subject.'
 
   const description = fallback
     ? `${baseDescription} No activity matched the selected date range — showing all available comparables instead.`
@@ -812,6 +810,9 @@ export default defineEventHandler(async (event) => {
     'Active listings show current market asks (aspirational pricing)',
     'Expired / Terminated / Withdrawn included as overpricing signal (lowest weight)',
   ]
+
+  const belowThresholdCount = comps.filter(c => c.meetsMinMatch === false).length
+  const aboveThresholdCount = comps.length - belowThresholdCount
 
   return {
     subject: {
@@ -848,27 +849,26 @@ export default defineEventHandler(async (event) => {
       matchCriteria: community
         ? [
             'Neighbourhood match (50% weight) — same community is the strongest comp signal',
-            'Feature matching (15% weight)',
+            'One-to-one feature comparison (15% weight) — direct presence/absence + value impact per amenity',
             'Bedroom count similarity (10% weight)',
             'Bathroom count similarity (10% weight)',
             'Square footage similarity (15% weight)',
             ...statusWeightCriteria,
           ]
         : [
-            'Feature matching (40% weight)',
+            'One-to-one feature comparison (40% weight) — direct presence/absence + value impact per amenity',
             'Bedroom count similarity (15% weight)',
             'Bathroom count similarity (15% weight)',
             'Square footage similarity (30% weight)',
             ...statusWeightCriteria,
           ],
-      distanceMethod: 'Haversine formula (straight-line distance, ±0.1% accuracy)',
+      distanceMethod: 'Haversine formula (straight-line distance, ±0.1% accuracy) — informational only, never used to exclude comps',
       searchStrategy: community
-        ? `Searched "${community}" neighbourhood first (${neighbourhoodComps} matched) across sold, active, pending, expired, terminated and withdrawn; expanded to ${radiusKm}km radius where needed.`
-        : `Searched within ${radiusKm}km radius across sold, active, pending, expired, terminated and withdrawn.`,
+        ? `Scoped to "${community}" neighbourhood — ${neighbourhoodComps} of ${comps.length} comps match the community directly. Every loaded comparable is included; the minimum match score is a highlight, not a filter (${aboveThresholdCount} ≥ ${minMatchScore}%, ${belowThresholdCount} below).`
+        : `City-wide search across sold, active, pending, expired, terminated and withdrawn. Every loaded comparable is included; the minimum match score is a highlight, not a filter (${aboveThresholdCount} ≥ ${minMatchScore}%, ${belowThresholdCount} below).`,
       filters: {
         community: community || null,
         minMatchScore,
-        radiusKm,
         dateRange: filters.range || 'last_90'
       }
     }

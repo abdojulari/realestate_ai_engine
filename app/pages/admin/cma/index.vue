@@ -72,15 +72,62 @@
               variant="outlined" density="compact" />
             </v-col>
           </v-row>
+          <!-- Status filter: tap any chip to include/exclude that listing
+               status. By default everything is selected (the comprehensive
+               CMA view). Common presets at the bottom let agents one-click
+               into a "Sold only" / "Active + Pending" view without ticking
+               each chip individually. -->
+          <div class="mt-4 mb-1 d-flex align-center justify-space-between">
+            <div class="text-caption font-weight-medium">Listing Statuses</div>
+            <div class="text-caption text-medium-emphasis">
+              {{ filters.statuses.length }} / {{ COMPREHENSIVE_STATUSES.length }}
+            </div>
+          </div>
+          <v-chip-group
+            v-model="filters.statuses"
+            multiple
+            column
+            selected-class="text-white"
+          >
+            <v-chip
+              v-for="s in COMPREHENSIVE_STATUSES"
+              :key="s"
+              :value="s"
+              :color="filters.statuses.includes(s) ? statusChipColor(s) : undefined"
+              :variant="filters.statuses.includes(s) ? 'flat' : 'outlined'"
+              size="small"
+              filter
+            >
+              {{ statusLabel(s) }}
+            </v-chip>
+          </v-chip-group>
+          <div class="d-flex flex-wrap mt-1 mb-1" style="gap: 4px;">
+            <v-btn
+              v-for="preset in statusPresets"
+              :key="preset.key"
+              size="x-small"
+              variant="text"
+              density="compact"
+              :disabled="isPresetActive(preset.values)"
+              @click="applyStatusPreset(preset.values)"
+            >
+              {{ preset.label }}
+            </v-btn>
+          </div>
+          <div class="text-caption text-medium-emphasis mb-2">
+            Deselect to narrow the comp universe. Empty = include all.
+          </div>
           <v-text-field 
             v-model.number="minMatchScore" 
             type="number" 
-            label="Min Match Score (%)" 
+            label="Match Highlight (%)" 
             variant="outlined" 
             class="mt-3"
             min="0"
             max="100"
             density="compact"
+            hint="Highlights stronger comps &mdash; lower-scoring properties still appear below"
+            persistent-hint
           />
           <v-btn color="primary" class="mt-4" :loading="loadingSold" @click="loadSold">
             Load Properties
@@ -121,8 +168,9 @@
             variant="outlined"
             class="mt-3"
             density="compact"
+            hint="Compared one-to-one against each candidate property"
+            persistent-hint
           />
-          <v-text-field density="compact" v-model.number="radiusKm" type="number" label="Radius (km)" variant="outlined" class="mt-3" />
           <v-btn color="primary" class="mt-4" :loading="loadingComps" @click="findComps">
             Find Comparables
           </v-btn>
@@ -134,7 +182,7 @@
           <div class="d-flex align-center justify-space-between mb-4 flex-wrap" style="gap: 8px;">
             <div class="text-subtitle-1 font-weight-bold">Comparable Market Activity</div>
             <div class="text-caption text-medium-emphasis">
-              {{ soldPagination.total }} total &middot; sold, active, pending, expired, terminated &amp; withdrawn
+              {{ soldPagination.total }} total &middot; {{ selectedStatusesCaption }}
             </div>
           </div>
           <!-- Status breakdown chips: shows the comprehensive mix at a glance.
@@ -273,7 +321,10 @@
               Comparable Properties
             </div>
             <div class="text-caption text-medium-emphasis">
-              {{ compStats.count }} comps ({{ minMatchScore }}%+ match)
+              {{ compStats.count }} comps
+              <span v-if="aboveThresholdCount > 0">
+                &middot; {{ aboveThresholdCount }} highlighted ({{ minMatchScore }}%+)
+              </span>
               <span v-if="compStats.neighbourhoodComps"> &middot; {{ compStats.neighbourhoodComps }} in neighbourhood</span>
             </div>
           </div>
@@ -304,10 +355,10 @@
           </v-alert>
           <v-alert v-else-if="searchScope && filters.community" type="info" variant="tonal" density="compact" class="mb-4">
             <span v-if="searchScope === 'neighbourhood'">
-              Showing comps from <strong>{{ filters.community }}</strong> neighbourhood &mdash; sold, active, pending, expired, terminated and withdrawn.
+              Showing every loaded comparable in <strong>{{ filters.community }}</strong> &mdash; sold, active, pending, expired, terminated and withdrawn. Each property is scored on a one-to-one feature match against the subject.
             </span>
             <span v-else>
-              Not enough comps in <strong>{{ filters.community }}</strong> &mdash; expanded search to {{ radiusKm }}km radius.
+              Showing city-wide comparables &mdash; <strong>{{ filters.community }}</strong> didn't produce any results, so the search broadened to the rest of {{ filters.city }}.
             </span>
           </v-alert>
           <v-table>
@@ -330,10 +381,10 @@
               </tr>
               <tr v-else-if="comparables.length === 0">
                 <td colspan="7" class="text-center py-6 text-medium-emphasis">
-                  No comparables found with {{ minMatchScore }}%+ match. Try adjusting the criteria.
+                  No comparable activity found. Try widening the date range or removing the community filter.
                 </td>
               </tr>
-              <tr v-else v-for="comp in comparables" :key="comp.id">
+              <tr v-else v-for="comp in comparables" :key="comp.id" :class="{ 'comp-below-threshold': comp.meetsMinMatch === false }">
                 <td>
                   <div class="font-weight-medium">{{ comp.title || comp.address }}</div>
                   <div class="text-caption text-medium-emphasis">
@@ -370,7 +421,12 @@
                 <td>
                   <v-tooltip :text="getMatchTooltip(comp)">
                     <template v-slot:activator="{ props }">
-                      <v-chip v-bind="props" :color="matchColor(comp.matchScore)" size="small" variant="flat">
+                      <v-chip
+                        v-bind="props"
+                        :color="matchColor(comp.matchScore)"
+                        size="small"
+                        :variant="comp.meetsMinMatch === false ? 'outlined' : 'flat'"
+                      >
                         {{ comp.matchScore }}%
                       </v-chip>
                     </template>
@@ -502,13 +558,32 @@ const loadCommunities = async () => {
   }
 }
 
+// Comprehensive comp universe — kept in lock-step with the server-side
+// COMPREHENSIVE_STATUSES in sold.get.ts / comps.post.ts. If the backend gains
+// a new status (e.g. 'coming_soon'), add it here too and to STATUS_LABELS
+// below. Wire order is also the display order in the multiselect.
+const COMPREHENSIVE_STATUSES = [
+  'sold',
+  'for_sale',
+  'pending',
+  'expired',
+  'terminated',
+  'withdrawn',
+] as const
+
 const filters = reactive({
   province: 'Alberta',
   city: '',
   community: '',
   range: 'last_90',
   startDate: '',
-  endDate: ''
+  endDate: '',
+  // Default: every comprehensive status selected. Users can deselect to
+  // narrow the universe (e.g. "Sold only" for a traditional CMA, or
+  // "Active + Pending" to gauge current market depth). Empty array means
+  // "all" on both endpoints — see parseStatusList in sold.get.ts and the
+  // length check in comps.post.ts.
+  statuses: [...COMPREHENSIVE_STATUSES] as string[],
 })
 
 const minMatchScore = ref(50)
@@ -550,6 +625,43 @@ const STATUS_COLORS: Record<string, string> = {
 const statusLabel = (status: string) => STATUS_LABELS[status] || status || '—'
 const statusChipColor = (status: string) => STATUS_COLORS[status] || 'default'
 
+// Common CMA presets — one-click shortcuts so agents don't have to tick
+// individual chips for the most-asked views. `All` is intentionally first
+// to make "reset the filter" a single click. Keep these ordered by frequency
+// of use, not alphabetically.
+const statusPresets: Array<{ key: string; label: string; values: string[] }> = [
+  { key: 'all',          label: 'All',              values: [...COMPREHENSIVE_STATUSES] },
+  { key: 'sold-only',    label: 'Sold only',        values: ['sold'] },
+  { key: 'on-market',    label: 'Active + Pending', values: ['for_sale', 'pending'] },
+  { key: 'closed',       label: 'Closed',           values: ['sold', 'expired', 'terminated', 'withdrawn'] },
+  { key: 'unsold',       label: 'Unsold',           values: ['expired', 'terminated', 'withdrawn'] },
+]
+
+// A preset is "active" when the current selection matches it exactly, so
+// we can disable the button (visual confirmation that this preset is the
+// current state and clicking it would be a no-op).
+function isPresetActive(values: string[]): boolean {
+  if (filters.statuses.length !== values.length) return false
+  const set = new Set(filters.statuses)
+  return values.every((v) => set.has(v))
+}
+
+function applyStatusPreset(values: string[]) {
+  filters.statuses = [...values]
+}
+
+// Drives the small caption above the activity table. We render:
+//   - "all statuses"  when every status is selected (default view) OR when
+//     the chip group is fully empty — both fall back to the comprehensive
+//     universe on the server (see parseStatusList in sold.get.ts), so we
+//     show the same caption either way to avoid misleading the user.
+//   - "sold, active"  (the comma-joined human labels) when narrower.
+const selectedStatusesCaption = computed(() => {
+  const n = filters.statuses.length
+  if (n === 0 || n === COMPREHENSIVE_STATUSES.length) return 'all statuses'
+  return filters.statuses.map((s) => statusLabel(s).toLowerCase()).join(', ')
+})
+
 const estimates = ref<any[]>([])
 const selectedEstimateId = ref<number | null>(null)
 
@@ -568,10 +680,16 @@ const subject = reactive({
   features: [] as string[]
 })
 
-const radiusKm = ref(1)
 const comparables = ref<any[]>([])
 const loadingComps = ref(false)
 const searchScope = ref<string>('')
+// Number of comps that scored at-or-above the user's match threshold. The
+// remainder are still shown (sorted to the bottom) — threshold is a
+// highlight, not a filter, since hard-cutting low-score comps was producing
+// "0 results" against a fully-populated activity table.
+const aboveThresholdCount = computed(() =>
+  comparables.value.filter((c: any) => c.meetsMinMatch !== false).length
+)
 // Set when the server couldn't find dated activity in the requested window and
 // had to broaden to all available comparables. Drives the "no recent activity"
 // banner on the comparables panel.
@@ -681,6 +799,17 @@ const loadSold = async () => {
       limit: String(soldPagination.value.limit),
       page: String(soldPagination.value.page)
     })
+    // sold.get.ts reads a comma-separated `statuses` query param via
+    // parseStatusList(). We omit it when the user has every status selected
+    // (the server default) to keep URLs short and cacheable, but always
+    // send it when narrower so the SQL `status IN (...)` clause matches the
+    // user's current selection rather than the comprehensive default.
+    if (
+      filters.statuses.length > 0 &&
+      filters.statuses.length < COMPREHENSIVE_STATUSES.length
+    ) {
+      query.set('statuses', filters.statuses.join(','))
+    }
     const response: any = await api.get(`/api/admin/cma/sold?${query.toString()}`)
     soldProperties.value = response.properties || []
     soldPagination.value = response.pagination || soldPagination.value
@@ -709,7 +838,18 @@ const updateSoldLimit = (limit: number) => {
 }
 
 watch(
-  () => [filters.province, filters.city, filters.community, filters.range, filters.startDate, filters.endDate],
+  () => [
+    filters.province,
+    filters.city,
+    filters.community,
+    filters.range,
+    filters.startDate,
+    filters.endDate,
+    // Spread so the watcher fires on chip add/remove, not just on
+    // identity changes — `filters.statuses` is mutated in place when the
+    // chip group toggles and Vue's default shallow watch wouldn't see it.
+    filters.statuses.join('|'),
+  ],
   () => {
     soldPagination.value.page = 1
     loadSold()
@@ -763,8 +903,17 @@ const findComps = async () => {
         range: filters.range,
         startDate: filters.startDate,
         endDate: filters.endDate,
-        radiusKm: radiusKm.value,
+        // `radiusKm` was removed from the contract — the server now scopes
+        // comps to the loaded activity universe (community / city + status
+        // + date) and never gates by geographic radius.
         minMatchScore: minMatchScore.value,
+        // comps.post.ts expects an array; an empty array OR omitting the
+        // field both fall back to COMPREHENSIVE_STATUSES on the server side.
+        // We always send the array so the two endpoints share a single
+        // source of truth (the activity-table query and the comps query
+        // must agree on the universe — see prior bug where Active rows
+        // were silently dropped only from comps).
+        statuses: filters.statuses,
         limit: 20
       }
     })
@@ -933,5 +1082,15 @@ ul {
 
 .cma-sold-table {
   min-width: 600px;
+}
+
+/* Comps that fell below the user's "Match Highlight" threshold are kept in
+   the table but rendered muted so the eye lands on the strong matches first.
+   Threshold = highlight, not a filter (see comps.post.ts). */
+.comp-below-threshold td {
+  opacity: 0.62;
+}
+.comp-below-threshold:hover td {
+  opacity: 0.92;
 }
 </style>

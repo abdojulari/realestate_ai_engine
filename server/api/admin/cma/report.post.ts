@@ -535,10 +535,10 @@ function generateReportHtml(
         </p>
         <p style="margin-top: 15px;">
           <strong>Analysis Parameters:</strong><br>
-          • Minimum match threshold: ${methodology?.filters?.minMatchScore || 20}%<br>
-          • Search radius: ${methodology?.filters?.radiusKm || 5} km<br>
+          • Match highlight threshold: ${methodology?.filters?.minMatchScore || 0}% (highlight only — comps below this are still included)<br>
           • Date range: ${methodology?.filters?.dateRange || 'Last 90 days'}<br>
-          • Neighbourhood / community: ${methodology?.filters?.community || '— (radius only)'}
+          • Neighbourhood / community: ${methodology?.filters?.community || '— (city-wide)'}<br>
+          • Feature comparison: one-to-one against the subject property
         </p>
       </div>
       <div class="disclaimer">
