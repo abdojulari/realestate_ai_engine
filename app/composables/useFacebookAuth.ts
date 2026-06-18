@@ -10,6 +10,34 @@ declare global {
   }
 }
 
+/**
+ * Typed login-failure kinds. See FacebookLoginError below for context.
+ */
+export type FbLoginErrorKind = 'cancelled' | 'closed' | 'not_authorized' | 'unknown'
+
+/**
+ * Distinguishes the three failure modes Meta collapses into a single
+ * "FB.login returned no authResponse" event:
+ *   - `cancelled`      → user clicked Cancel (rare; we map ambiguous cases here too).
+ *   - `closed`         → user dismissed the dialog without deciding.
+ *   - `not_authorized` → Meta refused the permission grant — usually because
+ *                        the user isn't on our FB App roles list while we're
+ *                        still pre-App-Review. This is the path that needs
+ *                        the in-app "Request Access" CTA.
+ *   - `unknown`        → SDK/network issue or anything else unexpected.
+ *
+ * Exported so calling components can do `instanceof FacebookLoginError` or
+ * read `err.kind` and render the right copy + next-step CTA.
+ */
+export class FacebookLoginError extends Error {
+  kind: FbLoginErrorKind
+  constructor(kind: FbLoginErrorKind, message: string) {
+    super(message)
+    this.name = 'FacebookLoginError'
+    this.kind = kind
+  }
+}
+
 export const useFacebookAuth = () => {
   const config = useRuntimeConfig()
   const isInitialized = ref(false)
@@ -76,27 +104,59 @@ export const useFacebookAuth = () => {
 
   /**
    * Login with Facebook
-   * Requests necessary permissions for page management and posting
+   * Requests necessary permissions for page management and posting.
+   *
+   * Failure handling — Meta returns the same shape (`{ status, authResponse: null }`)
+   * for three quite different things, so we differentiate on the `status`
+   * field and surface a typed error:
+   *
+   *   • status === 'connected'      → success (handled in the if-branch).
+   *   • status === 'not_authorized' → the user *did* go through the dialog
+   *     but either declined OR (the common case for SaaS) the user wasn't
+   *     on our FB App's roles list while we're still pre-App-Review. The
+   *     SDK can't tell us which; we route both to the Request-Access path.
+   *   • status === 'unknown'        → user closed the dialog or hadn't
+   *     logged into facebook.com. Genuine "cancel"-ish; just retry.
+   *   • anything else (no response) → SDK/network issue.
    */
   const login = async (): Promise<any> => {
     await initFacebookSDK()
 
     return new Promise((resolve, reject) => {
       if (typeof FB === 'undefined') {
-        reject(new Error('Facebook SDK not loaded'))
+        reject(new FacebookLoginError('unknown', 'Facebook SDK not loaded'))
         return
       }
 
       FB.login(
         (response: any) => {
-          if (response.authResponse) {
+          if (response?.authResponse) {
             isLoggedIn.value = true
             userAccessToken.value = response.authResponse.accessToken
             userId.value = response.authResponse.userID
             resolve(response.authResponse)
-          } else {
-            reject(new Error('User cancelled login or did not grant permissions'))
+            return
           }
+
+          const status = response?.status as string | undefined
+          if (status === 'not_authorized') {
+            reject(new FacebookLoginError(
+              'not_authorized',
+              "Facebook didn't issue a token. If you're sure you accepted the permissions, your Facebook account hasn't been granted access to our app yet — we're currently in Meta's App Review process. Request access below and we'll whitelist your account within one business day.",
+            ))
+            return
+          }
+          if (status === 'unknown') {
+            reject(new FacebookLoginError(
+              'closed',
+              'The Facebook login window was closed before completing. Click "Login with Facebook" to try again.',
+            ))
+            return
+          }
+          reject(new FacebookLoginError(
+            'cancelled',
+            'Facebook login did not complete. If you clicked Cancel, just try again. If the dialog never appeared, your browser may have blocked the popup.',
+          ))
         },
         {
           scope: 'email,pages_manage_posts,pages_read_engagement,pages_show_list'

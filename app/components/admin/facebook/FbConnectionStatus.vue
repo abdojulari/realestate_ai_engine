@@ -61,9 +61,68 @@
             </div>
           </div>
 
-          <!-- OAuth error -->
+          <!-- Pre-connect consent / scope explainer.
+               Shown only in the disconnected state. Lists exactly which
+               permissions we'll request and how each is used. Two reasons:
+               (1) Meta App Reviewers screen-record this view — having
+                   explicit consent copy on-screen meaningfully raises
+                   approval odds and shortens the review back-and-forth.
+               (2) Tenants are nervous about what "Login with Facebook"
+                   actually authorises — being upfront about it converts
+                   better than a bare button. -->
+          <div v-if="!status.connected" class="fb-consent-panel mt-6">
+            <div class="d-flex align-center ga-2 mb-3">
+              <v-icon size="16" color="#1877F2">mdi-shield-lock-outline</v-icon>
+              <span class="text-subtitle-2 font-weight-bold">What we'll ask Facebook for</span>
+            </div>
+            <div class="fb-scope-list">
+              <div class="fb-scope-row" v-for="s in scopeExplainers" :key="s.scope">
+                <code class="fb-scope-code">{{ s.scope }}</code>
+                <span class="fb-scope-desc">{{ s.description }}</span>
+              </div>
+            </div>
+            <div class="text-caption text-medium-emphasis mt-3">
+              We never post anything without your explicit click. Tokens are
+              stored encrypted, scoped to your account only, and can be
+              revoked any time via the Disconnect button or directly on
+              <a href="https://www.facebook.com/settings?tab=business_tools" target="_blank" rel="noopener">facebook.com → Apps and Websites</a>.
+              See our
+              <NuxtLink to="/privacy" target="_blank">Privacy Policy</NuxtLink>
+              and
+              <NuxtLink to="/terms" target="_blank">Terms</NuxtLink>.
+            </div>
+          </div>
+
+          <!-- OAuth error.
+               When the failure mode is `not_authorized` we surface a
+               Request-Access CTA: that's the exact case where DeelBot's FB
+               App is still pre-review and the user's FB account isn't a
+               Tester yet. For other kinds (genuine cancel, popup blocked,
+               SDK fail) we just show the message with a Try Again hint. -->
           <v-slide-y-transition>
-            <v-alert v-if="oauthError" type="error" variant="tonal" class="mt-5 fb-alert-glass" closable @click:close="oauthError = ''">{{ oauthError }}</v-alert>
+            <v-alert
+              v-if="oauthError"
+              :type="needsAccessRequest ? 'warning' : 'error'"
+              variant="tonal"
+              class="mt-5 fb-alert-glass"
+              closable
+              @click:close="clearOauthError"
+            >
+              <div class="d-flex align-start ga-3 flex-wrap">
+                <div class="flex-grow-1" style="min-width: 220px;">{{ oauthError }}</div>
+                <v-btn
+                  v-if="needsAccessRequest"
+                  color="#1877F2"
+                  variant="flat"
+                  size="small"
+                  prepend-icon="mdi-account-arrow-right-outline"
+                  class="fb-login-btn"
+                  @click="openAccessRequest"
+                >
+                  Request Access
+                </v-btn>
+              </div>
+            </v-alert>
           </v-slide-y-transition>
         </v-card-text>
 
@@ -149,11 +208,107 @@
     </v-card>
   </v-dialog>
 
+  <!-- Request Access Dialog.
+       Bridge UX for the gap between *now* and *App Review approved*. The
+       tenant captures their Facebook account email + (optional) profile
+       URL + free-text note explaining what they want to post. We log the
+       request to the Setting table and email the platform admin so they
+       can whitelist the FB account as a Tester from the FB Developer
+       Console. Once App Review passes, this whole flow becomes
+       unnecessary — every FB user can connect directly. -->
+  <v-dialog v-model="showAccessRequest" max-width="520" persistent>
+    <v-card class="fb-dialog-card">
+      <div class="fb-dialog-header">
+        <v-avatar size="44" class="fb-avatar-icon mr-4">
+          <v-icon size="22" color="white">mdi-account-arrow-right-outline</v-icon>
+        </v-avatar>
+        <div>
+          <div class="text-h6 font-weight-bold display-serif" style="letter-spacing: -0.3px;">Request Facebook Access</div>
+          <div class="text-caption text-medium-emphasis">We'll whitelist your account within one business day</div>
+        </div>
+      </div>
+      <v-divider class="opacity-10" />
+      <v-card-text class="pa-5">
+        <v-alert v-if="accessRequestSent" type="success" variant="tonal" class="fb-alert-glass mb-3" density="compact">
+          {{ accessRequestMessage }}
+        </v-alert>
+        <template v-else>
+          <p class="text-body-2 text-medium-emphasis mb-4">
+            Our Facebook App is currently in Meta's review queue. While we
+            wait, we can manually whitelist your Facebook account so you
+            can connect right away. Provide the email tied to your
+            Facebook account and we'll send you an invite directly from
+            Facebook.
+          </p>
+          <v-text-field
+            v-model="accessRequest.fbEmail"
+            label="Facebook account email *"
+            placeholder="you@example.com"
+            variant="outlined"
+            density="compact"
+            type="email"
+            :rules="[(v) => !!v || 'Required', (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) || 'Enter a valid email']"
+            hide-details="auto"
+            class="mb-3"
+            autofocus
+          />
+          <v-text-field
+            v-model="accessRequest.fbProfileUrl"
+            label="Facebook profile URL (optional)"
+            placeholder="https://www.facebook.com/your-handle"
+            variant="outlined"
+            density="compact"
+            hide-details
+            class="mb-3"
+          />
+          <v-textarea
+            v-model="accessRequest.notes"
+            label="What pages will you be posting to? (optional)"
+            placeholder="e.g. AOhomes Calgary Listings page; mostly listing posts + price-drop alerts"
+            variant="outlined"
+            density="compact"
+            rows="3"
+            auto-grow
+            hide-details
+          />
+          <v-alert
+            v-if="accessRequestError"
+            type="error"
+            variant="tonal"
+            density="compact"
+            class="mt-3 fb-alert-glass"
+          >{{ accessRequestError }}</v-alert>
+        </template>
+      </v-card-text>
+      <v-divider class="opacity-10" />
+      <v-card-actions class="pa-5">
+        <v-spacer />
+        <v-btn variant="text" class="fb-action-btn" @click="closeAccessRequest">
+          {{ accessRequestSent ? 'Close' : 'Cancel' }}
+        </v-btn>
+        <v-btn
+          v-if="!accessRequestSent"
+          color="#1877F2"
+          variant="flat"
+          :loading="submittingAccessRequest"
+          :disabled="!isAccessRequestValid"
+          prepend-icon="mdi-send-outline"
+          class="fb-login-btn"
+          style="min-width: 160px;"
+          @click="submitAccessRequest"
+        >
+          Send Request
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { getAuthHeaders } from '~/composables/useFacebookAdmin'
+import { FacebookLoginError, type FbLoginErrorKind } from '~/composables/useFacebookAuth'
 
 defineProps<{ status: any }>()
 const emit = defineEmits<{ 'status-changed': [] }>()
@@ -167,9 +322,52 @@ const connecting = ref(false)
 // OAuth flow state
 const oauthConnecting = ref(false)
 const oauthError = ref('')
+// Track WHY the last login failed so we can show the right next-step CTA.
+// `not_authorized` is the one we route to the Request-Access flow — see
+// app/composables/useFacebookAuth.ts for the discrimination logic.
+const oauthErrorKind = ref<FbLoginErrorKind | null>(null)
+const needsAccessRequest = computed(() => oauthErrorKind.value === 'not_authorized')
 const showPagePicker = ref(false)
 const oauthPages = ref<Array<{ id: string; name: string; access_token: string }>>([])
 const selectedPageId = ref<string | null>(null)
+
+// Explainer rows rendered above the Connect button (pre-connect consent
+// surface). Edits here propagate to Meta's App Review screencast — keep
+// the copy honest about what each scope is used for, since reviewers
+// compare it to the actual API calls we make.
+const scopeExplainers = [
+  {
+    scope: 'pages_show_list',
+    description: 'List the Facebook Pages you manage so you can choose which one to connect.',
+  },
+  {
+    scope: 'pages_manage_posts',
+    description: 'Publish listing + marketing posts to the page you select — only when you click Post.',
+  },
+  {
+    scope: 'pages_read_engagement',
+    description: 'Read reactions, comments and reach on the posts we publish so you can see what worked.',
+  },
+  {
+    scope: 'email',
+    description: 'Identifies which Facebook account is connecting (no contact emails are sent).',
+  },
+]
+
+// Request-Access dialog state.
+const showAccessRequest = ref(false)
+const submittingAccessRequest = ref(false)
+const accessRequestSent = ref(false)
+const accessRequestError = ref('')
+const accessRequestMessage = ref('')
+const accessRequest = reactive({
+  fbEmail: '',
+  fbProfileUrl: '',
+  notes: '',
+})
+const isAccessRequestValid = computed(
+  () => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accessRequest.fbEmail.trim()),
+)
 
 const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
@@ -184,7 +382,7 @@ async function fetchPages(token: string): Promise<Array<{ id: string; name: stri
 
 async function handleOAuthLogin() {
   oauthConnecting.value = true
-  oauthError.value = ''
+  clearOauthError()
   try {
     await initFacebookSDK()
     await fbLogin()
@@ -211,9 +409,72 @@ async function handleOAuthLogin() {
       showPagePicker.value = true
     }
   } catch (e: any) {
-    oauthError.value = e.data?.message || e.message || 'Facebook login failed. Please try again.'
+    // Preserve the typed `kind` from useFacebookAuth when we have one —
+    // that's what drives whether we show the Request-Access CTA. The
+    // composable throws FacebookLoginError; the connect step throws plain
+    // h3 errors with `data.message`.
+    if (e instanceof FacebookLoginError) {
+      oauthErrorKind.value = e.kind
+      oauthError.value = e.message
+    } else {
+      oauthErrorKind.value = null
+      oauthError.value = e.data?.message || e.message || 'Facebook login failed. Please try again.'
+    }
   } finally {
     oauthConnecting.value = false
+  }
+}
+
+function clearOauthError() {
+  oauthError.value = ''
+  oauthErrorKind.value = null
+}
+
+function openAccessRequest() {
+  accessRequestSent.value = false
+  accessRequestError.value = ''
+  accessRequestMessage.value = ''
+  showAccessRequest.value = true
+}
+
+function closeAccessRequest() {
+  showAccessRequest.value = false
+  // Reset only if the request actually went through — otherwise keep the
+  // form populated so a re-open after a recoverable error doesn't make
+  // the tenant re-type everything.
+  if (accessRequestSent.value) {
+    accessRequest.fbEmail = ''
+    accessRequest.fbProfileUrl = ''
+    accessRequest.notes = ''
+    accessRequestSent.value = false
+    // Also clear the OAuth error banner — the user has a path forward now.
+    clearOauthError()
+  }
+}
+
+async function submitAccessRequest() {
+  if (!isAccessRequestValid.value) return
+  submittingAccessRequest.value = true
+  accessRequestError.value = ''
+  try {
+    const res = await $fetch('/api/admin/facebook/request-access', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: {
+        fbEmail: accessRequest.fbEmail.trim(),
+        fbProfileUrl: accessRequest.fbProfileUrl.trim() || undefined,
+        notes: accessRequest.notes.trim() || undefined,
+      },
+    }) as any
+    accessRequestSent.value = true
+    accessRequestMessage.value =
+      res?.message ||
+      "Thanks — your request has been logged. We'll whitelist your Facebook account within one business day."
+  } catch (e: any) {
+    accessRequestError.value =
+      e.data?.message || e.message || 'Failed to submit your request. Please try again.'
+  } finally {
+    submittingAccessRequest.value = false
   }
 }
 
@@ -396,6 +657,45 @@ async function disconnect() {
 .fb-page-item.v-list-item--active {
   background: rgba(24, 119, 242, 0.05) !important;
   border-color: rgba(24, 119, 242, 0.2) !important;
+}
+
+/* Pre-connect consent panel */
+.fb-consent-panel {
+  background: rgba(24, 119, 242, 0.025);
+  border: 1px solid rgba(24, 119, 242, 0.1);
+  border-radius: 14px;
+  padding: 16px 18px;
+}
+
+.fb-scope-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fb-scope-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.fb-scope-code {
+  background: rgba(24, 119, 242, 0.08);
+  color: #0d65d9;
+  font-family: 'JetBrains Mono', 'Menlo', monospace;
+  font-size: 0.74rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  white-space: nowrap;
+  font-weight: 600;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.fb-scope-desc {
+  color: rgba(0, 0, 0, 0.7);
 }
 
 </style>
