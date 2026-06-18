@@ -92,6 +92,23 @@ export default defineEventHandler(async (event) => {
     '/api/users/provision',
     // Verdocs e-sign webhooks (verify signatures in handler when Verdocs documents a header)
     '/api/webhooks/verdocs',
+    // ── Meta-required Facebook webhook callbacks ─────────────────────────
+    // These three endpoints are PUBLIC by Meta's spec: Facebook calls them
+    // server-to-server without our session JWT, so the global Bearer-token
+    // requirement would 401 Meta out before the handler runs. Trust model
+    // mirrors `/api/cron/` and `/api/webhooks/verdocs` above — the
+    // individual handlers do their own verification:
+    //   • deauthorize + data-deletion POSTs verify Meta's signed_request
+    //     HMAC-SHA256 against FACEBOOK_APP_SECRET (constant-time compare)
+    //     via server/utils/facebookSignedRequest.ts. Spoofed requests get
+    //     400 from the handler, not 401 from this middleware.
+    //   • deletion-status GET is just a public lookup keyed by a random
+    //     UUID confirmation code; returns { found } only, no PII.
+    // Required for Meta App Review — both webhook URLs must respond 400
+    // (not 401) when Meta's "Verify" button POSTs an unsigned probe.
+    '/api/facebook/deauthorize',
+    '/api/facebook/data-deletion',
+    '/api/facebook/deletion-status',
   ]
 
   // Skip auth for non-API routes (pages, assets, etc.)
