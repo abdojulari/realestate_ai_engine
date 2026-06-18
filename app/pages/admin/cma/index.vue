@@ -935,8 +935,16 @@ const openSendDialog = () => {
   showSendDialog.value = true
 }
 
+// Width (in CSS pixels) we render the off-screen report at before handing
+// it to html2canvas. Must match the report's `.container { max-width: 800px }`
+// so the rasterized output isn't shrink-fit narrower than the design width.
+const REPORT_RENDER_WIDTH = 800
+
 const downloadReport = async () => {
   generatingReport.value = true
+  // Hoist the container ref outside the try so the finally block can always
+  // clean up — earlier we leaked the off-screen <div> on any html2pdf throw.
+  let container: HTMLDivElement | null = null
   try {
     const response: any = await api.post('/api/admin/cma/report', {
       subject,
@@ -948,42 +956,77 @@ const downloadReport = async () => {
       clientName: clientName.value,
       action: 'download'
     })
-    
-    if (response.reportHtml) {
-      // Dynamically import html2pdf.js (client-side only)
-      const html2pdf = (await import('html2pdf.js')).default
-      
-      // Create a temporary container for the HTML
-      const container = document.createElement('div')
-      container.innerHTML = response.reportHtml
-      container.style.position = 'absolute'
-      container.style.left = '-9999px'
-      container.style.top = '0'
-      document.body.appendChild(container)
-      
-      // Generate PDF
-      const filename = `CMA-Report-${subject.address || 'Property'}-${new Date().toISOString().split('T')[0]}.pdf`
-      
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        })
-        .from(container)
-        .save()
-      
-      // Clean up
-      document.body.removeChild(container)
-      
-      snackbar.value = { show: true, message: 'PDF report downloaded successfully', color: 'success' }
+
+    if (!response.reportHtml) {
+      throw new Error('Server did not return reportHtml')
     }
+
+    // Dynamically import html2pdf.js (client-side only)
+    const html2pdf = (await import('html2pdf.js')).default
+
+    // The server returns a full HTML document (<!DOCTYPE html><html>…<body>…).
+    // Injecting that into a <div> via innerHTML drops the <html>/<head>/<body>
+    // shells but keeps inline <style> + the body markup, which is what we want.
+    // The previous implementation used `position:absolute; left:-9999px` with
+    // NO explicit width, so the wrapper shrunk to fit content and html2canvas
+    // captured a near-zero-width canvas → the saved PDF was blank.
+    //
+    // Fixes here:
+    //   1. Explicit width matching the report's design width (800px).
+    //   2. `position:fixed` with `opacity:0.01` instead of `left:-9999px` so
+    //      layout/paint actually happens (some browsers skip work for
+    //      `opacity:0` or far-off-screen elements).
+    //   3. Wait two animation frames so styles/images apply before capture.
+    //   4. Pass `width` + `windowWidth` to html2canvas so viewport-dependent
+    //      CSS (the report's grid layout, in particular) resolves correctly.
+    container = document.createElement('div')
+    container.innerHTML = response.reportHtml
+    container.style.position = 'fixed'
+    container.style.left = '0'
+    container.style.top = '0'
+    container.style.width = `${REPORT_RENDER_WIDTH}px`
+    container.style.background = '#ffffff'
+    container.style.opacity = '0.01'
+    container.style.pointerEvents = 'none'
+    container.style.zIndex = '-9999'
+    container.style.overflow = 'visible'
+    document.body.appendChild(container)
+
+    // Give the browser two frames to compute layout and load any inline
+    // images / fonts referenced by the report.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    )
+
+    const filename = `CMA-Report-${subject.address || 'Property'}-${new Date().toISOString().split('T')[0]}.pdf`
+
+    await html2pdf()
+      .set({
+        margin: 0,
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+          width: REPORT_RENDER_WIDTH,
+          windowWidth: REPORT_RENDER_WIDTH,
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      })
+      .from(container)
+      .save()
+
+    snackbar.value = { show: true, message: 'PDF report downloaded successfully', color: 'success' }
   } catch (error) {
     console.error('Failed to generate report:', error)
     snackbar.value = { show: true, message: 'Failed to generate report', color: 'error' }
   } finally {
+    if (container && container.parentNode) {
+      container.parentNode.removeChild(container)
+    }
     generatingReport.value = false
   }
 }
