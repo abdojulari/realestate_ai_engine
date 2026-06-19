@@ -4,8 +4,32 @@
       <!-- Header -->
       <v-row class="mb-8 align-center">
         <v-col cols="12" md="8">
-          <div class="d-flex align-center mb-2">
-            <v-btn icon="mdi-arrow-left" variant="text" size="small" class="mr-2" @click="$router.back()" />
+          <div class="d-flex align-center mb-2 flex-wrap" style="gap: 8px;">
+            <!-- When the user arrives from the CMA tool we surface a labeled
+                 "Back to CMA" button instead of the icon-only back arrow.
+                 The CMA page stashes its filters + comparables in
+                 sessionStorage right before navigating here, so $router.back()
+                 lands them on the same view (same filters, same results, same
+                 pagination) without an API roundtrip. -->
+            <v-btn
+              v-if="fromCma"
+              variant="tonal"
+              color="primary"
+              prepend-icon="mdi-arrow-left"
+              size="small"
+              class="mr-2"
+              @click="$router.back()"
+            >
+              Back to CMA
+            </v-btn>
+            <v-btn
+              v-else
+              icon="mdi-arrow-left"
+              variant="text"
+              size="small"
+              class="mr-2"
+              @click="$router.back()"
+            />
             <div class="premium-accent-bar mr-4"></div>
             <span class="text-overline letter-spacing-2 text-gold">Property Details</span>
           </div>
@@ -288,6 +312,13 @@ definePageMeta({ layout: 'admin', middleware: ['admin'] })
 const route = useRoute()
 const id = computed(() => route.params.id as string)
 const auth = useAuthStore()
+
+// Set to `?from=cma` by the CMA tool's row-click handler. Drives the
+// "Back to CMA" labeled button in the header (vs. the default icon-only
+// arrow). The back button itself uses $router.back() either way — the
+// only thing this flag changes is the label, so navigation still works
+// even if the user landed here via a deep link without the query param.
+const fromCma = computed(() => route.query?.from === 'cma')
 
 // Mirror the server-side `getTenantAdminId` rule so the UI agrees with the
 // API about which tenant the current session belongs to:

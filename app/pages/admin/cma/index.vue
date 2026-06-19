@@ -213,11 +213,13 @@
               :items-per-page-options="[10, 25, 50, 100]"
               :page="soldPagination.page"
               :items-length="soldPagination.total"
-              class="elevation-0 cma-sold-table"
+              class="elevation-0 cma-sold-table cma-sold-table--clickable"
               height="400"
               fixed-header
+              hover
               @update:page="updateSoldPage"
               @update:items-per-page="updateSoldLimit"
+              @click:row="onRowClick"
             >
             <template #item.status="{ item }">
               <v-chip :color="statusChipColor(item.status)" size="x-small" variant="tonal">
@@ -508,6 +510,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 // @ts-ignore
 import { api } from '~/utils/api'
 import FeatureGate from '~/components/FeatureGate.vue'
@@ -517,6 +520,14 @@ definePageMeta({
   layout: 'admin',
   middleware: ['admin']
 })
+
+const router = useRouter()
+
+// sessionStorage key for round-tripping CMA state when the user clicks a
+// row to open a property detail page and then hits Back. Version-suffixed so
+// that schema changes to the saved blob can be invalidated without users
+// hitting "cannot read property X of undefined" the day we ship a change.
+const CMA_STATE_KEY = 'cma:state:v1'
 
 const provinceOptions = ['All', 'Alberta', 'British Columbia', 'Saskatchewan', 'Manitoba', 'Ontario']
 const dateRanges = [
@@ -837,6 +848,14 @@ const updateSoldLimit = (limit: number) => {
   loadSold()
 }
 
+// Set to true while `restoreCmaState()` is replaying a saved snapshot.
+// Vue batches the Object.assign writes into a single watcher invocation,
+// so we flip this to true → mutate → let the (now-suppressed) watcher run
+// → flip back to false. Without this the watcher would call loadSold() and
+// blow away the snapshot's `soldProperties` with a fresh fetch on every
+// "Back to CMA" navigation.
+let suppressFilterWatcher = false
+
 watch(
   () => [
     filters.province,
@@ -851,6 +870,10 @@ watch(
     filters.statuses.join('|'),
   ],
   () => {
+    if (suppressFilterWatcher) {
+      suppressFilterWatcher = false
+      return
+    }
     soldPagination.value.page = 1
     loadSold()
   }
@@ -935,6 +958,124 @@ const openSendDialog = () => {
   showSendDialog.value = true
 }
 
+// ── CMA state persistence ───────────────────────────────────────────────
+// When the user clicks a row in the activity table we navigate to the
+// property detail page. The browser keeps a history entry for /admin/cma
+// but Vue Components re-`setup()` on every visit, so without a side store
+// the filters/subject/comparables/pagination would reset to defaults on
+// the way back. We snapshot the relevant state to sessionStorage right
+// before navigating and restore it on mount.
+//
+// We deliberately persist the *results* (comparables, soldProperties,
+// stats) alongside the *inputs* (filters, subject) so coming back to the
+// page is instantaneous — no re-fetch flicker, no waiting on the API to
+// re-rebuild what the user just left.
+const saveCmaState = () => {
+  if (typeof window === 'undefined') return
+  try {
+    const snapshot = {
+      filters: { ...filters },
+      subject: { ...subject },
+      selectedEstimateId: selectedEstimateId.value,
+      minMatchScore: minMatchScore.value,
+      soldPagination: { ...soldPagination.value },
+      soldProperties: soldProperties.value,
+      soldStatusBreakdown: soldStatusBreakdown.value,
+      comparables: comparables.value,
+      compStats: compStats.value,
+      methodology: methodology.value,
+      searchScope: searchScope.value,
+      fallbackInfo: fallbackInfo.value,
+      compStatusBreakdown: compStatusBreakdown.value,
+      compStatusStats: compStatusStats.value,
+      clientEmail: clientEmail.value,
+      clientName: clientName.value,
+      // Used by the restore path to expire stale snapshots — if someone
+      // returns to the CMA tab a week later we'd rather rerun fresh than
+      // show wrong-looking comp counts.
+      savedAt: Date.now(),
+    }
+    sessionStorage.setItem(CMA_STATE_KEY, JSON.stringify(snapshot))
+  } catch (e) {
+    // Quota errors are non-fatal; the page will just look fresh on the way back.
+    console.warn('CMA state save failed', e)
+  }
+}
+
+// Returns true when we successfully restored a snapshot, so callers can
+// skip the default fetch in onMounted (avoids a flash of empty rows
+// while loadSold() re-runs against the same filters).
+const restoreCmaState = (): boolean => {
+  if (typeof window === 'undefined') return false
+  let raw: string | null = null
+  try {
+    raw = sessionStorage.getItem(CMA_STATE_KEY)
+  } catch {
+    return false
+  }
+  if (!raw) return false
+
+  // Single-use snapshot: clear immediately so the next deep-link / fresh
+  // load of /admin/cma doesn't surface stale results.
+  try {
+    sessionStorage.removeItem(CMA_STATE_KEY)
+  } catch {
+    // ignore — storage may be sandboxed
+  }
+
+  try {
+    const saved = JSON.parse(raw) as Record<string, any>
+    // 30-minute TTL — anything older is treated as "didn't restore" so we
+    // refetch. Picked empirically: most agents click in and back within
+    // a minute, but we don't want stale data 6 hours later.
+    if (saved?.savedAt && Date.now() - saved.savedAt > 30 * 60 * 1000) {
+      return false
+    }
+
+    // Tell the filter-watcher to skip its next scheduled invocation so the
+    // restored snapshot's results aren't immediately blown away by a
+    // refetch (see comment on `suppressFilterWatcher`).
+    suppressFilterWatcher = true
+
+    if (saved.filters) Object.assign(filters, saved.filters)
+    if (saved.subject) Object.assign(subject, saved.subject)
+    if (saved.selectedEstimateId !== undefined) selectedEstimateId.value = saved.selectedEstimateId
+    if (typeof saved.minMatchScore === 'number') minMatchScore.value = saved.minMatchScore
+    if (saved.soldPagination) soldPagination.value = { ...soldPagination.value, ...saved.soldPagination }
+    if (Array.isArray(saved.soldProperties)) soldProperties.value = saved.soldProperties
+    if (saved.soldStatusBreakdown) soldStatusBreakdown.value = saved.soldStatusBreakdown
+    if (Array.isArray(saved.comparables)) comparables.value = saved.comparables
+    if (saved.compStats) compStats.value = saved.compStats
+    if (saved.methodology !== undefined) methodology.value = saved.methodology
+    if (typeof saved.searchScope === 'string') searchScope.value = saved.searchScope
+    if (saved.fallbackInfo !== undefined) fallbackInfo.value = saved.fallbackInfo
+    if (saved.compStatusBreakdown) compStatusBreakdown.value = saved.compStatusBreakdown
+    if (saved.compStatusStats) compStatusStats.value = saved.compStatusStats
+    if (typeof saved.clientEmail === 'string') clientEmail.value = saved.clientEmail
+    if (typeof saved.clientName === 'string') clientName.value = saved.clientName
+
+    return true
+  } catch (e) {
+    console.warn('CMA state restore failed', e)
+    return false
+  }
+}
+
+// Vuetify 3's `@click:row` signature varies between versions; the second
+// argument can be either the raw item or `{ item, internalItem, …}`. We
+// defensively look at both shapes so a Vuetify minor bump doesn't quietly
+// break navigation.
+const onRowClick = (_event: Event, payload: any) => {
+  const item = payload?.item?.raw ?? payload?.item ?? payload
+  const id = item?.id ?? item?.propertyId
+  if (!id) return
+  saveCmaState()
+  router.push({
+    path: `/admin/properties/${id}`,
+    query: { from: 'cma' },
+  })
+}
+
 // Width (in CSS pixels) we render the off-screen report at before handing
 // it to html2canvas. Must match the report's `.container { max-width: 800px }`
 // so the rasterized output isn't shrink-fit narrower than the design width.
@@ -942,9 +1083,10 @@ const REPORT_RENDER_WIDTH = 800
 
 const downloadReport = async () => {
   generatingReport.value = true
-  // Hoist the container ref outside the try so the finally block can always
-  // clean up — earlier we leaked the off-screen <div> on any html2pdf throw.
-  let container: HTMLDivElement | null = null
+  // Hoist the iframe ref outside the try so the finally block can always
+  // clean up. Earlier we used a bare <div> with innerHTML which leaked styles
+  // into the host page (Vuetify) and made html2canvas capture a blank region.
+  let iframe: HTMLIFrameElement | null = null
   try {
     const response: any = await api.post('/api/admin/cma/report', {
       subject,
@@ -961,71 +1103,155 @@ const downloadReport = async () => {
       throw new Error('Server did not return reportHtml')
     }
 
-    // Dynamically import html2pdf.js (client-side only)
-    const html2pdf = (await import('html2pdf.js')).default
+    // Dynamic client-side-only imports keep these heavy libs out of the SSR
+    // bundle. html2canvas rasterizes a DOM node; jsPDF assembles the canvas
+    // image into a multi-page PDF.
+    const html2canvas = (await import('html2canvas')).default
+    const { jsPDF } = await import('jspdf')
 
-    // The server returns a full HTML document (<!DOCTYPE html><html>…<body>…).
-    // Injecting that into a <div> via innerHTML drops the <html>/<head>/<body>
-    // shells but keeps inline <style> + the body markup, which is what we want.
-    // The previous implementation used `position:absolute; left:-9999px` with
-    // NO explicit width, so the wrapper shrunk to fit content and html2canvas
-    // captured a near-zero-width canvas → the saved PDF was blank.
+    // ── Why an iframe instead of a <div> with innerHTML ─────────────────
+    // The server returns a full HTML document (<!DOCTYPE html><html><head>
+    // <style>…</style></head><body>…</body></html>). Injecting that into a
+    // host-page <div> via innerHTML has two failure modes we hit in prod:
     //
-    // Fixes here:
-    //   1. Explicit width matching the report's design width (800px).
-    //   2. `position:fixed` with `opacity:0.01` instead of `left:-9999px` so
-    //      layout/paint actually happens (some browsers skip work for
-    //      `opacity:0` or far-off-screen elements).
-    //   3. Wait two animation frames so styles/images apply before capture.
-    //   4. Pass `width` + `windowWidth` to html2canvas so viewport-dependent
-    //      CSS (the report's grid layout, in particular) resolves correctly.
-    container = document.createElement('div')
-    container.innerHTML = response.reportHtml
-    container.style.position = 'fixed'
-    container.style.left = '0'
-    container.style.top = '0'
-    container.style.width = `${REPORT_RENDER_WIDTH}px`
-    container.style.background = '#ffffff'
-    container.style.opacity = '0.01'
-    container.style.pointerEvents = 'none'
-    container.style.zIndex = '-9999'
-    container.style.overflow = 'visible'
-    document.body.appendChild(container)
+    //   1. The report's reset rule (`* { margin: 0; padding: 0; box-sizing:
+    //      border-box; }`) leaks out and clobbers Vuetify's tooltip / menu
+    //      layout while the PDF is generating.
+    //   2. More importantly — Vuetify's stylesheet wins specificity battles
+    //      against the report's `.container { max-width: 800px }`, so the
+    //      visible rendering inside the host page is collapsed to ~0 width.
+    //      html2canvas then captures that collapsed region and the saved
+    //      PDF comes out blank, which is what users were reporting.
+    //
+    // Rendering inside an iframe gives the report its own document context:
+    // a real <html>/<head>/<body> with the report's <style> scoped to just
+    // that document. No cross-talk with Vuetify, layout resolves at the
+    // exact design width we set, and html2canvas captures a properly-sized
+    // body element.
+    iframe = document.createElement('iframe')
+    iframe.style.position = 'fixed'
+    iframe.style.top = '0'
+    iframe.style.left = '0'
+    iframe.style.width = `${REPORT_RENDER_WIDTH}px`
+    iframe.style.height = '0' // will grow to body.scrollHeight below
+    iframe.style.border = '0'
+    iframe.style.visibility = 'hidden' // hidden but still painted (display:none would skip layout)
+    iframe.style.pointerEvents = 'none'
+    iframe.style.zIndex = '-9999'
+    document.body.appendChild(iframe)
 
-    // Give the browser two frames to compute layout and load any inline
-    // images / fonts referenced by the report.
-    await new Promise<void>((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-    )
+    const iframeDoc = iframe.contentDocument
+    if (!iframeDoc) {
+      throw new Error('Failed to access iframe document')
+    }
+    iframeDoc.open()
+    iframeDoc.write(response.reportHtml)
+    iframeDoc.close()
+
+    // Wait for the iframe's document to finish parsing + initial paint, then
+    // additionally wait for every <img> inside it to finish loading.
+    await new Promise<void>((resolve) => {
+      if (iframeDoc.readyState === 'complete') {
+        resolve()
+        return
+      }
+      const onReady = () => {
+        if (iframeDoc.readyState === 'complete') {
+          iframeDoc.removeEventListener('readystatechange', onReady)
+          resolve()
+        }
+      }
+      iframeDoc.addEventListener('readystatechange', onReady)
+      // Hard cap so a broken external image can't hang the PDF flow forever.
+      setTimeout(resolve, 3000)
+    })
+
+    const images = Array.from(iframeDoc.images || [])
+    if (images.length > 0) {
+      await Promise.all(
+        images.map(
+          (img) =>
+            new Promise<void>((resolve) => {
+              if (img.complete && img.naturalWidth > 0) {
+                resolve()
+                return
+              }
+              img.addEventListener('load', () => resolve(), { once: true })
+              img.addEventListener('error', () => resolve(), { once: true }) // don't block on broken images
+              // Per-image hard cap.
+              setTimeout(resolve, 2000)
+            })
+        )
+      )
+    }
+
+    // Grow the iframe to fit the entire rendered body so html2canvas can
+    // capture all of it in one pass. Without this, the captured canvas would
+    // be cropped to the iframe's initial 0px height.
+    const target = iframeDoc.body
+    const contentHeight = Math.max(target.scrollHeight, iframeDoc.documentElement.scrollHeight)
+    iframe.style.height = `${contentHeight}px`
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()))
+
+    // Rasterize the iframe's body into a single tall canvas. scale:2 gives
+    // us roughly 192 DPI, which is plenty crisp for printing and emailing.
+    const canvas = await html2canvas(target, {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+      width: REPORT_RENDER_WIDTH,
+      height: contentHeight,
+      windowWidth: REPORT_RENDER_WIDTH,
+      windowHeight: contentHeight,
+      scrollX: 0,
+      scrollY: 0,
+    })
+
+    if (!canvas.width || !canvas.height) {
+      throw new Error(`html2canvas captured an empty canvas (${canvas.width}x${canvas.height})`)
+    }
+
+    // ── Canvas → multi-page PDF ─────────────────────────────────────────
+    // We scale the canvas to fit A4 width (210mm) and walk the canvas top-
+    // to-bottom in A4-page-height increments, painting the same full-height
+    // image at progressively negative Y offsets on each page. This is the
+    // standard html2canvas→jsPDF pagination idiom — it keeps text crisp at
+    // page boundaries without re-running the (expensive) html2canvas pass.
+    const pdf = new jsPDF({
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'portrait',
+      compress: true,
+    })
+    const pdfWidth = pdf.internal.pageSize.getWidth()
+    const pdfHeight = pdf.internal.pageSize.getHeight()
+    const imgWidth = pdfWidth
+    const imgHeight = (canvas.height * imgWidth) / canvas.width
+    const imgData = canvas.toDataURL('image/jpeg', 0.95)
+
+    let heightLeft = imgHeight
+    let position = 0
+    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
+    heightLeft -= pdfHeight
+
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight // negative offset slides the image up
+      pdf.addPage()
+      pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight)
+      heightLeft -= pdfHeight
+    }
 
     const filename = `CMA-Report-${subject.address || 'Property'}-${new Date().toISOString().split('T')[0]}.pdf`
-
-    await html2pdf()
-      .set({
-        margin: 0,
-        filename,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-          width: REPORT_RENDER_WIDTH,
-          windowWidth: REPORT_RENDER_WIDTH,
-        },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-      })
-      .from(container)
-      .save()
+    pdf.save(filename)
 
     snackbar.value = { show: true, message: 'PDF report downloaded successfully', color: 'success' }
   } catch (error) {
     console.error('Failed to generate report:', error)
     snackbar.value = { show: true, message: 'Failed to generate report', color: 'error' }
   } finally {
-    if (container && container.parentNode) {
-      container.parentNode.removeChild(container)
+    if (iframe && iframe.parentNode) {
+      iframe.parentNode.removeChild(iframe)
     }
     generatingReport.value = false
   }
@@ -1063,7 +1289,17 @@ const sendReport = async () => {
 }
 
 onMounted(async () => {
-  await Promise.all([loadSold(), loadEstimates(), loadCommunities()])
+  // If the user is coming back from a property detail page (clicked a row
+  // in the activity table), restore the previous filters / comparables /
+  // pagination so the page looks exactly like they left it. We still load
+  // estimates and communities because those are reference data that drive
+  // the dropdowns rather than results the user produced.
+  const restored = restoreCmaState()
+  if (restored) {
+    await Promise.all([loadEstimates(), loadCommunities()])
+  } else {
+    await Promise.all([loadSold(), loadEstimates(), loadCommunities()])
+  }
 })
 </script>
 
@@ -1125,6 +1361,18 @@ ul {
 
 .cma-sold-table {
   min-width: 600px;
+}
+
+/* Rows in the Comparable Market Activity table are clickable — they
+   navigate to /admin/properties/{id}?from=cma. Give the user a clear
+   pointer cursor + a subtle row-hover tint so the click affordance is
+   obvious and doesn't get lost in the existing Vuetify hover behavior. */
+.cma-sold-table--clickable :deep(tbody tr) {
+  cursor: pointer;
+  transition: background-color 120ms ease;
+}
+.cma-sold-table--clickable :deep(tbody tr:hover) {
+  background-color: rgba(25, 118, 210, 0.06);
 }
 
 /* Comps that fell below the user's "Match Highlight" threshold are kept in
