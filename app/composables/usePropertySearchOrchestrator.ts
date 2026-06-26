@@ -105,7 +105,12 @@ export function usePropertySearchOrchestrator(opts: PropertySearchOrchestratorOp
     fetchRetryInitialDelayMs = 900,
   } = opts
 
-  const { $fetch } = useNuxtApp()
+  // $fetch is a global helper auto-imported from ofetch in Nuxt 3/4 — it is
+  // NOT a property of `useNuxtApp()` like it was briefly in early Nuxt 3
+  // betas. Destructuring it from useNuxtApp() returned `undefined` here and
+  // shadowed the global, which crashed production with "D is not a function"
+  // (the minified name for $fetch) the moment a user clicked Neural Search.
+  // Use the global directly; no local binding needed.
 
   const phase = ref<AiSearchPhase>('idle')
   const statusTitle = ref('')
