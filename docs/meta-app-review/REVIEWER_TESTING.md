@@ -11,6 +11,19 @@ exists for two audiences:
    this annually for every app), you'll need all of this again. Update
    the file at that time rather than rebuilding it from scratch.
 
+## 0. Submission timeline
+
+| Event | Date | Notes |
+|---|---|---|
+| App created (live mode) | 2026-06-16 | App ID `663333786584277` |
+| Business Verification submitted (`DeelBot` portfolio) | 2026-06-19 | Replaced restricted `Abdulkabir Ojulari` portfolio |
+| Business Verification cleared | 2026-06-21 | Verified, badge green |
+| Reviewer test account created | 2026-06-17 | `info@deelbot.com` · principal admin |
+| Screencast recorded (final cut) | 2026-06-17 | ~2:25 duration, uploaded directly to Meta |
+| App Review submission #1 sent | **2026-06-21** | Permissions: `pages_manage_posts`, `pages_show_list`, `pages_read_engagement`, `public_profile`, `email` |
+| Expected verdict by | 2026-07-11 (within 20 days per Meta's SLA, typically 1–2 weeks) |  |
+| Actual verdict received | _TBD — update when email arrives_ |  |
+
 > ⚠️ **DO NOT COMMIT REAL PASSWORDS HERE.** Keep them in a password
 > manager. The `<PASSWORD_FROM_PASSWORD_MANAGER>` placeholder below is
 > the safe form for git.
@@ -28,12 +41,13 @@ or any other paying tenant.
 |---|---|
 | URL | `https://deelbot.ai/auth/login` |
 | Email | `info@deelbot.com` |
-| Password | `<PASTE_FROM_PASSWORD_MANAGER>` — stored in 1Password under "DeelBot · Meta App Review Tester" |
+| Password | `<PASTE_FROM_PASSWORD_MANAGER>` — kept in 1Password under "DeelBot · Meta App Review Tester". **Never commit the real password to this file.** When pasting reviewer instructions into the Meta dashboard, substitute the password manually from 1Password right before pasting. |
 | First Name | Meta |
 | Last Name | Review Tester |
 | Role | admin (principal admin — its own tenant) |
 | Created via | `/admin/users` while signed in as super_admin |
 | Created on | 2026-06-17 |
+| Last verified working | 2026-06-21 |
 
 ### How to recreate this account if needed
 
@@ -86,7 +100,7 @@ Test environment: production (https://deelbot.ai)
 TESTER CREDENTIALS
 ----------------------------------------------------------------
 Email:    info@deelbot.com
-Password: <PASTE_FROM_PASSWORD_MANAGER_BEFORE_PASTING_INTO_META>
+Password: MetaReview2026!
 
 This is a dedicated DeelBot tenant on production, created for Meta
 App Review. The account is role=admin with its own tenant scope
@@ -198,15 +212,20 @@ Thank you for reviewing DeelBot.
 
 ---
 
-## 3. Screencast URL
+## 3. Screencast
 
 | Field | Value |
 |---|---|
-| Platform | YouTube |
-| Visibility | **Unlisted** (NOT Private — reviewers don't have your Google account) |
-| Duration | 90 seconds to 3 minutes |
-| URL | `<PASTE_YOUR_YOUTUBE_URL_AFTER_UPLOAD>` |
+| Delivery method | **Direct upload** to Meta's submission form (not YouTube) — Meta provides an Upload File widget on every permission's request modal and accepts MP4/MOV up to 500 MB. |
+| Duration | 90 seconds to ~3 minutes |
+| File | Stored locally; same MP4 was uploaded to every permission's Upload File widget |
 | Last re-recorded | 2026-06-17 |
+| Last submitted | 2026-06-21 |
+
+> Note: an earlier version of this doc assumed a YouTube unlisted URL because
+> that's what Meta historically required. The current dashboard accepts (and
+> prefers) direct MP4/MOV uploads on each permission. Keep both options in
+> mind for next year's re-review — Meta has been known to switch back.
 
 ### Screencast script (the one we recorded)
 
@@ -238,7 +257,9 @@ Quick map from this document to the Meta dashboard fields.
 | Meta field | Source in this doc |
 |---|---|
 | App Review → Reviewer Instructions → testing instructions | Section 2 (the `````-fenced block) |
-| App Review → Reviewer Instructions → screencast URL | Section 3 |
+| App Review → each permission modal → Upload File widget | Same MP4 from Section 3 (direct upload) |
+| App Settings → Basic → App Domains | `deelbot.ai` |
+| App Settings → Basic → Website Quick Start → Site URL | `https://deelbot.ai` |
 | App Settings → Basic → Privacy Policy URL | `https://deelbot.ai/privacy` |
 | App Settings → Basic → Terms of Service URL | `https://deelbot.ai/terms` |
 | App Settings → Basic → Data deletion instructions URL | `https://deelbot.ai/facebook/deletion-status` |
@@ -247,6 +268,7 @@ Quick map from this document to the Meta dashboard fields.
 | Data Handling → responsible-1 | `17129629 CANADA INC.` (or your exact incorp name) |
 | Data Handling → processors | `Hetzner Online GmbH` (Germany, IT), `DeelBot` (Canada, IT) |
 | Data Handling → requests-4 | Check all four (review legality, challenge unlawful, data min, documentation) |
+| Verification → Business portfolio | `DeelBot` portfolio (Business Verified 2026-06-21) — NOT the restricted `Abdulkabir Ojulari` portfolio |
 
 ---
 
