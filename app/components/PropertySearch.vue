@@ -13,6 +13,7 @@
                 placeholder="Where to?"
                 @input="handleLocationInput(($event.target as HTMLInputElement)?.value ?? '')"
                 @focus="showSuggestions = true"
+                @keyup.enter="search"
               />
             </div>
             
@@ -71,7 +72,12 @@
           </div>
 
           <div class="search-actions">
-            <button class="filter-toggle" @click="expanded = !expanded" :class="{ active: expanded }">
+            <button
+              type="button"
+              class="filter-toggle"
+              :class="{ active: expanded }"
+              @click="expanded = !expanded"
+            >
               <v-icon :icon="expanded ? 'mdi-tune-vertical' : 'mdi-tune'" />
               <span>Filters</span>
             </button>
@@ -82,6 +88,8 @@
               width="56"
               icon
               elevation="4"
+              type="button"
+              aria-label="Search"
               @click="search"
             >
               <v-icon icon="mdi-magnify" size="28" />
@@ -96,9 +104,10 @@
               <div class="filter-cell">
                 <label>Bedrooms</label>
                 <div class="chip-group">
-                  <button 
-                    v-for="opt in bedOptions" 
+                  <button
+                    v-for="opt in bedOptions"
                     :key="(opt.value as any)"
+                    type="button"
                     :class="{ active: searchParams.beds === opt.value }"
                     @click="searchParams.beds = opt.value as any"
                   >
@@ -110,9 +119,10 @@
               <div class="filter-cell">
                 <label>Bathrooms</label>
                 <div class="chip-group">
-                  <button 
-                    v-for="opt in bathOptions" 
+                  <button
+                    v-for="opt in bathOptions"
                     :key="(opt.value as any)"
+                    type="button"
                     :class="{ active: searchParams.baths === opt.value }"
                     @click="searchParams.baths = opt.value as any"
                   >
@@ -124,8 +134,18 @@
               <div class="filter-cell">
                 <label>Square Footage</label>
                 <div class="range-row">
-                  <input type="number" v-model="searchParams.minSqft" placeholder="Min sqft" />
-                  <input type="number" v-model="searchParams.maxSqft" placeholder="Max sqft" />
+                  <input
+                    v-model.number="searchParams.minSqft"
+                    type="number"
+                    placeholder="Min sqft"
+                    @keyup.enter="search"
+                  />
+                  <input
+                    v-model.number="searchParams.maxSqft"
+                    type="number"
+                    placeholder="Max sqft"
+                    @keyup.enter="search"
+                  />
                 </div>
               </div>
 

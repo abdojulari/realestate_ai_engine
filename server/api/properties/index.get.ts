@@ -108,26 +108,51 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  // Coerce query params to finite numbers; anything falsy / non-numeric is
+  // treated as "not present" so we never emit `{ gte: NaN }` / `{ gte: 0 }`
+  // filters, which silently return zero rows.
+  const toFiniteNumber = (v: unknown, parser: (s: string) => number): number | null => {
+    if (v == null) return null
+    const s = String(v).trim()
+    if (s === '') return null
+    const n = parser(s)
+    return Number.isFinite(n) ? n : null
+  }
+
   // Price range filter
-  if (minPrice || maxPrice) {
-    where.price = {
-      gte: minPrice ? parseFloat(minPrice as string) : undefined,
-      lte: maxPrice ? parseFloat(maxPrice as string) : undefined,
+  {
+    const minP = toFiniteNumber(minPrice, parseFloat)
+    const maxP = toFiniteNumber(maxPrice, parseFloat)
+    if (minP != null || maxP != null) {
+      const priceFilter: { gte?: number; lte?: number } = {}
+      if (minP != null) priceFilter.gte = minP
+      if (maxP != null) priceFilter.lte = maxP
+      where.price = priceFilter
     }
   }
 
   // Square footage filter
-  if (minSqft || maxSqft) {
-    where.sqft = {
-      gte: minSqft ? parseInt(minSqft as string) : undefined,
-      lte: maxSqft ? parseInt(maxSqft as string) : undefined,
+  {
+    const minS = toFiniteNumber(minSqft, parseInt)
+    const maxS = toFiniteNumber(maxSqft, parseInt)
+    if (minS != null || maxS != null) {
+      const sqftFilter: { gte?: number; lte?: number } = {}
+      if (minS != null) sqftFilter.gte = minS
+      if (maxS != null) sqftFilter.lte = maxS
+      where.sqft = sqftFilter
     }
   }
 
-  // Basic filters
-  if (beds) where.beds = { gte: parseInt(beds as string) }
-  if (bedsExact) where.beds = parseInt(bedsExact as string) // Exact match for AI search
-  if (baths) where.baths = { gte: parseFloat(baths as string) }
+  // Basic filters — coerce to finite numbers, skip 0/empty/NaN so
+  // "Any" (frontend sends nothing or 0) does not accidentally filter.
+  {
+    const bedsN = toFiniteNumber(beds, parseInt)
+    if (bedsN != null && bedsN > 0) where.beds = { gte: bedsN }
+    const bedsExactN = toFiniteNumber(bedsExact, parseInt)
+    if (bedsExactN != null && bedsExactN >= 0) where.beds = bedsExactN
+    const bathsN = toFiniteNumber(baths, parseFloat)
+    if (bathsN != null && bathsN > 0) where.baths = { gte: bathsN }
+  }
   if (type) {
     const types = String(type).split(',').map(t => t.trim().toLowerCase()).filter(t => residentialTypes.includes(t))
     if (types.length === 1) {
