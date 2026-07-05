@@ -25,7 +25,18 @@ export default defineEventHandler(async (event) => {
       prisma.property.count({ where: { source: 'pillar9', status: 'for_sale' } }),
       prisma.property.count({ where: { source: 'pillar9', status: 'sold' } }),
       prisma.property.count({ where: { source: 'pillar9', status: 'pending' } }),
-      prisma.setting.findFirst({ where: { key: 'pillar9_last_sync' } })
+      // Setting has @@unique([adminId, key]), so `pillar9_last_sync` can have
+      // multiple rows (one per super_admin plus optionally an adminId=null
+      // platform row). Sync writes to just one; if we `findFirst` without an
+      // orderBy Prisma returns whichever row Postgres decides (typically
+      // lowest id → oldest), so the UI happily kept showing June 25 while a
+      // freshly-updated July 4 row sat next to it in the same table. Order by
+      // the row's own `updatedAt` so we always surface the newest stamp
+      // regardless of which admin the sync run got attributed to.
+      prisma.setting.findFirst({
+        where: { key: 'pillar9_last_sync' },
+        orderBy: { updatedAt: 'desc' },
+      })
     ])
 
     let apiCounts = null

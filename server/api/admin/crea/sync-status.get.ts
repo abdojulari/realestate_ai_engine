@@ -12,17 +12,24 @@ export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 
   try {
-    // Get the latest sync result from settings
+    // Setting has @@unique([adminId, key]) so these shared keys can have
+    // multiple rows (one per admin). Without an orderBy Prisma returns
+    // whichever row Postgres picks (typically the oldest by id), which
+    // produced the "sync succeeded but Last Sync card kept showing an old
+    // date" bug. Take the most recently updated row for each key.
     const syncResult = await prisma.setting.findFirst({
-      where: { key: 'last_sync_result' }
+      where: { key: 'last_sync_result' },
+      orderBy: { updatedAt: 'desc' },
     })
 
     const syncStatus = await prisma.setting.findFirst({
-      where: { key: 'sync_status' }
+      where: { key: 'sync_status' },
+      orderBy: { updatedAt: 'desc' },
     })
 
     const syncProgress = await prisma.setting.findFirst({
-      where: { key: 'sync_progress' }
+      where: { key: 'sync_progress' },
+      orderBy: { updatedAt: 'desc' },
     })
 
     return {
