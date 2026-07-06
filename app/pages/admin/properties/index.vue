@@ -236,6 +236,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
+import {
+  DEFAULT_PROPERTY_SORT,
+  PROPERTY_SORT_OPTIONS,
+  type PropertySortValue,
+} from '~/utils/propertySortOptions'
 
 const getAuthHeaders = (): Record<string, string> | undefined => {
   if (process.client) {
@@ -255,17 +260,12 @@ const filters = ref({
   search: '',
   type: null as string | null,
   status: null as string | null,
-  sortBy: 'newest',
+  sortBy: DEFAULT_PROPERTY_SORT as PropertySortValue,
 })
 
 const propertyTypes = ['House', 'Condo', 'Duplex', 'Townhouse', 'Multi-Family', 'Land']
 const propertyStatuses = ['For sale', 'Pending', 'Sold', 'For rent']
-const sortOptions = [
-  { title: 'Newest First', value: 'newest' },
-  { title: 'Price: Low to High', value: 'price_asc' },
-  { title: 'Price: High to Low', value: 'price_desc' },
-  { title: 'Most Viewed', value: 'views' },
-]
+const sortOptions = PROPERTY_SORT_OPTIONS
 
 const properties = ref<any[]>([])
 
@@ -316,7 +316,7 @@ async function applyFilters() {
     if (filters.value.search?.trim()) params.append('search', filters.value.search.trim())
     if (filters.value.type) params.append('type', filters.value.type)
     if (filters.value.status) params.append('status', filters.value.status)
-    params.append('sortBy', filters.value.sortBy || 'newest')
+    params.append('sortBy', filters.value.sortBy || DEFAULT_PROPERTY_SORT)
     params.append('page', '1')
 
     // Source filter from tabs
@@ -358,7 +358,7 @@ async function loadPage(page: number) {
     if (filters.value.search?.trim()) params.append('search', filters.value.search.trim())
     if (filters.value.type) params.append('type', filters.value.type)
     if (filters.value.status) params.append('status', filters.value.status)
-    params.append('sortBy', filters.value.sortBy || 'newest')
+    params.append('sortBy', filters.value.sortBy || DEFAULT_PROPERTY_SORT)
     params.append('page', page.toString())
 
     if (activeSource.value === 'manual') {

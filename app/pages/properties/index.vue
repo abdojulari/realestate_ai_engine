@@ -1,17 +1,27 @@
 <template>
   <v-container class="py-8">
-    <div class="d-flex align-center flex-wrap mb-4">
-      <h1 class="text-h5 me-4">All Properties</h1>
+    <div class="d-flex align-center flex-wrap ga-2 mb-4">
+      <h1 class="text-h5 me-2">All Properties</h1>
       <v-chip
         v-if="!loading"
         color="grey-lighten-3"
         text-color="grey-darken-3"
         size="small"
-        class="me-4"
       >
         {{ totalProperties.toLocaleString() }} results
       </v-chip>
       <v-spacer />
+      <v-select
+        v-model="sortBy"
+        :items="sortOptions"
+        prepend-inner-icon="mdi-sort"
+        label="Sort by"
+        hide-details
+        density="compact"
+        variant="outlined"
+        style="max-width: 220px"
+        @update:model-value="applySort"
+      />
       <v-text-field
         v-model="q"
         prepend-inner-icon="mdi-magnify"
@@ -19,7 +29,7 @@
         hide-details
         density="compact"
         variant="outlined"
-        style="max-width: 360px"
+        style="max-width: 320px"
       />
     </div>
 
@@ -190,6 +200,12 @@
 import { computed, nextTick, ref, watch } from 'vue'
 import PropertyCard from '~/components/common/PropertyCard.vue'
 import EmptyState from '~/components/common/EmptyState.vue'
+import {
+  DEFAULT_PROPERTY_SORT,
+  PROPERTY_SORT_OPTIONS,
+  normalizePropertySort,
+  type PropertySortValue,
+} from '~/utils/propertySortOptions'
 
 const { businessName } = useTenantSettings()
 useSeoMeta({
@@ -220,6 +236,11 @@ const refine = ref({
   beds: null as number | null,
   baths: null as number | null,
 })
+
+// Sort state — mirrored to the URL so shared links preserve the ordering
+// the user was looking at. Defaults to price ascending.
+const sortBy = ref<PropertySortValue>(DEFAULT_PROPERTY_SORT)
+const sortOptions = PROPERTY_SORT_OPTIONS
 
 const typeOptions = [
   { title: 'House', value: 'house' },
@@ -253,6 +274,26 @@ function syncRefineFromRoute() {
     beds: num(qy.beds),
     baths: num(qy.baths),
   }
+  sortBy.value = normalizePropertySort(qy.sortBy)
+}
+
+/** Push the current sort selection to the URL. */
+function applySort() {
+  const next: Record<string, string> = {}
+  for (const [k, v] of Object.entries(route.query)) {
+    if (v == null || k === 'sortBy') continue
+    if (Array.isArray(v)) {
+      const first = v.find((x) => x != null && String(x) !== '')
+      if (first != null) next[k] = String(first)
+    } else if (String(v) !== '') {
+      next[k] = String(v)
+    }
+  }
+  if (sortBy.value && sortBy.value !== DEFAULT_PROPERTY_SORT) {
+    next.sortBy = sortBy.value
+  }
+  if (!next.status) next.status = 'for_sale'
+  router.push({ path: '/properties', query: next })
 }
 
 /** Push `refine` back into the URL (which triggers `loadProperties` via the route watcher). */
@@ -337,7 +378,12 @@ function clearFilter(key: string) {
 }
 
 function clearAllFilters() {
-  router.push({ path: '/properties', query: { status: 'for_sale' } })
+  // Preserve the user's sort choice — it's a display preference, not a filter.
+  const query: Record<string, string> = { status: 'for_sale' }
+  if (sortBy.value && sortBy.value !== DEFAULT_PROPERTY_SORT) {
+    query.sortBy = sortBy.value
+  }
+  router.push({ path: '/properties', query })
 }
 
 /** Forward route query to `/api/properties`, supporting repeated keys (arrays). */

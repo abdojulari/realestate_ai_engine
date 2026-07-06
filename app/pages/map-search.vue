@@ -277,6 +277,11 @@ import type { Property as BaseProperty, PropertyFilter, User } from '~/types'
 import { useAnalytics } from '../../utils/analytics'
 import { propertyService } from '~/services/property.service'
 import { usePropertyService } from '~/composables/usePropertyService'
+import {
+  DEFAULT_PROPERTY_SORT,
+  PROPERTY_SORT_OPTIONS,
+  type PropertySortValue,
+} from '~/utils/propertySortOptions'
 
 useSeoMeta({
   title: 'Map Search - Browse Properties on a Map',
@@ -397,13 +402,11 @@ const filters = ref<PropertyFilter>({
   status: null as any
 })
 
-const sortBy = ref('newest')
-const sortOptions = [
-  { title: 'Newest', value: 'newest' },
-  { title: 'Price: Low', value: 'price_asc' },
-  { title: 'Price: High', value: 'price_desc' },
-  { title: 'Popular', value: 'popular' }
-]
+// Default sort mirrors the rest of the app (price_asc). Options come from
+// the shared util so the map-search select, the /properties refine bar,
+// and the admin table all speak the same vocabulary.
+const sortBy = ref<PropertySortValue>(DEFAULT_PROPERTY_SORT)
+const sortOptions = PROPERTY_SORT_OPTIONS
 
 const properties = ref<Property[]>([])
 

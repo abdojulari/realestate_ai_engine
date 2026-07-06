@@ -67,7 +67,12 @@ export const propertyService = {
     if (filters.source) params.append('source', filters.source)
     if (filters.includeCrea !== undefined) params.append('includeCrea', filters.includeCrea.toString())
     if (filters.includeManual !== undefined) params.append('includeManual', filters.includeManual.toString())
-    
+
+    // Sort passthrough — map-search's sort <select> now actually reaches the
+    // API. Unknown values are normalized server-side to the default.
+    const sortByVal = (filters as any).sortBy
+    if (sortByVal) params.append('sortBy', String(sortByVal))
+
     const queryString = params.toString()
     const url = queryString ? `/api/properties?${queryString}` : '/api/properties'
     
@@ -139,7 +144,11 @@ export const propertyService = {
     if (filters.source) params.append('source', filters.source)
     if (filters.includeCrea !== undefined) params.append('includeCrea', filters.includeCrea.toString())
     if (filters.includeManual !== undefined) params.append('includeManual', filters.includeManual.toString())
-    
+
+    // Sort passthrough (see search() above).
+    const sortByVal = (filters as any).sortBy
+    if (sortByVal) params.append('sortBy', String(sortByVal))
+
     const queryString = params.toString()
     const url = queryString ? `/api/properties?${queryString}` : '/api/properties'
     

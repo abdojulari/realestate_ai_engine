@@ -7,6 +7,7 @@ import {
   sqlNeighborhoodAreaIsBlank,
   sqlPublicSharedMlsSources,
 } from '../../utils/propertyNeighborhoodArea'
+import { buildPropertyOrderBy, normalizePropertySort } from '../../../app/utils/propertySortOptions'
 import { PrismaClient, Prisma } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -70,8 +71,13 @@ export default defineEventHandler(async (event) => {
     neighborhoodId,
     
     // CREA/Pillar9 remark keywords for exhaustive description search
-    remarkKeywords
+    remarkKeywords,
+
+    // Sort control — defaults to price ascending; see propertySortOptions util.
+    sortBy: sortByRaw,
   } = query
+
+  const sortBy = normalizePropertySort(sortByRaw)
 
   const where: any = {
     AND: [getPublicSharedMlsWhere(tenantFilter)],
@@ -684,10 +690,11 @@ export default defineEventHandler(async (event) => {
         }
       },
     },
-    orderBy: [
-      { source: 'asc' }, // Manual properties first, then CREA
-      { updatedAt: 'desc' }
-    ],
+    // Sort is user-controllable (defaults to price_asc) but we always
+    // keep `source` as the primary sort so manual listings float above
+    // MLS rows, which is the marketing-side tenants expect regardless of
+    // which sort field the visitor picked.
+    orderBy: [{ source: 'asc' as const }, ...buildPropertyOrderBy(sortBy)],
     take: limitNum,
     skip: skip
   })

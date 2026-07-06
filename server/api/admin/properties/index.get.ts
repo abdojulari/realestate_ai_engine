@@ -1,6 +1,7 @@
 import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '../../../utils/auth'
 import { getTenantFilter } from '../../../utils/tenant'
+import { buildPropertyOrderBy, normalizePropertySort } from '../../../../app/utils/propertySortOptions'
 import { PrismaClient } from '@prisma/client'
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
@@ -17,7 +18,9 @@ export default defineEventHandler(async (event) => {
   const search = (q.search as string) || ''
   const type = (q.type as string) || undefined
   const status = (q.status as string) || undefined
-  const sortBy = (q.sortBy as string) || 'newest'
+  // Sort — defaults to price ascending, matches the public /api/properties
+  // and the admin table's dropdown. Anything unknown normalizes to default.
+  const sortBy = normalizePropertySort(q.sortBy)
   const source = (q.source as string) || undefined        // 'manual', 'crea', 'pillar9'
   const onlyManual = q.only_manual === 'true'             // shortcut: only manual listings
   const page = parseInt((q.page as string) || '1', 10)
@@ -46,11 +49,7 @@ export default defineEventHandler(async (event) => {
     ]
   }
 
-  const orderBy: any =
-    sortBy === 'price_asc' ? { price: 'asc' }
-    : sortBy === 'price_desc' ? { price: 'desc' }
-    : sortBy === 'views' ? { views: 'desc' }
-    : { createdAt: 'desc' }
+  const orderBy = buildPropertyOrderBy(sortBy)
 
   const skip = (page - 1) * limit
   const [properties, totalCount] = await Promise.all([
