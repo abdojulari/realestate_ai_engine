@@ -325,35 +325,35 @@ const templates = [
     id: 1,
     name: 'Classic Modern',
     description: 'Clean and sophisticated design with a split hero section and dark featured properties section.',
-    preview: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800&auto=format&fit=crop',
+    preview: '/images/home-templates/template-1.png',
     features: ['Split Layout', 'Dark Theme', 'Parallax CTA']
   },
   {
     id: 2,
     name: 'Full-Width Hero',
     description: 'Bold full-width hero with overlay, floating stats cards, and elegant gradient sections.',
-    preview: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=800&auto=format&fit=crop',
+    preview: '/images/home-templates/template-2.png',
     features: ['Full Hero', 'Floating Stats', 'Gradient CTA']
   },
   {
     id: 3,
     name: 'Minimal Clean',
     description: 'Minimalist design with clean lines, subtle colors, and focused content presentation.',
-    preview: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=800&auto=format&fit=crop',
+    preview: '/images/home-templates/template-3.png',
     features: ['Minimal Design', 'Clean Layout', 'Simple CTA']
   },
   {
     id: 4,
     name: 'Bold Split',
     description: 'Dramatic split-screen hero with bold typography and high-contrast dark sections.',
-    preview: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?q=80&w=800&auto=format&fit=crop',
+    preview: '/images/home-templates/template-4.png',
     features: ['Split Screen', 'Bold Typography', 'High Contrast']
   },
   {
     id: 5,
     name: 'Centered Elegant',
     description: 'Centered hero design with elegant gradients, floating stat cards, and premium aesthetics.',
-    preview: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?q=80&w=800&auto=format&fit=crop',
+    preview: '/images/home-templates/template-5.png',
     features: ['Centered Layout', 'Elegant Design', 'Premium Aesthetics']
   }
 ]
